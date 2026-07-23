@@ -20,12 +20,13 @@ void ArrangeView::rebuild()
 {
     muteButtons.clear();
     soloButtons.clear();
+    editButtons.clear();
     volSliders.clear();
     removeAllChildren();
 
-    for (auto& tPtr : tracks)
+    for (int ti = 0; ti < (int) tracks.size(); ++ti)
     {
-        Track* t = tPtr.get();
+        Track* t = tracks[(size_t) ti].get();
 
         auto solo = std::make_unique<juce::TextButton> ("S");
         solo->setClickingTogglesState (true);
@@ -51,6 +52,14 @@ void ArrangeView::rebuild()
         vol->onValueChange = [t, s = vol.get()] { t->volume.store ((float) s->getValue()); };
         addAndMakeVisible (*vol);
         volSliders.push_back (std::move (vol));
+
+        // Plugin UI button (plugin-instrument tracks only).
+        auto edit = std::make_unique<juce::TextButton> ("UI");
+        edit->setColour (juce::TextButton::buttonColourId, Palette::accentDim);
+        edit->onClick = [this, ti] { if (onOpenTrackEditor) onOpenTrackEditor (ti); };
+        addChildComponent (*edit);
+        edit->setVisible (t->generator != nullptr && t->generator->getPluginInstance() != nullptr);
+        editButtons.push_back (std::move (edit));
     }
 
     setSize (getWidth(), preferredHeight());
@@ -65,6 +74,7 @@ void ArrangeView::resized()
         const int y = rulerHeight + i * trackHeight;
         soloButtons[(size_t) i]->setBounds (headerWidth - 62, y + 6, 26, 20);
         muteButtons[(size_t) i]->setBounds (headerWidth - 32, y + 6, 26, 20);
+        editButtons[(size_t) i]->setBounds (headerWidth - 58, y + 28, 52, 16);
         volSliders [(size_t) i]->setBounds (12, y + trackHeight - 18, headerWidth - 24, 12);
     }
 }

@@ -32,6 +32,8 @@ public:
     std::function<void()> onChanged;
     /** The loop region was enabled/disabled/moved from the ruler. */
     std::function<void()> onLoopChanged;
+    /** Open the plugin editor for a plugin-instrument track (arg = track index). */
+    std::function<void (int)> onOpenTrackEditor;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -62,6 +64,7 @@ private:
 
     std::vector<std::unique_ptr<juce::TextButton>> muteButtons;
     std::vector<std::unique_ptr<juce::TextButton>> soloButtons;
+    std::vector<std::unique_ptr<juce::TextButton>> editButtons;   // plugin UI (plugin tracks only)
     std::vector<std::unique_ptr<juce::Slider>>     volSliders;
 
     int selTrack { -1 }, selClip { -1 };

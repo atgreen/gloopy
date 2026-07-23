@@ -134,6 +134,12 @@ MainComponent::MainComponent()
     {
         loopButton.setToggleState (transport.isLoopEnabled(), juce::dontSendNotification);
     };
+    arrangeView->onOpenTrackEditor = [this] (int i)
+    {
+        if (! juce::isPositiveAndBelow (i, (int) tracks.size())) return;
+        if (auto* g = tracks[(size_t) i]->generator.get())
+            openPluginEditor (g->getPluginInstance(), tracks[(size_t) i]->name);
+    };
     arrangeViewport.setViewedComponent (arrangeView.get(), false);
     arrangeViewport.setScrollBarsShown (true, false);
     addAndMakeVisible (arrangeViewport);
@@ -698,20 +704,48 @@ void MainComponent::openPluginEditor (juce::AudioProcessor* p, const juce::Strin
 {
     if (p == nullptr) return;
 
+    // A window that hosts a plugin editor and tears it down safely: a native
+    // editor (from createEditorIfNeeded) must be told to the processor via
+    // editorBeingDeleted; a generic editor we simply own.
     struct EditorWindow : public juce::DocumentWindow
     {
         EditorWindow (const juce::String& n)
             : DocumentWindow (n, Palette::bg, DocumentWindow::closeButton) { setUsingNativeTitleBar (true); }
-        std::function<void()> onClose;
+        ~EditorWindow() override
+        {
+            clearContentComponent();
+            if (editor != nullptr)
+            {
+                if (nativeEditor && plugin != nullptr) plugin->editorBeingDeleted (editor);
+                delete editor;
+            }
+        }
         void closeButtonPressed() override { if (onClose) onClose(); }
+
+        juce::AudioProcessor*       plugin { nullptr };
+        juce::AudioProcessorEditor* editor { nullptr };
+        bool nativeEditor { false };
+        std::function<void()> onClose;
     };
 
-    auto* editor = new juce::GenericAudioProcessorEditor (*p);
+    juce::AudioProcessorEditor* editor = nullptr;
+    bool nativeEditor = false;
+    if (p->hasEditor())
+    {
+        editor = p->createEditorIfNeeded();     // the plugin's own UI, if any
+        nativeEditor = (editor != nullptr);
+    }
+    if (editor == nullptr)
+        editor = new juce::GenericAudioProcessorEditor (*p);   // fallback: generic knobs
+
     auto* w = new EditorWindow (title);
-    w->setContentOwned (editor, true);
-    w->setResizable (true, false);
+    w->plugin = p;
+    w->editor = editor;
+    w->nativeEditor = nativeEditor;
+    w->setContentNonOwned (editor, true);
+    w->setResizable (! nativeEditor || editor->isResizable(), false);
     w->centreWithSize (juce::jmax (380, editor->getWidth()),
-                       juce::jlimit (300, 720, editor->getHeight() > 0 ? editor->getHeight() : 480));
+                       juce::jlimit (260, 760, editor->getHeight() > 0 ? editor->getHeight() : 480));
     w->onClose = [this, w] { juce::MessageManager::callAsync ([this, w] { pluginWindows.removeObject (w); }); };
     w->setVisible (true);
     pluginWindows.add (w);
