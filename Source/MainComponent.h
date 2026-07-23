@@ -80,6 +80,22 @@ public:
     bool apiLoadProject (const juce::String& path);
     bool apiSaveProject (const juce::String& path);
 
+    // track & clip management
+    bool apiRemoveTrack (int id);
+    int  apiAddAudioTrack (const juce::String& name);
+    int  apiAddSamplerTrack (const juce::String& name, const juce::String& path, int rootNote);
+    int  apiAddPluginTrack (const juce::String& identifier);           // track id, or -1
+    bool apiRemoveClip (int trackId, int index);
+    bool apiMoveClip (int trackId, int index, double startBeat, bool hasToTrack, int toTrackId);
+    int  apiAddAudioClip (int trackId, double startBeat, const juce::String& path, float gain);  // clip index, or -1
+
+    // plugins
+    struct PluginSnap { juce::String name; juce::String format; bool isInstrument; juce::String identifier; };
+    std::vector<PluginSnap> apiScanPlugins (bool force);
+    std::vector<PluginSnap> apiListPlugins();
+    int  apiAddPluginEffect (int insert, const juce::String& identifier);   // slot, or -1
+    bool apiOpenPluginEditor (int trackId);
+
 private:
     struct EditorPanel : public juce::Component
     {

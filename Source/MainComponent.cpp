@@ -484,6 +484,211 @@ bool MainComponent::apiSaveProject (const juce::String& path)
     });
 }
 
+// ── track & clip management ────────────────────────────────────────────────
+bool MainComponent::apiRemoveTrack (int id)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        closeAllPluginWindows();
+        bool ok = false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            for (size_t i = 0; i < tracks.size(); ++i)
+                if (tracks[i]->id == id) { tracks.erase (tracks.begin() + (long) i); ok = true; break; }
+        }
+        if (! ok) return false;
+        refreshTrackIds();
+        if (arrangeView) arrangeView->rebuild();
+        selectClip (-1, -1);
+        resized();
+        return true;
+    });
+}
+
+int MainComponent::apiAddAudioTrack (const juce::String& name)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        auto t = std::make_unique<Track> (name.isNotEmpty() ? name : "Audio", nullptr, 60,
+                                          paletteColour ((int) tracks.size()), TrackType::Audio);
+        Track* raw = t.get();
+        addTrack (std::move (t));
+        return raw->id;
+    });
+}
+
+int MainComponent::apiAddSamplerTrack (const juce::String& name, const juce::String& path, int rootNote)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        juce::File f (path);
+        if (! f.existsAsFile()) return -1;
+        auto sampler = std::make_unique<Sampler>();
+        sampler->prepare (currentSampleRate, currentBlockSize);
+        if (! sampler->loadFile (f, formatManager)) return -1;
+        const int root = rootNote > 0 ? rootNote : 60;
+        sampler->setRootNote (root);
+        auto t = std::make_unique<Track> (name.isNotEmpty() ? name : f.getFileNameWithoutExtension(),
+                                          std::move (sampler), root, paletteColour ((int) tracks.size()));
+        Track* raw = t.get();
+        addTrack (std::move (t));
+        return raw->id;
+    });
+}
+
+int MainComponent::apiAddPluginTrack (const juce::String& identifier)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        scanPlugins();
+        auto desc = pluginHost.knownList.getTypeForIdentifierString (identifier);
+        if (desc == nullptr) return -1;
+        juce::String err;
+        auto inst = pluginHost.create (*desc, currentSampleRate, currentBlockSize, err);
+        if (inst == nullptr) return -1;
+        auto gen = std::make_unique<PluginInstrument> (std::move (inst));
+        auto t = std::make_unique<Track> (desc->name, std::move (gen), 60,
+                                          paletteColour ((int) tracks.size()));
+        Track* raw = t.get();
+        addTrack (std::move (t));
+        return raw->id;
+    });
+}
+
+bool MainComponent::apiRemoveClip (int trackId, int index)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        bool ok = false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (juce::isPositiveAndBelow (index, (int) t->clips.size()))
+                { t->clips.erase (t->clips.begin() + index); ok = true; }
+        }
+        if (ok) { if (arrangeView) arrangeView->rebuild(); selectClip (-1, -1); }
+        return ok;
+    });
+}
+
+bool MainComponent::apiMoveClip (int trackId, int index, double startBeat, bool hasToTrack, int toTrackId)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* src = resolveTrack (trackId);
+        Track* dst = hasToTrack ? resolveTrack (toTrackId) : src;
+        if (src == nullptr || dst == nullptr) return false;
+        bool ok = false, moved = false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (juce::isPositiveAndBelow (index, (int) src->clips.size()))
+            {
+                if (dst == src)
+                    src->clips[(size_t) index].startBeat = juce::jmax (0.0, startBeat);
+                else
+                {
+                    Clip c = src->clips[(size_t) index];
+                    c.startBeat = juce::jmax (0.0, startBeat);
+                    src->clips.erase (src->clips.begin() + index);
+                    dst->clips.push_back (std::move (c));
+                    moved = true;
+                }
+                ok = true;
+            }
+        }
+        if (ok && arrangeView) arrangeView->rebuild();
+        if (moved) selectClip (-1, -1);
+        return ok;
+    });
+}
+
+int MainComponent::apiAddAudioClip (int trackId, double startBeat, const juce::String& path, float gain)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return -1;
+        juce::File f (path);
+        if (! f.existsAsFile()) return -1;
+        std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (f));
+        if (reader == nullptr || reader->lengthInSamples <= 0) return -1;
+        auto buf = std::make_shared<juce::AudioBuffer<float>> (
+            (int) reader->numChannels, (int) reader->lengthInSamples);
+        reader->read (buf.get(), 0, (int) reader->lengthInSamples, 0, true, true);
+        const double durationSec = (double) reader->lengthInSamples / reader->sampleRate;
+        Clip c;
+        c.type = ClipType::Audio;
+        c.name = f.getFileNameWithoutExtension();
+        c.startBeat = juce::jmax (0.0, startBeat);
+        c.lengthBeats = juce::jmax (0.25, durationSec * transport.getBpm() / 60.0);
+        c.audio = buf;
+        c.audioSourceRate = reader->sampleRate;
+        c.audioGain = gain > 0.0f ? gain : 1.0f;
+        c.peaks = std::make_shared<std::vector<float>> (buildPeaks (*buf));
+        int idx;
+        {
+            const juce::ScopedLock sl (engineLock);
+            t->clips.push_back (std::move (c));
+            idx = (int) t->clips.size() - 1;
+        }
+        if (arrangeView) arrangeView->rebuild();
+        return idx;
+    });
+}
+
+// ── plugins ─────────────────────────────────────────────────────────────────
+std::vector<MainComponent::PluginSnap> MainComponent::apiScanPlugins (bool force)
+{
+    return callOnMessageThread ([&] { scanPlugins (force); return apiListPlugins(); });
+}
+
+std::vector<MainComponent::PluginSnap> MainComponent::apiListPlugins()
+{
+    return callOnMessageThread ([&]
+    {
+        scanPlugins();   // load cache on first use so a bare ListPlugins returns entries
+        std::vector<PluginSnap> out;
+        for (const auto& d : pluginHost.knownList.getTypes())
+            out.push_back ({ d.name, d.pluginFormatName, d.isInstrument, d.createIdentifierString() });
+        return out;
+    });
+}
+
+int MainComponent::apiAddPluginEffect (int insert, const juce::String& identifier)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        if (! juce::isPositiveAndBelow (insert, (int) mixerTracks.size())) return -1;
+        scanPlugins();
+        auto desc = pluginHost.knownList.getTypeForIdentifierString (identifier);
+        if (desc == nullptr) return -1;
+        auto fx = makePluginEffect (*desc);
+        if (fx == nullptr) return -1;
+        int slot;
+        {
+            const juce::ScopedLock sl (engineLock);
+            mixerTracks[(size_t) insert]->effects.push_back (std::move (fx));
+            slot = (int) mixerTracks[(size_t) insert]->effects.size() - 1;
+        }
+        if (mixerView) mixerView->rebuild();
+        return slot;
+    });
+}
+
+bool MainComponent::apiOpenPluginEditor (int trackId)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr || t->generator == nullptr) return false;
+        auto* proc = t->generator->getPluginInstance();
+        if (proc == nullptr) return false;
+        openPluginEditor (proc, t->name);
+        return true;
+    });
+}
+
 void MainComponent::setupDefaultProject()
 {
     auto makeSamplerTrack = [this] (const juce::String& name,

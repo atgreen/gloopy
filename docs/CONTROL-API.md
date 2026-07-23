@@ -65,23 +65,64 @@ Default port **9000**, localhost. Arguments: `i` = int32, `f` = float32.
 Track ids are logged to stdout on load / track-add until gRPC's `GetState`
 provides proper discovery.
 
-## gRPC service (Phase 2, sketch)
+## gRPC service (Phase 2 — implemented)
+
+The authoritative definition is [`proto/gloopy.proto`](../proto/gloopy.proto);
+`gloopy.v1.Gloopy` on `127.0.0.1:50051`. Every RPC below is implemented and
+verified end-to-end. Structural RPCs hop to the message thread; effect-param
+and transport edits are lock-free; meter snapshots use a try-lock so a streaming
+subscriber never stalls the audio thread.
 
 ```proto
 service Gloopy {
-  rpc Play(Empty) returns (Ack);          rpc Stop(Empty) returns (Ack);
-  rpc SetTempo(Tempo) returns (Ack);      rpc Seek(Beats) returns (Ack);
+  // transport
+  rpc Play(Empty) returns (Ack);   rpc Stop(Empty) returns (Ack);
+  rpc SetTempo(Tempo) returns (Ack);   rpc Seek(Position) returns (Ack);
+  rpc GetTransport(Empty) returns (TransportState);
+
+  // tracks
+  rpc AddSynthTrack(AddSynthTrackRequest) returns (TrackId);
+  rpc SetTrackParams(TrackParams) returns (Ack);
+  rpc ListTracks(Empty) returns (TrackList);
+  rpc AddClip(AddClipRequest) returns (ClipId);        // schedule a MIDI sequence
+
+  // track & clip management
+  rpc RemoveTrack(TrackId) returns (Ack);
+  rpc AddAudioTrack(AddAudioTrackRequest) returns (TrackId);
+  rpc AddSamplerTrack(AddSamplerTrackRequest) returns (TrackId);   // load a .wav
+  rpc AddPluginTrack(AddPluginTrackRequest) returns (TrackId);     // hosted instrument
+  rpc RemoveClip(ClipRef) returns (Ack);
+  rpc MoveClip(MoveClipRequest) returns (Ack);         // reposition / move to another track
+  rpc AddAudioClip(AddAudioClipRequest) returns (ClipId);          // import a .wav clip
+
+  // mixer & effects
+  rpc ListInserts(Empty) returns (InsertList);
+  rpc AddEffect(AddEffectRequest) returns (EffectRef);            // built-in effect
+  rpc AddPluginEffect(AddPluginEffectRequest) returns (EffectRef); // hosted effect
+  rpc RemoveEffect(EffectRef) returns (Ack);
+  rpc SetEffectParam(EffectParamSet) returns (Ack);
+  rpc SetEffectBypass(EffectBypassSet) returns (Ack);
+  rpc GetEffectParams(EffectRef) returns (ParamList);
+
+  // plugins
+  rpc ScanPlugins(ScanPluginsRequest) returns (PluginList);
+  rpc ListPlugins(Empty) returns (PluginList);          // name, format, identifier
+  rpc OpenPluginEditor(TrackId) returns (Ack);
+
+  // project & state
   rpc GetState(Empty) returns (ProjectState);
-  rpc AddTrack(AddTrackReq) returns (TrackId);
-  rpc SetTrackParam(TrackParam) returns (Ack);
-  rpc AddClip(AddClipReq) returns (ClipId);
-  rpc SetClipNotes(SetNotesReq) returns (Ack);   // schedule a MIDI sequence
-  rpc AddEffect(AddEffectReq) returns (EffectId);
-  rpc SetEffectParam(EffectParam) returns (Ack);
-  rpc ListPlugins(Empty) returns (PluginList);
-  rpc Subscribe(SubscribeReq) returns (stream Event);  // pos, meters, changes
+  rpc NewProject(Empty) returns (Ack);
+  rpc LoadProject(FilePath) returns (Ack);
+  rpc SaveProject(FilePath) returns (Ack);
+
+  // events (playhead, meters) — closed-loop control
+  rpc Subscribe(SubscribeRequest) returns (stream Event);
 }
 ```
+
+Hosted plugins are addressed by the stable `identifier` string returned by
+`ListPlugins` / `ScanPlugins` (JUCE's `PluginDescription::createIdentifierString`);
+pass it to `AddPluginTrack` / `AddPluginEffect`.
 
 ## Security
 
@@ -94,12 +135,15 @@ service Gloopy {
 
 ## Phases
 
-1. **OSC real-time lane** *(this phase)* — `juce_osc` receiver, stable track ids,
+1. **OSC real-time lane** *(done)* — `juce_osc` receiver, stable track ids,
    `MidiMessageCollector` per instrument track, live note/CC/param/transport
    handlers, a Common Lisp example.
-2. **gRPC command surface** — build integration (system gRPC), transport / track
-   / clip / effect / project services, state queries, event streaming.
-3. Plugins over the API, full UI parity, a documented CL client library.
+2. **gRPC command surface** *(done)* — build integration (system gRPC), transport
+   / track / clip / effect / project services, state queries, event streaming.
+3. **Plugins & structural editing over the API** *(done)* — scan/list plugins,
+   create sampler/audio/plugin tracks, import audio clips, add plugin effects,
+   remove/move tracks & clips, open plugin editors.
+4. Full UI parity and a documented Common Lisp client library.
 
 ## Build / deps
 

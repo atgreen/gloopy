@@ -31,6 +31,14 @@ namespace
         }
     }
 
+    void fillPlugin (pb::PluginInfo* pi, const MainComponent::PluginSnap& s)
+    {
+        pi->set_name (s.name.toStdString());
+        pi->set_format (s.format.toStdString());
+        pi->set_is_instrument (s.isInstrument);
+        pi->set_identifier (s.identifier.toStdString());
+    }
+
     class ServiceImpl final : public pb::Gloopy::Service
     {
     public:
@@ -185,6 +193,54 @@ namespace
 
         Status SaveProject (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
         { r->set_ok (main.apiSaveProject (js (q->path()))); return Status::OK; }
+
+        // ---- track & clip management ----
+        Status RemoveTrack (ServerContext*, const pb::TrackId* q, pb::Ack* r) override
+        { const bool ok = main.apiRemoveTrack (q->id()); r->set_ok (ok); if (! ok) r->set_error ("track not found"); return Status::OK; }
+
+        Status AddAudioTrack (ServerContext*, const pb::AddAudioTrackRequest* q, pb::TrackId* r) override
+        { r->set_id (main.apiAddAudioTrack (js (q->name()))); return Status::OK; }
+
+        Status AddSamplerTrack (ServerContext*, const pb::AddSamplerTrackRequest* q, pb::TrackId* r) override
+        { r->set_id (main.apiAddSamplerTrack (js (q->name()), js (q->path()), q->root_note())); return Status::OK; }
+
+        Status AddPluginTrack (ServerContext*, const pb::AddPluginTrackRequest* q, pb::TrackId* r) override
+        { r->set_id (main.apiAddPluginTrack (js (q->identifier()))); return Status::OK; }
+
+        Status RemoveClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
+        { const bool ok = main.apiRemoveClip (q->track_id(), q->index()); r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
+
+        Status MoveClip (ServerContext*, const pb::MoveClipRequest* q, pb::Ack* r) override
+        {
+            const bool ok = main.apiMoveClip (q->track_id(), q->index(), q->start_beat(),
+                                              q->has_to_track_id(), q->to_track_id());
+            r->set_ok (ok); if (! ok) r->set_error ("clip not found");
+            return Status::OK;
+        }
+
+        Status AddAudioClip (ServerContext*, const pb::AddAudioClipRequest* q, pb::ClipId* r) override
+        {
+            const int idx = main.apiAddAudioClip (q->track_id(), q->start_beat(), js (q->path()), q->gain());
+            r->set_track_id (q->track_id()); r->set_index (idx);
+            return Status::OK;
+        }
+
+        // ---- plugins ----
+        Status ScanPlugins (ServerContext*, const pb::ScanPluginsRequest* q, pb::PluginList* r) override
+        { for (auto& p : main.apiScanPlugins (q->force())) fillPlugin (r->add_plugins(), p); return Status::OK; }
+
+        Status ListPlugins (ServerContext*, const pb::Empty*, pb::PluginList* r) override
+        { for (auto& p : main.apiListPlugins()) fillPlugin (r->add_plugins(), p); return Status::OK; }
+
+        Status AddPluginEffect (ServerContext*, const pb::AddPluginEffectRequest* q, pb::EffectRef* r) override
+        {
+            const int slot = main.apiAddPluginEffect (q->insert(), js (q->identifier()));
+            r->set_insert (q->insert()); r->set_slot (slot);
+            return Status::OK;
+        }
+
+        Status OpenPluginEditor (ServerContext*, const pb::TrackId* q, pb::Ack* r) override
+        { const bool ok = main.apiOpenPluginEditor (q->id()); r->set_ok (ok); if (! ok) r->set_error ("no plugin on track"); return Status::OK; }
 
         // ---- events (streaming out) ----
         Status Subscribe (ServerContext* ctx, const pb::SubscribeRequest* q, ServerWriter<pb::Event>* writer) override
