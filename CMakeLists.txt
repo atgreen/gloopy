@@ -29,9 +29,8 @@ juce_generate_juce_header(Gloopy)
 target_sources(Gloopy PRIVATE
     Source/Main.cpp
     Source/MainComponent.cpp
-    Source/ChannelRackView.cpp
+    Source/ArrangeView.cpp
     Source/PianoRoll.cpp
-    Source/PlaylistView.cpp
     Source/MixerView.cpp
     Source/GloopyLookAndFeel.cpp)
 

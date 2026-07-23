@@ -29,12 +29,12 @@ double PianoRoll::rowHeight() const
 
 float PianoRoll::xForBeat (double b) const
 {
-    return (float) (b / (double) transport.getLoopBeats() * getWidth());
+    return (float) (b / editLength * getWidth());
 }
 
 double PianoRoll::beatForX (float x) const
 {
-    return (double) x / (double) getWidth() * transport.getLoopBeats();
+    return (double) x / (double) getWidth() * editLength;
 }
 
 float PianoRoll::yForPitch (int p) const
@@ -109,8 +109,8 @@ void PianoRoll::paint (juce::Graphics& g)
     }
 
     // Beat / bar grid.
-    const int loopBeats = transport.getLoopBeats();
-    for (int beat = 0; beat <= loopBeats; ++beat)
+    const int beats = (int) std::ceil (editLength);
+    for (int beat = 0; beat <= beats; ++beat)
     {
         const float x = xForBeat ((double) beat);
         const bool bar = (beat % 4 == 0);
@@ -136,10 +136,13 @@ void PianoRoll::paint (juce::Graphics& g)
         g.drawRoundedRectangle (r, 2.0f, 1.0f);
     }
 
-    // Playhead.
-    const float px = xForBeat (transport.getPlayheadBeats());
-    g.setColour (Palette::playhead);
-    g.drawVerticalLine ((int) px, 0.0f, h);
+    // Playhead (optional — the arrange view owns the main one).
+    if (showPlayhead)
+    {
+        const float px = xForBeat (std::fmod (transport.getPlayheadBeats(), editLength));
+        g.setColour (Palette::playhead);
+        g.drawVerticalLine ((int) px, 0.0f, h);
+    }
 
     // Placeholder hint when no channel is selected for editing.
     if (! editable)
@@ -246,8 +249,6 @@ void PianoRoll::mouseUp (const juce::MouseEvent&)
 
 void PianoRoll::timerCallback()
 {
-    // Only the playhead moves continuously; a full repaint at 60 Hz is cheap
-    // enough for an MVP grid.
-    if (transport.isPlaying())
+    if (showPlayhead && transport.isPlaying())
         repaint();
 }

@@ -33,6 +33,10 @@ public:
 
     void setEnabledEditing (bool shouldEdit) { editable = shouldEdit; repaint(); }
 
+    /** The visible/editable length in beats (a clip's content length). */
+    void setLength (double beats) { editLength = juce::jmax (0.25, beats); repaint(); }
+    void setShowPlayhead (bool s) { showPlayhead = s; }
+
     std::function<void()> onNotesChanged;
 
     void paint (juce::Graphics&) override;
@@ -57,6 +61,8 @@ private:
     Transport& transport;
     std::vector<Note> notes;
     bool editable { true };
+    double editLength { 4.0 };     // visible length in beats (clip content length)
+    bool   showPlayhead { false };
 
     // pitch range shown (inclusive)
     static constexpr int   pitchLow  = 36;   // C2
