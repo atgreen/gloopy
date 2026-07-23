@@ -130,8 +130,13 @@ MainComponent::MainComponent()
     addAndMakeVisible (editorPanel);
     editorPanel.roll.setShowPlayhead (false);
     editorPanel.roll.setEnabledEditing (false);
+    editorPanel.steps.setEnabledEditing (false);
     editorPanel.title.setText ("EDITOR", juce::dontSendNotification);
-    editorPanel.roll.onNotesChanged = [this] { writeBackEditor(); };
+    editorPanel.roll.onNotesChanged  = [this] { writeBackEditor(); };
+    editorPanel.steps.onNotesChanged = [this] { writeBackEditor(); };
+    editorPanel.pianoBtn.onClick = [this] { setEditorMode (0); };
+    editorPanel.stepBtn.onClick  = [this] { setEditorMode (1); };
+    setEditorMode (editorMode);
 
     verticalLayout.setItemLayout (0, 120.0, -0.85, -0.60);   // arrangement
     verticalLayout.setItemLayout (1, 6.0, 6.0, 6.0);         // divider
@@ -224,32 +229,55 @@ void MainComponent::selectClip (int track, int clip)
 {
     selTrack = track; selClip = clip;
     if (arrangeView) arrangeView->setSelection (track, clip);
+    loadSelectedClipIntoEditor();
+}
 
-    bool valid = false;
-    bool isAudio = false;
+void MainComponent::setEditorMode (int mode)
+{
+    editorMode = mode;
+    editorPanel.pianoBtn.setToggleState (mode == 0, juce::dontSendNotification);
+    editorPanel.stepBtn .setToggleState (mode == 1, juce::dontSendNotification);
+    editorPanel.roll.setVisible  (mode == 0);
+    editorPanel.steps.setVisible (mode == 1);
+    loadSelectedClipIntoEditor();
+}
+
+void MainComponent::loadSelectedClipIntoEditor()
+{
+    bool valid = false, isAudio = false;
+    std::vector<Note> notes;
+    double contentLen = 4.0;
+    int pitch = 60;
+    juce::String trackName;
     {
         const juce::ScopedLock sl (engineLock);
-        if (juce::isPositiveAndBelow (track, (int) tracks.size())
-              && juce::isPositiveAndBelow (clip, (int) tracks[(size_t) track]->clips.size()))
+        if (juce::isPositiveAndBelow (selTrack, (int) tracks.size())
+              && juce::isPositiveAndBelow (selClip, (int) tracks[(size_t) selTrack]->clips.size()))
         {
-            const auto& c = tracks[(size_t) track]->clips[(size_t) clip];
+            const auto& c = tracks[(size_t) selTrack]->clips[(size_t) selClip];
+            trackName = tracks[(size_t) selTrack]->name;
             if (c.isAudio())
-            {
                 isAudio = true;
-            }
             else
             {
-                editorPanel.roll.setLength (c.looped ? c.contentLenBeats : c.lengthBeats);
-                editorPanel.roll.loadNotes (c.notes);
+                notes = c.notes;
+                contentLen = c.looped ? c.contentLenBeats : c.lengthBeats;
+                pitch = tracks[(size_t) selTrack]->defaultPitch;
                 valid = true;
             }
         }
     }
 
+    editorPanel.roll.setLength (contentLen);
+    editorPanel.roll.loadNotes (notes);
     editorPanel.roll.setEnabledEditing (valid);
+    editorPanel.steps.setContent (contentLen, pitch);
+    editorPanel.steps.loadNotes (notes);
+    editorPanel.steps.setEnabledEditing (valid);
+
     if (valid)
-        editorPanel.title.setText ("EDITOR   \xe2\x80\xa2   " + tracks[(size_t) track]->name.toUpperCase()
-                                    + "  \xe2\x80\xa2  CLIP", juce::dontSendNotification);
+        editorPanel.title.setText ("EDITOR   \xe2\x80\xa2   " + trackName.toUpperCase() + "  \xe2\x80\xa2  CLIP",
+                                   juce::dontSendNotification);
     else if (isAudio)
         editorPanel.title.setText ("EDITOR   \xe2\x80\xa2   AUDIO CLIP (no MIDI)", juce::dontSendNotification);
     else
@@ -258,11 +286,16 @@ void MainComponent::selectClip (int track, int clip)
 
 void MainComponent::writeBackEditor()
 {
+    auto notes = (editorMode == 0) ? editorPanel.roll.getNotes() : editorPanel.steps.getNotes();
     {
         const juce::ScopedLock sl (engineLock);
         if (juce::isPositiveAndBelow (selTrack, (int) tracks.size())
               && juce::isPositiveAndBelow (selClip, (int) tracks[(size_t) selTrack]->clips.size()))
-            tracks[(size_t) selTrack]->clips[(size_t) selClip].notes = editorPanel.roll.getNotes();
+        {
+            auto& c = tracks[(size_t) selTrack]->clips[(size_t) selClip];
+            if (! c.isAudio())
+                c.notes = notes;
+        }
     }
     if (arrangeView) arrangeView->repaint();
 }
@@ -981,6 +1014,8 @@ void MainComponent::refreshUiAfterLoad()
     selTrack = selClip = -1;
     editorPanel.roll.setEnabledEditing (false);
     editorPanel.roll.loadNotes ({});
+    editorPanel.steps.setEnabledEditing (false);
+    editorPanel.steps.loadNotes ({});
     editorPanel.title.setText ("EDITOR", juce::dontSendNotification);
 
     if (arrangeView) { arrangeView->setSelection (-1, -1); arrangeView->rebuild(); }

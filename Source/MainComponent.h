@@ -8,6 +8,7 @@
 #include "Clip.h"
 #include "ArrangeView.h"
 #include "PianoRoll.h"
+#include "StepEditor.h"
 #include "IconButton.h"
 #include "MixerTrack.h"
 #include "MixerView.h"
@@ -34,29 +35,41 @@ public:
 private:
     struct EditorPanel : public juce::Component
     {
-        explicit EditorPanel (Transport& t) : roll (t)
+        explicit EditorPanel (Transport& t) : roll (t), steps (t)
         {
             title.setJustificationType (juce::Justification::centredLeft);
             title.setFont (Palette::sectionFont());
             title.setColour (juce::Label::textColourId, Palette::textDim);
             addAndMakeVisible (title);
-            addAndMakeVisible (roll);
+            stepBtn.setClickingTogglesState (true);
+            pianoBtn.setClickingTogglesState (true);
+            addAndMakeVisible (stepBtn);
+            addAndMakeVisible (pianoBtn);
+            addAndMakeVisible (steps);
+            addChildComponent (roll);
         }
         void paint (juce::Graphics& g) override
         {
             g.setColour (Palette::header);
-            g.fillRect (getLocalBounds().removeFromTop (24));
+            g.fillRect (getLocalBounds().removeFromTop (26));
             g.setColour (Palette::line);
-            g.fillRect (0, 23, getWidth(), 1);
+            g.fillRect (0, 25, getWidth(), 1);
         }
         void resized() override
         {
             auto a = getLocalBounds();
-            title.setBounds (a.removeFromTop (24).withTrimmedLeft (10));
+            auto h = a.removeFromTop (26).reduced (0, 3);
+            pianoBtn.setBounds (h.removeFromRight (58).reduced (2, 0));
+            stepBtn .setBounds (h.removeFromRight (58).reduced (2, 0));
+            title.setBounds (h.withTrimmedLeft (10));
             roll.setBounds (a);
+            steps.setBounds (a);
         }
-        juce::Label title;
+        juce::Label      title;
+        juce::TextButton stepBtn  { "STEPS" };
+        juce::TextButton pianoBtn { "PIANO" };
         PianoRoll   roll;
+        StepEditor  steps;
     };
 
     void timerCallback() override;
@@ -65,6 +78,8 @@ private:
     void setupDefaultProject();
     void selectClip (int track, int clip);
     void writeBackEditor();
+    void setEditorMode (int mode);
+    void loadSelectedClipIntoEditor();
 
     void setupMixer();
     void openMixer();
@@ -93,6 +108,7 @@ private:
     juce::AudioBuffer<float> mixBuffer;
 
     int selTrack { -1 }, selClip { -1 };
+    int editorMode { 1 };   // 0 = piano roll, 1 = step grid
 
     // --- UI ---
     IconButton       playButton   { IconButton::Play };
