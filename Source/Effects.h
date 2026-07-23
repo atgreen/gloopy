@@ -117,27 +117,47 @@ public:
     {
         if (bypassed.load() || bufLen <= 4) return;
 
-        const float d  = juce::jlimit (1.0f, (float) (bufLen - 4), (timeMs.load() / 1000.0f) * (float) sr);
+        const float base = juce::jlimit (1.0f, (float) (bufLen - 4), (timeMs.load() / 1000.0f) * (float) sr);
         const float fb = juce::jlimit (0.0f, 0.95f, feedback.load());
         const float mx = juce::jlimit (0.0f, 1.0f, mix.load());
-        const int   nc = juce::jmin (2, b.getNumChannels());
 
+        auto rd = [this] (std::vector<float>& buf, float pos)
+        {
+            while (pos < 0.0f) pos += (float) bufLen;
+            const int i0 = ((int) pos) % bufLen;
+            const float fr = pos - (float) ((int) pos);
+            const int i1 = (i0 + 1) % bufLen;
+            return buf[(size_t) i0] * (1.0f - fr) + buf[(size_t) i1] * fr;
+        };
+
+        if (b.getNumChannels() < 2)   // mono fallback
+        {
+            auto* d0 = b.getWritePointer (0);
+            for (int i = 0; i < b.getNumSamples(); ++i)
+            {
+                const float del = rd (buffers[0], (float) writePos - base);
+                const float in = d0[i];
+                buffers[0][(size_t) writePos] = in + del * fb;
+                d0[i] = in * (1.0f - mx) + del * mx;
+                writePos = (writePos + 1) % bufLen;
+            }
+            return;
+        }
+
+        // Stereo ping-pong: cross-fed feedback + a dotted L offset for width.
+        const float dR = base;
+        const float dL = juce::jlimit (1.0f, (float) (bufLen - 4), base * 1.5f);
+        auto* L = b.getWritePointer (0);
+        auto* R = b.getWritePointer (1);
         for (int i = 0; i < b.getNumSamples(); ++i)
         {
-            for (int c = 0; c < nc; ++c)
-            {
-                float rp = (float) writePos - d;
-                while (rp < 0.0f) rp += (float) bufLen;
-                const int r0 = (int) rp;
-                const float fr = rp - (float) r0;
-                const int r1 = (r0 + 1) % bufLen;
-
-                const float delayed = buffers[(size_t) c][(size_t) r0] * (1.0f - fr)
-                                    + buffers[(size_t) c][(size_t) r1] * fr;
-                const float in = b.getSample (c, i);
-                buffers[(size_t) c][(size_t) writePos] = in + delayed * fb;
-                b.setSample (c, i, in * (1.0f - mx) + delayed * mx);
-            }
+            const float dl = rd (buffers[0], (float) writePos - dL);
+            const float dr = rd (buffers[1], (float) writePos - dR);
+            const float inL = L[i], inR = R[i];
+            buffers[0][(size_t) writePos] = inL + dr * fb;   // right feeds left
+            buffers[1][(size_t) writePos] = inR + dl * fb;   // left feeds right
+            L[i] = inL * (1.0f - mx) + dl * mx;
+            R[i] = inR * (1.0f - mx) + dr * mx;
             writePos = (writePos + 1) % bufLen;
         }
     }
