@@ -5,6 +5,7 @@
 #include "DrumSynth.h"
 #include <array>
 #include <cmath>
+#include <iostream>
 
 MainComponent::MainComponent()
 {
@@ -173,6 +174,22 @@ MainComponent::MainComponent()
 
     setupDefaultProject();
 
+    // ---- control API: OSC real-time lane ----
+    {
+        OscControl::Hooks h;
+        h.resolveTrack = [this] (int id) { return resolveTrack (id); };
+        h.mixerTracks  = &mixerTracks;
+        h.engineLock   = &engineLock;
+        h.transport    = &transport;
+        h.log          = [] (const juce::String& s) { std::cout << "[osc] " << s << std::endl; };
+        osc = std::make_unique<OscControl> (h);
+        const int oscPort = 9000;
+        if (osc->start (oscPort))
+            std::cout << "[osc] listening on udp:" << oscPort << std::endl;
+        else
+            std::cout << "[osc] FAILED to bind udp:" << oscPort << std::endl;
+    }
+
     setSize (1180, 820);
     setAudioChannels (0, 2);
     startTimerHz (30);
@@ -181,6 +198,7 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
     stopTimer();
+    osc.reset();                 // stop OSC before tracks/mixer are destroyed
     pluginWindows.clear();       // delete plugin editors before their processors
     mixerWindow = nullptr;
     juce::Desktop::getInstance().setDefaultLookAndFeel (nullptr);
@@ -200,13 +218,39 @@ juce::Colour MainComponent::paletteColour (int index) const
 void MainComponent::addTrack (std::unique_ptr<Track> track)
 {
     if (track->generator) track->generator->prepare (currentSampleRate, currentBlockSize);
+    track->liveMidi.reset (currentSampleRate);
     {
         const juce::ScopedLock sl (engineLock);
         track->mixerTrack.store (juce::jmin ((int) tracks.size() + 1, (int) mixerTracks.size() - 1));
         tracks.push_back (std::move (track));
     }
+    refreshTrackIds();
     if (arrangeView) arrangeView->rebuild();
     resized();
+}
+
+void MainComponent::refreshTrackIds()
+{
+    {
+        const juce::ScopedLock sl (idMapLock);
+        idMap.clear();
+        for (auto& t : tracks)
+        {
+            if (t->id < 0) t->id = nextTrackId++;
+            idMap[t->id] = t.get();
+        }
+    }
+    // Log the id -> name map (control-API discovery until gRPC GetState exists).
+    juce::String s = "[osc] tracks:";
+    for (auto& t : tracks) s << "  " << t->id << "=" << t->name;
+    std::cout << s << std::endl;
+}
+
+Track* MainComponent::resolveTrack (int id)
+{
+    const juce::ScopedLock sl (idMapLock);
+    auto it = idMap.find (id);
+    return it != idMap.end() ? it->second : nullptr;
 }
 
 void MainComponent::setupDefaultProject()
@@ -336,7 +380,10 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
     const juce::ScopedLock sl (engineLock);
     mixBuffer.setSize (2, juce::jmax (16, samplesPerBlockExpected));
     for (auto& t : tracks)
+    {
         if (t->generator) t->generator->prepare (sampleRate, samplesPerBlockExpected);
+        t->liveMidi.reset (sampleRate);   // live OSC notes
+    }
     for (auto& mt : mixerTracks)
     {
         mt->buffer.setSize (2, juce::jmax (16, samplesPerBlockExpected));
@@ -505,6 +552,11 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
                                        segs[(size_t) s].tsOffset + segs[(size_t) s].chunk);
                 }
             }
+            // Merge live OSC notes (played whether or not the transport is running).
+            juce::MidiBuffer live;
+            t->liveMidi.removeNextBlockOfMessages (live, num);
+            midi.addEvents (live, 0, num, 0);
+
             t->generator->render (mixBuffer, midi, 0, num);
         }
         else if (playing)              // audio track
@@ -909,6 +961,7 @@ void MainComponent::newProject()
         transport.setPlaying (false);
         tracks.clear();
     }
+    nextTrackId = 0;
     setupMixer();
     setupDefaultProject();
     currentProjectFile = juce::File();
@@ -1094,6 +1147,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     transport.setPlaying (false);
     tracks.clear();
     mixerTracks.clear();
+    nextTrackId = 0;
 
     auto trks = root.getChildWithName ("TRACKS");
     for (int i = 0; i < trks.getNumChildren(); ++i)
@@ -1278,6 +1332,9 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
 
 void MainComponent::refreshUiAfterLoad()
 {
+    for (auto& t : tracks) t->liveMidi.reset (currentSampleRate);
+    refreshTrackIds();
+
     selTrack = selClip = -1;
     editorPanel.roll.setEnabledEditing (false);
     editorPanel.roll.loadNotes ({});

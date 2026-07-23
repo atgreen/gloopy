@@ -16,8 +16,10 @@
 #include "PluginHost.h"
 #include "PluginInstrument.h"
 #include "PluginEffect.h"
+#include "OscControl.h"
 #include "Palette.h"
 #include "GloopyLookAndFeel.h"
+#include <unordered_map>
 
 /** Linear-arranger workspace: an arrangement of instrument tracks (each owning
     its clips), a clip editor (piano roll), and the mixer. */
@@ -105,6 +107,10 @@ private:
     void openPluginEditor (juce::AudioProcessor*, const juce::String& title);
     void closeAllPluginWindows();
 
+    // Control API (OSC).
+    void refreshTrackIds();
+    Track* resolveTrack (int id);
+
     // Project I/O.
     void showFileMenu();
     void newProject();
@@ -147,6 +153,12 @@ private:
 
     juce::OwnedArray<juce::DocumentWindow> pluginWindows;
     bool pluginsScanned { false };
+
+    // Control API.
+    int nextTrackId { 0 };
+    std::unordered_map<int, Track*> idMap;
+    juce::CriticalSection idMapLock;
+    std::unique_ptr<OscControl> osc;
 
     juce::Viewport   arrangeViewport;
     std::unique_ptr<ArrangeView> arrangeView;

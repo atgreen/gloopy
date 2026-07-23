@@ -55,6 +55,7 @@ target_compile_definitions(Gloopy PUBLIC
 target_link_libraries(Gloopy PRIVATE
     juce::juce_audio_utils
     juce::juce_audio_processors
+    juce::juce_osc
     juce::juce_gui_extra
     PUBLIC
     juce::juce_recommended_config_flags

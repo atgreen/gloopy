@@ -26,6 +26,9 @@ struct Track
     int                        defaultPitch;   // pitch used by step-style editing
     juce::Colour               colour;
 
+    int id { -1 };                             // stable id for the control API
+    juce::MidiMessageCollector liveMidi;       // real-time notes injected via OSC
+
     std::atomic<float> volume { 0.8f };
     std::atomic<float> pan    { 0.0f };
     std::atomic<bool>  mute   { false };
