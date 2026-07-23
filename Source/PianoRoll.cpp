@@ -27,14 +27,19 @@ double PianoRoll::rowHeight() const
     return (double) getHeight() / (double) (pitchHigh - pitchLow + 1);
 }
 
+float PianoRoll::noteAreaWidth() const
+{
+    return (float) juce::jmax (1, getWidth() - keyGutter);
+}
+
 float PianoRoll::xForBeat (double b) const
 {
-    return (float) (b / editLength * getWidth());
+    return (float) keyGutter + (float) (b / editLength) * noteAreaWidth();
 }
 
 double PianoRoll::beatForX (float x) const
 {
-    return (double) x / (double) getWidth() * editLength;
+    return (double) ((x - keyGutter) / noteAreaWidth()) * editLength;
 }
 
 float PianoRoll::yForPitch (int p) const
@@ -87,28 +92,23 @@ void PianoRoll::paint (juce::Graphics& g)
     const auto rh = (float) rowHeight();
 
     g.fillAll (Palette::inset);
+    const float gx = (float) keyGutter;
 
-    // Pitch rows (shade black-key rows a touch darker).
+    // Pitch rows in the note area (shade black-key rows a touch darker).
     for (int pitch = pitchLow; pitch <= pitchHigh; ++pitch)
     {
         const float y = yForPitch (pitch);
         g.setColour (isBlackKey (pitch) ? Palette::inset : Palette::panel);
-        g.fillRect (0.0f, y, w, rh);
+        g.fillRect (gx, y, w - gx, rh);
 
-        // C rows get a subtle label + line.
-        if (pitch % 12 == 0)
+        if (pitch % 12 == 0)   // C rows get a divider line
         {
             g.setColour (Palette::line);
-            g.drawHorizontalLine ((int) y, 0.0f, w);
-            g.setColour (Palette::textDim);
-            g.setFont (juce::FontOptions (10.0f));
-            g.drawText ("C" + juce::String (pitch / 12 - 1),
-                        3, (int) y, 24, (int) rh,
-                        juce::Justification::centredLeft, false);
+            g.drawHorizontalLine ((int) y, gx, w);
         }
     }
 
-    // Beat / bar grid.
+    // Beat / bar grid (note area only).
     const int beats = (int) std::ceil (editLength);
     for (int beat = 0; beat <= beats; ++beat)
     {
@@ -141,8 +141,31 @@ void PianoRoll::paint (juce::Graphics& g)
     {
         const float px = xForBeat (std::fmod (transport.getPlayheadBeats(), editLength));
         g.setColour (Palette::playhead);
-        g.drawVerticalLine ((int) px, 0.0f, h);
+        g.drawVerticalLine ((int) px, gx, h);
     }
+
+    // Piano-key gutter on the left.
+    g.setColour (Palette::panel);
+    g.fillRect (0.0f, 0.0f, gx, h);
+    for (int pitch = pitchLow; pitch <= pitchHigh; ++pitch)
+    {
+        const float y = yForPitch (pitch);
+        const bool black = isBlackKey (pitch);
+        g.setColour (black ? juce::Colour (0xff17181b) : juce::Colour (0xffd8dae0));
+        g.fillRect (0.0f, y, black ? gx * 0.62f : gx, rh);       // black keys shorter
+        g.setColour (Palette::bg);
+        g.drawHorizontalLine ((int) (y + rh), 0.0f, gx);         // key separator
+        if (pitch % 12 == 0)                                     // label each C
+        {
+            g.setColour (juce::Colour (0xff55585f));
+            g.setFont (juce::FontOptions (9.0f, juce::Font::bold));
+            g.drawText ("C" + juce::String (pitch / 12 - 1),
+                        2, (int) y, (int) gx - 3, (int) rh,
+                        juce::Justification::centredRight, false);
+        }
+    }
+    g.setColour (Palette::line);
+    g.drawVerticalLine ((int) gx, 0.0f, h);
 
     // Placeholder hint when no channel is selected for editing.
     if (! editable)
@@ -161,7 +184,7 @@ void PianoRoll::paint (juce::Graphics& g)
 // ---------------------------------------------------------------------------
 void PianoRoll::mouseDown (const juce::MouseEvent& e)
 {
-    if (! editable)
+    if (! editable || e.position.x < (float) keyGutter)   // ignore the key gutter
         return;
 
     const auto p = e.position;

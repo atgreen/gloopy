@@ -68,6 +68,9 @@ private:
     static constexpr int   pitchLow  = 36;   // C2
     static constexpr int   pitchHigh = 84;   // C6
     static constexpr double gridSnap = 0.25; // sixteenth-note grid
+    static constexpr int   keyGutter = 34;   // left piano-key strip (px)
+
+    float noteAreaWidth() const;
 
     enum class Drag { none, create, move, resize };
     Drag  drag        { Drag::none };
