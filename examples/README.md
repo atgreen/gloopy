@@ -19,6 +19,13 @@ Open it via **File → Open**, or launch straight into it:
 ./build/Gloopy_artefacts/Release/Gloopy examples/demo-song.gloopy
 ```
 
+## demo-song-surge.gloopy
+
+The same arrangement, but the **Pad track is a hosted Surge XT (VST3)** instead
+of the built-in synth — a warm, unison-detuned, low-passed pad patch baked
+directly into the project's plugin state. Requires **Surge XT** installed (its
+VST3 in `~/.vst3`); without it the Pad track simply loads silent.
+
 ### Sample credits
 The drum/percussion one-shots are from the **Sonic Pi** sample set, which sources
 them from **freesound.org** under **CC0 (public domain)**. They are embedded in
