@@ -104,6 +104,7 @@ private:
     juce::Label      posLabel;
     juce::TextButton addSynthBtn   { "+ Synth" };
     juce::TextButton loadSampleBtn { "+ Sample" };
+    juce::TextButton addAudioBtn   { "+ Audio" };
     juce::TextButton mixerButton   { "Mixer" };
 
     juce::Viewport   arrangeViewport;

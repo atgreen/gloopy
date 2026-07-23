@@ -119,8 +119,25 @@ void ArrangeView::drawClip (juce::Graphics& g, const Track& t, const Clip& c,
     g.setColour (juce::Colours::white.withAlpha (0.14f));
     g.fillRoundedRectangle (r.withHeight (14.0f), 3.0f);
 
-    // Mini note preview (tiled per content repetition).
-    if (! c.notes.empty() && c.contentLenBeats > 0.0)
+    // Audio clip: waveform overview.
+    if (c.isAudio() && c.peaks && ! c.peaks->empty())
+    {
+        auto wf = r.withTrimmedTop (15.0f).reduced (2.0f, 2.0f);
+        const float mid = wf.getCentreY();
+        const auto& pk = *c.peaks;
+        const int N = (int) pk.size();
+        g.setColour (juce::Colours::black.withAlpha (0.5f));
+        const int x0 = (int) r.getX() + 2, x1 = (int) r.getRight() - 2;
+        for (int x = x0; x < x1; ++x)
+        {
+            const float frac = (x - r.getX()) / juce::jmax (1.0f, r.getWidth());
+            const int idx = juce::jlimit (0, N - 1, (int) (frac * N));
+            const float a = pk[(size_t) idx] * wf.getHeight() * 0.5f;
+            g.drawVerticalLine (x, mid - a, mid + a);
+        }
+    }
+    // MIDI clip: mini note preview (tiled per content repetition).
+    else if (! c.notes.empty() && c.contentLenBeats > 0.0)
     {
         auto notesArea = r.withTrimmedTop (15.0f).reduced (2.0f, 2.0f);
         int lo = 127, hi = 0;
@@ -277,7 +294,15 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             drag = Drag::resize;
         else { drag = Drag::move; dragBeatOffset = beatForX (p.x) - c.startBeat; }
     }
-    else   // create a new 1-bar clip
+    else if (tracks[(size_t) track]->type != TrackType::Instrument)
+    {
+        // Empty click on a non-instrument track just selects it.
+        selTrack = track; selClip = -1;
+        if (onClipSelected) onClipSelected (track, -1);
+        repaint();
+        return;
+    }
+    else   // create a new 1-bar MIDI clip
     {
         Clip c;
         c.startBeat      = juce::jmax (0.0, snapToBar (beatForX (p.x)));

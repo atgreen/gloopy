@@ -80,6 +80,41 @@ MainComponent::MainComponent()
             });
     };
 
+    addAndMakeVisible (addAudioBtn);
+    addAudioBtn.onClick = [this]
+    {
+        fileChooser = std::make_unique<juce::FileChooser> (
+            "Import audio", juce::File(), "*.wav;*.aif;*.aiff;*.flac");
+        fileChooser->launchAsync (juce::FileBrowserComponent::openMode
+                                    | juce::FileBrowserComponent::canSelectFiles,
+            [this] (const juce::FileChooser& fc)
+            {
+                const auto file = fc.getResult();
+                if (! file.existsAsFile()) return;
+                std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (file));
+                if (reader == nullptr || reader->lengthInSamples <= 0) return;
+
+                auto buf = std::make_shared<juce::AudioBuffer<float>> (
+                    (int) reader->numChannels, (int) reader->lengthInSamples);
+                reader->read (buf.get(), 0, (int) reader->lengthInSamples, 0, true, true);
+
+                const double durationSec = (double) reader->lengthInSamples / reader->sampleRate;
+                Clip c;
+                c.type = ClipType::Audio;
+                c.name = file.getFileNameWithoutExtension();
+                c.startBeat = 0.0;
+                c.lengthBeats = juce::jmax (0.25, durationSec * transport.getBpm() / 60.0);
+                c.audio = buf;
+                c.audioSourceRate = reader->sampleRate;
+                c.peaks = std::make_shared<std::vector<float>> (buildPeaks (*buf));
+
+                auto track = std::make_unique<Track> (c.name, nullptr, 60,
+                                 paletteColour ((int) tracks.size()), TrackType::Audio);
+                track->clips.push_back (std::move (c));
+                addTrack (std::move (track));
+            });
+    };
+
     addAndMakeVisible (mixerButton);
     mixerButton.onClick = [this] { openMixer(); };
 
@@ -135,7 +170,7 @@ juce::Colour MainComponent::paletteColour (int index) const
 
 void MainComponent::addTrack (std::unique_ptr<Track> track)
 {
-    track->generator->prepare (currentSampleRate, currentBlockSize);
+    if (track->generator) track->generator->prepare (currentSampleRate, currentBlockSize);
     {
         const juce::ScopedLock sl (engineLock);
         track->mixerTrack.store (juce::jmin ((int) tracks.size() + 1, (int) mixerTracks.size() - 1));
@@ -191,15 +226,23 @@ void MainComponent::selectClip (int track, int clip)
     if (arrangeView) arrangeView->setSelection (track, clip);
 
     bool valid = false;
+    bool isAudio = false;
     {
         const juce::ScopedLock sl (engineLock);
         if (juce::isPositiveAndBelow (track, (int) tracks.size())
               && juce::isPositiveAndBelow (clip, (int) tracks[(size_t) track]->clips.size()))
         {
             const auto& c = tracks[(size_t) track]->clips[(size_t) clip];
-            editorPanel.roll.setLength (c.looped ? c.contentLenBeats : c.lengthBeats);
-            editorPanel.roll.loadNotes (c.notes);
-            valid = true;
+            if (c.isAudio())
+            {
+                isAudio = true;
+            }
+            else
+            {
+                editorPanel.roll.setLength (c.looped ? c.contentLenBeats : c.lengthBeats);
+                editorPanel.roll.loadNotes (c.notes);
+                valid = true;
+            }
         }
     }
 
@@ -207,6 +250,8 @@ void MainComponent::selectClip (int track, int clip)
     if (valid)
         editorPanel.title.setText ("EDITOR   \xe2\x80\xa2   " + tracks[(size_t) track]->name.toUpperCase()
                                     + "  \xe2\x80\xa2  CLIP", juce::dontSendNotification);
+    else if (isAudio)
+        editorPanel.title.setText ("EDITOR   \xe2\x80\xa2   AUDIO CLIP (no MIDI)", juce::dontSendNotification);
     else
         editorPanel.title.setText ("EDITOR", juce::dontSendNotification);
 }
@@ -234,7 +279,7 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
     const juce::ScopedLock sl (engineLock);
     mixBuffer.setSize (2, juce::jmax (16, samplesPerBlockExpected));
     for (auto& t : tracks)
-        t->generator->prepare (sampleRate, samplesPerBlockExpected);
+        if (t->generator) t->generator->prepare (sampleRate, samplesPerBlockExpected);
     for (auto& mt : mixerTracks)
     {
         mt->buffer.setSize (2, juce::jmax (16, samplesPerBlockExpected));
@@ -257,7 +302,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
     if (transport.consumeReset())
     {
         transport.setPlayheadSamples (0);
-        for (auto& t : tracks) t->generator->allNotesOff();
+        for (auto& t : tracks) if (t->generator) t->generator->allNotesOff();
     }
 
     const bool   playing = transport.isPlaying();
@@ -291,10 +336,13 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
         transport.setPlayheadSamples (ph);
     }
 
-    // Collect a clip's notes over a song-sample window (content loops to fill).
+    const double deviceRate = currentSampleRate;
+
+    // Collect a MIDI clip's notes over a song-sample window (content loops to fill).
     auto collectClip = [spb] (juce::MidiBuffer& midi, const Clip& clip,
                               juce::int64 songStart, int chunk, int tsOffset)
     {
+        if (clip.type != ClipType::Midi) return;
         const juce::int64 songEnd  = songStart + chunk;
         const juce::int64 clipStart = (juce::int64) std::llround (clip.startBeat * spb);
         const juce::int64 clipEnd   = (juce::int64) std::llround (clip.endBeat() * spb);
@@ -318,6 +366,37 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
         }
     };
 
+    // Render an audio clip's samples over a song-sample window (natural speed).
+    auto renderAudioClip = [spb, deviceRate] (juce::AudioBuffer<float>& buffer, const Clip& clip,
+                                              juce::int64 songStart, int chunk, int tsOffset)
+    {
+        if (! clip.isAudio() || clip.audio == nullptr) return;
+        const auto& ab = *clip.audio;
+        const int frames = ab.getNumSamples();
+        if (frames <= 0) return;
+
+        const int nchSrc = ab.getNumChannels();
+        const double ratio = clip.audioSourceRate / deviceRate;
+        const juce::int64 clipStart = (juce::int64) std::llround (clip.startBeat * spb);
+        const juce::int64 clipEnd   = (juce::int64) std::llround (clip.endBeat() * spb);
+
+        for (int i = 0; i < chunk; ++i)
+        {
+            const juce::int64 songPos = songStart + i;
+            if (songPos < clipStart || songPos >= clipEnd) continue;
+            const double readPos = (double) (songPos - clipStart) * ratio;
+            if (readPos >= frames - 1) continue;
+
+            const int r0 = (int) readPos;
+            const float fr = (float) (readPos - r0);
+            const float l = ab.getSample (0, r0) * (1.0f - fr) + ab.getSample (0, r0 + 1) * fr;
+            const float r = nchSrc > 1
+                ? ab.getSample (1, r0) * (1.0f - fr) + ab.getSample (1, r0 + 1) * fr : l;
+            buffer.addSample (0, tsOffset + i, l * clip.audioGain);
+            buffer.addSample (1, tsOffset + i, r * clip.audioGain);
+        }
+    };
+
     bool anySolo = false;
     for (auto& t : tracks) if (t->solo.load()) { anySolo = true; break; }
 
@@ -332,22 +411,32 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
     // --- each track -> its mixer insert ---
     for (auto& t : tracks)
     {
-        juce::MidiBuffer midi;
-        if (playing)
+        mixBuffer.clear();
+
+        if (t->generator != nullptr)   // instrument track
+        {
+            juce::MidiBuffer midi;
+            if (playing)
+            {
+                for (int s = 0; s < nseg; ++s)
+                {
+                    for (auto& c : t->clips)
+                        collectClip (midi, c, segs[(size_t) s].loopStart,
+                                     segs[(size_t) s].chunk, segs[(size_t) s].tsOffset);
+                    if (segs[(size_t) s].wrap)
+                        midi.addEvent (juce::MidiMessage::allNotesOff (1),
+                                       segs[(size_t) s].tsOffset + segs[(size_t) s].chunk);
+                }
+            }
+            t->generator->render (mixBuffer, midi, 0, num);
+        }
+        else if (playing)              // audio track
         {
             for (int s = 0; s < nseg; ++s)
-            {
                 for (auto& c : t->clips)
-                    collectClip (midi, c, segs[(size_t) s].loopStart,
-                                 segs[(size_t) s].chunk, segs[(size_t) s].tsOffset);
-                if (segs[(size_t) s].wrap)
-                    midi.addEvent (juce::MidiMessage::allNotesOff (1),
-                                   segs[(size_t) s].tsOffset + segs[(size_t) s].chunk);
-            }
+                    renderAudioClip (mixBuffer, c, segs[(size_t) s].loopStart,
+                                     segs[(size_t) s].chunk, segs[(size_t) s].tsOffset);
         }
-
-        mixBuffer.clear();
-        t->generator->render (mixBuffer, midi, 0, num);
 
         const bool audible = ! t->mute.load() && (! anySolo || t->solo.load());
         if (! audible) continue;
@@ -530,7 +619,8 @@ void MainComponent::resized()
     bar.removeFromLeft (14);
 
     addSynthBtn  .setBounds (bar.removeFromLeft (68)); bar.removeFromLeft (6);
-    loadSampleBtn.setBounds (bar.removeFromLeft (78));
+    loadSampleBtn.setBounds (bar.removeFromLeft (78)); bar.removeFromLeft (6);
+    addAudioBtn  .setBounds (bar.removeFromLeft (72));
     mixerButton  .setBounds (bar.removeFromRight (58));
 
     // Arrangement | divider | editor.
@@ -607,7 +697,8 @@ juce::ValueTree MainComponent::toValueTree()
         tr.setProperty ("mute", t->mute.load(), nullptr);
         tr.setProperty ("solo", t->solo.load(), nullptr);
         tr.setProperty ("mixerTrack", t->mixerTrack.load(), nullptr);
-        tr.setProperty ("gen", t->generator->typeName(), nullptr);
+        tr.setProperty ("type", (int) t->type, nullptr);
+        if (t->generator) tr.setProperty ("gen", t->generator->typeName(), nullptr);
 
         if (auto* sg = dynamic_cast<SynthGenerator*> (t->generator.get()))
         {
@@ -642,19 +733,37 @@ juce::ValueTree MainComponent::toValueTree()
         for (auto& c : t->clips)
         {
             juce::ValueTree cl ("CLIP");
+            cl.setProperty ("ctype", (int) c.type, nullptr);
             cl.setProperty ("name", c.name, nullptr);
             cl.setProperty ("start", c.startBeat, nullptr);
             cl.setProperty ("len", c.lengthBeats, nullptr);
             cl.setProperty ("content", c.contentLenBeats, nullptr);
             cl.setProperty ("looped", c.looped, nullptr);
-            for (auto& n : c.notes)
+            if (c.isAudio() && c.audio != nullptr)
             {
-                juce::ValueTree nt ("NOTE");
-                nt.setProperty ("pitch", n.pitch, nullptr);
-                nt.setProperty ("start", n.startBeat, nullptr);
-                nt.setProperty ("nlen", n.lengthBeats, nullptr);
-                nt.setProperty ("vel", n.velocity, nullptr);
-                cl.addChild (nt, -1, nullptr);
+                const auto& ab = *c.audio;
+                cl.setProperty ("arate", c.audioSourceRate, nullptr);
+                cl.setProperty ("again", c.audioGain, nullptr);
+                cl.setProperty ("achannels", ab.getNumChannels(), nullptr);
+                cl.setProperty ("aframes", ab.getNumSamples(), nullptr);
+                juce::MemoryBlock mb ((size_t) ab.getNumChannels() * (size_t) ab.getNumSamples() * sizeof (float));
+                auto* dst = (float*) mb.getData();
+                for (int ch = 0; ch < ab.getNumChannels(); ++ch)
+                    for (int i = 0; i < ab.getNumSamples(); ++i)
+                        *dst++ = ab.getSample (ch, i);
+                cl.setProperty ("adata", juce::Base64::toBase64 (mb.getData(), mb.getSize()), nullptr);
+            }
+            else
+            {
+                for (auto& n : c.notes)
+                {
+                    juce::ValueTree nt ("NOTE");
+                    nt.setProperty ("pitch", n.pitch, nullptr);
+                    nt.setProperty ("start", n.startBeat, nullptr);
+                    nt.setProperty ("nlen", n.lengthBeats, nullptr);
+                    nt.setProperty ("vel", n.velocity, nullptr);
+                    cl.addChild (nt, -1, nullptr);
+                }
             }
             tr.addChild (cl, -1, nullptr);
         }
@@ -724,10 +833,15 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     for (int i = 0; i < trks.getNumChildren(); ++i)
     {
         auto tr = trks.getChild (i);
+        const int ttype = (int) tr.getProperty ("type", (int) TrackType::Instrument);
         const juce::String genType = tr.getProperty ("gen", "Synth").toString();
         std::unique_ptr<Generator> gen;
 
-        if (genType == "Synth")
+        if (ttype == (int) TrackType::Audio)
+        {
+            gen = nullptr;   // audio track has no generator
+        }
+        else if (genType == "Synth")
         {
             auto sg = std::make_unique<SynthGenerator>();
             auto s = tr.getChildWithName ("SYNTH");
@@ -762,11 +876,12 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             sm->setRootNote ((int) s.getProperty ("root", 60));
             gen = std::move (sm);
         }
-        gen->prepare (currentSampleRate, currentBlockSize);
+        if (gen) gen->prepare (currentSampleRate, currentBlockSize);
 
         auto t = std::make_unique<Track> (tr.getProperty ("name", "Track").toString(),
                     std::move (gen), (int) tr.getProperty ("pitch", 60),
-                    juce::Colour ((juce::uint32) (int) tr.getProperty ("colour", (int) 0xff4a90d9)));
+                    juce::Colour ((juce::uint32) (int) tr.getProperty ("colour", (int) 0xff4a90d9)),
+                    (TrackType) ttype);
         t->volume.store ((float) (double) tr.getProperty ("vol", 0.8));
         t->pan.store    ((float) (double) tr.getProperty ("pan", 0.0));
         t->mute.store   ((bool) tr.getProperty ("mute", false));
@@ -778,18 +893,43 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             auto cl = tr.getChild (ci);
             if (! cl.hasType ("CLIP")) continue;
             Clip c;
+            c.type = (ClipType) (int) cl.getProperty ("ctype", (int) ClipType::Midi);
             c.name = cl.getProperty ("name", "").toString();
             c.startBeat = (double) cl.getProperty ("start", 0.0);
             c.lengthBeats = (double) cl.getProperty ("len", 4.0);
             c.contentLenBeats = (double) cl.getProperty ("content", 4.0);
             c.looped = (bool) cl.getProperty ("looped", true);
-            for (int n = 0; n < cl.getNumChildren(); ++n)
+
+            if (c.isAudio())
             {
-                auto nt = cl.getChild (n);
-                c.notes.push_back ({ (int) nt.getProperty ("pitch", 60),
-                                     (double) nt.getProperty ("start", 0.0),
-                                     (double) nt.getProperty ("nlen", 0.25),
-                                     (float) (double) nt.getProperty ("vel", 0.85) });
+                const int nch = juce::jmax (1, (int) cl.getProperty ("achannels", 1));
+                const int fr  = juce::jmax (0, (int) cl.getProperty ("aframes", 0));
+                auto buf = std::make_shared<juce::AudioBuffer<float>> (nch, fr);
+                buf->clear();
+                juce::MemoryOutputStream os;
+                juce::Base64::convertFromBase64 (os, cl.getProperty ("adata", "").toString());
+                const auto mb = os.getMemoryBlock();
+                const auto* src = (const float*) mb.getData();
+                const size_t count = mb.getSize() / sizeof (float);
+                size_t idx = 0;
+                for (int ch = 0; ch < nch; ++ch)
+                    for (int j = 0; j < fr; ++j)
+                        if (idx < count) buf->setSample (ch, j, src[idx++]);
+                c.audio = buf;
+                c.audioSourceRate = (double) cl.getProperty ("arate", 44100.0);
+                c.audioGain = (float) (double) cl.getProperty ("again", 1.0);
+                c.peaks = std::make_shared<std::vector<float>> (buildPeaks (*buf));
+            }
+            else
+            {
+                for (int n = 0; n < cl.getNumChildren(); ++n)
+                {
+                    auto nt = cl.getChild (n);
+                    c.notes.push_back ({ (int) nt.getProperty ("pitch", 60),
+                                         (double) nt.getProperty ("start", 0.0),
+                                         (double) nt.getProperty ("nlen", 0.25),
+                                         (float) (double) nt.getProperty ("vel", 0.85) });
+                }
             }
             t->clips.push_back (std::move (c));
         }
