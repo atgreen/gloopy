@@ -35,6 +35,11 @@ public:
     /** Open a project on startup (from the command line). */
     void openProjectFile (const juce::File& f) { if (f.existsAsFile()) openProject (f); }
 
+    /** Play the song once and capture the master output to a WAV, then the app
+        quits itself when finished (headless offline bounce). */
+    void beginRenderMode (const juce::File& out);
+    bool isRenderFinished() const { return renderFinished.load(); }
+
 private:
     struct EditorPanel : public juce::Component
     {
@@ -140,6 +145,13 @@ private:
 
     juce::File currentProjectFile;
     juce::Rectangle<int> toolbarBounds, transportBounds, displayBounds;
+
+    // Offline render.
+    std::atomic<bool> renderMode { false };
+    std::atomic<bool> renderFinished { false };
+    std::unique_ptr<juce::AudioFormatWriter> renderWriter;
+    juce::File  renderFile;
+    juce::int64 renderTarget { 0 }, renderWritten { 0 }, renderSongLen { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

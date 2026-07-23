@@ -517,6 +517,33 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
     const float mv = master.volume.load();
     if (out->getNumChannels() > 0) out->addFrom (0, start, master.buffer, 0, 0, num, mv);
     if (out->getNumChannels() > 1) out->addFrom (1, start, master.buffer, 1, 0, num, mv);
+
+    // --- offline render capture ---
+    if (renderMode.load())
+    {
+        if (renderWriter == nullptr)
+        {
+            renderSongLen = loopLen;
+            renderTarget  = loopLen + (juce::int64) (2.0 * currentSampleRate);  // + reverb/delay tail
+            renderWritten = 0;
+            juce::WavAudioFormat fmt;
+            if (auto os = renderFile.createOutputStream())
+                renderWriter.reset (fmt.createWriterFor (os.release(), currentSampleRate, 2, 24, {}, 0));
+        }
+        if (renderWriter != nullptr && renderWritten < renderTarget)
+        {
+            const int toWrite = (int) juce::jmin ((juce::int64) num, renderTarget - renderWritten);
+            renderWriter->writeFromAudioSampleBuffer (*out, start, toWrite);
+            renderWritten += toWrite;
+            if (renderWritten >= renderSongLen) transport.setPlaying (false);   // let tails ring
+            if (renderWritten >= renderTarget)
+            {
+                renderWriter.reset();
+                renderMode = false;
+                renderFinished = true;
+            }
+        }
+    }
 }
 
 void MainComponent::releaseResources() {}
@@ -567,11 +594,28 @@ void MainComponent::openMixer()
     mixerWindow->toFront (true);
 }
 
+void MainComponent::beginRenderMode (const juce::File& out)
+{
+    renderFile = out;
+    renderFile.deleteFile();
+    transport.requestReset();
+    transport.setPlaying (true);
+    renderMode = true;
+}
+
 // ---------------------------------------------------------------------------
 // GUI
 // ---------------------------------------------------------------------------
 void MainComponent::timerCallback()
 {
+    if (renderFinished.load())
+    {
+        renderFinished = false;
+        if (auto* app = juce::JUCEApplication::getInstance())
+            app->systemRequestedQuit();
+        return;
+    }
+
     const double beats = transport.getPlayheadBeats();
     const int bar  = (int) (beats / 4.0) + 1;
     const int beat = (int) std::fmod (beats, 4.0) + 1;
