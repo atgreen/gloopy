@@ -129,6 +129,7 @@ private:
     juce::TextButton addSynthBtn   { "+ Synth" };
     juce::TextButton loadSampleBtn { "+ Sample" };
     juce::TextButton addAudioBtn   { "+ Audio" };
+    juce::TextButton loopButton    { "Loop" };
     juce::TextButton mixerButton   { "Mixer" };
 
     juce::Viewport   arrangeViewport;

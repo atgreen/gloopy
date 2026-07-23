@@ -30,6 +30,8 @@ public:
     std::function<void (int, int)> onClipSelected;
     /** A clip's content/position changed (repaint editor previews etc.). */
     std::function<void()> onChanged;
+    /** The loop region was enabled/disabled/moved from the ruler. */
+    std::function<void()> onLoopChanged;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -68,6 +70,10 @@ private:
     Drag   drag { Drag::none };
     int    dragTrack { -1 }, dragClip { -1 };
     double dragBeatOffset { 0.0 };
+
+    // Ruler drag (seek / loop region).
+    bool   rulerDrag { false }, loopDragged { false };
+    double rulerStartBeat { 0.0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ArrangeView)
 };

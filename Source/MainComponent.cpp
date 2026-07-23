@@ -115,6 +115,11 @@ MainComponent::MainComponent()
             });
     };
 
+    addAndMakeVisible (loopButton);
+    loopButton.setClickingTogglesState (true);
+    loopButton.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
+    loopButton.onClick = [this] { transport.setLoopEnabled (loopButton.getToggleState()); };
+
     addAndMakeVisible (mixerButton);
     mixerButton.onClick = [this] { openMixer(); };
 
@@ -122,6 +127,10 @@ MainComponent::MainComponent()
     arrangeView = std::make_unique<ArrangeView> (tracks, transport, engineLock);
     arrangeView->onClipSelected = [this] (int t, int c) { selectClip (t, c); };
     arrangeView->onChanged      = [this] { if (arrangeView) arrangeView->repaint(); };
+    arrangeView->onLoopChanged  = [this]
+    {
+        loopButton.setToggleState (transport.isLoopEnabled(), juce::dontSendNotification);
+    };
     arrangeViewport.setViewedComponent (arrangeView.get(), false);
     arrangeViewport.setScrollBarsShown (true, false);
     addAndMakeVisible (arrangeViewport);
@@ -341,6 +350,14 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
     const bool   playing = transport.isPlaying();
     const double spb     = transport.samplesPerBeat();
 
+    // Seek (from dragging the playhead) — applies whether playing or stopped.
+    double seekBeats = 0.0;
+    if (transport.consumeSeek (seekBeats))
+    {
+        transport.setPlayheadSamples (juce::jmax ((juce::int64) 0, (juce::int64) std::llround (seekBeats * spb)));
+        for (auto& t : tracks) if (t->generator) t->generator->allNotesOff();
+    }
+
     // Song length = furthest clip end (min 1 bar).
     double songBeats = 4.0;
     for (auto& t : tracks)
@@ -349,7 +366,17 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
     juce::int64 loopLen = (juce::int64) std::llround (songBeats * spb);
     if (loopLen < 1) loopLen = 1;
 
-    // Split the block into song-loop segments.
+    // Playback window: the loop region if enabled, else the whole song.
+    juce::int64 winStart = 0, winEnd = loopLen;
+    if (transport.isLoopEnabled() && ! renderMode.load())
+    {
+        winStart = juce::jlimit ((juce::int64) 0, loopLen,
+                                 (juce::int64) std::llround (transport.getLoopStartBeats() * spb));
+        winEnd   = (juce::int64) std::llround (transport.getLoopEndBeats() * spb);
+        if (winEnd - winStart < 1) winEnd = winStart + 1;
+    }
+
+    // Split the block into playback-window segments.
     struct Seg { juce::int64 loopStart; int chunk; int tsOffset; bool wrap; };
     std::array<Seg, 16> segs;
     int nseg = 0;
@@ -359,11 +386,13 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
         int rem = num, local = 0;
         while (rem > 0 && nseg < (int) segs.size())
         {
-            if (ph >= loopLen) ph = 0;
-            const int chunk = (int) juce::jmin ((juce::int64) rem, loopLen - ph);
-            const bool wrap = (ph + chunk >= loopLen);
+            if (ph >= winEnd) ph = winStart;
+            const juce::int64 dist = winEnd - ph;
+            if (dist < 1) break;
+            const int chunk = (int) juce::jmin ((juce::int64) rem, dist);
+            const bool wrap = (ph + chunk >= winEnd);
             segs[(size_t) nseg++] = { ph, chunk, local, wrap };
-            ph += chunk; if (ph >= loopLen) ph = 0;
+            ph += chunk; if (ph >= winEnd) ph = winStart;
             rem -= chunk; local += chunk;
         }
         transport.setPlayheadSamples (ph);
@@ -698,7 +727,8 @@ void MainComponent::resized()
     addSynthBtn  .setBounds (bar.removeFromLeft (68)); bar.removeFromLeft (6);
     loadSampleBtn.setBounds (bar.removeFromLeft (78)); bar.removeFromLeft (6);
     addAudioBtn  .setBounds (bar.removeFromLeft (72));
-    mixerButton  .setBounds (bar.removeFromRight (58));
+    mixerButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (6);
+    loopButton   .setBounds (bar.removeFromRight (54));
 
     // Arrangement | divider | editor.
     Component* comps[] = { &arrangeViewport, dividerBar.get(), &editorPanel };

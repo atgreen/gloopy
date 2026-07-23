@@ -238,7 +238,21 @@ void ArrangeView::paint (juce::Graphics& g)
         g.drawHorizontalLine (y + trackHeight, 0.0f, (float) getWidth());
     }
 
-    // Header divider + playhead.
+    // Loop region.
+    if (transport.isLoopEnabled())
+    {
+        const float lx0 = juce::jmax ((float) headerWidth, xForBeat (transport.getLoopStartBeats()));
+        const float lx1 = juce::jmax ((float) headerWidth, xForBeat (transport.getLoopEndBeats()));
+        if (lx1 > lx0)
+        {
+            g.setColour (Palette::accent.withAlpha (0.10f));
+            g.fillRect (lx0, (float) rulerHeight, lx1 - lx0, h - rulerHeight);
+            g.setColour (Palette::accent);
+            g.fillRect (lx0, 0.0f, lx1 - lx0, 4.0f);       // brace in the ruler
+        }
+    }
+
+    // Header divider + playhead (with a grab handle in the ruler).
     g.setColour (Palette::line);
     g.drawVerticalLine (headerWidth, 0.0f, h);
     const float px = xForBeat (transport.getPlayheadBeats());
@@ -246,6 +260,9 @@ void ArrangeView::paint (juce::Graphics& g)
     {
         g.setColour (Palette::playhead);
         g.drawVerticalLine ((int) px, 0.0f, h);
+        juce::Path tri;
+        tri.addTriangle (px - 5.0f, 0.0f, px + 5.0f, 0.0f, px, 8.0f);
+        g.fillPath (tri);
     }
 }
 
@@ -255,6 +272,25 @@ void ArrangeView::paint (juce::Graphics& g)
 void ArrangeView::mouseDown (const juce::MouseEvent& e)
 {
     const auto p = e.position;
+
+    // --- ruler: seek / loop region ---
+    if (p.y < rulerHeight && p.x >= headerWidth)
+    {
+        if (e.getNumberOfClicks() >= 2)   // double-click clears the loop
+        {
+            transport.setLoopEnabled (false);
+            if (onLoopChanged) onLoopChanged();
+            repaint();
+            return;
+        }
+        rulerDrag = true;
+        loopDragged = false;
+        rulerStartBeat = juce::jmax (0.0, beatForX (p.x));
+        transport.requestSeek (rulerStartBeat);
+        repaint();
+        return;
+    }
+
     const int track = trackAtY (p.y);
     if (track < 0 || p.y < rulerHeight)
         return;
@@ -326,6 +362,27 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
 
 void ArrangeView::mouseDrag (const juce::MouseEvent& e)
 {
+    if (rulerDrag)
+    {
+        const double b = juce::jmax (0.0, beatForX (e.position.x));
+        if (std::abs (b - rulerStartBeat) > 0.5)   // became a range → loop region
+        {
+            loopDragged = true;
+            double s = snapToBar (juce::jmin (rulerStartBeat, b));
+            double f = snapToBar (juce::jmax (rulerStartBeat, b));
+            if (f - s < beatsPerBar) f = s + beatsPerBar;
+            transport.setLoopRegion (s, f);
+            transport.setLoopEnabled (true);
+            if (onLoopChanged) onLoopChanged();
+        }
+        else
+        {
+            transport.requestSeek (b);   // still just scrubbing
+        }
+        repaint();
+        return;
+    }
+
     if (dragTrack < 0 || dragClip < 0)
         return;
     {
@@ -348,10 +405,11 @@ void ArrangeView::mouseUp (const juce::MouseEvent&)
 {
     drag = Drag::none;
     dragTrack = dragClip = -1;
+    rulerDrag = false;
 }
 
 void ArrangeView::timerCallback()
 {
-    if (transport.isPlaying())
-        repaint();
+    // Repaint so the playhead tracks both playback and manual seeks.
+    repaint();
 }

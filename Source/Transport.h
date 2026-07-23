@@ -39,6 +39,22 @@ public:
     void requestReset() noexcept               { resetRequested = true; }
     bool consumeReset() noexcept               { return resetRequested.exchange (false); }
 
+    /** Seek the playhead (from dragging it) to a beat position. */
+    void requestSeek (double beats) noexcept   { seekBeats = beats; seekRequested = true; }
+    bool consumeSeek (double& outBeats) noexcept
+    {
+        if (! seekRequested.exchange (false)) return false;
+        outBeats = seekBeats.load();
+        return true;
+    }
+
+    // Loop region.
+    void setLoopEnabled (bool e) noexcept          { loopEnabled = e; }
+    bool isLoopEnabled() const noexcept            { return loopEnabled.load(); }
+    void setLoopRegion (double s, double e) noexcept { loopStartBeats = s; loopEndBeats = e; }
+    double getLoopStartBeats() const noexcept      { return loopStartBeats.load(); }
+    double getLoopEndBeats() const noexcept        { return loopEndBeats.load(); }
+
     void        setPlayheadSamples (juce::int64 s) noexcept { playheadSamples = s; }
     juce::int64 getPlayheadSamples() const noexcept         { return playheadSamples.load(); }
 
@@ -56,4 +72,10 @@ private:
     std::atomic<int>         playMode       { PatternMode };
     std::atomic<bool>        resetRequested { false };
     std::atomic<juce::int64> playheadSamples { 0 };
+
+    std::atomic<bool>        seekRequested { false };
+    std::atomic<double>      seekBeats      { 0.0 };
+    std::atomic<bool>        loopEnabled    { false };
+    std::atomic<double>      loopStartBeats { 0.0 };
+    std::atomic<double>      loopEndBeats   { 16.0 };
 };
