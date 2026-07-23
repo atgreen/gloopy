@@ -37,7 +37,13 @@ sudo dnf install -y alsa-lib-devel freetype-devel libX11-devel \
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ./build/Gloopy_artefacts/Release/Gloopy
+
+# ...or open a project straight away:
+./build/Gloopy_artefacts/Release/Gloopy examples/demo-song.gloopy
 ```
+
+A complete demo track lives in [`examples/`](examples/) — open it to hear the
+sequencer, synths, samples, and mixer effects working together.
 
 JUCE is fetched automatically by CMake (`FetchContent`), pinned to `8.0.15`.
 

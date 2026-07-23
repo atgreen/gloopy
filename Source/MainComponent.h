@@ -32,6 +32,9 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    /** Open a project on startup (from the command line). */
+    void openProjectFile (const juce::File& f) { if (f.existsAsFile()) openProject (f); }
+
 private:
     struct EditorPanel : public juce::Component
     {

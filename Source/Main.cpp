@@ -11,9 +11,19 @@ public:
     const juce::String getApplicationVersion() override { return "0.1.0"; }
     bool moreThanOneInstanceAllowed() override          { return true; }
 
-    void initialise (const juce::String&) override
+    void initialise (const juce::String& commandLine) override
     {
-        mainWindow.reset (new MainWindow ("Gloopy", new MainComponent()));
+        auto* comp = new MainComponent();
+        mainWindow.reset (new MainWindow ("Gloopy", comp));
+
+        const auto arg = commandLine.trim().unquoted();
+        if (arg.isNotEmpty())
+        {
+            auto f = juce::File::isAbsolutePath (arg)
+                        ? juce::File (arg)
+                        : juce::File::getCurrentWorkingDirectory().getChildFile (arg);
+            comp->openProjectFile (f);
+        }
     }
 
     void shutdown() override { mainWindow = nullptr; }
