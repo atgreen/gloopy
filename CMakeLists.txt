@@ -17,6 +17,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
+# Enlarge the LV2 host's per-port atom buffer (default 8 KB) so plugins with a
+# large state (e.g. ZynAddSubFX) don't overflow it and spam "out of space".
+set(_gloopy_lv2impl "${juce_SOURCE_DIR}/modules/juce_audio_processors_headless/format_types/juce_LV2PluginFormatImpl.h")
+if(EXISTS "${_gloopy_lv2impl}")
+    execute_process(COMMAND sed -i
+        "s/sequenceSize = 8192/sequenceSize = 1048576/;s/initialBufferSize = 8192/initialBufferSize = 1048576/"
+        "${_gloopy_lv2impl}")
+endif()
+
 # ---------------------------------------------------------------------------
 # The application target.
 # ---------------------------------------------------------------------------
