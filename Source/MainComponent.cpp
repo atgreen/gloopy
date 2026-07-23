@@ -689,6 +689,64 @@ bool MainComponent::apiOpenPluginEditor (int trackId)
     });
 }
 
+bool MainComponent::apiRenderToFile (const juce::String& path, double tailSeconds)
+{
+    // Offline bounce. Runs on the calling (gRPC) thread and holds the engine lock
+    // for the whole render, so the live audio callback is locked out (it outputs
+    // silence) and the transport / mixer buffers are ours exclusively. Faster than
+    // real time — we pump blocks in a tight loop rather than waiting on the device.
+    juce::File f = juce::File::isAbsolutePath (path) ? juce::File (path)
+                     : juce::File::getCurrentWorkingDirectory().getChildFile (path);
+    f = f.withFileExtension ("wav");
+    f.deleteFile();
+
+    const juce::ScopedLock sl (engineLock);
+
+    const bool        wasPlaying = transport.isPlaying();
+    const juce::int64 savedHead  = transport.getPlayheadSamples();
+    auto restore = [&] { transport.setPlaying (false); transport.setPlayheadSamples (savedHead);
+                         transport.setPlaying (wasPlaying);
+                         for (auto& t : tracks) if (t->generator) t->generator->allNotesOff(); };
+
+    // Start from the top, playing, ignoring any live seek/reset or loop region.
+    double dummy; transport.consumeSeek (dummy); transport.consumeReset();
+    transport.setPlaying (true);
+    transport.setPlayheadSamples (0);
+    for (auto& t : tracks) if (t->generator) t->generator->allNotesOff();
+
+    const int    block = juce::jmax (32, currentBlockSize);
+    const double rate  = currentSampleRate;
+    const double tail  = tailSeconds > 0.0 ? tailSeconds : 2.0;
+
+    juce::WavAudioFormat fmt;
+    auto os = f.createOutputStream();
+    if (os == nullptr) { restore(); return false; }
+    std::unique_ptr<juce::AudioFormatWriter> writer (fmt.createWriterFor (os.release(), rate, 2, 24, {}, 0));
+    if (writer == nullptr) { restore(); return false; }
+
+    juce::AudioBuffer<float> buf (2, block);
+    const juce::int64 tailSamples = (juce::int64) (tail * rate);
+    juce::int64 songLen = 0, target = 0, written = 0;
+
+    for (;;)
+    {
+        buf.clear();
+        const juce::int64 loopLen = renderBlock (buf, 0, block, /*ignoreLoopWindow*/ true);
+        if (target == 0) { songLen = loopLen; target = songLen + tailSamples; }   // known after 1st block
+
+        const int toWrite = (int) juce::jmin ((juce::int64) block, target - written);
+        if (toWrite <= 0) break;
+        writer->writeFromAudioSampleBuffer (buf, 0, toWrite);
+        written += toWrite;
+        if (written >= songLen) transport.setPlaying (false);   // stop triggering notes; let tails ring
+        if (written >= target)  break;
+    }
+
+    writer.reset();   // flush + close the WAV
+    restore();
+    return true;
+}
+
 void MainComponent::setupDefaultProject()
 {
     auto makeSamplerTrack = [this] (const juce::String& name,
@@ -828,16 +886,9 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
     }
 }
 
-void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
+juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int start, int num, bool ignoreLoopWindow)
 {
-    info.clearActiveBufferRegion();
-    auto* out = info.buffer;
-    const int start = info.startSample;
-    const int num   = info.numSamples;
-
-    const juce::ScopedTryLock stl (engineLock);
-    if (! stl.isLocked())
-        return;
+    auto* out = &outBuf;
 
     if (transport.consumeReset())
     {
@@ -866,7 +917,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
 
     // Playback window: the loop region if enabled, else the whole song.
     juce::int64 winStart = 0, winEnd = loopLen;
-    if (transport.isLoopEnabled() && ! renderMode.load())
+    if (transport.isLoopEnabled() && ! ignoreLoopWindow)
     {
         winStart = juce::jlimit ((juce::int64) 0, loopLen,
                                  (juce::int64) std::llround (transport.getLoopStartBeats() * spb));
@@ -1050,7 +1101,23 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
     if (out->getNumChannels() > 0) out->addFrom (0, start, master.buffer, 0, 0, num, mv);
     if (out->getNumChannels() > 1) out->addFrom (1, start, master.buffer, 1, 0, num, mv);
 
-    // --- offline render capture ---
+    return loopLen;
+}
+
+void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
+{
+    info.clearActiveBufferRegion();
+    auto* out = info.buffer;
+    const int start = info.startSample;
+    const int num   = info.numSamples;
+
+    const juce::ScopedTryLock stl (engineLock);
+    if (! stl.isLocked())
+        return;
+
+    const juce::int64 loopLen = renderBlock (*out, start, num, renderMode.load());
+
+    // --- offline render capture (headless --render mode) ---
     if (renderMode.load())
     {
         if (renderWriter == nullptr)

@@ -90,6 +90,7 @@ message AddPluginEffectRequest { int32 insert = 1; string identifier = 2; }
 
 // ── project / state ────────────────────────────────────────
 message FilePath { string path = 1; }
+message RenderRequest { string path = 1; double tail_seconds = 2; }   // offline bounce to WAV
 message ProjectState {
   TransportState transport = 1;
   repeated TrackInfo   tracks  = 2;
@@ -151,6 +152,7 @@ service Gloopy {
   rpc NewProject (Empty)    returns (Ack);
   rpc LoadProject(FilePath) returns (Ack);
   rpc SaveProject(FilePath) returns (Ack);
+  rpc RenderToFile(RenderRequest) returns (Ack);   // offline bounce to WAV
 
   // events (playhead, meters) — closed-loop control
   rpc Subscribe  (SubscribeRequest) returns (stream Event);

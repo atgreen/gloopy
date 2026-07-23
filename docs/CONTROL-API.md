@@ -114,6 +114,7 @@ service Gloopy {
   rpc NewProject(Empty) returns (Ack);
   rpc LoadProject(FilePath) returns (Ack);
   rpc SaveProject(FilePath) returns (Ack);
+  rpc RenderToFile(RenderRequest) returns (Ack);       // offline bounce to WAV
 
   // events (playhead, meters) — closed-loop control
   rpc Subscribe(SubscribeRequest) returns (stream Event);
@@ -123,6 +124,11 @@ service Gloopy {
 Hosted plugins are addressed by the stable `identifier` string returned by
 `ListPlugins` / `ScanPlugins` (JUCE's `PluginDescription::createIdentifierString`);
 pass it to `AddPluginTrack` / `AddPluginEffect`.
+
+`RenderToFile` bounces the whole song (plus a reverb/delay tail) to a 24-bit WAV
+**offline** — it holds the engine lock and pumps blocks faster than real time
+(~20× on the demo song), so the call blocks until the file is written but does
+not disturb the live transport or playback state.
 
 ## Security
 

@@ -194,6 +194,10 @@ namespace
         Status SaveProject (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
         { r->set_ok (main.apiSaveProject (js (q->path()))); return Status::OK; }
 
+        Status RenderToFile (ServerContext*, const pb::RenderRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiRenderToFile (js (q->path()), q->tail_seconds());
+          r->set_ok (ok); if (! ok) r->set_error ("render failed"); return Status::OK; }
+
         // ---- track & clip management ----
         Status RemoveTrack (ServerContext*, const pb::TrackId* q, pb::Ack* r) override
         { const bool ok = main.apiRemoveTrack (q->id()); r->set_ok (ok); if (! ok) r->set_error ("track not found"); return Status::OK; }

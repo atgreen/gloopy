@@ -36,6 +36,11 @@ public:
     void getNextAudioBlock (const juce::AudioSourceChannelInfo&) override;
     void releaseResources() override;
 
+    /** Mix one block (transport → tracks → inserts → master → @p outBuf) and
+        return the song length in samples. Shared by the live callback and the
+        offline renderer; caller must hold the engine lock. */
+    juce::int64 renderBlock (juce::AudioBuffer<float>& outBuf, int start, int num, bool ignoreLoopWindow);
+
     void paint (juce::Graphics&) override;
     void resized() override;
 
@@ -95,6 +100,7 @@ public:
     std::vector<PluginSnap> apiListPlugins();
     int  apiAddPluginEffect (int insert, const juce::String& identifier);   // slot, or -1
     bool apiOpenPluginEditor (int trackId);
+    bool apiRenderToFile (const juce::String& path, double tailSeconds);     // offline bounce
 
 private:
     struct EditorPanel : public juce::Component
