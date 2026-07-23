@@ -115,6 +115,9 @@ MainComponent::MainComponent()
             });
     };
 
+    addAndMakeVisible (addPluginBtn);
+    addPluginBtn.onClick = [this] { showAddPluginMenu(); };
+
     addAndMakeVisible (loopButton);
     loopButton.setClickingTogglesState (true);
     loopButton.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
@@ -156,6 +159,11 @@ MainComponent::MainComponent()
     setupMixer();
     mixerView = std::make_unique<MixerView> (mixerTracks, engineLock,
                     [this] (const juce::String& t) { return makeEffect (t); });
+    mixerView->ensurePlugins        = [this] { scanPlugins(); };
+    mixerView->getEffectPlugins     = [this] { return pluginHost.plugins (false); };
+    mixerView->makePluginEffect     = [this] (const juce::PluginDescription& d) { return makePluginEffect (d); };
+    mixerView->onOpenPluginEditor   = [this] (juce::AudioProcessor* p, const juce::String& n) { openPluginEditor (p, n); };
+    mixerView->onBeforeStructuralChange = [this] { closeAllPluginWindows(); };
 
     setupDefaultProject();
 
@@ -167,6 +175,7 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
     stopTimer();
+    pluginWindows.clear();       // delete plugin editors before their processors
     mixerWindow = nullptr;
     juce::Desktop::getInstance().setDefaultLookAndFeel (nullptr);
     setLookAndFeel (nullptr);
@@ -632,6 +641,87 @@ void MainComponent::beginRenderMode (const juce::File& out)
     renderMode = true;
 }
 
+// ===========================================================================
+// Plugins
+// ===========================================================================
+void MainComponent::scanPlugins()
+{
+    if (pluginsScanned) return;
+    pluginsScanned = true;
+    pluginHost.scanAll();
+}
+
+void MainComponent::showAddPluginMenu()
+{
+    scanPlugins();
+    const auto instruments = pluginHost.plugins (true);
+
+    juce::PopupMenu menu;
+    if (instruments.isEmpty())
+        menu.addItem (1, "No instrument plugins found", false);
+    else
+        for (int i = 0; i < instruments.size(); ++i)
+            menu.addItem (100 + i, instruments[i].name + "  (" + instruments[i].pluginFormatName + ")");
+    menu.addSeparator();
+    menu.addItem (2, "Rescan plugins");
+
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (addPluginBtn),
+        [this, instruments] (int r)
+        {
+            if (r == 2) { pluginsScanned = false; scanPlugins(); }
+            else if (r >= 100 && r - 100 < instruments.size())
+                createInstrumentTrack (instruments[r - 100]);
+        });
+}
+
+void MainComponent::createInstrumentTrack (const juce::PluginDescription& desc)
+{
+    juce::String err;
+    auto inst = pluginHost.create (desc, currentSampleRate, currentBlockSize, err);
+    if (inst == nullptr) return;
+    auto gen = std::make_unique<PluginInstrument> (std::move (inst));
+    addTrack (std::make_unique<Track> (desc.name, std::move (gen), 60,
+                                       paletteColour ((int) tracks.size())));
+}
+
+std::unique_ptr<Effect> MainComponent::makePluginEffect (const juce::PluginDescription& desc)
+{
+    juce::String err;
+    auto inst = pluginHost.create (desc, currentSampleRate, currentBlockSize, err);
+    if (inst == nullptr) return nullptr;
+    auto fx = std::make_unique<PluginEffect> (std::move (inst));
+    fx->prepare (currentSampleRate, currentBlockSize, 2);
+    return fx;
+}
+
+void MainComponent::openPluginEditor (juce::AudioProcessor* p, const juce::String& title)
+{
+    if (p == nullptr) return;
+
+    struct EditorWindow : public juce::DocumentWindow
+    {
+        EditorWindow (const juce::String& n)
+            : DocumentWindow (n, Palette::bg, DocumentWindow::closeButton) { setUsingNativeTitleBar (true); }
+        std::function<void()> onClose;
+        void closeButtonPressed() override { if (onClose) onClose(); }
+    };
+
+    auto* editor = new juce::GenericAudioProcessorEditor (*p);
+    auto* w = new EditorWindow (title);
+    w->setContentOwned (editor, true);
+    w->setResizable (true, false);
+    w->centreWithSize (juce::jmax (380, editor->getWidth()),
+                       juce::jlimit (300, 720, editor->getHeight() > 0 ? editor->getHeight() : 480));
+    w->onClose = [this, w] { juce::MessageManager::callAsync ([this, w] { pluginWindows.removeObject (w); }); };
+    w->setVisible (true);
+    pluginWindows.add (w);
+}
+
+void MainComponent::closeAllPluginWindows()
+{
+    pluginWindows.clear();
+}
+
 // ---------------------------------------------------------------------------
 // GUI
 // ---------------------------------------------------------------------------
@@ -724,9 +814,10 @@ void MainComponent::resized()
     }
     bar.removeFromLeft (14);
 
-    addSynthBtn  .setBounds (bar.removeFromLeft (68)); bar.removeFromLeft (6);
-    loadSampleBtn.setBounds (bar.removeFromLeft (78)); bar.removeFromLeft (6);
-    addAudioBtn  .setBounds (bar.removeFromLeft (72));
+    addSynthBtn  .setBounds (bar.removeFromLeft (64)); bar.removeFromLeft (5);
+    loadSampleBtn.setBounds (bar.removeFromLeft (74)); bar.removeFromLeft (5);
+    addAudioBtn  .setBounds (bar.removeFromLeft (68)); bar.removeFromLeft (5);
+    addPluginBtn .setBounds (bar.removeFromLeft (72));
     mixerButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (6);
     loopButton   .setBounds (bar.removeFromRight (54));
 
@@ -750,6 +841,8 @@ void MainComponent::showFileMenu()
     menu.addItem (2, "Open...");
     menu.addItem (3, "Save", currentProjectFile != juce::File());
     menu.addItem (4, "Save As...");
+    menu.addSeparator();
+    menu.addItem (5, "Rescan Plugins");
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
         [this] (int result)
         {
@@ -760,6 +853,7 @@ void MainComponent::showFileMenu()
                 fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
                     [this] (const juce::FileChooser& fc) { if (fc.getResult().existsAsFile()) openProject (fc.getResult()); });
             }
+            else if (result == 5) { pluginsScanned = false; scanPlugins(); }
             else if (result == 3) saveProject (currentProjectFile);
             else if (result == 4)
             {
@@ -774,6 +868,7 @@ void MainComponent::showFileMenu()
 
 void MainComponent::newProject()
 {
+    closeAllPluginWindows();
     {
         const juce::ScopedLock sl (engineLock);
         transport.setPlaying (false);
@@ -836,6 +931,19 @@ juce::ValueTree MainComponent::toValueTree()
             s.setProperty ("data", juce::Base64::toBase64 (mb.getData(), mb.getSize()), nullptr);
             tr.addChild (s, -1, nullptr);
         }
+        else if (auto* proc = t->generator->getPluginInstance())
+        {
+            juce::ValueTree pv ("PLUGIN");
+            if (auto* inst = dynamic_cast<juce::AudioPluginInstance*> (proc))
+            {
+                juce::PluginDescription d;
+                inst->fillInPluginDescription (d);
+                if (auto xml = d.createXml()) pv.setProperty ("pdesc", xml->toString(), nullptr);
+            }
+            juce::MemoryBlock st; proc->getStateInformation (st);
+            pv.setProperty ("pstate", st.toBase64Encoding(), nullptr);
+            tr.addChild (pv, -1, nullptr);
+        }
 
         for (auto& c : t->clips)
         {
@@ -890,14 +998,29 @@ juce::ValueTree MainComponent::toValueTree()
         for (auto& fx : mt->effects)
         {
             juce::ValueTree f ("FX");
-            f.setProperty ("type", fx->name(), nullptr);
             f.setProperty ("bypass", fx->bypassed.load(), nullptr);
-            for (auto& pr : fx->parameters())
+            if (auto* proc = fx->getPluginInstance())
             {
-                juce::ValueTree pv ("PARAM");
-                pv.setProperty ("name", pr.name, nullptr);
-                pv.setProperty ("value", pr.get(), nullptr);
-                f.addChild (pv, -1, nullptr);
+                f.setProperty ("type", "Plugin", nullptr);
+                if (auto* inst = dynamic_cast<juce::AudioPluginInstance*> (proc))
+                {
+                    juce::PluginDescription d;
+                    inst->fillInPluginDescription (d);
+                    if (auto xml = d.createXml()) f.setProperty ("pdesc", xml->toString(), nullptr);
+                }
+                juce::MemoryBlock st; proc->getStateInformation (st);
+                f.setProperty ("pstate", st.toBase64Encoding(), nullptr);
+            }
+            else
+            {
+                f.setProperty ("type", fx->name(), nullptr);
+                for (auto& pr : fx->parameters())
+                {
+                    juce::ValueTree pv ("PARAM");
+                    pv.setProperty ("name", pr.name, nullptr);
+                    pv.setProperty ("value", pr.get(), nullptr);
+                    f.addChild (pv, -1, nullptr);
+                }
             }
             t.addChild (f, -1, nullptr);
         }
@@ -931,6 +1054,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
 {
     if (! root.hasType ("GLOOPY")) return;
 
+    closeAllPluginWindows();
     const juce::ScopedLock sl (engineLock);
     transport.setPlaying (false);
     tracks.clear();
@@ -947,6 +1071,19 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
         if (ttype == (int) TrackType::Audio)
         {
             gen = nullptr;   // audio track has no generator
+        }
+        else if (genType == "Plugin")
+        {
+            auto pv = tr.getChildWithName ("PLUGIN");
+            juce::PluginDescription d;
+            if (auto xml = juce::parseXML (pv.getProperty ("pdesc").toString())) d.loadFromXml (*xml);
+            juce::String err;
+            if (auto inst = pluginHost.create (d, currentSampleRate, currentBlockSize, err))
+            {
+                juce::MemoryBlock st; st.fromBase64Encoding (pv.getProperty ("pstate").toString());
+                if (st.getSize() > 0) inst->setStateInformation (st.getData(), (int) st.getSize());
+                gen = std::make_unique<PluginInstrument> (std::move (inst));
+            }
         }
         else if (genType == "Synth")
         {
@@ -1058,16 +1195,37 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             for (int f = 0; f < tv.getNumChildren(); ++f)
             {
                 auto ft = tv.getChild (f);
-                auto fx = makeEffect (ft.getProperty ("type", "Gain").toString());
+                const juce::String ftype = ft.getProperty ("type", "Gain").toString();
+                std::unique_ptr<Effect> fx;
+
+                if (ftype == "Plugin")
+                {
+                    juce::PluginDescription d;
+                    if (auto xml = juce::parseXML (ft.getProperty ("pdesc").toString())) d.loadFromXml (*xml);
+                    fx = makePluginEffect (d);
+                    if (fx != nullptr)
+                    {
+                        juce::MemoryBlock st; st.fromBase64Encoding (ft.getProperty ("pstate").toString());
+                        if (st.getSize() > 0 && fx->getPluginInstance() != nullptr)
+                            fx->getPluginInstance()->setStateInformation (st.getData(), (int) st.getSize());
+                    }
+                }
+                else
+                {
+                    fx = makeEffect (ftype);
+                    if (fx != nullptr)
+                    {
+                        auto params = fx->parameters();
+                        for (int pv = 0; pv < ft.getNumChildren(); ++pv)
+                        {
+                            const juce::String nm = ft.getChild (pv).getProperty ("name", "").toString();
+                            const float val = (float) (double) ft.getChild (pv).getProperty ("value", 0.0);
+                            for (auto& pr : params) if (pr.name == nm) { pr.set (val); break; }
+                        }
+                    }
+                }
                 if (fx == nullptr) continue;
                 fx->bypassed.store ((bool) ft.getProperty ("bypass", false));
-                auto params = fx->parameters();
-                for (int pv = 0; pv < ft.getNumChildren(); ++pv)
-                {
-                    const juce::String nm = ft.getChild (pv).getProperty ("name", "").toString();
-                    const float val = (float) (double) ft.getChild (pv).getProperty ("value", 0.0);
-                    for (auto& pr : params) if (pr.name == nm) { pr.set (val); break; }
-                }
                 mt->effects.push_back (std::move (fx));
             }
             mixerTracks.push_back (std::move (mt));

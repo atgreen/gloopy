@@ -133,6 +133,7 @@ MixerView::MixerView (std::vector<std::unique_ptr<MixerTrack>>& tracksRef,
     removeButton.onClick = [this]
     {
         if (selectedTrack < 0) return;
+        if (onBeforeStructuralChange) onBeforeStructuralChange();   // close any plugin editors
         {
             const juce::ScopedLock sl (engineLock);
             auto& fx = tracks[(size_t) selectedTrack]->effects;
@@ -143,6 +144,24 @@ MixerView::MixerView (std::vector<std::unique_ptr<MixerTrack>>& tracksRef,
         rebuildEditor();
     };
     addChildComponent (removeButton);
+
+    openEditorButton.onClick = [this]
+    {
+        if (selectedTrack < 0 || onOpenPluginEditor == nullptr) return;
+        juce::AudioProcessor* proc = nullptr;
+        juce::String name;
+        {
+            const juce::ScopedLock sl (engineLock);
+            auto& fx = tracks[(size_t) selectedTrack]->effects;
+            if (juce::isPositiveAndBelow (selectedEffect, (int) fx.size()))
+            {
+                proc = fx[(size_t) selectedEffect]->getPluginInstance();
+                name = fx[(size_t) selectedEffect]->name();
+            }
+        }
+        if (proc != nullptr) onOpenPluginEditor (proc, name);
+    };
+    addChildComponent (openEditorButton);
 
     rebuild();
     startTimerHz (24);
@@ -172,11 +191,21 @@ void MixerView::showFxMenu (int trackIndex)
     if (! juce::isPositiveAndBelow (trackIndex, (int) tracks.size()))
         return;
 
-    juce::PopupMenu menu, addMenu;
+    if (ensurePlugins) ensurePlugins();
+    const auto pluginList = getEffectPlugins ? getEffectPlugins() : juce::Array<juce::PluginDescription>();
+
+    juce::PopupMenu menu, addMenu, pluginMenu;
     const auto types = EffectFactory::types();
     for (int t = 0; t < types.size(); ++t)
         addMenu.addItem (1000 + t, types[t]);
     menu.addSubMenu ("Add effect", addMenu);
+
+    if (! pluginList.isEmpty())
+    {
+        for (int i = 0; i < pluginList.size(); ++i)
+            pluginMenu.addItem (2000 + i, pluginList[i].name + "  (" + pluginList[i].pluginFormatName + ")");
+        menu.addSubMenu ("Add plugin", pluginMenu);
+    }
 
     {
         const juce::ScopedLock sl (engineLock);
@@ -191,25 +220,32 @@ void MixerView::showFxMenu (int trackIndex)
     }
 
     menu.showMenuAsync (juce::PopupMenu::Options(),
-        [this, trackIndex, types] (int result)
+        [this, trackIndex, types, pluginList] (int result)
         {
             if (result == 0) return;
-            if (result >= 1000)
+            std::unique_ptr<Effect> fx;
+            if (result >= 2000 && result - 2000 < pluginList.size())
             {
-                auto fx = makeEffect (types[result - 1000]);
-                if (fx == nullptr) return;
-                int newIndex = -1;
-                {
-                    const juce::ScopedLock sl (engineLock);
-                    tracks[(size_t) trackIndex]->effects.push_back (std::move (fx));
-                    newIndex = (int) tracks[(size_t) trackIndex]->effects.size() - 1;
-                }
-                selectEffect (trackIndex, newIndex);
+                if (makePluginEffect) fx = makePluginEffect (pluginList[result - 2000]);
+            }
+            else if (result >= 1000)
+            {
+                fx = makeEffect (types[result - 1000]);
             }
             else if (result >= 100)
             {
                 selectEffect (trackIndex, result - 100);
+                return;
             }
+
+            if (fx == nullptr) return;
+            int newIndex = -1;
+            {
+                const juce::ScopedLock sl (engineLock);
+                tracks[(size_t) trackIndex]->effects.push_back (std::move (fx));
+                newIndex = (int) tracks[(size_t) trackIndex]->effects.size() - 1;
+            }
+            selectEffect (trackIndex, newIndex);
         });
 }
 
@@ -239,6 +275,7 @@ void MixerView::rebuildEditor()
         editorTitle.setText ("Select a track's FX to edit", juce::dontSendNotification);
         bypassButton.setVisible (false);
         removeButton.setVisible (false);
+        openEditorButton.setVisible (false);
         resized();
         return;
     }
@@ -248,6 +285,7 @@ void MixerView::rebuildEditor()
     bypassButton.setVisible (true);
     bypassButton.setToggleState (fx->bypassed.load(), juce::dontSendNotification);
     removeButton.setVisible (true);
+    openEditorButton.setVisible (fx->getPluginInstance() != nullptr);
 
     for (auto& p : fx->parameters())
     {
@@ -294,9 +332,10 @@ void MixerView::resized()
         strips[(size_t) i]->setBounds (i * stripWidth, 0, stripWidth, stripHolder.getHeight());
 
     auto top = editor.removeFromTop (20);
-    editorTitle.setBounds (top.removeFromLeft (260));
+    editorTitle.setBounds (top.removeFromLeft (240));
     removeButton.setBounds (top.removeFromRight (70));
     bypassButton.setBounds (top.removeFromRight (76).withTrimmedRight (6));
+    openEditorButton.setBounds (top.removeFromRight (86).withTrimmedRight (6));
 
     editor.removeFromTop (4);
     for (int i = 0; i < (int) paramSliders.size(); ++i)

@@ -23,6 +23,13 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    // Plugin hooks (wired by the owner).
+    std::function<void()>                                       ensurePlugins;
+    std::function<juce::Array<juce::PluginDescription>()>       getEffectPlugins;
+    std::function<std::unique_ptr<Effect> (const juce::PluginDescription&)> makePluginEffect;
+    std::function<void (juce::AudioProcessor*, const juce::String&)> onOpenPluginEditor;
+    std::function<void()>                                       onBeforeStructuralChange;
+
 private:
     class Strip;   // fwd
 
@@ -46,6 +53,7 @@ private:
     juce::Label      editorTitle;
     juce::TextButton bypassButton { "Bypass" };
     juce::TextButton removeButton { "Remove" };
+    juce::TextButton openEditorButton { "Plugin UI" };
     std::vector<std::unique_ptr<juce::Slider>> paramSliders;
     std::vector<std::unique_ptr<juce::Label>>  paramLabels;
 

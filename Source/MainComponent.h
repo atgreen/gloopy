@@ -14,6 +14,8 @@
 #include "MixerView.h"
 #include "Effects.h"
 #include "PluginHost.h"
+#include "PluginInstrument.h"
+#include "PluginEffect.h"
 #include "Palette.h"
 #include "GloopyLookAndFeel.h"
 
@@ -95,6 +97,14 @@ private:
     std::unique_ptr<Effect> makeEffect (const juce::String& type);
     juce::Colour paletteColour (int index) const;
 
+    // Plugins.
+    void scanPlugins();
+    void showAddPluginMenu();
+    void createInstrumentTrack (const juce::PluginDescription&);
+    std::unique_ptr<Effect> makePluginEffect (const juce::PluginDescription&);
+    void openPluginEditor (juce::AudioProcessor*, const juce::String& title);
+    void closeAllPluginWindows();
+
     // Project I/O.
     void showFileMenu();
     void newProject();
@@ -131,8 +141,12 @@ private:
     juce::TextButton addSynthBtn   { "+ Synth" };
     juce::TextButton loadSampleBtn { "+ Sample" };
     juce::TextButton addAudioBtn   { "+ Audio" };
+    juce::TextButton addPluginBtn  { "+ Plugin" };
     juce::TextButton loopButton    { "Loop" };
     juce::TextButton mixerButton   { "Mixer" };
+
+    juce::OwnedArray<juce::DocumentWindow> pluginWindows;
+    bool pluginsScanned { false };
 
     juce::Viewport   arrangeViewport;
     std::unique_ptr<ArrangeView> arrangeView;

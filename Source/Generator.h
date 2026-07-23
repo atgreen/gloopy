@@ -20,4 +20,7 @@ public:
     virtual void allNotesOff() = 0;
 
     virtual juce::String typeName() const = 0;
+
+    /** Non-null for hosted plugins, so the UI can open their editor. */
+    virtual juce::AudioProcessor* getPluginInstance() { return nullptr; }
 };

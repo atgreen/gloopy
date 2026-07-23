@@ -28,5 +28,8 @@ public:
     virtual juce::String name() const = 0;
     virtual std::vector<EffectParam> parameters() = 0;
 
+    /** Non-null for hosted plugins, so the UI can open their editor. */
+    virtual juce::AudioProcessor* getPluginInstance() { return nullptr; }
+
     std::atomic<bool> bypassed { false };
 };

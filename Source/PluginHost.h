@@ -40,4 +40,13 @@ public:
     {
         return formatManager.createPluginInstance (desc, sampleRate, blockSize, error);
     }
+
+    juce::Array<juce::PluginDescription> plugins (bool instrumentsOnly) const
+    {
+        juce::Array<juce::PluginDescription> out;
+        for (const auto& d : knownList.getTypes())
+            if (d.isInstrument == instrumentsOnly)
+                out.add (d);
+        return out;
+    }
 };
