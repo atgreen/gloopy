@@ -98,7 +98,7 @@ private:
     juce::Colour paletteColour (int index) const;
 
     // Plugins.
-    void scanPlugins();
+    void scanPlugins (bool force = false);
     void showAddPluginMenu();
     void createInstrumentTrack (const juce::PluginDescription&);
     std::unique_ptr<Effect> makePluginEffect (const juce::PluginDescription&);

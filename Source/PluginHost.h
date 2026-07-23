@@ -21,7 +21,7 @@ public:
         return names;
     }
 
-    /** Scan the default locations for every enabled format. */
+    /** Scan the default locations for every enabled format, then cache the list. */
     void scanAll (std::function<void (const juce::String&)> onProgress = {})
     {
         for (auto* fmt : formatManager.getFormats())
@@ -32,6 +32,32 @@ public:
             while (scanner.scanNextFile (true, name))
                 if (onProgress) onProgress (name);
         }
+        saveCache();
+    }
+
+    juce::File cacheFile() const
+    {
+        return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                    .getChildFile ("Gloopy").getChildFile ("plugins.xml");
+    }
+
+    /** Restore a previously scanned list (instant); returns true if it had entries. */
+    bool loadCache()
+    {
+        if (auto xml = juce::parseXML (cacheFile()))
+        {
+            knownList.recreateFromXml (*xml);
+            return knownList.getNumTypes() > 0;
+        }
+        return false;
+    }
+
+    void saveCache()
+    {
+        auto f = cacheFile();
+        f.getParentDirectory().createDirectory();
+        if (auto xml = knownList.createXml())
+            xml->writeTo (f);
     }
 
     std::unique_ptr<juce::AudioPluginInstance> create (const juce::PluginDescription& desc,

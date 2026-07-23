@@ -650,11 +650,12 @@ void MainComponent::beginRenderMode (const juce::File& out)
 // ===========================================================================
 // Plugins
 // ===========================================================================
-void MainComponent::scanPlugins()
+void MainComponent::scanPlugins (bool force)
 {
-    if (pluginsScanned) return;
+    if (! force && pluginsScanned) return;
     pluginsScanned = true;
-    pluginHost.scanAll();
+    if (! force && pluginHost.loadCache()) return;   // instant restore from cache
+    pluginHost.scanAll();                             // slow full scan, then caches
 }
 
 void MainComponent::showAddPluginMenu()
@@ -674,7 +675,7 @@ void MainComponent::showAddPluginMenu()
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (addPluginBtn),
         [this, instruments] (int r)
         {
-            if (r == 2) { pluginsScanned = false; scanPlugins(); }
+            if (r == 2) { scanPlugins (true); }
             else if (r >= 100 && r - 100 < instruments.size())
                 createInstrumentTrack (instruments[r - 100]);
         });
@@ -887,7 +888,7 @@ void MainComponent::showFileMenu()
                 fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
                     [this] (const juce::FileChooser& fc) { if (fc.getResult().existsAsFile()) openProject (fc.getResult()); });
             }
-            else if (result == 5) { pluginsScanned = false; scanPlugins(); }
+            else if (result == 5) { scanPlugins (true); }
             else if (result == 3) saveProject (currentProjectFile);
             else if (result == 4)
             {
