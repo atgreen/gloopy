@@ -13,6 +13,7 @@
 #include "MixerTrack.h"
 #include "MixerView.h"
 #include "Effects.h"
+#include "PluginHost.h"
 #include "Palette.h"
 #include "GloopyLookAndFeel.h"
 
@@ -111,6 +112,7 @@ private:
     std::vector<std::unique_ptr<MixerTrack>> mixerTracks;
 
     juce::AudioFormatManager formatManager;
+    PluginHost pluginHost;
     double currentSampleRate { 44100.0 };
     int    currentBlockSize  { 512 };
     juce::AudioBuffer<float> mixBuffer;
