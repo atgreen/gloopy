@@ -1,4 +1,5 @@
 #include "PlaylistView.h"
+#include "Palette.h"
 #include <cmath>
 
 PlaylistView::PlaylistView (std::vector<PlaylistClip>& clipsRef,
@@ -56,24 +57,24 @@ int PlaylistView::clipIndexAt (juce::Point<float> p) const
 void PlaylistView::paint (juce::Graphics& g)
 {
     const auto w = (float) getWidth();
-    g.fillAll (juce::Colour (0xff1a1a1e));
+    g.fillAll (Palette::inset);
 
     const int bars = numBars();
     const float bw = barWidth();
 
     // Ruler + bar lines.
-    g.setColour (juce::Colour (0xff242429));
+    g.setColour (Palette::header);
     g.fillRect (0.0f, 0.0f, w, (float) rulerHeight);
     for (int b = 0; b <= bars; ++b)
     {
         const float x = gutter + b * bw;
-        g.setColour (juce::Colour (0xff33333c));
+        g.setColour (Palette::line);
         g.drawVerticalLine ((int) x, 0.0f, (float) getHeight());
         if (b < bars)
         {
-            g.setColour (juce::Colour (0xff70707c));
-            g.setFont (juce::FontOptions (10.0f));
-            g.drawText (juce::String (b + 1), (int) x + 3, 2, 30, rulerHeight - 4,
+            g.setColour (Palette::textDim);
+            g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+            g.drawText (juce::String (b + 1), (int) x + 4, 2, 30, rulerHeight - 4,
                         juce::Justification::centredLeft, false);
         }
     }
@@ -82,15 +83,18 @@ void PlaylistView::paint (juce::Graphics& g)
     for (int t = 0; t < kNumTracks; ++t)
     {
         const float y = yForTrack (t);
-        g.setColour ((t % 2 == 0) ? juce::Colour (0xff1d1d22) : juce::Colour (0xff202026));
+        g.setColour ((t % 2 == 0) ? Palette::panel : Palette::panelAlt);
         g.fillRect (0.0f, y, w, (float) trackHeight);
-        g.setColour (juce::Colour (0xff55555f));
-        g.setFont (juce::FontOptions (11.0f));
+        g.setColour (Palette::textDim);
+        g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
         g.drawText (juce::String (t + 1), 6, (int) y, gutter - 10, trackHeight,
                     juce::Justification::centred, false);
-        g.setColour (juce::Colour (0xff141417));
+        g.setColour (Palette::lineSoft);
         g.drawHorizontalLine ((int) (y + trackHeight), 0.0f, w);
     }
+    // Gutter divider.
+    g.setColour (Palette::line);
+    g.drawVerticalLine (gutter, 0.0f, (float) getHeight());
 
     // Clips.
     for (int i = 0; i < (int) clips.size(); ++i)
@@ -105,30 +109,32 @@ void PlaylistView::paint (juce::Graphics& g)
                                   (float) trackHeight - 4.0f);
         g.setColour (p.colour);
         g.fillRoundedRectangle (r, 3.0f);
+        g.setColour (juce::Colours::white.withAlpha (0.16f));   // top sheen
+        g.fillRoundedRectangle (r.withTrimmedBottom (r.getHeight() * 0.6f), 3.0f);
 
         // Repetition dividers (one per pattern length).
         const double repBeats = juce::jmax (1, p.getLengthBeats());
         for (double b = c.startBeat + repBeats; b < c.startBeat + c.lengthBeats - 0.001; b += repBeats)
         {
             const float x = xForBeat (b);
-            g.setColour (juce::Colours::black.withAlpha (0.25f));
+            g.setColour (juce::Colours::black.withAlpha (0.28f));
             g.drawVerticalLine ((int) x, r.getY(), r.getBottom());
         }
 
         g.setColour ((i == selectedClip) ? juce::Colours::white
-                                         : juce::Colours::black.withAlpha (0.5f));
+                                         : juce::Colours::black.withAlpha (0.45f));
         g.drawRoundedRectangle (r, 3.0f, (i == selectedClip) ? 2.0f : 1.0f);
 
-        g.setColour (juce::Colours::black.withAlpha (0.8f));
+        g.setColour (juce::Colours::black.withAlpha (0.85f));
         g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
-        g.drawText (p.name, r.reduced (5.0f, 0.0f), juce::Justification::centredLeft, true);
+        g.drawText (p.name, r.reduced (6.0f, 0.0f), juce::Justification::centredLeft, true);
     }
 
     // Song playhead.
     if (transport.isSongMode())
     {
         const float px = xForBeat (transport.getPlayheadBeats());
-        g.setColour (juce::Colour (0xffff5d5d));
+        g.setColour (Palette::playhead);
         g.drawVerticalLine ((int) px, 0.0f, (float) getHeight());
     }
 }

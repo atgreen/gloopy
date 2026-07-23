@@ -8,6 +8,9 @@
 
 MainComponent::MainComponent()
 {
+    setLookAndFeel (&lookAndFeel);
+    juce::Desktop::getInstance().setDefaultLookAndFeel (&lookAndFeel);
+
     formatManager.registerBasicFormats();
 
     // Start with one 16-step (4-beat) pattern.
@@ -93,9 +96,9 @@ MainComponent::MainComponent()
     bpmSlider.onValueChange = [this] { transport.setBpm (bpmSlider.getValue()); };
 
     addAndMakeVisible (posLabel);
-    posLabel.setJustificationType (juce::Justification::centredLeft);
-    posLabel.setFont (juce::FontOptions (16.0f, juce::Font::bold));
-    posLabel.setColour (juce::Label::textColourId, juce::Colour (0xffb0b0c0));
+    posLabel.setJustificationType (juce::Justification::centred);
+    posLabel.setFont (juce::FontOptions (17.0f, juce::Font::bold));
+    posLabel.setColour (juce::Label::textColourId, Palette::accent);
 
     // ---- pattern selector ----
     addAndMakeVisible (patternBox);
@@ -139,7 +142,7 @@ MainComponent::MainComponent()
     // ---- piano roll panel ----
     addAndMakeVisible (pianoPanel);
     pianoPanel.roll.setEnabledEditing (false);
-    pianoPanel.title.setText ("Piano Roll", juce::dontSendNotification);
+    pianoPanel.title.setText ("PIANO ROLL", juce::dontSendNotification);
     pianoPanel.roll.onNotesChanged = [this] { writeBackPianoRoll(); };
 
     // ---- playlist ----
@@ -176,6 +179,8 @@ MainComponent::~MainComponent()
 {
     stopTimer();
     mixerWindow = nullptr;   // release window before its non-owned content (mixerView)
+    juce::Desktop::getInstance().setDefaultLookAndFeel (nullptr);
+    setLookAndFeel (nullptr);
     shutdownAudio();
 }
 
@@ -689,7 +694,7 @@ void MainComponent::refreshUiAfterLoad()
     pianoRollChannel = -1;
     pianoPanel.roll.setEnabledEditing (false);
     pianoPanel.roll.loadNotes ({});
-    pianoPanel.title.setText ("Piano Roll", juce::dontSendNotification);
+    pianoPanel.title.setText ("PIANO ROLL", juce::dontSendNotification);
 
     if (rackView) { rackView->setSelectedChannel (-1); rackView->rebuild(); }
     if (mixerView) mixerView->rebuild();
@@ -756,7 +761,7 @@ void MainComponent::openPianoRollFor (int channel)
         return;
 
     pianoRollChannel = channel;
-    pianoPanel.title.setText ("Piano Roll  —  " + channels[(size_t) channel]->name,
+    pianoPanel.title.setText ("PIANO ROLL   \xe2\x80\xa2   " + channels[(size_t) channel]->name.toUpperCase(),
                               juce::dontSendNotification);
     pianoPanel.roll.setEnabledEditing (true);
     {
@@ -1011,27 +1016,71 @@ void MainComponent::timerCallback()
 
 void MainComponent::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour (0xff141417));
+    g.fillAll (Palette::bg);
+
+    // Toolbar strip.
+    g.setColour (Palette::panel);
+    g.fillRect (toolbarBounds);
+    g.setColour (Palette::line);
+    g.fillRect (toolbarBounds.getX(), toolbarBounds.getBottom() - 1, toolbarBounds.getWidth(), 1);
+
+    // Wordmark.
+    g.setColour (Palette::accent);
+    g.fillRoundedRectangle (juce::Rectangle<float> (10.0f, (float) toolbarBounds.getCentreY() - 9.0f, 4.0f, 18.0f), 2.0f);
+    g.setColour (Palette::textBright);
+    g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)).withExtraKerningFactor (0.15f));
+    g.drawText ("GLOOPY", 20, toolbarBounds.getY(), 92, toolbarBounds.getHeight(),
+                juce::Justification::centredLeft, false);
+
+    // Inset transport display behind the position readout.
+    if (! displayBounds.isEmpty())
+    {
+        g.setColour (Palette::inset);
+        g.fillRoundedRectangle (displayBounds.toFloat(), 4.0f);
+        g.setColour (Palette::line);
+        g.drawRoundedRectangle (displayBounds.toFloat().reduced (0.5f), 4.0f, 1.0f);
+
+        const int half = displayBounds.getWidth() / 2;
+        g.setColour (Palette::line);
+        g.fillRect (displayBounds.getX() + half, displayBounds.getY() + 5, 1, displayBounds.getHeight() - 10);
+        g.setColour (Palette::textDim);
+        g.setFont (Palette::sectionFont());
+        g.drawText ("TEMPO", displayBounds.getX() + 8, displayBounds.getY() + 3, half - 12, 12,
+                    juce::Justification::centredLeft, false);
+        g.drawText ("POSITION", displayBounds.getX() + half + 8, displayBounds.getY() + 3, half - 12, 12,
+                    juce::Justification::centredLeft, false);
+    }
 }
 
 void MainComponent::resized()
 {
     auto area = getLocalBounds();
 
-    auto bar = area.removeFromTop (48).reduced (8, 8);
-    fileButton   .setBounds (bar.removeFromLeft (54)); bar.removeFromLeft (12);
-    playButton   .setBounds (bar.removeFromLeft (68)); bar.removeFromLeft (4);
-    stopButton   .setBounds (bar.removeFromLeft (56)); bar.removeFromLeft (6);
-    modeButton   .setBounds (bar.removeFromLeft (72)); bar.removeFromLeft (12);
-    bpmLabel     .setBounds (bar.removeFromLeft (36));
-    bpmSlider    .setBounds (bar.removeFromLeft (108)); bar.removeFromLeft (8);
-    posLabel     .setBounds (bar.removeFromLeft (132)); bar.removeFromLeft (10);
-    patternBox   .setBounds (bar.removeFromLeft (124));
-    addPatternBtn.setBounds (bar.removeFromLeft (54)); bar.removeFromLeft (8);
-    clearButton  .setBounds (bar.removeFromRight (54)); bar.removeFromRight (8);
-    mixerButton  .setBounds (bar.removeFromRight (60)); bar.removeFromRight (8);
-    loadSampleBtn.setBounds (bar.removeFromRight (78)); bar.removeFromRight (6);
-    addSynthBtn  .setBounds (bar.removeFromRight (70));
+    toolbarBounds = area.removeFromTop (56);
+    auto bar = toolbarBounds.reduced (8, 10);
+    bar.removeFromLeft (104);   // wordmark space
+
+    fileButton   .setBounds (bar.removeFromLeft (52)); bar.removeFromLeft (14);
+    playButton   .setBounds (bar.removeFromLeft (66)); bar.removeFromLeft (4);
+    stopButton   .setBounds (bar.removeFromLeft (54)); bar.removeFromLeft (6);
+    modeButton   .setBounds (bar.removeFromLeft (74)); bar.removeFromLeft (14);
+
+    // Inset transport display: tempo (left) + position (right).
+    displayBounds = bar.removeFromLeft (206).expanded (0, 3);
+    {
+        auto d = displayBounds.reduced (6, 0).withTrimmedTop (15);
+        bpmSlider.setBounds (d.removeFromLeft (92).reduced (2, 3));
+        posLabel .setBounds (d.reduced (2, 3));
+    }
+    bpmLabel.setVisible (false);
+    bar.removeFromLeft (14);
+
+    patternBox   .setBounds (bar.removeFromLeft (128)); bar.removeFromLeft (6);
+    addPatternBtn.setBounds (bar.removeFromLeft (52));
+    addSynthBtn  .setBounds (bar.removeFromRight (68)); bar.removeFromRight (6);
+    loadSampleBtn.setBounds (bar.removeFromRight (78)); bar.removeFromRight (8);
+    mixerButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (8);
+    clearButton  .setBounds (bar.removeFromRight (52));
 
     // Vertical split: rack | piano roll | playlist.
     Component* comps[] = { &rackViewport, dividerBar.get(), &pianoPanel,

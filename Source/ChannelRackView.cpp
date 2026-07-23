@@ -1,4 +1,5 @@
 #include "ChannelRackView.h"
+#include "Palette.h"
 
 ChannelRackView::ChannelRackView (std::vector<std::unique_ptr<Channel>>& channelsRef,
                                   std::function<Pattern*()> patternProvider,
@@ -112,7 +113,7 @@ void ChannelRackView::mouseDown (const juce::MouseEvent& e)
 
 void ChannelRackView::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour (0xff202024));
+    g.fillAll (Palette::panel);
 
     auto* p = getPattern();
     if (p == nullptr)
@@ -125,49 +126,71 @@ void ChannelRackView::paint (juce::Graphics& g)
     if (transport.isPlaying() && cols > 0)
         currentStep = ((int) std::floor (transport.getPlayheadBeats() / p->stepDurationBeats())) % cols;
 
+    // Full-height highlight column under the playing step.
+    if (currentStep >= 0)
+    {
+        g.setColour (Palette::accent.withAlpha (0.10f));
+        g.fillRect (juce::Rectangle<float> (headerWidth + currentStep * cw, 0.0f, cw,
+                                            (float) (channels.size() * rowHeight)));
+    }
+
     for (int i = 0; i < (int) channels.size(); ++i)
     {
         const Channel* ch = channels[(size_t) i].get();
         const int y = i * rowHeight;
         auto rowArea = juce::Rectangle<int> (0, y, getWidth(), rowHeight);
 
-        g.setColour ((i % 2 == 0) ? juce::Colour (0xff26262b) : juce::Colour (0xff222227));
-        g.fillRect (rowArea);
-        g.setColour (ch->colour.withAlpha (0.85f));
-        g.fillRect (0, y, 5, rowHeight);
+        // Header background (kept slightly distinct from the step area).
+        g.setColour ((i % 2 == 0) ? Palette::panelAlt : Palette::panel);
+        g.fillRect (0, y, headerWidth, rowHeight);
+        g.setColour (ch->colour);
+        g.fillRect (0, y + 3, 4, rowHeight - 6);
 
         if (i == selectedChannel)
         {
-            g.setColour (juce::Colours::white.withAlpha (0.10f));
-            g.fillRect (rowArea);
+            g.setColour (Palette::accent.withAlpha (0.14f));
+            g.fillRect (0, y, headerWidth, rowHeight);
         }
 
-        g.setColour (juce::Colours::white.withAlpha (0.9f));
-        g.setFont (juce::FontOptions (14.0f, juce::Font::bold));
-        g.drawText (ch->name, 14, y + 3, headerWidth - 84, 18,
+        g.setColour (i == selectedChannel ? Palette::textBright : Palette::text);
+        g.setFont (juce::FontOptions (13.5f, juce::Font::bold));
+        g.drawText (ch->name, 12, y + 3, headerWidth - 82, 17,
                     juce::Justification::centredLeft, true);
 
         for (int s = 0; s < cols; ++s)
         {
-            juce::Rectangle<float> cell (headerWidth + s * cw + 1.5f, y + 4.0f,
-                                         cw - 3.0f, rowHeight - 8.0f);
+            juce::Rectangle<float> cell (headerWidth + s * cw + 2.0f, y + 5.0f,
+                                         cw - 4.0f, rowHeight - 10.0f);
             const bool on   = p->isStepOn (i, s);
             const bool beat = (s % 4 == 0);
 
-            g.setColour (on ? ch->colour
-                            : (beat ? juce::Colour (0xff34343c) : juce::Colour (0xff2b2b31)));
-            g.fillRoundedRectangle (cell, 3.0f);
+            if (on)
+            {
+                g.setColour (ch->colour);
+                g.fillRoundedRectangle (cell, 3.0f);
+                g.setColour (juce::Colours::white.withAlpha (0.18f));
+                g.fillRoundedRectangle (cell.removeFromTop (cell.getHeight() * 0.45f), 3.0f);
+            }
+            else
+            {
+                g.setColour (beat ? Palette::header : Palette::inset);
+                g.fillRoundedRectangle (cell, 3.0f);
+            }
 
             if (s == currentStep)
             {
-                g.setColour (juce::Colours::white.withAlpha (0.85f));
-                g.drawRoundedRectangle (cell, 3.0f, 1.6f);
+                g.setColour (Palette::accent);
+                g.drawRoundedRectangle (cell, 3.0f, 1.4f);
             }
         }
 
-        g.setColour (juce::Colour (0xff17171a));
+        g.setColour (Palette::lineSoft);
         g.drawHorizontalLine (y + rowHeight - 1, 0.0f, (float) getWidth());
     }
+
+    // Divider between header column and step grid.
+    g.setColour (Palette::line);
+    g.drawVerticalLine (headerWidth, 0.0f, (float) (channels.size() * rowHeight));
 }
 
 void ChannelRackView::timerCallback()

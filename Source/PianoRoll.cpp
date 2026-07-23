@@ -1,4 +1,5 @@
 #include "PianoRoll.h"
+#include "Palette.h"
 
 PianoRoll::PianoRoll (Transport& transportToUse) : transport (transportToUse)
 {
@@ -85,25 +86,24 @@ void PianoRoll::paint (juce::Graphics& g)
     const auto h = (float) getHeight();
     const auto rh = (float) rowHeight();
 
-    g.fillAll (juce::Colour (0xff1b1b1f));
+    g.fillAll (Palette::inset);
 
     // Pitch rows (shade black-key rows a touch darker).
     for (int pitch = pitchLow; pitch <= pitchHigh; ++pitch)
     {
         const float y = yForPitch (pitch);
-        g.setColour (isBlackKey (pitch) ? juce::Colour (0xff17171a)
-                                        : juce::Colour (0xff242429));
+        g.setColour (isBlackKey (pitch) ? Palette::inset : Palette::panel);
         g.fillRect (0.0f, y, w, rh);
 
         // C rows get a subtle label + line.
         if (pitch % 12 == 0)
         {
-            g.setColour (juce::Colour (0xff34343c));
+            g.setColour (Palette::line);
             g.drawHorizontalLine ((int) y, 0.0f, w);
-            g.setColour (juce::Colour (0xff55555f));
+            g.setColour (Palette::textDim);
             g.setFont (juce::FontOptions (10.0f));
             g.drawText ("C" + juce::String (pitch / 12 - 1),
-                        2, (int) y, 24, (int) rh,
+                        3, (int) y, 24, (int) rh,
                         juce::Justification::centredLeft, false);
         }
     }
@@ -114,7 +114,7 @@ void PianoRoll::paint (juce::Graphics& g)
     {
         const float x = xForBeat ((double) beat);
         const bool bar = (beat % 4 == 0);
-        g.setColour (bar ? juce::Colour (0xff3a3a44) : juce::Colour (0xff2a2a30));
+        g.setColour (bar ? Palette::line : Palette::lineSoft);
         g.drawVerticalLine ((int) x, 0.0f, h);
     }
 
@@ -128,25 +128,26 @@ void PianoRoll::paint (juce::Graphics& g)
                                   rh);
         r = r.reduced (0.5f);
 
-        g.setColour (i == selectedNote ? juce::Colour (0xff7fd0ff)
-                                       : juce::Colour (0xff3f9be0));
+        g.setColour (i == selectedNote ? Palette::accent.brighter (0.25f) : Palette::accent);
         g.fillRoundedRectangle (r, 2.0f);
-        g.setColour (juce::Colour (0xff0d2436));
+        g.setColour (juce::Colours::white.withAlpha (0.20f));
+        g.fillRoundedRectangle (r.withTrimmedBottom (r.getHeight() * 0.55f), 2.0f);
+        g.setColour (Palette::inset);
         g.drawRoundedRectangle (r, 2.0f, 1.0f);
     }
 
     // Playhead.
     const float px = xForBeat (transport.getPlayheadBeats());
-    g.setColour (juce::Colour (0xffff5d5d));
+    g.setColour (Palette::playhead);
     g.drawVerticalLine ((int) px, 0.0f, h);
 
     // Placeholder hint when no channel is selected for editing.
     if (! editable)
     {
-        g.setColour (juce::Colours::black.withAlpha (0.45f));
+        g.setColour (Palette::bg.withAlpha (0.55f));
         g.fillAll();
-        g.setColour (juce::Colours::white.withAlpha (0.7f));
-        g.setFont (juce::FontOptions (16.0f));
+        g.setColour (Palette::textDim);
+        g.setFont (juce::FontOptions (15.0f));
         g.drawText ("Click a channel's  PR  button to edit its notes here",
                     getLocalBounds(), juce::Justification::centred, false);
     }

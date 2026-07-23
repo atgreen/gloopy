@@ -1,4 +1,5 @@
 #include "MixerView.h"
+#include "Palette.h"
 
 // ===========================================================================
 // Strip
@@ -29,13 +30,14 @@ public:
 
         mute.setClickingTogglesState (true);
         mute.setToggleState (t->mute.load(), juce::dontSendNotification);
-        mute.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xffb03030));
+        mute.setColour (juce::TextButton::buttonOnColourId, Palette::mute);
         mute.onClick = [this] { track->mute.store (mute.getToggleState()); };
         addAndMakeVisible (mute);
 
         solo.setClickingTogglesState (true);
         solo.setToggleState (t->solo.load(), juce::dontSendNotification);
-        solo.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xffb0a030));
+        solo.setColour (juce::TextButton::buttonOnColourId, Palette::solo);
+        solo.setColour (juce::TextButton::textColourOnId, Palette::bg);
         solo.onClick = [this] { track->solo.store (solo.getToggleState()); };
         addAndMakeVisible (solo);
 
@@ -52,19 +54,21 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        g.setColour (index == 0 ? juce::Colour (0xff2a2a33) : juce::Colour (0xff232329));
+        g.setColour (index == 0 ? Palette::header : Palette::panel);
         g.fillRoundedRectangle (getLocalBounds().toFloat().reduced (2.0f), 4.0f);
+        g.setColour (index == 0 ? Palette::accent.withAlpha (0.5f) : Palette::line);
+        g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (2.0f), 4.0f, 1.0f);
 
         // Meter.
-        g.setColour (juce::Colour (0xff101013));
+        g.setColour (Palette::inset);
         g.fillRect (meterArea);
         auto drawBar = [&] (juce::Rectangle<int> r, float v)
         {
             const float level = juce::jlimit (0.0f, 1.0f, v);
             const int h = (int) (r.getHeight() * level);
             auto bar = r.removeFromBottom (h);
-            g.setColour (level > 0.9f ? juce::Colours::red
-                       : level > 0.6f ? juce::Colours::yellow : juce::Colours::limegreen);
+            g.setColour (level > 0.9f ? Palette::red
+                       : level > 0.6f ? Palette::solo : Palette::green);
             g.fillRect (bar);
         };
         auto m = meterArea.reduced (1);
@@ -268,9 +272,14 @@ void MixerView::rebuildEditor()
 
 void MixerView::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour (0xff17171b));
-    g.setColour (juce::Colour (0xff0e0e11));
-    g.fillRect (0, getHeight() - editorHeight, getWidth(), editorHeight);
+    g.fillAll (Palette::bg);
+
+    // Effect editor panel.
+    auto ed = juce::Rectangle<int> (0, getHeight() - editorHeight, getWidth(), editorHeight);
+    g.setColour (Palette::panel);
+    g.fillRect (ed);
+    g.setColour (Palette::line);
+    g.fillRect (ed.getX(), ed.getY(), ed.getWidth(), 1);
 }
 
 void MixerView::resized()

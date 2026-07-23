@@ -13,6 +13,8 @@
 #include "MixerTrack.h"
 #include "MixerView.h"
 #include "Effects.h"
+#include "Palette.h"
+#include "GloopyLookAndFeel.h"
 
 /** M2 workspace: channel rack + step sequencer, multiple patterns, and a
     per-channel piano roll. The step grid and piano roll edit the same note
@@ -38,15 +40,22 @@ private:
         explicit PianoPanel (Transport& t) : roll (t)
         {
             title.setJustificationType (juce::Justification::centredLeft);
-            title.setFont (juce::FontOptions (14.0f, juce::Font::bold));
-            title.setColour (juce::Label::textColourId, juce::Colour (0xffc0c0d0));
+            title.setFont (Palette::sectionFont());
+            title.setColour (juce::Label::textColourId, Palette::textDim);
             addAndMakeVisible (title);
             addAndMakeVisible (roll);
+        }
+        void paint (juce::Graphics& g) override
+        {
+            g.setColour (Palette::header);
+            g.fillRect (getLocalBounds().removeFromTop (24));
+            g.setColour (Palette::line);
+            g.fillRect (0, 23, getWidth(), 1);
         }
         void resized() override
         {
             auto a = getLocalBounds();
-            title.setBounds (a.removeFromTop (24).withTrimmedLeft (8));
+            title.setBounds (a.removeFromTop (24).withTrimmedLeft (10));
             roll.setBounds (a);
         }
         juce::Label title;
@@ -79,6 +88,8 @@ private:
 
     void openPianoRollFor (int channel);
     void writeBackPianoRoll();
+
+    GloopyLookAndFeel     lookAndFeel;      // declared first → destroyed last
 
     // --- engine / model ---
     Transport             transport;
@@ -113,6 +124,8 @@ private:
     juce::TextButton mixerButton   { "Mixer" };
 
     juce::File currentProjectFile;
+    juce::Rectangle<int> displayBounds;    // inset transport readout, drawn in paint()
+    juce::Rectangle<int> toolbarBounds;
 
     juce::Viewport   rackViewport;
     std::unique_ptr<ChannelRackView> rackView;

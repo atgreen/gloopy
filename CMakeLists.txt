@@ -32,7 +32,8 @@ target_sources(Gloopy PRIVATE
     Source/ChannelRackView.cpp
     Source/PianoRoll.cpp
     Source/PlaylistView.cpp
-    Source/MixerView.cpp)
+    Source/MixerView.cpp
+    Source/GloopyLookAndFeel.cpp)
 
 target_compile_definitions(Gloopy PRIVATE
     JUCE_WEB_BROWSER=0            # no webkit dependency
