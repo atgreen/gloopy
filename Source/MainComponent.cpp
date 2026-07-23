@@ -115,6 +115,9 @@ MainComponent::MainComponent()
     addAndMakeVisible (mixerButton);
     mixerButton.onClick = [this] { openMixer(); };
 
+    addAndMakeVisible (fileButton);
+    fileButton.onClick = [this] { showFileMenu(); };
+
     // ---- channel rack ----
     rackView = std::make_unique<ChannelRackView> (channels,
                     [this]() -> Pattern* { return patterns.empty() ? nullptr
@@ -258,6 +261,7 @@ void MainComponent::toggleSongMode()
 
 void MainComponent::setupMixer()
 {
+    const juce::ScopedLock sl (engineLock);
     mixerTracks.clear();
     mixerTracks.push_back (std::make_unique<MixerTrack> ("Master"));
     mixerTracks[0]->volume.store (0.9f);
@@ -301,6 +305,405 @@ void MainComponent::openMixer()
     }
     mixerWindow->setVisible (true);
     mixerWindow->toFront (true);
+}
+
+// ===========================================================================
+// Project save / load (M5)
+// ===========================================================================
+void MainComponent::showFileMenu()
+{
+    juce::PopupMenu menu;
+    menu.addItem (1, "New Project");
+    menu.addItem (2, "Open...");
+    menu.addItem (3, "Save", currentProjectFile != juce::File());
+    menu.addItem (4, "Save As...");
+
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
+        [this] (int result)
+        {
+            if (result == 1)
+            {
+                newProject();
+            }
+            else if (result == 2)
+            {
+                fileChooser = std::make_unique<juce::FileChooser> ("Open project", juce::File(), "*.gloopy");
+                fileChooser->launchAsync (juce::FileBrowserComponent::openMode
+                                            | juce::FileBrowserComponent::canSelectFiles,
+                    [this] (const juce::FileChooser& fc)
+                    {
+                        if (fc.getResult().existsAsFile())
+                            openProject (fc.getResult());
+                    });
+            }
+            else if (result == 3)
+            {
+                saveProject (currentProjectFile);
+            }
+            else if (result == 4)
+            {
+                fileChooser = std::make_unique<juce::FileChooser> ("Save project",
+                                  juce::File(), "*.gloopy");
+                fileChooser->launchAsync (juce::FileBrowserComponent::saveMode
+                                            | juce::FileBrowserComponent::canSelectFiles
+                                            | juce::FileBrowserComponent::warnAboutOverwriting,
+                    [this] (const juce::FileChooser& fc)
+                    {
+                        auto f = fc.getResult();
+                        if (f != juce::File())
+                            saveProject (f.withFileExtension ("gloopy"));
+                    });
+            }
+        });
+}
+
+void MainComponent::newProject()
+{
+    {
+        const juce::ScopedLock sl (engineLock);
+        transport.setPlaying (false);
+        channels.clear();
+        patterns.clear();
+        clips.clear();
+        auto p = std::make_unique<Pattern> (16);
+        p->name = "Pattern 1";
+        p->colour = paletteColour (0);
+        patterns.push_back (std::move (p));
+        currentPatternIndex = 0;
+    }
+    setupMixer();
+    setupDefaultProject();
+    currentProjectFile = juce::File();
+    refreshUiAfterLoad();
+}
+
+juce::ValueTree MainComponent::toValueTree()
+{
+    const juce::ScopedLock sl (engineLock);
+    juce::ValueTree root ("GLOOPY");
+    root.setProperty ("version", 1, nullptr);
+    root.setProperty ("bpm", transport.getBpm(), nullptr);
+    root.setProperty ("mode", transport.getPlayMode(), nullptr);
+    root.setProperty ("currentPattern", currentPatternIndex, nullptr);
+
+    juce::ValueTree chans ("CHANNELS");
+    for (auto& c : channels)
+    {
+        juce::ValueTree ch ("CHANNEL");
+        ch.setProperty ("name", c->name, nullptr);
+        ch.setProperty ("colour", (int) c->colour.getARGB(), nullptr);
+        ch.setProperty ("pitch", c->defaultPitch, nullptr);
+        ch.setProperty ("vol", c->volume.load(), nullptr);
+        ch.setProperty ("pan", c->pan.load(), nullptr);
+        ch.setProperty ("mute", c->mute.load(), nullptr);
+        ch.setProperty ("solo", c->solo.load(), nullptr);
+        ch.setProperty ("mixerTrack", c->mixerTrack.load(), nullptr);
+        ch.setProperty ("gen", c->generator->typeName(), nullptr);
+
+        if (auto* sg = dynamic_cast<SynthGenerator*> (c->generator.get()))
+        {
+            juce::ValueTree s ("SYNTH");
+            auto& p = sg->engine.params;
+            s.setProperty ("wave", p.waveform.load(), nullptr);
+            s.setProperty ("attack", p.attack.load(), nullptr);
+            s.setProperty ("decay", p.decay.load(), nullptr);
+            s.setProperty ("sustain", p.sustain.load(), nullptr);
+            s.setProperty ("release", p.release.load(), nullptr);
+            s.setProperty ("gain", p.gain.load(), nullptr);
+            ch.addChild (s, -1, nullptr);
+        }
+        else if (auto* sm = dynamic_cast<Sampler*> (c->generator.get()))
+        {
+            juce::ValueTree s ("SAMPLE");
+            const auto& buf = sm->getSampleBuffer();
+            s.setProperty ("rate", sm->getSourceRate(), nullptr);
+            s.setProperty ("channels", buf.getNumChannels(), nullptr);
+            s.setProperty ("frames", buf.getNumSamples(), nullptr);
+            s.setProperty ("root", sm->getRootNote(), nullptr);
+            s.setProperty ("sname", sm->getName(), nullptr);
+
+            juce::MemoryBlock mb ((size_t) buf.getNumChannels() * (size_t) buf.getNumSamples() * sizeof (float));
+            auto* dst = (float*) mb.getData();
+            for (int chn = 0; chn < buf.getNumChannels(); ++chn)
+                for (int i = 0; i < buf.getNumSamples(); ++i)
+                    *dst++ = buf.getSample (chn, i);
+            s.setProperty ("data", juce::Base64::toBase64 (mb.getData(), mb.getSize()), nullptr);
+            ch.addChild (s, -1, nullptr);
+        }
+        chans.addChild (ch, -1, nullptr);
+    }
+    root.addChild (chans, -1, nullptr);
+
+    juce::ValueTree pats ("PATTERNS");
+    for (auto& p : patterns)
+    {
+        juce::ValueTree pt ("PATTERN");
+        pt.setProperty ("name", p->name, nullptr);
+        pt.setProperty ("colour", (int) p->colour.getARGB(), nullptr);
+        pt.setProperty ("steps", p->getLengthSteps(), nullptr);
+        for (int ci = 0; ci < p->getChannelCount(); ++ci)
+        {
+            juce::ValueTree lane ("LANE");
+            lane.setProperty ("channel", ci, nullptr);
+            for (const auto& n : p->lane (ci))
+            {
+                juce::ValueTree nt ("NOTE");
+                nt.setProperty ("pitch", n.pitch, nullptr);
+                nt.setProperty ("start", n.startBeat, nullptr);
+                nt.setProperty ("len", n.lengthBeats, nullptr);
+                nt.setProperty ("vel", n.velocity, nullptr);
+                lane.addChild (nt, -1, nullptr);
+            }
+            pt.addChild (lane, -1, nullptr);
+        }
+        pats.addChild (pt, -1, nullptr);
+    }
+    root.addChild (pats, -1, nullptr);
+
+    juce::ValueTree pl ("PLAYLIST");
+    for (const auto& c : clips)
+    {
+        juce::ValueTree cl ("CLIP");
+        cl.setProperty ("pattern", c.patternIndex, nullptr);
+        cl.setProperty ("track", c.track, nullptr);
+        cl.setProperty ("start", c.startBeat, nullptr);
+        cl.setProperty ("len", c.lengthBeats, nullptr);
+        pl.addChild (cl, -1, nullptr);
+    }
+    root.addChild (pl, -1, nullptr);
+
+    juce::ValueTree mx ("MIXER");
+    for (auto& mt : mixerTracks)
+    {
+        juce::ValueTree t ("TRACK");
+        t.setProperty ("name", mt->name, nullptr);
+        t.setProperty ("vol", mt->volume.load(), nullptr);
+        t.setProperty ("pan", mt->pan.load(), nullptr);
+        t.setProperty ("mute", mt->mute.load(), nullptr);
+        t.setProperty ("solo", mt->solo.load(), nullptr);
+        for (auto& fx : mt->effects)
+        {
+            juce::ValueTree f ("FX");
+            f.setProperty ("type", fx->name(), nullptr);
+            f.setProperty ("bypass", fx->bypassed.load(), nullptr);
+            for (auto& pr : fx->parameters())
+            {
+                juce::ValueTree pv ("PARAM");
+                pv.setProperty ("name", pr.name, nullptr);
+                pv.setProperty ("value", pr.get(), nullptr);
+                f.addChild (pv, -1, nullptr);
+            }
+            t.addChild (f, -1, nullptr);
+        }
+        mx.addChild (t, -1, nullptr);
+    }
+    root.addChild (mx, -1, nullptr);
+    return root;
+}
+
+void MainComponent::saveProject (const juce::File& file)
+{
+    if (file == juce::File())
+        return;
+    if (auto xml = toValueTree().createXml())
+    {
+        xml->writeTo (file);
+        currentProjectFile = file;
+    }
+}
+
+void MainComponent::openProject (const juce::File& file)
+{
+    if (auto xml = juce::parseXML (file))
+    {
+        loadFromTree (juce::ValueTree::fromXml (*xml));
+        refreshUiAfterLoad();
+    }
+    currentProjectFile = file;
+}
+
+void MainComponent::loadFromTree (const juce::ValueTree& root)
+{
+    if (! root.hasType ("GLOOPY"))
+        return;
+
+    const juce::ScopedLock sl (engineLock);
+    transport.setPlaying (false);
+    channels.clear();
+    patterns.clear();
+    clips.clear();
+    mixerTracks.clear();
+
+    // --- channels ---
+    auto chans = root.getChildWithName ("CHANNELS");
+    for (int i = 0; i < chans.getNumChildren(); ++i)
+    {
+        auto ch = chans.getChild (i);
+        const juce::String genType = ch.getProperty ("gen", "Synth").toString();
+        std::unique_ptr<Generator> gen;
+
+        if (genType == "Synth")
+        {
+            auto sg = std::make_unique<SynthGenerator>();
+            auto s = ch.getChildWithName ("SYNTH");
+            auto& p = sg->engine.params;
+            p.waveform.store ((int) s.getProperty ("wave", 1));
+            p.attack.store  ((float) (double) s.getProperty ("attack", 0.01));
+            p.decay.store   ((float) (double) s.getProperty ("decay", 0.15));
+            p.sustain.store ((float) (double) s.getProperty ("sustain", 0.7));
+            p.release.store ((float) (double) s.getProperty ("release", 0.25));
+            p.gain.store    ((float) (double) s.getProperty ("gain", 0.25));
+            gen = std::move (sg);
+        }
+        else
+        {
+            auto sm = std::make_unique<Sampler>();
+            auto s = ch.getChildWithName ("SAMPLE");
+            const int    nch  = juce::jmax (1, (int) s.getProperty ("channels", 1));
+            const int    fr   = juce::jmax (0, (int) s.getProperty ("frames", 0));
+            const double rate = (double) s.getProperty ("rate", 44100.0);
+
+            juce::AudioBuffer<float> buf (nch, fr);
+            buf.clear();
+            juce::MemoryOutputStream os;
+            juce::Base64::convertFromBase64 (os, s.getProperty ("data", "").toString());
+            const auto mb = os.getMemoryBlock();
+            const auto* src = (const float*) mb.getData();
+            const size_t count = mb.getSize() / sizeof (float);
+            size_t idx = 0;
+            for (int chn = 0; chn < nch; ++chn)
+                for (int j = 0; j < fr; ++j)
+                    if (idx < count) buf.setSample (chn, j, src[idx++]);
+
+            sm->setSample (std::move (buf), rate, s.getProperty ("sname", "sample").toString());
+            sm->setRootNote ((int) s.getProperty ("root", 60));
+            gen = std::move (sm);
+        }
+
+        gen->prepare (currentSampleRate, currentBlockSize);
+        auto c = std::make_unique<Channel> (ch.getProperty ("name", "Ch").toString(),
+                     std::move (gen), (int) ch.getProperty ("pitch", 60),
+                     juce::Colour ((juce::uint32) (int) ch.getProperty ("colour", (int) 0xff4a90d9)));
+        c->volume.store ((float) (double) ch.getProperty ("vol", 0.8));
+        c->pan.store    ((float) (double) ch.getProperty ("pan", 0.0));
+        c->mute.store   ((bool) ch.getProperty ("mute", false));
+        c->solo.store   ((bool) ch.getProperty ("solo", false));
+        c->mixerTrack.store ((int) ch.getProperty ("mixerTrack", 0));
+        channels.push_back (std::move (c));
+    }
+
+    // --- patterns ---
+    auto pats = root.getChildWithName ("PATTERNS");
+    for (int i = 0; i < pats.getNumChildren(); ++i)
+    {
+        auto pt = pats.getChild (i);
+        auto p = std::make_unique<Pattern> ((int) pt.getProperty ("steps", 16));
+        p->name   = pt.getProperty ("name", "Pattern").toString();
+        p->colour = juce::Colour ((juce::uint32) (int) pt.getProperty ("colour", (int) 0xff4a90d9));
+        p->setChannelCount ((int) channels.size());
+        for (int l = 0; l < pt.getNumChildren(); ++l)
+        {
+            auto lane = pt.getChild (l);
+            const int ci = (int) lane.getProperty ("channel", -1);
+            std::vector<Note> notes;
+            for (int n = 0; n < lane.getNumChildren(); ++n)
+            {
+                auto nt = lane.getChild (n);
+                notes.push_back ({ (int) nt.getProperty ("pitch", 60),
+                                   (double) nt.getProperty ("start", 0.0),
+                                   (double) nt.getProperty ("len", 0.25),
+                                   (float) (double) nt.getProperty ("vel", 0.85) });
+            }
+            p->setLane (ci, std::move (notes));
+        }
+        patterns.push_back (std::move (p));
+    }
+    if (patterns.empty())
+    {
+        auto p = std::make_unique<Pattern> (16);
+        p->name = "Pattern 1"; p->colour = paletteColour (0);
+        p->setChannelCount ((int) channels.size());
+        patterns.push_back (std::move (p));
+    }
+
+    // --- playlist ---
+    auto pl = root.getChildWithName ("PLAYLIST");
+    for (int i = 0; i < pl.getNumChildren(); ++i)
+    {
+        auto cl = pl.getChild (i);
+        clips.push_back ({ (int) cl.getProperty ("pattern", 0),
+                           (int) cl.getProperty ("track", 0),
+                           (double) cl.getProperty ("start", 0.0),
+                           (double) cl.getProperty ("len", 4.0) });
+    }
+
+    // --- mixer ---
+    auto mx = root.getChildWithName ("MIXER");
+    if (mx.getNumChildren() > 0)
+    {
+        for (int i = 0; i < mx.getNumChildren(); ++i)
+        {
+            auto t = mx.getChild (i);
+            auto mt = std::make_unique<MixerTrack> (t.getProperty ("name", "Track").toString());
+            mt->volume.store ((float) (double) t.getProperty ("vol", 0.8));
+            mt->pan.store    ((float) (double) t.getProperty ("pan", 0.0));
+            mt->mute.store   ((bool) t.getProperty ("mute", false));
+            mt->solo.store   ((bool) t.getProperty ("solo", false));
+            mt->buffer.setSize (2, juce::jmax (16, currentBlockSize));
+            for (int f = 0; f < t.getNumChildren(); ++f)
+            {
+                auto ft = t.getChild (f);
+                auto fx = makeEffect (ft.getProperty ("type", "Gain").toString());
+                if (fx == nullptr) continue;
+                fx->bypassed.store ((bool) ft.getProperty ("bypass", false));
+                auto params = fx->parameters();
+                for (int pv = 0; pv < ft.getNumChildren(); ++pv)
+                {
+                    auto pvt = ft.getChild (pv);
+                    const juce::String nm = pvt.getProperty ("name", "").toString();
+                    const float val = (float) (double) pvt.getProperty ("value", 0.0);
+                    for (auto& pr : params)
+                        if (pr.name == nm) { pr.set (val); break; }
+                }
+                mt->effects.push_back (std::move (fx));
+            }
+            mixerTracks.push_back (std::move (mt));
+        }
+    }
+    if (mixerTracks.empty())
+    {
+        mixerTracks.push_back (std::make_unique<MixerTrack> ("Master"));
+        for (int i = 1; i <= 8; ++i)
+            mixerTracks.push_back (std::make_unique<MixerTrack> ("Ins " + juce::String (i)));
+    }
+
+    currentPatternIndex = juce::jlimit (0, (int) patterns.size() - 1,
+                                        (int) root.getProperty ("currentPattern", 0));
+    transport.setBpm ((double) root.getProperty ("bpm", 128.0));
+    transport.setPlayMode ((int) root.getProperty ("mode", 0));
+    transport.setLoopBeats (curPattern().getLengthBeats());
+}
+
+void MainComponent::refreshUiAfterLoad()
+{
+    pianoRollChannel = -1;
+    pianoPanel.roll.setEnabledEditing (false);
+    pianoPanel.roll.loadNotes ({});
+    pianoPanel.title.setText ("Piano Roll", juce::dontSendNotification);
+
+    if (rackView) { rackView->setSelectedChannel (-1); rackView->rebuild(); }
+    if (mixerView) mixerView->rebuild();
+    refreshPatternBox();
+
+    transport.requestReset();
+    bpmSlider.setValue (transport.getBpm(), juce::dontSendNotification);
+    modeButton.setToggleState (transport.isSongMode(), juce::dontSendNotification);
+    modeButton.setButtonText (transport.isSongMode() ? "Song" : "Pattern");
+    playButton.setToggleState (false, juce::dontSendNotification);
+    playButton.setButtonText ("Play");
+
+    if (playlistView) playlistView->repaint();
+    resized();
 }
 
 // ---------------------------------------------------------------------------
@@ -616,6 +1019,7 @@ void MainComponent::resized()
     auto area = getLocalBounds();
 
     auto bar = area.removeFromTop (48).reduced (8, 8);
+    fileButton   .setBounds (bar.removeFromLeft (54)); bar.removeFromLeft (12);
     playButton   .setBounds (bar.removeFromLeft (68)); bar.removeFromLeft (4);
     stopButton   .setBounds (bar.removeFromLeft (56)); bar.removeFromLeft (6);
     modeButton   .setBounds (bar.removeFromLeft (72)); bar.removeFromLeft (12);

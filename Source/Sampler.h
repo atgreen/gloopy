@@ -41,7 +41,12 @@ public:
     }
 
     void setRootNote (int note) { rootNote = note; }
+    int  getRootNote() const { return rootNote; }
     const juce::String& getName() const { return sampleName; }
+
+    // Accessors for project serialization.
+    const juce::AudioBuffer<float>& getSampleBuffer() const { return sample; }
+    double getSourceRate() const { return sourceRate; }
 
     void render (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi,
                  int startSample, int numSamples) override

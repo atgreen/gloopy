@@ -68,6 +68,15 @@ private:
     void openMixer();
     std::unique_ptr<Effect> makeEffect (const juce::String& type);
 
+    // Project I/O (M5).
+    void showFileMenu();
+    void newProject();
+    void saveProject (const juce::File& file);
+    void openProject (const juce::File& file);
+    juce::ValueTree toValueTree();
+    void loadFromTree (const juce::ValueTree& root);
+    void refreshUiAfterLoad();
+
     void openPianoRollFor (int channel);
     void writeBackPianoRoll();
 
@@ -97,10 +106,13 @@ private:
     juce::Label      bpmLabel { {}, "BPM" };
     juce::Label      posLabel;
 
+    juce::TextButton fileButton    { "File" };
     juce::ComboBox   patternBox;
     juce::TextButton addPatternBtn { "+ Pat" };
     juce::TextButton modeButton    { "Pattern" };
     juce::TextButton mixerButton   { "Mixer" };
+
+    juce::File currentProjectFile;
 
     juce::Viewport   rackViewport;
     std::unique_ptr<ChannelRackView> rackView;

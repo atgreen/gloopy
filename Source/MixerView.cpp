@@ -148,6 +148,10 @@ MixerView::~MixerView() { stopTimer(); }
 
 void MixerView::rebuild()
 {
+    selectedTrack  = -1;
+    selectedEffect = -1;
+    rebuildEditor();
+
     strips.clear();
     stripHolder.removeAllChildren();
     for (int i = 0; i < (int) tracks.size(); ++i)

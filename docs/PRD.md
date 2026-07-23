@@ -277,6 +277,9 @@ just works.
 
 Each milestone is independently runnable and demoable.
 
+> **Status (2026-07):** M0–M5 all implemented. The v1 scope is complete;
+> remaining items live in §11 (future work).
+
 | # | Milestone | Delivers | Exit criteria |
 |---|-----------|----------|---------------|
 | **M0** | *(done)* Synth + piano roll + transport | Foundation | Shipped |
