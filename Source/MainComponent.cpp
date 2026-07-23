@@ -190,6 +190,16 @@ MainComponent::MainComponent()
             std::cout << "[osc] FAILED to bind udp:" << oscPort << std::endl;
     }
 
+    // ---- control API: gRPC command surface ----
+    {
+        grpc = std::make_unique<GrpcServer> (*this);
+        const int grpcPort = 50051;
+        if (grpc->start (grpcPort))
+            std::cout << "[grpc] listening on 127.0.0.1:" << grpcPort << std::endl;
+        else
+            std::cout << "[grpc] FAILED to start on 127.0.0.1:" << grpcPort << std::endl;
+    }
+
     setSize (1180, 820);
     setAudioChannels (0, 2);
     startTimerHz (30);
@@ -198,6 +208,7 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
     stopTimer();
+    grpc.reset();                // stop gRPC (and its message-thread callbacks) first
     osc.reset();                 // stop OSC before tracks/mixer are destroyed
     pluginWindows.clear();       // delete plugin editors before their processors
     mixerWindow = nullptr;
@@ -251,6 +262,89 @@ Track* MainComponent::resolveTrack (int id)
     const juce::ScopedLock sl (idMapLock);
     auto it = idMap.find (id);
     return it != idMap.end() ? it->second : nullptr;
+}
+
+// ===========================================================================
+// gRPC control API  (transport = atomic/direct; structural = message thread)
+// ===========================================================================
+void MainComponent::apiPlay()  { transport.setPlaying (true); }
+void MainComponent::apiStop()  { transport.setPlaying (false); transport.requestReset(); }
+void MainComponent::apiSetTempo (double bpm) { transport.setBpm (juce::jlimit (20.0, 400.0, bpm)); }
+void MainComponent::apiSeek (double beats)   { transport.requestSeek (juce::jmax (0.0, beats)); }
+
+MainComponent::TransportSnap MainComponent::apiGetTransport()
+{
+    return { transport.isPlaying(), transport.getBpm(), transport.getPlayheadBeats() };
+}
+
+int MainComponent::apiAddSynthTrack (const juce::String& name, int wave, float a, float d, float s, float r, float g)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        auto sg = std::make_unique<SynthGenerator>();
+        auto& p = sg->engine.params;
+        p.waveform.store (juce::jlimit (0, 3, wave));
+        p.attack.store (a); p.decay.store (d); p.sustain.store (s); p.release.store (r); p.gain.store (g);
+        auto t = std::make_unique<Track> (name.isNotEmpty() ? name : "Synth",
+                                          std::move (sg), 60, paletteColour ((int) tracks.size()));
+        Track* raw = t.get();
+        addTrack (std::move (t));
+        return raw->id;
+    });
+}
+
+bool MainComponent::apiSetTrackParams (int id, bool hasVol, float vol, bool hasPan, float pan,
+                                       bool hasMute, bool mute, bool hasSolo, bool solo,
+                                       bool hasName, const juce::String& name)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (id);
+        if (t == nullptr) return false;
+        if (hasVol)  t->volume.store (juce::jlimit (0.0f, 1.0f, vol));
+        if (hasPan)  t->pan.store (juce::jlimit (-1.0f, 1.0f, pan));
+        if (hasMute) t->mute.store (mute);
+        if (hasSolo) t->solo.store (solo);
+        if (hasName) { const juce::ScopedLock sl (engineLock); t->name = name; }
+        if (arrangeView) arrangeView->repaint();
+        return true;
+    });
+}
+
+std::vector<MainComponent::TrackSnap> MainComponent::apiListTracks()
+{
+    return callOnMessageThread ([&]
+    {
+        std::vector<TrackSnap> out;
+        for (auto& t : tracks)
+            out.push_back ({ t->id, t->name,
+                             t->type == TrackType::Instrument ? juce::String ("instrument") : juce::String ("audio"),
+                             t->volume.load(), t->pan.load(), t->mute.load(), (int) t->clips.size() });
+        return out;
+    });
+}
+
+int MainComponent::apiAddClip (int trackId, double start, double len, double content, bool looped,
+                               const std::vector<Note>& notes, const juce::String& name)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return -1;
+        Clip c;
+        c.name = name; c.startBeat = start; c.lengthBeats = len;
+        c.contentLenBeats = content > 0.0 ? content : len;
+        c.looped = looped;
+        c.notes = notes;
+        int idx;
+        {
+            const juce::ScopedLock sl (engineLock);
+            t->clips.push_back (std::move (c));
+            idx = (int) t->clips.size() - 1;
+        }
+        if (arrangeView) arrangeView->repaint();
+        return idx;
+    });
 }
 
 void MainComponent::setupDefaultProject()

@@ -1,0 +1,78 @@
+syntax = "proto3";
+package gloopy.v1;
+
+// Gloopy control API — the gRPC command surface (structural, scheduled,
+// queries). Real-time performance (live notes/CC) is on the OSC lane.
+
+message Empty {}
+message Ack { bool ok = 1; string error = 2; }
+
+// ── transport ──────────────────────────────────────────────
+message Tempo    { double bpm = 1; }
+message Position { double beats = 1; }
+message TransportState { bool playing = 1; double bpm = 2; double position_beats = 3; }
+
+// ── notes / clips ──────────────────────────────────────────
+message Note {
+  int32  pitch        = 1;   // MIDI 0-127
+  double start_beat   = 2;   // within the clip
+  double length_beats = 3;
+  float  velocity     = 4;   // 0..1
+}
+
+enum Waveform { SINE = 0; SAW = 1; SQUARE = 2; TRIANGLE = 3; }
+
+message AddSynthTrackRequest {
+  string   name    = 1;
+  Waveform wave    = 2;
+  float    attack  = 3;
+  float    decay   = 4;
+  float    sustain = 5;
+  float    release = 6;
+  float    gain    = 7;
+}
+message TrackId { int32 id = 1; }
+
+message TrackParams {
+  int32 id = 1;
+  optional float  volume = 2;
+  optional float  pan    = 3;
+  optional bool   mute   = 4;
+  optional bool   solo   = 5;
+  optional string name   = 6;
+}
+
+message TrackInfo {
+  int32  id = 1; string name = 2; string type = 3;
+  float  volume = 4; float pan = 5; bool mute = 6; int32 clips = 7;
+}
+message TrackList { repeated TrackInfo tracks = 1; }
+
+message AddClipRequest {
+  int32  track_id          = 1;
+  double start_beat        = 2;
+  double length_beats      = 3;
+  double content_len_beats = 4;
+  bool   looped            = 5;
+  repeated Note notes      = 6;
+  string name              = 7;
+}
+message ClipId { int32 track_id = 1; int32 index = 2; }
+
+// ── service ────────────────────────────────────────────────
+service Gloopy {
+  // transport
+  rpc Play        (Empty)    returns (Ack);
+  rpc Stop        (Empty)    returns (Ack);
+  rpc SetTempo    (Tempo)    returns (Ack);
+  rpc Seek        (Position) returns (Ack);
+  rpc GetTransport(Empty)    returns (TransportState);
+
+  // tracks
+  rpc AddSynthTrack (AddSynthTrackRequest) returns (TrackId);
+  rpc SetTrackParams(TrackParams)          returns (Ack);
+  rpc ListTracks    (Empty)                returns (TrackList);
+
+  // clips & notes (programmatic sequences)
+  rpc AddClip       (AddClipRequest)       returns (ClipId);
+}

@@ -60,3 +60,37 @@ target_link_libraries(Gloopy PRIVATE
     PUBLIC
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags)   # LTO omitted: much faster builds
+
+# ---------------------------------------------------------------------------
+# gRPC control API — generate C++ from proto/gloopy.proto and link.
+# Use Fedora's protoc/grpc_cpp_plugin (matches the system libprotobuf), NOT a
+# stray protoc from PATH, to avoid codegen/runtime version mismatches.
+# ---------------------------------------------------------------------------
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GRPCPP   REQUIRED IMPORTED_TARGET grpc++)
+pkg_check_modules(PROTOBUF REQUIRED IMPORTED_TARGET protobuf)
+find_program(GLOOPY_PROTOC       protoc          HINTS /usr/bin /usr/local/bin NO_DEFAULT_PATH)
+find_program(GLOOPY_GRPC_PLUGIN  grpc_cpp_plugin HINTS /usr/bin /usr/local/bin NO_DEFAULT_PATH)
+
+set(GLOOPY_PROTO ${CMAKE_CURRENT_SOURCE_DIR}/proto/gloopy.proto)
+set(GLOOPY_GEN   ${CMAKE_CURRENT_BINARY_DIR}/gen)
+file(MAKE_DIRECTORY ${GLOOPY_GEN})
+add_custom_command(
+    OUTPUT  ${GLOOPY_GEN}/gloopy.pb.cc ${GLOOPY_GEN}/gloopy.pb.h
+            ${GLOOPY_GEN}/gloopy.grpc.pb.cc ${GLOOPY_GEN}/gloopy.grpc.pb.h
+    COMMAND ${GLOOPY_PROTOC}
+            --experimental_allow_proto3_optional
+            --proto_path=${CMAKE_CURRENT_SOURCE_DIR}/proto
+            --cpp_out=${GLOOPY_GEN}
+            --grpc_out=${GLOOPY_GEN}
+            --plugin=protoc-gen-grpc=${GLOOPY_GRPC_PLUGIN}
+            ${GLOOPY_PROTO}
+    DEPENDS ${GLOOPY_PROTO}
+    VERBATIM)
+
+target_sources(Gloopy PRIVATE
+    ${GLOOPY_GEN}/gloopy.pb.cc
+    ${GLOOPY_GEN}/gloopy.grpc.pb.cc
+    Source/GrpcServer.cpp)
+target_include_directories(Gloopy PRIVATE ${GLOOPY_GEN})
+target_link_libraries(Gloopy PRIVATE PkgConfig::GRPCPP PkgConfig::PROTOBUF)

@@ -17,9 +17,11 @@
 #include "PluginInstrument.h"
 #include "PluginEffect.h"
 #include "OscControl.h"
+#include "GrpcServer.h"
 #include "Palette.h"
 #include "GloopyLookAndFeel.h"
 #include <unordered_map>
+#include <future>
 
 /** Linear-arranger workspace: an arrangement of instrument tracks (each owning
     its clips), a clip editor (piano roll), and the mixer. */
@@ -44,6 +46,23 @@ public:
         quits itself when finished (headless offline bounce). */
     void beginRenderMode (const juce::File& out);
     bool isRenderFinished() const { return renderFinished.load(); }
+
+    // ── gRPC control API (called from the server thread; plain types, no proto) ──
+    struct TransportSnap { bool playing; double bpm; double positionBeats; };
+    struct TrackSnap { int id; juce::String name; juce::String type; float volume; float pan; bool mute; int clips; };
+
+    void apiPlay();
+    void apiStop();
+    void apiSetTempo (double bpm);
+    void apiSeek (double beats);
+    TransportSnap apiGetTransport();
+    int  apiAddSynthTrack (const juce::String& name, int wave, float a, float d, float s, float r, float g);
+    bool apiSetTrackParams (int id, bool hasVol, float vol, bool hasPan, float pan,
+                            bool hasMute, bool mute, bool hasSolo, bool solo,
+                            bool hasName, const juce::String& name);
+    std::vector<TrackSnap> apiListTracks();
+    int  apiAddClip (int trackId, double start, double len, double content, bool looped,
+                     const std::vector<Note>& notes, const juce::String& name);
 
 private:
     struct EditorPanel : public juce::Component
@@ -111,6 +130,19 @@ private:
     void refreshTrackIds();
     Track* resolveTrack (int id);
 
+    /** Run @p fn on the message thread and return its result (blocks the caller
+        if invoked from another thread). Used by the gRPC api* methods. */
+    template <typename Fn>
+    auto callOnMessageThread (Fn&& fn) -> decltype (fn())
+    {
+        if (juce::MessageManager::getInstance()->isThisTheMessageThread())
+            return fn();
+        std::promise<decltype (fn())> prom;
+        auto fut = prom.get_future();
+        juce::MessageManager::callAsync ([&] { prom.set_value (fn()); });
+        return fut.get();
+    }
+
     // Project I/O.
     void showFileMenu();
     void newProject();
@@ -159,6 +191,7 @@ private:
     std::unordered_map<int, Track*> idMap;
     juce::CriticalSection idMapLock;
     std::unique_ptr<OscControl> osc;
+    std::unique_ptr<GrpcServer> grpc;
 
     juce::Viewport   arrangeViewport;
     std::unique_ptr<ArrangeView> arrangeView;
