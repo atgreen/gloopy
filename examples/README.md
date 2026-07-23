@@ -12,6 +12,9 @@ A complete ~60-bar demo track (124 BPM, A minor) that exercises the whole app:
 - **Mixer effects** — reverb on the pad and crash, stereo ping-pong delay on
   the lead, a low-pass filter on the bass, a high-pass on the hats, and a
   master gain trim.
+- **Background flourishes** — echoing *pings*, soft *bell dings*, synthesized
+  *woowoo* swoops, and a *sparkle* arp in the final chorus, each on its own
+  mixer insert with delay/reverb.
 
 Open it via **File → Open**, or launch straight into it:
 
