@@ -64,6 +64,22 @@ public:
     int  apiAddClip (int trackId, double start, double len, double content, bool looped,
                      const std::vector<Note>& notes, const juce::String& name);
 
+    struct EffectSnap { int slot; juce::String name; bool bypassed; };
+    struct InsertSnap { int index; juce::String name; float volume; float pan; bool mute; bool solo;
+                        std::vector<EffectSnap> effects; };
+    struct ParamSnap  { juce::String name; float value; float min; float max; };
+
+    std::vector<InsertSnap> apiListInserts();
+    int  apiAddEffect (int insert, int type);                 // slot, or -1
+    bool apiRemoveEffect (int insert, int slot);
+    bool apiSetEffectParam (int insert, int slot, const juce::String& name, float value);
+    bool apiSetEffectBypass (int insert, int slot, bool bypassed);
+    std::vector<ParamSnap> apiGetEffectParams (int insert, int slot);
+    bool apiSnapshotMeters (std::vector<float>& L, std::vector<float>& R);   // gRPC thread (try-lock)
+    void apiNewProject();
+    bool apiLoadProject (const juce::String& path);
+    bool apiSaveProject (const juce::String& path);
+
 private:
     struct EditorPanel : public juce::Component
     {

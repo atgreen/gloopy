@@ -5,18 +5,31 @@
 #include "gloopy.grpc.pb.h"
 
 #include <thread>
+#include <chrono>
 #include <vector>
 #include <string>
 
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
+using grpc::ServerWriter;
 using grpc::Status;
 namespace pb = gloopy::v1;
 
 namespace
 {
     juce::String js (const std::string& s) { return juce::String::fromUTF8 (s.c_str(), (int) s.size()); }
+
+    void fillInsert (pb::MixerInsert* mi, const MainComponent::InsertSnap& s)
+    {
+        mi->set_index (s.index); mi->set_name (s.name.toStdString());
+        mi->set_volume (s.volume); mi->set_pan (s.pan); mi->set_mute (s.mute); mi->set_solo (s.solo);
+        for (auto& e : s.effects)
+        {
+            auto* ei = mi->add_effects();
+            ei->set_slot (e.slot); ei->set_name (e.name.toStdString()); ei->set_bypassed (e.bypassed);
+        }
+    }
 
     class ServiceImpl final : public pb::Gloopy::Service
     {
@@ -95,6 +108,112 @@ namespace
                                              q->content_len_beats(), q->looped(), notes, js (q->name()));
             r->set_track_id (q->track_id());
             r->set_index (idx);
+            return Status::OK;
+        }
+
+        // ---- mixer / effects ----
+        Status ListInserts (ServerContext*, const pb::Empty*, pb::InsertList* r) override
+        {
+            for (auto& ins : main.apiListInserts()) fillInsert (r->add_inserts(), ins);
+            return Status::OK;
+        }
+
+        Status AddEffect (ServerContext*, const pb::AddEffectRequest* q, pb::EffectRef* r) override
+        {
+            const int slot = main.apiAddEffect (q->insert(), (int) q->type());
+            r->set_insert (q->insert()); r->set_slot (slot);
+            return Status::OK;
+        }
+
+        Status RemoveEffect (ServerContext*, const pb::EffectRef* q, pb::Ack* r) override
+        {
+            const bool ok = main.apiRemoveEffect (q->insert(), q->slot());
+            r->set_ok (ok); if (! ok) r->set_error ("effect not found");
+            return Status::OK;
+        }
+
+        Status SetEffectParam (ServerContext*, const pb::EffectParamSet* q, pb::Ack* r) override
+        {
+            const bool ok = main.apiSetEffectParam (q->insert(), q->slot(), js (q->name()), q->value());
+            r->set_ok (ok); if (! ok) r->set_error ("effect/param not found");
+            return Status::OK;
+        }
+
+        Status SetEffectBypass (ServerContext*, const pb::EffectBypassSet* q, pb::Ack* r) override
+        {
+            const bool ok = main.apiSetEffectBypass (q->insert(), q->slot(), q->bypassed());
+            r->set_ok (ok); if (! ok) r->set_error ("effect not found");
+            return Status::OK;
+        }
+
+        Status GetEffectParams (ServerContext*, const pb::EffectRef* q, pb::ParamList* r) override
+        {
+            for (auto& p : main.apiGetEffectParams (q->insert(), q->slot()))
+            {
+                auto* pp = r->add_params();
+                pp->set_name (p.name.toStdString()); pp->set_value (p.value);
+                pp->set_min (p.min); pp->set_max (p.max);
+            }
+            return Status::OK;
+        }
+
+        // ---- project / state ----
+        Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override
+        {
+            auto ts = main.apiGetTransport();
+            auto* t = r->mutable_transport();
+            t->set_playing (ts.playing); t->set_bpm (ts.bpm); t->set_position_beats (ts.positionBeats);
+            for (auto& tr : main.apiListTracks())
+            {
+                auto* ti = r->add_tracks();
+                ti->set_id (tr.id); ti->set_name (tr.name.toStdString()); ti->set_type (tr.type.toStdString());
+                ti->set_volume (tr.volume); ti->set_pan (tr.pan); ti->set_mute (tr.mute); ti->set_clips (tr.clips);
+            }
+            for (auto& ins : main.apiListInserts()) fillInsert (r->add_inserts(), ins);
+            return Status::OK;
+        }
+
+        Status NewProject (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        { main.apiNewProject(); r->set_ok (true); return Status::OK; }
+
+        Status LoadProject (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        {
+            const bool ok = main.apiLoadProject (js (q->path()));
+            r->set_ok (ok); if (! ok) r->set_error ("file not found");
+            return Status::OK;
+        }
+
+        Status SaveProject (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        { r->set_ok (main.apiSaveProject (js (q->path()))); return Status::OK; }
+
+        // ---- events (streaming out) ----
+        Status Subscribe (ServerContext* ctx, const pb::SubscribeRequest* q, ServerWriter<pb::Event>* writer) override
+        {
+            const int interval = q->interval_ms() > 0 ? (int) q->interval_ms() : 50;
+            while (! ctx->IsCancelled())
+            {
+                if (q->transport())
+                {
+                    auto s = main.apiGetTransport();
+                    pb::Event e;
+                    auto* t = e.mutable_transport();
+                    t->set_playing (s.playing); t->set_bpm (s.bpm); t->set_position_beats (s.positionBeats);
+                    if (! writer->Write (e)) break;
+                }
+                if (q->meters())
+                {
+                    std::vector<float> L, R;
+                    if (main.apiSnapshotMeters (L, R))
+                    {
+                        pb::Event e;
+                        auto* m = e.mutable_meters();
+                        for (float v : L) m->add_peak_l (v);
+                        for (float v : R) m->add_peak_r (v);
+                        if (! writer->Write (e)) break;
+                    }
+                }
+                std::this_thread::sleep_for (std::chrono::milliseconds (interval));
+            }
             return Status::OK;
         }
 

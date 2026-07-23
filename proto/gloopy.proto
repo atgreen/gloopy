@@ -59,6 +59,39 @@ message AddClipRequest {
 }
 message ClipId { int32 track_id = 1; int32 index = 2; }
 
+// ── mixer / effects ────────────────────────────────────────
+enum EffectType { GAIN = 0; FILTER = 1; DELAY = 2; REVERB = 3; }
+message EffectInfo  { int32 slot = 1; string name = 2; bool bypassed = 3; }
+message MixerInsert {
+  int32 index = 1; string name = 2; float volume = 3; float pan = 4;
+  bool mute = 5; bool solo = 6; repeated EffectInfo effects = 7;
+}
+message InsertList  { repeated MixerInsert inserts = 1; }
+message EffectRef   { int32 insert = 1; int32 slot = 2; }
+message AddEffectRequest { int32 insert = 1; EffectType type = 2; }
+message EffectParamSet   { int32 insert = 1; int32 slot = 2; string name = 3; float value = 4; }
+message EffectBypassSet  { int32 insert = 1; int32 slot = 2; bool bypassed = 3; }
+message Param     { string name = 1; float value = 2; float min = 3; float max = 4; }
+message ParamList { repeated Param params = 1; }
+
+// ── project / state ────────────────────────────────────────
+message FilePath { string path = 1; }
+message ProjectState {
+  TransportState transport = 1;
+  repeated TrackInfo   tracks  = 2;
+  repeated MixerInsert inserts = 3;
+}
+
+// ── events (streamed out) ──────────────────────────────────
+message SubscribeRequest { bool transport = 1; bool meters = 2; uint32 interval_ms = 3; }
+message Meters { repeated float peak_l = 1; repeated float peak_r = 2; }  // per insert, [0] = master
+message Event {
+  oneof kind {
+    TransportState transport = 1;
+    Meters         meters    = 2;
+  }
+}
+
 // ── service ────────────────────────────────────────────────
 service Gloopy {
   // transport
@@ -75,4 +108,21 @@ service Gloopy {
 
   // clips & notes (programmatic sequences)
   rpc AddClip       (AddClipRequest)       returns (ClipId);
+
+  // mixer & effects
+  rpc ListInserts    (Empty)            returns (InsertList);
+  rpc AddEffect      (AddEffectRequest) returns (EffectRef);
+  rpc RemoveEffect   (EffectRef)        returns (Ack);
+  rpc SetEffectParam (EffectParamSet)   returns (Ack);
+  rpc SetEffectBypass(EffectBypassSet)  returns (Ack);
+  rpc GetEffectParams(EffectRef)        returns (ParamList);
+
+  // project & state
+  rpc GetState   (Empty)    returns (ProjectState);
+  rpc NewProject (Empty)    returns (Ack);
+  rpc LoadProject(FilePath) returns (Ack);
+  rpc SaveProject(FilePath) returns (Ack);
+
+  // events (playhead, meters) — closed-loop control
+  rpc Subscribe  (SubscribeRequest) returns (stream Event);
 }

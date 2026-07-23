@@ -347,6 +347,143 @@ int MainComponent::apiAddClip (int trackId, double start, double len, double con
     });
 }
 
+std::vector<MainComponent::InsertSnap> MainComponent::apiListInserts()
+{
+    return callOnMessageThread ([&]
+    {
+        std::vector<InsertSnap> out;
+        for (int i = 0; i < (int) mixerTracks.size(); ++i)
+        {
+            auto& mt = *mixerTracks[(size_t) i];
+            InsertSnap s { i, mt.name, mt.volume.load(), mt.pan.load(), mt.mute.load(), mt.solo.load(), {} };
+            for (int j = 0; j < (int) mt.effects.size(); ++j)
+                s.effects.push_back ({ j, mt.effects[(size_t) j]->name(), mt.effects[(size_t) j]->bypassed.load() });
+            out.push_back (std::move (s));
+        }
+        return out;
+    });
+}
+
+int MainComponent::apiAddEffect (int insert, int type)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        static const char* names[] = { "Gain", "Filter", "Delay", "Reverb" };
+        if (type < 0 || type > 3) return -1;
+        auto fx = makeEffect (names[type]);
+        if (fx == nullptr) return -1;
+        int slot = -1;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (insert, (int) mixerTracks.size())) return -1;
+            mixerTracks[(size_t) insert]->effects.push_back (std::move (fx));
+            slot = (int) mixerTracks[(size_t) insert]->effects.size() - 1;
+        }
+        if (mixerView) mixerView->rebuild();
+        return slot;
+    });
+}
+
+bool MainComponent::apiRemoveEffect (int insert, int slot)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        closeAllPluginWindows();
+        bool ok = false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (juce::isPositiveAndBelow (insert, (int) mixerTracks.size()))
+            {
+                auto& fx = mixerTracks[(size_t) insert]->effects;
+                if (juce::isPositiveAndBelow (slot, (int) fx.size())) { fx.erase (fx.begin() + slot); ok = true; }
+            }
+        }
+        if (mixerView) mixerView->rebuild();
+        return ok;
+    });
+}
+
+bool MainComponent::apiSetEffectParam (int insert, int slot, const juce::String& name, float value)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        const juce::ScopedLock sl (engineLock);
+        if (! juce::isPositiveAndBelow (insert, (int) mixerTracks.size())) return false;
+        auto& fx = mixerTracks[(size_t) insert]->effects;
+        if (! juce::isPositiveAndBelow (slot, (int) fx.size())) return false;
+        for (auto& p : fx[(size_t) slot]->parameters())
+            if (p.name.equalsIgnoreCase (name)) { p.set (value); return true; }
+        return false;
+    });
+}
+
+bool MainComponent::apiSetEffectBypass (int insert, int slot, bool bypassed)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        const juce::ScopedLock sl (engineLock);
+        if (! juce::isPositiveAndBelow (insert, (int) mixerTracks.size())) return false;
+        auto& fx = mixerTracks[(size_t) insert]->effects;
+        if (! juce::isPositiveAndBelow (slot, (int) fx.size())) return false;
+        fx[(size_t) slot]->bypassed.store (bypassed);
+        return true;
+    });
+}
+
+std::vector<MainComponent::ParamSnap> MainComponent::apiGetEffectParams (int insert, int slot)
+{
+    return callOnMessageThread ([&]
+    {
+        std::vector<ParamSnap> out;
+        const juce::ScopedLock sl (engineLock);
+        if (juce::isPositiveAndBelow (insert, (int) mixerTracks.size()))
+        {
+            auto& fx = mixerTracks[(size_t) insert]->effects;
+            if (juce::isPositiveAndBelow (slot, (int) fx.size()))
+                for (auto& p : fx[(size_t) slot]->parameters())
+                    out.push_back ({ p.name, p.get(), p.minValue, p.maxValue });
+        }
+        return out;
+    });
+}
+
+bool MainComponent::apiSnapshotMeters (std::vector<float>& L, std::vector<float>& R)
+{
+    const juce::ScopedTryLock stl (engineLock);
+    if (! stl.isLocked()) return false;
+    L.clear(); R.clear();
+    for (auto& mt : mixerTracks) { L.push_back (mt->peakL.load()); R.push_back (mt->peakR.load()); }
+    return true;
+}
+
+void MainComponent::apiNewProject()
+{
+    callOnMessageThread ([&] () -> bool { newProject(); return true; });
+}
+
+bool MainComponent::apiLoadProject (const juce::String& path)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto f = juce::File::isAbsolutePath (path) ? juce::File (path)
+                    : juce::File::getCurrentWorkingDirectory().getChildFile (path);
+        if (! f.existsAsFile()) return false;
+        openProject (f);
+        return true;
+    });
+}
+
+bool MainComponent::apiSaveProject (const juce::String& path)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto f = juce::File::isAbsolutePath (path) ? juce::File (path)
+                    : juce::File::getCurrentWorkingDirectory().getChildFile (path);
+        saveProject (f.withFileExtension ("gloopy"));
+        return true;
+    });
+}
+
 void MainComponent::setupDefaultProject()
 {
     auto makeSamplerTrack = [this] (const juce::String& name,
@@ -1113,7 +1250,7 @@ juce::ValueTree MainComponent::toValueTree()
             s.setProperty ("data", juce::Base64::toBase64 (mb.getData(), mb.getSize()), nullptr);
             tr.addChild (s, -1, nullptr);
         }
-        else if (auto* proc = t->generator->getPluginInstance())
+        else if (auto* proc = t->generator ? t->generator->getPluginInstance() : nullptr)
         {
             juce::ValueTree pv ("PLUGIN");
             if (auto* inst = dynamic_cast<juce::AudioPluginInstance*> (proc))
