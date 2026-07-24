@@ -130,6 +130,32 @@ pass it to `AddPluginTrack` / `AddPluginEffect`.
 (~20× on the demo song), so the call blocks until the file is written but does
 not disturb the live transport or playback state.
 
+### Common Lisp client
+
+[`examples/gloopy-grpc.lisp`](../examples/gloopy-grpc.lisp) is a worked client
+built on [ag-grpc](https://github.com/atgreen/ag-grpc) (`ocicl install ag-grpc`).
+It compiles `gloopy.proto` at load time (into an isolated `GLOOPY.PB` package)
+and wraps every RPC as a plain function returning plists:
+
+```lisp
+(load "examples/gloopy-grpc.lisp")
+(in-package :gloopy)
+(connect)                                         ; 127.0.0.1:50051
+(let ((id (add-synth-track "Lead" :wave :saw)))
+  (add-clip id :notes (list (note 60 0 1) (note 64 1 1) (note 67 2 1)))
+  (play)
+  (subscribe :seconds 3 :on-event #'print)        ; stream playhead + meters
+  (stop)
+  (render "/tmp/mix.wav"))                         ; offline bounce
+```
+
+Two notes on the ag-proto codegen, both handled by the client:
+- Compile into a package that does **not** `:use :cl`, and bind `*package*` to
+  it during compilation — otherwise proto fields named like locked CL symbols
+  (`Param.min` / `.max`) and nested-message type references collide.
+- `Meters` uses `[packed = false]` so ag-proto's unpacked repeated-scalar reader
+  decodes the meter arrays (standard decoders accept unpacked too).
+
 ## Security
 
 - **OSC** is unauthenticated/unencrypted (it's just UDP) — it is a **local

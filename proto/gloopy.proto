@@ -99,7 +99,13 @@ message ProjectState {
 
 // ── events (streamed out) ──────────────────────────────────
 message SubscribeRequest { bool transport = 1; bool meters = 2; uint32 interval_ms = 3; }
-message Meters { repeated float peak_l = 1; repeated float peak_r = 2; }  // per insert, [0] = master
+// Per insert, [0] = master. Sent unpacked ([packed=false]) so decoders that
+// don't implement packed repeated scalars (e.g. ag-proto in the Lisp client)
+// read them correctly; standard protobuf decoders accept unpacked too.
+message Meters {
+  repeated float peak_l = 1 [packed = false];
+  repeated float peak_r = 2 [packed = false];
+}
 message Event {
   oneof kind {
     TransportState transport = 1;
