@@ -65,6 +65,8 @@ public:
 
     void apiPlay();
     void apiStop();
+    void apiStartRecording();
+    void apiStopRecording();
     void apiSetTempo (double bpm);
     void apiSeek (double beats);
     TransportSnap apiGetTransport();
@@ -250,6 +252,16 @@ private:
     // Live MIDI input: the instrument track id that receives played notes.
     std::atomic<int> midiInputTarget { -1 };
     std::atomic<int> firstInstrumentId { -1 };   // fallback when nothing is selected
+
+    // MIDI recording: audio thread appends played input, message thread drains to a clip.
+    void startRecording();
+    void finalizeRecording();
+    struct RecordedEvent { juce::int64 sample; juce::MidiMessage msg; };
+    std::vector<RecordedEvent> recordBuffer;         // preallocated in prepareToPlay
+    std::atomic<int>  recordWrite { 0 };
+    std::atomic<bool> recording { false };
+    std::atomic<int>  recordTrackId { -1 };
+    juce::int64       recordStartSample { 0 };
     juce::StringArray openMidiInputs;
     std::unique_ptr<juce::MidiInput> virtualMidiIn;
     juce::MidiDeviceListConnection midiListConnection;   // hot-plug notifications

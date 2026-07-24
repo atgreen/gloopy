@@ -60,6 +60,12 @@ namespace
         Status Seek (ServerContext*, const pb::Position* q, pb::Ack* r) override
         { main.apiSeek (q->beats()); r->set_ok (true); return Status::OK; }
 
+        Status StartRecording (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        { main.apiStartRecording(); r->set_ok (true); return Status::OK; }
+
+        Status StopRecording (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        { main.apiStopRecording(); r->set_ok (true); return Status::OK; }
+
         Status GetTransport (ServerContext*, const pb::Empty*, pb::TransportState* r) override
         {
             auto s = main.apiGetTransport();

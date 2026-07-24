@@ -32,6 +32,7 @@ MainComponent::MainComponent()
     addAndMakeVisible (stopButton);
     stopButton.onClick = [this]
     {
+        if (recording.load()) { finalizeRecording(); recordButton.setToggleState (false, juce::dontSendNotification); }
         transport.setPlaying (false);
         transport.requestReset();
         playButton.setToggleState (false, juce::dontSendNotification);
@@ -39,7 +40,13 @@ MainComponent::MainComponent()
     };
 
     addAndMakeVisible (recordButton);
-    recordButton.setTooltip ("Recording — coming soon");
+    recordButton.setTooltip ("Record MIDI into the selected instrument track");
+    recordButton.onClick = [this]
+    {
+        if (recording.load()) { finalizeRecording(); transport.setPlaying (false); playButton.setToggleState (false, juce::dontSendNotification); playButton.setIcon (IconButton::Play); }
+        else                  { startRecording(); playButton.setToggleState (true, juce::dontSendNotification); playButton.setIcon (IconButton::Pause); }
+        recordButton.setToggleState (recording.load(), juce::dontSendNotification);
+    };
 
     addAndMakeVisible (fileButton);
     fileButton.onClick = [this] { showFileMenu(); };
@@ -327,11 +334,71 @@ void MainComponent::handleIncomingMidiMessage (juce::MidiInput*, const juce::Mid
             t->liveMidi.addMessageToQueue (m);
 }
 
+void MainComponent::startRecording()
+{
+    int target = midiInputTarget.load();
+    if (target < 0) target = firstInstrumentId.load();
+    if (resolveTrack (target) == nullptr) return;   // nothing armed to record into
+    recordTrackId.store (target);
+    recordStartSample = transport.getPlayheadSamples();
+    recordWrite.store (0);
+    clearClipIndicators();
+    recording.store (true);
+    transport.setPlaying (true);
+}
+
+void MainComponent::finalizeRecording()
+{
+    if (! recording.exchange (false)) return;
+    const int count = juce::jmin (recordWrite.load(), (int) recordBuffer.size());
+    Track* t = resolveTrack (recordTrackId.load());
+    if (count == 0 || t == nullptr) return;
+
+    const double spb = juce::jmax (1.0, transport.samplesPerBeat());
+    const auto toBeat = [&] (juce::int64 s) { return juce::jmax (0.0, (double) (s - recordStartSample) / spb); };
+
+    struct Pending { bool on = false; double startBeat = 0.0; float vel = 0.8f; };
+    std::array<Pending, 128> pend;
+    std::vector<Note> notes;
+    for (int i = 0; i < count; ++i)
+    {
+        const auto& m = recordBuffer[(size_t) i].msg;
+        const juce::int64 s = recordBuffer[(size_t) i].sample;
+        if (m.isNoteOn())
+            pend[(size_t) m.getNoteNumber()] = { true, toBeat (s), m.getFloatVelocity() };
+        else if (m.isNoteOff() && pend[(size_t) m.getNoteNumber()].on)
+        {
+            auto& p = pend[(size_t) m.getNoteNumber()];
+            notes.push_back ({ m.getNoteNumber(), p.startBeat, juce::jmax (0.05, toBeat (s) - p.startBeat), p.vel });
+            p.on = false;
+        }
+    }
+    const double stopBeat = toBeat (transport.getPlayheadSamples());
+    for (int n = 0; n < 128; ++n)
+        if (pend[(size_t) n].on)
+            notes.push_back ({ n, pend[(size_t) n].startBeat, juce::jmax (0.05, stopBeat - pend[(size_t) n].startBeat), pend[(size_t) n].vel });
+    if (notes.empty()) return;
+
+    double maxEnd = 0.0;
+    for (auto& n : notes) maxEnd = juce::jmax (maxEnd, n.startBeat + n.lengthBeats);
+    Clip c;
+    c.name = "Recording";
+    c.startBeat = (double) recordStartSample / spb;
+    c.lengthBeats = juce::jmax (1.0, maxEnd);
+    c.contentLenBeats = c.lengthBeats;
+    c.looped = false;
+    c.notes = std::move (notes);
+    { const juce::ScopedLock sl (engineLock); t->clips.push_back (std::move (c)); }
+    if (arrangeView) arrangeView->rebuild();
+}
+
 // ===========================================================================
 // gRPC control API  (transport = atomic/direct; structural = message thread)
 // ===========================================================================
 void MainComponent::apiPlay()  { clearClipIndicators(); transport.setPlaying (true); }
-void MainComponent::apiStop()  { transport.setPlaying (false); transport.requestReset(); }
+void MainComponent::apiStop()  { if (recording.load()) finalizeRecording(); transport.setPlaying (false); transport.requestReset(); }
+void MainComponent::apiStartRecording() { callOnMessageThread ([&] { startRecording(); return true; }); }
+void MainComponent::apiStopRecording()  { callOnMessageThread ([&] { finalizeRecording(); transport.setPlaying (false); return true; }); }
 void MainComponent::apiSetTempo (double bpm) { transport.setBpm (juce::jlimit (20.0, 400.0, bpm)); }
 void MainComponent::apiSeek (double beats)   { transport.requestSeek (juce::jmax (0.0, beats)); }
 
@@ -964,6 +1031,7 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
     currentSampleRate = sampleRate;
     currentBlockSize  = samplesPerBlockExpected;
     transport.prepare (sampleRate);
+    if (recordBuffer.empty()) recordBuffer.resize (1 << 18);   // ~260k events, preallocated
 
     const juce::ScopedLock sl (engineLock);
     mixBuffer.setSize (2, juce::jmax (16, samplesPerBlockExpected));
@@ -990,8 +1058,9 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         for (auto& t : tracks) if (t->generator) t->generator->allNotesOff();
     }
 
-    const bool   playing = transport.isPlaying();
-    const double spb     = transport.samplesPerBeat();
+    const bool        playing = transport.isPlaying();
+    const double      spb     = transport.samplesPerBeat();
+    const juce::int64 blockStartPlayhead = transport.getPlayheadSamples();   // for MIDI capture
 
     // Seek (from dragging the playhead) — applies whether playing or stopped.
     double seekBeats = 0.0;
@@ -1137,6 +1206,15 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
             juce::MidiBuffer live;
             t->liveMidi.removeNextBlockOfMessages (live, num);
             midi.addEvents (live, 0, num, 0);
+
+            // Capture played input into the record buffer for the armed track.
+            if (recording.load() && t->id == recordTrackId.load())
+                for (const auto meta : live)
+                {
+                    const int idx = recordWrite.fetch_add (1, std::memory_order_relaxed);
+                    if (idx < (int) recordBuffer.size())
+                        recordBuffer[(size_t) idx] = { blockStartPlayhead + meta.samplePosition, meta.getMessage() };
+                }
 
             t->generator->render (mixBuffer, midi, 0, num);
         }

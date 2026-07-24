@@ -132,6 +132,8 @@ service Gloopy {
   rpc SetTempo    (Tempo)    returns (Ack);
   rpc Seek        (Position) returns (Ack);
   rpc GetTransport(Empty)    returns (TransportState);
+  rpc StartRecording(Empty)  returns (Ack);   // record played MIDI into the armed track
+  rpc StopRecording (Empty)  returns (Ack);
 
   // tracks
   rpc AddSynthTrack (AddSynthTrackRequest) returns (TrackId);
