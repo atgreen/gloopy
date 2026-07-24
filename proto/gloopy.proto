@@ -170,6 +170,8 @@ service Gloopy {
   // project & state
   rpc GetState   (Empty)    returns (ProjectState);
   rpc NewProject (Empty)    returns (Ack);
+  rpc Undo       (Empty)    returns (Ack);
+  rpc Redo       (Empty)    returns (Ack);
   rpc LoadProject(FilePath) returns (Ack);
   rpc SaveProject(FilePath) returns (Ack);
   rpc RenderToFile(RenderRequest) returns (Ack);   // offline bounce to WAV

@@ -202,6 +202,12 @@ namespace
         Status NewProject (ServerContext*, const pb::Empty*, pb::Ack* r) override
         { main.apiNewProject(); r->set_ok (true); return Status::OK; }
 
+        Status Undo (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        { main.apiUndo(); r->set_ok (true); return Status::OK; }
+
+        Status Redo (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        { main.apiRedo(); r->set_ok (true); return Status::OK; }
+
         Status LoadProject (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
         {
             const bool ok = main.apiLoadProject (js (q->path()));

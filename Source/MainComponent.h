@@ -50,6 +50,10 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    bool keyPressed (const juce::KeyPress&) override;   // Ctrl+Z / Ctrl+Shift+Z
+
+    void apiUndo();
+    void apiRedo();
 
     /** Open a project on startup (from the command line). */
     void openProjectFile (const juce::File& f) { if (f.existsAsFile()) openProject (f); }
@@ -200,6 +204,13 @@ private:
     }
 
     // Project I/O.
+    // Snapshot-based undo/redo (reuses toValueTree/loadFromTree).
+    void pushUndoSnapshot();
+    void undo();
+    void redo();
+    std::vector<juce::ValueTree> undoStack, redoStack;
+    bool undoSuppressed { false };
+
     void showFileMenu();
     void newProject();
     void saveProject (const juce::File&);

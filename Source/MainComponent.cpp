@@ -211,6 +211,7 @@ MainComponent::MainComponent()
             std::cout << "[grpc] FAILED to start on 127.0.0.1:" << grpcPort << std::endl;
     }
 
+    setWantsKeyboardFocus (true);   // catch Ctrl+Z / Ctrl+Shift+Z (bubbles up from children)
     setSize (1180, 820);
     setAudioChannels (0, 2);
     setupMidiInputs();
@@ -241,6 +242,7 @@ juce::Colour MainComponent::paletteColour (int index) const
 
 void MainComponent::addTrack (std::unique_ptr<Track> track)
 {
+    pushUndoSnapshot();
     if (track->generator) track->generator->prepare (currentSampleRate, currentBlockSize);
     track->liveMidi.reset (currentSampleRate);
     {
@@ -379,6 +381,7 @@ void MainComponent::finalizeRecording()
             notes.push_back ({ n, pend[(size_t) n].startBeat, juce::jmax (0.05, stopBeat - pend[(size_t) n].startBeat), pend[(size_t) n].vel });
     if (notes.empty()) return;
 
+    pushUndoSnapshot();
     double maxEnd = 0.0;
     for (auto& n : notes) maxEnd = juce::jmax (maxEnd, n.startBeat + n.lengthBeats);
     Clip c;
@@ -459,6 +462,7 @@ int MainComponent::apiAddClip (int trackId, double start, double len, double con
 {
     return callOnMessageThread ([&] () -> int
     {
+        pushUndoSnapshot();
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return -1;
         Clip c;
@@ -515,6 +519,7 @@ int MainComponent::apiAddEffect (int insert, int type)
 {
     return callOnMessageThread ([&] () -> int
     {
+        pushUndoSnapshot();
         static const char* names[] = { "Gain", "Filter", "Delay", "Reverb", "Limiter" };
         if (type < 0 || type >= (int) (sizeof (names) / sizeof (names[0]))) return -1;
         auto fx = makeEffect (names[type]);
@@ -535,6 +540,7 @@ bool MainComponent::apiRemoveEffect (int insert, int slot)
 {
     return callOnMessageThread ([&] () -> bool
     {
+        pushUndoSnapshot();
         closeAllPluginWindows();
         bool ok = false;
         {
@@ -646,6 +652,7 @@ bool MainComponent::apiRemoveTrack (int id)
 {
     return callOnMessageThread ([&] () -> bool
     {
+        pushUndoSnapshot();
         closeAllPluginWindows();
         bool ok = false;
         {
@@ -716,6 +723,7 @@ bool MainComponent::apiRemoveClip (int trackId, int index)
 {
     return callOnMessageThread ([&] () -> bool
     {
+        pushUndoSnapshot();
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
         bool ok = false;
@@ -733,6 +741,7 @@ bool MainComponent::apiMoveClip (int trackId, int index, double startBeat, bool 
 {
     return callOnMessageThread ([&] () -> bool
     {
+        pushUndoSnapshot();
         Track* src = resolveTrack (trackId);
         Track* dst = hasToTrack ? resolveTrack (toTrackId) : src;
         if (src == nullptr || dst == nullptr) return false;
@@ -764,6 +773,7 @@ int MainComponent::apiAddAudioClip (int trackId, double startBeat, const juce::S
 {
     return callOnMessageThread ([&] () -> int
     {
+        pushUndoSnapshot();
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return -1;
         juce::File f (path);
@@ -817,6 +827,7 @@ int MainComponent::apiAddPluginEffect (int insert, const juce::String& identifie
     return callOnMessageThread ([&] () -> int
     {
         if (! juce::isPositiveAndBelow (insert, (int) mixerTracks.size())) return -1;
+        pushUndoSnapshot();
         scanPlugins();
         auto desc = pluginHost.knownList.getTypeForIdentifierString (identifier);
         if (desc == nullptr) return -1;
@@ -1656,9 +1667,49 @@ void MainComponent::newProject()
     }
     nextTrackId = 0;
     setupMixer();
+    undoSuppressed = true;
     setupDefaultProject();
+    undoSuppressed = false;
+    undoStack.clear(); redoStack.clear();
     currentProjectFile = juce::File();
     refreshUiAfterLoad();
+}
+
+// --- snapshot-based undo/redo (reuses the save/load serialization) ---
+void MainComponent::pushUndoSnapshot()
+{
+    if (undoSuppressed) return;
+    undoStack.push_back (toValueTree());
+    while (undoStack.size() > 32) undoStack.erase (undoStack.begin());   // bounded
+    redoStack.clear();
+}
+
+void MainComponent::undo()
+{
+    if (undoStack.empty()) return;
+    redoStack.push_back (toValueTree());
+    auto prev = undoStack.back(); undoStack.pop_back();
+    undoSuppressed = true;  loadFromTree (prev);  refreshUiAfterLoad();  undoSuppressed = false;
+}
+
+void MainComponent::redo()
+{
+    if (redoStack.empty()) return;
+    undoStack.push_back (toValueTree());
+    auto next = redoStack.back(); redoStack.pop_back();
+    undoSuppressed = true;  loadFromTree (next);  refreshUiAfterLoad();  undoSuppressed = false;
+}
+
+void MainComponent::apiUndo() { callOnMessageThread ([&] { undo(); return true; }); }
+void MainComponent::apiRedo() { callOnMessageThread ([&] { redo(); return true; }); }
+
+bool MainComponent::keyPressed (const juce::KeyPress& key)
+{
+    using MK = juce::ModifierKeys;
+    if (key == juce::KeyPress ('z', MK::commandModifier, 0))                      { undo(); return true; }
+    if (key == juce::KeyPress ('z', MK::commandModifier | MK::shiftModifier, 0))  { redo(); return true; }
+    if (key == juce::KeyPress ('y', MK::commandModifier, 0))                      { redo(); return true; }
+    return false;
 }
 
 juce::ValueTree MainComponent::toValueTree()
@@ -1825,7 +1876,10 @@ void MainComponent::openProject (const juce::File& file)
 {
     if (auto xml = juce::parseXML (file))
     {
+        undoSuppressed = true;
         loadFromTree (juce::ValueTree::fromXml (*xml));
+        undoSuppressed = false;
+        undoStack.clear(); redoStack.clear();
         refreshUiAfterLoad();
     }
     currentProjectFile = file;
