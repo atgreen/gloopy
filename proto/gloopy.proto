@@ -37,6 +37,11 @@ message AddSynthTrackRequest {
 }
 message TrackId { int32 id = 1; }
 
+// Live tweak of the built-in synth engine on a track. `name` is one of:
+// wave osc2wave osc2detune oscmix sub attack decay sustain release gain
+// ftype cutoff reso fenvamt fattack fdecay fsustain frelease lfotarget lforate lfodepth
+message SynthParamSet { int32 track_id = 1; string name = 2; float value = 3; }
+
 message TrackParams {
   int32 id = 1;
   optional float  volume = 2;
@@ -162,6 +167,7 @@ service Gloopy {
   // tracks
   rpc AddSynthTrack (AddSynthTrackRequest) returns (TrackId);
   rpc SetTrackParams(TrackParams)          returns (Ack);
+  rpc SetSynthParam (SynthParamSet)        returns (Ack);   // tweak the built-in synth engine
   rpc ListTracks    (Empty)                returns (TrackList);
 
   // clips & notes (programmatic sequences)

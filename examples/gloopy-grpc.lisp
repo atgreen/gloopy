@@ -48,10 +48,11 @@
   (:use :cl)
   (:export :connect :disconnect :*channel*
            ;; transport
-           :play :stop :set-tempo :seek :transport
+           :play :stop :set-tempo :set-swing :seek :transport
            ;; tracks
            :list-tracks :get-state :add-synth-track :add-sampler-track
-           :add-audio-track :add-plugin-track :set-track-params :remove-track
+           :add-audio-track :add-plugin-track :set-track-params :set-synth-param
+           :remove-track
            ;; clips
            :note :add-clip :remove-clip :move-clip :add-audio-clip
            ;; mixer / effects
@@ -110,6 +111,8 @@
 (defun play      () (%ack "Play" (mk 'gloopy.pb::empty)))
 (defun stop      () (%ack "Stop" (mk 'gloopy.pb::empty)))
 (defun set-tempo (bpm)   (%ack "SetTempo" (mk 'gloopy.pb::tempo :bpm (d bpm))))
+(defun set-swing (amount) ; 0.5 straight … 0.75 triplet feel
+  (%ack "SetSwing" (mk 'gloopy.pb::swing :amount (d amount))))
 (defun seek      (beats) (%ack "Seek" (mk 'gloopy.pb::proto-position :beats (d beats))))
 
 (defun transport ()
@@ -196,6 +199,13 @@ mute/solo *off*, through this call — use the OSC lane for those."
     (when solo   (setf (gloopy.pb::solo req) t))
     (when name   (setf (gloopy.pb::name req) name))
     (%ack "SetTrackParams" req)))
+
+(defun set-synth-param (id name value)
+  "Tweak the built-in synth engine on track ID.  NAME is a string, one of:
+wave osc2wave osc2detune oscmix sub attack decay sustain release gain
+ftype cutoff reso fenvamt fattack fdecay fsustain frelease lfotarget lforate lfodepth."
+  (%ack "SetSynthParam" (mk 'gloopy.pb::synth-param-set
+                            :track-id (round id) :name (string name) :value (s value))))
 
 (defun remove-track (id) (%ack "RemoveTrack" (mk 'gloopy.pb::track-id :id (round id))))
 

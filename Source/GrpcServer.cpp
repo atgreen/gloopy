@@ -98,6 +98,14 @@ namespace
             return Status::OK;
         }
 
+        Status SetSynthParam (ServerContext*, const pb::SynthParamSet* q, pb::Ack* r) override
+        {
+            const bool ok = main.apiSetSynthParam (q->track_id(), js (q->name()), q->value());
+            r->set_ok (ok);
+            if (! ok) r->set_error ("no synth track / unknown param");
+            return Status::OK;
+        }
+
         Status ListTracks (ServerContext*, const pb::Empty*, pb::TrackList* r) override
         {
             for (auto& t : main.apiListTracks())

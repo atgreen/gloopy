@@ -190,6 +190,8 @@ MainComponent::MainComponent()
     {
         OscControl::Hooks h;
         h.resolveTrack = [this] (int id) { return resolveTrack (id); };
+        h.setSynthParam = [this] (int id, const juce::String& n, float v)
+                          { return applySynthParam (resolveTrack (id), n, v); };
         h.mixerTracks  = &mixerTracks;
         h.engineLock   = &engineLock;
         h.transport    = &transport;
@@ -445,6 +447,52 @@ bool MainComponent::apiSetTrackParams (int id, bool hasVol, float vol, bool hasP
         if (arrangeView) arrangeView->repaint();
         return true;
     });
+}
+
+bool MainComponent::apiSetSynthParam (int trackId, const juce::String& name, float value)
+{
+    // Params are atomic, so this is safe to run on the caller's thread (gRPC or,
+    // via the hook, the OSC real-time thread) — no message-thread hop needed.
+    return applySynthParam (resolveTrack (trackId), name, value);
+}
+
+bool MainComponent::applySynthParam (Track* t, const juce::String& name, float value)
+{
+    {
+        if (t == nullptr) return false;
+        auto* sg = dynamic_cast<SynthGenerator*> (t->generator.get());
+        if (sg == nullptr) return false;
+        auto& p = sg->engine.params;
+        const auto n = name.toLowerCase();
+
+        // Oscillators
+        if      (n == "wave")       p.waveform.store (juce::jlimit (0, 3, (int) value));
+        else if (n == "osc2wave")   p.osc2Wave.store (juce::jlimit (0, 3, (int) value));
+        else if (n == "osc2detune") p.osc2Detune.store (juce::jlimit (-1200.0f, 1200.0f, value));
+        else if (n == "oscmix")     p.oscMix.store (juce::jlimit (0.0f, 1.0f, value));
+        else if (n == "sub")        p.subLevel.store (juce::jlimit (0.0f, 1.0f, value));
+        // Amp envelope
+        else if (n == "attack")     p.attack.store  (juce::jmax (0.0f, value));
+        else if (n == "decay")      p.decay.store   (juce::jmax (0.0f, value));
+        else if (n == "sustain")    p.sustain.store (juce::jlimit (0.0f, 1.0f, value));
+        else if (n == "release")    p.release.store (juce::jmax (0.0f, value));
+        else if (n == "gain")       p.gain.store    (juce::jlimit (0.0f, 4.0f, value));
+        // Filter + its envelope
+        else if (n == "ftype")      p.filterType.store (juce::jlimit (0, 2, (int) value));
+        else if (n == "cutoff")     p.cutoff.store    (juce::jlimit (20.0f, 20000.0f, value));
+        else if (n == "reso")       p.resonance.store (juce::jlimit (0.5f, 20.0f, value));
+        else if (n == "fenvamt")    p.filterEnvAmt.store (juce::jlimit (0.0f, 8.0f, value));
+        else if (n == "fattack")    p.fAttack.store  (juce::jmax (0.0f, value));
+        else if (n == "fdecay")     p.fDecay.store   (juce::jmax (0.0f, value));
+        else if (n == "fsustain")   p.fSustain.store (juce::jlimit (0.0f, 1.0f, value));
+        else if (n == "frelease")   p.fRelease.store (juce::jmax (0.0f, value));
+        // LFO
+        else if (n == "lfotarget")  p.lfoTarget.store (juce::jlimit (0, 2, (int) value));
+        else if (n == "lforate")    p.lfoRate.store  (juce::jlimit (0.01f, 40.0f, value));
+        else if (n == "lfodepth")   p.lfoDepth.store (juce::jlimit (0.0f, 1.0f, value));
+        else return false;
+        return true;
+    }
 }
 
 std::vector<MainComponent::TrackSnap> MainComponent::apiListTracks()
@@ -1883,6 +1931,23 @@ juce::ValueTree MainComponent::toValueTree()
             s.setProperty ("sustain", p.sustain.load(), nullptr);
             s.setProperty ("release", p.release.load(), nullptr);
             s.setProperty ("gain", p.gain.load(), nullptr);
+            // Expanded engine (osc2 / sub / filter+env / LFO). Written only when
+            // non-default so pre-expansion projects keep their compact SYNTH node.
+            s.setProperty ("osc2wave", p.osc2Wave.load(), nullptr);
+            s.setProperty ("osc2detune", p.osc2Detune.load(), nullptr);
+            s.setProperty ("oscmix", p.oscMix.load(), nullptr);
+            s.setProperty ("sub", p.subLevel.load(), nullptr);
+            s.setProperty ("ftype", p.filterType.load(), nullptr);
+            s.setProperty ("cutoff", p.cutoff.load(), nullptr);
+            s.setProperty ("reso", p.resonance.load(), nullptr);
+            s.setProperty ("fenvamt", p.filterEnvAmt.load(), nullptr);
+            s.setProperty ("fattack", p.fAttack.load(), nullptr);
+            s.setProperty ("fdecay", p.fDecay.load(), nullptr);
+            s.setProperty ("fsustain", p.fSustain.load(), nullptr);
+            s.setProperty ("frelease", p.fRelease.load(), nullptr);
+            s.setProperty ("lfotarget", p.lfoTarget.load(), nullptr);
+            s.setProperty ("lforate", p.lfoRate.load(), nullptr);
+            s.setProperty ("lfodepth", p.lfoDepth.load(), nullptr);
             tr.addChild (s, -1, nullptr);
         }
         else if (auto* sm = dynamic_cast<Sampler*> (t->generator.get()))
@@ -2091,6 +2156,23 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             p.sustain.store ((float) (double) s.getProperty ("sustain", 0.7));
             p.release.store ((float) (double) s.getProperty ("release", 0.25));
             p.gain.store    ((float) (double) s.getProperty ("gain", 0.25));
+            // Expanded engine — defaults reproduce the classic single-osc sound
+            // for older projects that don't carry these properties.
+            p.osc2Wave.store     ((int)   s.getProperty ("osc2wave", 1));
+            p.osc2Detune.store   ((float) (double) s.getProperty ("osc2detune", 0.0));
+            p.oscMix.store       ((float) (double) s.getProperty ("oscmix", 0.0));
+            p.subLevel.store     ((float) (double) s.getProperty ("sub", 0.0));
+            p.filterType.store   ((int)   s.getProperty ("ftype", 0));
+            p.cutoff.store       ((float) (double) s.getProperty ("cutoff", 20000.0));
+            p.resonance.store    ((float) (double) s.getProperty ("reso", 0.7));
+            p.filterEnvAmt.store ((float) (double) s.getProperty ("fenvamt", 0.0));
+            p.fAttack.store      ((float) (double) s.getProperty ("fattack", 0.01));
+            p.fDecay.store       ((float) (double) s.getProperty ("fdecay", 0.20));
+            p.fSustain.store     ((float) (double) s.getProperty ("fsustain", 0.60));
+            p.fRelease.store     ((float) (double) s.getProperty ("frelease", 0.30));
+            p.lfoTarget.store    ((int)   s.getProperty ("lfotarget", 0));
+            p.lfoRate.store      ((float) (double) s.getProperty ("lforate", 5.0));
+            p.lfoDepth.store     ((float) (double) s.getProperty ("lfodepth", 0.0));
             gen = std::move (sg);
         }
         else

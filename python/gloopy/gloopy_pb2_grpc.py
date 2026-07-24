@@ -85,6 +85,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.TrackParams.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SetSynthParam = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetSynthParam',
+                request_serializer=gloopy__pb2.SynthParamSet.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.ListTracks = channel.unary_unary(
                 '/gloopy.v1.Gloopy/ListTracks',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -300,6 +305,13 @@ class GloopyServicer:
 
     def SetTrackParams(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetSynthParam(self, request, context):
+        """tweak the built-in synth engine
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -543,6 +555,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'SetTrackParams': grpc.unary_unary_rpc_method_handler(
                     servicer.SetTrackParams,
                     request_deserializer=gloopy__pb2.TrackParams.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetSynthParam': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetSynthParam,
+                    request_deserializer=gloopy__pb2.SynthParamSet.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'ListTracks': grpc.unary_unary_rpc_method_handler(
@@ -966,6 +983,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/SetTrackParams',
             gloopy__pb2.TrackParams.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetSynthParam(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetSynthParam',
+            gloopy__pb2.SynthParamSet.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

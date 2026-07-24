@@ -121,6 +121,14 @@ class Gloopy:
                 kw[k] = v
         self._ack(self.stub.SetTrackParams(pb.TrackParams(**kw)))
 
+    def set_synth_param(self, track_id: int, name: str, value: float) -> None:
+        """Tweak the built-in synth engine on a track. ``name`` is one of:
+        wave osc2wave osc2detune oscmix sub · attack decay sustain release gain ·
+        ftype cutoff reso fenvamt fattack fdecay fsustain frelease ·
+        lfotarget lforate lfodepth."""
+        self._ack(self.stub.SetSynthParam(
+            pb.SynthParamSet(track_id=track_id, name=name, value=value)))
+
     def remove_track(self, track_id: int) -> None:
         self._ack(self.stub.RemoveTrack(pb.TrackId(id=track_id)))
 

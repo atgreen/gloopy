@@ -24,6 +24,7 @@ public:
     struct Hooks
     {
         std::function<Track* (int)>               resolveTrack;   // id -> Track* (stable in Phase 1)
+        std::function<bool (int, const juce::String&, float)> setSynthParam;   // built-in synth tweak
         std::vector<std::unique_ptr<MixerTrack>>* mixerTracks = nullptr;
         juce::CriticalSection*                    engineLock = nullptr;
         Transport*                                transport = nullptr;
@@ -123,6 +124,9 @@ private:
         else if (cmd == "vol"  && m.size() >= 1) t->volume.store (juce::jlimit (0.0f, 1.0f, argF (m[0])));
         else if (cmd == "pan"  && m.size() >= 1) t->pan.store (juce::jlimit (-1.0f, 1.0f, argF (m[0])));
         else if (cmd == "mute" && m.size() >= 1) t->mute.store (argI (m[0]) != 0);
+        // /gloopy/track/<id>/synth <paramName> <value> — live built-in synth tweak
+        else if (cmd == "synth" && m.size() >= 2 && m[0].isString() && hooks.setSynthParam)
+            hooks.setSynthParam (id, m[0].getString(), argF (m[1]));
     }
 
     void handleInsertParam (int insert, const juce::String& cmd, const juce::OSCMessage& m)
