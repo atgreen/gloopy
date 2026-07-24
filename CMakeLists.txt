@@ -99,6 +99,26 @@ target_include_directories(Gloopy PRIVATE ${GLOOPY_GEN})
 target_link_libraries(Gloopy PRIVATE PkgConfig::GRPCPP PkgConfig::PROTOBUF)
 
 # ---------------------------------------------------------------------------
+# Vendored sfizz (third_party/sfizz) — the native SFZ engine, built as a static
+# library and linked directly (no plugin hosting, no state hack). Library only:
+# plugins/JACK/render/tests off, dr_libs audio backend (no libsndfile LGPL),
+# submodule check off (we copied the source in, there's no .git).
+# ---------------------------------------------------------------------------
+set(SFIZZ_SHARED              OFF CACHE BOOL "" FORCE)
+set(SFIZZ_JACK                OFF CACHE BOOL "" FORCE)
+set(SFIZZ_RENDER              OFF CACHE BOOL "" FORCE)
+set(SFIZZ_DEMOS               OFF CACHE BOOL "" FORCE)
+set(SFIZZ_TESTS               OFF CACHE BOOL "" FORCE)
+set(SFIZZ_BENCHMARKS          OFF CACHE BOOL "" FORCE)
+set(SFIZZ_DEVTOOLS            OFF CACHE BOOL "" FORCE)
+set(SFIZZ_USE_SNDFILE         OFF CACHE BOOL "" FORCE)
+set(SFIZZ_GIT_SUBMODULE_CHECK OFF CACHE BOOL "" FORCE)
+set(ENABLE_LTO                OFF CACHE BOOL "" FORCE)
+add_subdirectory(third_party/sfizz EXCLUDE_FROM_ALL)
+target_link_libraries(Gloopy PRIVATE sfizz::sfizz)
+target_include_directories(Gloopy PRIVATE third_party/sfizz/src)
+
+# ---------------------------------------------------------------------------
 # Unit tests — a small headless console target over the pure logic
 # (NoteScheduler / swing, ValueTree serialisation). Built with -DGLOOPY_TESTS=ON.
 # Kept out of the default build so it doesn't slow the app iteration loop.

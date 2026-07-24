@@ -4,7 +4,7 @@
 #include "MainComponent.h"
 #include "NoteScheduler.h"
 #include "Sampler.h"
-#include "SfzInstrument.h"
+#include "SfizzGenerator.h"
 #include "SynthGenerator.h"
 #include "DrumSynth.h"
 #include <array>
@@ -105,10 +105,10 @@ MainComponent::MainComponent()
             {
                 const auto file = fc.getResult();
                 if (! file.existsAsFile()) return;
-                auto sfz = std::make_unique<SfzInstrument>();
+                auto sfz = std::make_unique<SfizzGenerator>();
                 sfz->prepare (currentSampleRate, currentBlockSize);
                 juce::String err;
-                if (sfz->loadSfz (file, formatManager, err))
+                if (sfz->loadSfz (file, err))
                     addTrack (std::make_unique<Track> (sfz->getName(),
                                   std::move (sfz), 60, paletteColour ((int) tracks.size())));
                 else
@@ -889,10 +889,10 @@ int MainComponent::apiAddSfzTrack (const juce::String& name, const juce::String&
     {
         pushUndoSnapshot();
         juce::File f (path);
-        auto sfz = std::make_unique<SfzInstrument>();
+        auto sfz = std::make_unique<SfizzGenerator>();
         sfz->prepare (currentSampleRate, currentBlockSize);
         juce::String err;
-        if (! sfz->loadSfz (f, formatManager, err))
+        if (! sfz->loadSfz (f, err))
         {
             std::cout << "[sfz] load failed: " << err << std::endl;
             return -1;
@@ -1093,8 +1093,12 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
         transport.setPlaying (wasPlaying);
         if (soloT != nullptr)
             for (size_t i = 0; i < tracks.size() && i < savedSolo.size(); ++i) tracks[i]->solo.store (savedSolo[i]);
-        for (auto& t : tracks) if (t->generator) t->generator->allNotesOff();
+        for (auto& t : tracks) if (t->generator) { t->generator->allNotesOff(); t->generator->setFreewheeling (false); }
     };
+
+    // Offline bounce runs faster than real time; put streaming generators (sfizz)
+    // into synchronous-load mode so they don't drop to silence past their preload.
+    for (auto& t : tracks) if (t->generator) t->generator->setFreewheeling (true);
 
     const double spb = juce::jmax (1.0, transport.samplesPerBeat());
     const juce::int64 startSample = (juce::int64) (juce::jmax (0.0, startBeat) * spb);
@@ -2013,9 +2017,9 @@ juce::ValueTree MainComponent::toValueTree()
             s.setProperty ("data", juce::Base64::toBase64 (mb.getData(), mb.getSize()), nullptr);
             tr.addChild (s, -1, nullptr);
         }
-        else if (auto* sf = dynamic_cast<SfzInstrument*> (t->generator.get()))
+        else if (auto* sf = dynamic_cast<SfizzGenerator*> (t->generator.get()))
         {
-            // Store only the .sfz path — samples are re-parsed/reloaded on load.
+            // Store only the .sfz path — sfizz re-parses on load.
             juce::ValueTree s ("SFZ");
             s.setProperty ("path", sf->getSfzPath(), nullptr);
             tr.addChild (s, -1, nullptr);
@@ -2231,10 +2235,10 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
         else if (genType == "Sfz")
         {
             auto s = tr.getChildWithName ("SFZ");
-            auto sf = std::make_unique<SfzInstrument>();
+            auto sf = std::make_unique<SfizzGenerator>();
             sf->prepare (currentSampleRate, currentBlockSize);
             juce::String err;
-            if (sf->loadSfz (juce::File (s.getProperty ("path", "").toString()), formatManager, err))
+            if (sf->loadSfz (juce::File (s.getProperty ("path", "").toString()), err))
                 gen = std::move (sf);
             else
                 std::cout << "[load] SFZ load failed: " << err << std::endl;

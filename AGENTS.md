@@ -20,7 +20,6 @@ Needs the gRPC/protobuf and JUCE dev deps in `README.md`. The C++ is generated f
 cmake -B build -G Ninja -DGLOOPY_TESTS=ON        # opt in; off by default
 cmake --build build --target GloopyTests
 ctest --test-dir build --output-on-failure       # NoteScheduler/swing + ValueTree round-trip
-python3 tools/test_sfizz_state.py                # sfizz-state codec round-trip
 ./tests/smoke.sh                                 # boots the app, drives gRPC, renders, checks non-silent
 ```
 CI (`.github/workflows/ci.yml`) runs all of the above on push/PR under `xvfb`.
@@ -67,35 +66,32 @@ VST3 is the bundle's inner `.so` — the loader needs the `.vst3` bundle, so on 
 re-match against the scanned list (`resolvePluginDescription`). Native editors embed
 only for X11UI plugins (Surge, sfizz); others fall back to a generic panel.
 
-### Native SFZ instrument (no plugin) — preferred for SFZ
-`Source/SfzInstrument.h` is a built-in `Generator` that parses a subset of SFZ
-(`<global>/<master>/<group>/<region>` inheritance; `sample`, `lokey/hikey/key`,
-`pitch_keycenter`, `lovel/hivel`, `volume`, `pan`, `tune`, `transpose`, `offset`,
-`loop_mode`, `ampeg_*`; note names `c4`=60) and preloads its samples (deduped,
-lock-free playback). Load via the **`+ SFZ`** toolbar button, `AddSfzTrack` gRPC,
-or `add_sfz_track`/`add-sfz-track` in the clients. Projects store just the `.sfz`
-path and re-parse on load — no state hack. VPO loads fully (~111 MB); very large
-libraries (full Salamander decodes to multi-GB PCM) hit the ~900 MB preload cap
-and get truncated with a `[sfz] … skipped` warning — those still work via the
-hosted-sfizz path below, and disk-streaming is the documented next step.
+### SFZ instrument — embedded sfizz (vendored)
+`Source/SfizzGenerator.h` is a `Generator` backed by the **vendored sfizz library**
+in `third_party/sfizz/` (BSD-2-Clause source, copied in — no submodule). It's built
+as a static library by Gloopy's CMake (`add_subdirectory(third_party/sfizz)`, library
+only: plugins/JACK/render off, dr_libs backend so no libsndfile LGPL, submodule-check
+off since there's no `.git`). We call sfizz directly — `loadSfzFile(path)`,
+`renderBlock`, `noteOn/Off`, `allSoundOff` — so there is **no plugin hosting and no
+state hack**. Because sfizz disk-streams, it handles everything from one VPO section
+to the full multi-GB Salamander piano in a small footprint (641 regions, ~80 MB RSS).
 
-### sfizz (SFZ sampler) — installed without sudo
-Not in Fedora repos and no prebuilt Linux binary. We pulled the **Audinux COPR** rpm
-(matches Fedora's ABI) and extracted it into `~/.vst3` / `~/.lv2` with no install:
-```sh
-# from the copr repodata, download sfizz-*.fcNN.x86_64.rpm + vst3-sfizz-ui-*, lv2-sfizz-ui-*
-rpm2cpio pkg.rpm | cpio -idm            # then cp usr/lib64/{vst3/sfizz.vst3,lv2/sfizz.lv2} to ~/
-```
-`sfizz_render` (CLI, ships in the base rpm) renders `.sfz` + MIDI → WAV; handy for
-auditioning a library outside Gloopy.
+Load via the **`+ SFZ`** toolbar button, `AddSfzTrack` gRPC, or
+`add_sfz_track`/`add-sfz-track` in the clients. Projects store just the `.sfz` path;
+sfizz re-parses on load. `SfizzGenerator::allNotesOff()` → `allSoundOff()`, which
+actually stops notes (the sfizz *plugin* ignored CC120/CC123 — the embedded library
+does not).
 
-### Loading a specific SFZ into a hosted sfizz — headless
-sfizz has **no parameter for the .sfz path**; the editor's file chooser is the only UI
-way. But the loaded path lives as plaintext in the saved plugin state. So:
-`tools/sfizz-state.py` decodes/re-encodes that state and retargets the path to any SFZ
-(`tools/sfizz-reference-state.txt` is a working state to retarget from). Build a project
-with a sfizz track via `AddPluginTrack`, `SaveProject`, then substitute the track's
-`<PLUGIN ... pstate="...">` with `retarget(reference, "/abs/path.sfz")`. No GUI needed.
+The first build compiles sfizz + Abseil (a few minutes, one-time; incremental builds
+are unaffected). To re-vendor a newer sfizz: clone `sfztools/sfizz --recurse-submodules`
+at the desired tag, copy it to `third_party/sfizz/`, and drop `.git`, `tests/`,
+`benchmarks/`, and `external/simde/test/` (the bulk of the weight; keep `scripts/`
+and `clients/` — the top-level CMake references them unconditionally).
+
+> Historical note: earlier iterations hosted the sfizz **plugin** and injected the
+> `.sfz` path by rewriting its saved state blob (`tools/sfizz-state.py`), and a
+> later iteration hand-rolled a preloading SFZ parser. Both are superseded by the
+> embedded library and have been removed.
 
 ## Sample libraries used by the demo songs (local, not in the repo)
 - **VPO** (Virtual Playing Orchestra, orchestral SFZ) → `~/sfz/Virtual-Playing-Orchestra3/`.

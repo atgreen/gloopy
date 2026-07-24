@@ -22,6 +22,11 @@ public:
 
     virtual void allNotesOff() = 0;
 
+    /** Hint that we're doing a faster-than-real-time offline bounce. Disk-streaming
+        generators (sfizz) switch to synchronous loading so the render doesn't
+        outrun the streaming thread and drop to silence. No-op for the rest. */
+    virtual void setFreewheeling (bool /*offline*/) {}
+
     virtual juce::String typeName() const = 0;
 
     /** Non-null for hosted plugins, so the UI can open their editor. */

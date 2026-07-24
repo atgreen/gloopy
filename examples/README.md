@@ -48,13 +48,16 @@ instruments — no baked audio), assembled through the gRPC control API:
 | `demo-nocturne.gloopy` | Moody art-rock (Am, 76 bpm) | **VPO** strings + **Salamander** grand piano (sfizz), bass, lead |
 
 The first three are **portable** (built-in synth/kit only). `demo-cinematic` and
-`demo-nocturne` host the **sfizz** SFZ sampler and reference sample libraries by
-absolute path (like the Surge demo needs Surge), so they need these installed
-locally to make sound:
+`demo-nocturne` use SFZ instruments and reference sample libraries by absolute
+path (like the Surge demo needs Surge), so they need these installed locally to
+make sound:
 
-- **sfizz** VST3/LV2 in `~/.vst3` / `~/.lv2`.
 - **Virtual Playing Orchestra** at `~/sfz/Virtual-Playing-Orchestra3/` (strings).
 - **Salamander Grand Piano** at `~/sfz/SalamanderGrandPianoV3_OggVorbis/` (nocturne piano).
 
-See `AGENTS.md` for how sfizz is set up and how a specific SFZ is loaded into a
-hosted sfizz track (`tools/sfizz-state.py`).
+SFZ is now played by the **vendored, embedded sfizz** engine (`third_party/sfizz`,
+via `Source/SfizzGenerator.h`) — no plugin install and no state hack. Add an SFZ
+instrument with the **`+ SFZ`** button or `AddSfzTrack`. (These two demo files were
+authored before the switch and still carry hosted-sfizz *plugin* state, so today
+they also need the sfizz VST3/LV2 installed; re-saving them as native SFZ tracks is
+a pending follow-up.) See `AGENTS.md` for details.

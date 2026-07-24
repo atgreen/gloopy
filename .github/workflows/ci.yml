@@ -48,8 +48,5 @@ jobs:
       - name: Unit tests (NoteScheduler / serialization)
         run: ctest --test-dir build --output-on-failure
 
-      - name: sfizz-state codec tests
-        run: python3 tools/test_sfizz_state.py
-
       - name: Headless smoke test (gRPC + offline render)
         run: xvfb-run -a ./tests/smoke.sh
