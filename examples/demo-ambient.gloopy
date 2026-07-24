@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<GLOOPY version="2" bpm="60.0">
+  <TRACKS>
+    <TRACK name="Pad" colour="-2070982" pitch="60" vol="0.6000000238418579"
+           pan="0.0" mute="0" solo="0" mixerTrack="1" type="0" gen="Synth">
+      <SYNTH wave="0" attack="1.5" decay="0.5" sustain="0.8999999761581421"
+             release="2.0" gain="0.300000011920929"/>
+      <CLIP ctype="0" name="Pad" start="0.0" len="128.0" content="128.0"
+            looped="0">
+        <NOTE pitch="48" start="0.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="55" start="0.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="60" start="0.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="62" start="0.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="67" start="0.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="52" start="16.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="55" start="16.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="59" start="16.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="64" start="16.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="45" start="32.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="52" start="32.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="57" start="32.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="60" start="32.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="64" start="32.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="41" start="48.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="53" start="48.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="57" start="48.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="60" start="48.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="65" start="48.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="48" start="64.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="55" start="64.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="60" start="64.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="62" start="64.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="67" start="64.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="52" start="80.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="55" start="80.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="59" start="80.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="64" start="80.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="45" start="96.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="52" start="96.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="57" start="96.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="60" start="96.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="64" start="96.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="41" start="112.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="53" start="112.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="57" start="112.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="60" start="112.0" nlen="16.0" vel="0.5"/>
+        <NOTE pitch="65" start="112.0" nlen="16.0" vel="0.5"/>
+      </CLIP>
+    </TRACK>
+    <TRACK name="Sub" colour="-2513855" pitch="60" vol="0.5" pan="0.0" mute="0"
+           solo="0" mixerTrack="2" type="0" gen="Synth">
+      <SYNTH wave="0" attack="0.800000011920929" decay="0.5" sustain="0.8999999761581421"
+             release="1.5" gain="0.3499999940395355"/>
+      <CLIP ctype="0" name="Sub" start="0.0" len="128.0" content="128.0"
+            looped="0">
+        <NOTE pitch="36" start="0.0" nlen="16.0" vel="0.6000000238418579"/>
+        <NOTE pitch="40" start="16.0" nlen="16.0" vel="0.6000000238418579"/>
+        <NOTE pitch="33" start="32.0" nlen="16.0" vel="0.6000000238418579"/>
+        <NOTE pitch="29" start="48.0" nlen="16.0" vel="0.6000000238418579"/>
+        <NOTE pitch="36" start="64.0" nlen="16.0" vel="0.6000000238418579"/>
+        <NOTE pitch="40" start="80.0" nlen="16.0" vel="0.6000000238418579"/>
+        <NOTE pitch="33" start="96.0" nlen="16.0" vel="0.6000000238418579"/>
+        <NOTE pitch="29" start="112.0" nlen="16.0" vel="0.6000000238418579"/>
+      </CLIP>
+    </TRACK>
+    <TRACK name="Bell" colour="-11095445" pitch="60" vol="0.4000000059604645"
+           pan="0.0" mute="0" solo="0" mixerTrack="3" type="0" gen="Synth">
+      <SYNTH wave="3" attack="0.01999999955296516" decay="1.200000047683716"
+             sustain="0.2000000029802322" release="1.5" gain="0.1400000005960464"/>
+      <CLIP ctype="0" name="Bell" start="0.0" len="128.0" content="128.0"
+            looped="0">
+        <NOTE pitch="84" start="4.0" nlen="2.0" vel="0.4000000059604645"/>
+        <NOTE pitch="88" start="8.0" nlen="2.0" vel="0.4000000059604645"/>
+        <NOTE pitch="91" start="14.0" nlen="3.0" vel="0.4000000059604645"/>
+        <NOTE pitch="84" start="20.0" nlen="2.0" vel="0.4000000059604645"/>
+        <NOTE pitch="88" start="24.0" nlen="2.0" vel="0.4000000059604645"/>
+        <NOTE pitch="96" start="28.0" nlen="4.0" vel="0.3499999940395355"/>
+      </CLIP>
+    </TRACK>
+  </TRACKS>
+  <MIXER>
+    <MTRACK name="Master" vol="0.8999999761581421" pan="0.0" mute="0" solo="0">
+      <FX bypass="0" type="Reverb">
+        <PARAM name="Room" value="0.8999999761581421"/>
+        <PARAM name="Damp" value="0.5"/>
+        <PARAM name="Wet" value="0.4000000059604645"/>
+      </FX>
+    </MTRACK>
+    <MTRACK name="Ins 1" vol="0.800000011920929" pan="0.0" mute="0" solo="0"/>
+    <MTRACK name="Ins 2" vol="0.800000011920929" pan="0.0" mute="0" solo="0"/>
+    <MTRACK name="Ins 3" vol="0.800000011920929" pan="0.0" mute="0" solo="0"/>
+    <MTRACK name="Ins 4" vol="0.800000011920929" pan="0.0" mute="0" solo="0"/>
+    <MTRACK name="Ins 5" vol="0.800000011920929" pan="0.0" mute="0" solo="0"/>
+    <MTRACK name="Ins 6" vol="0.800000011920929" pan="0.0" mute="0" solo="0"/>
+    <MTRACK name="Ins 7" vol="0.800000011920929" pan="0.0" mute="0" solo="0"/>
+    <MTRACK name="Ins 8" vol="0.800000011920929" pan="0.0" mute="0" solo="0"/>
+  </MIXER>
+</GLOOPY>

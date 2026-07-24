@@ -33,3 +33,28 @@ VST3 in `~/.vst3`); without it the Pad track simply loads silent.
 The drum/percussion one-shots are from the **Sonic Pi** sample set, which sources
 them from **freesound.org** under **CC0 (public domain)**. They are embedded in
 the project file, so it is fully self-contained.
+
+## Genre demos
+
+Five short songs across styles, each a **live** Gloopy project (MIDI clips driving
+instruments — no baked audio), assembled through the gRPC control API:
+
+| Project | Style | Instruments |
+|---|---|---|
+| `demo-synthwave.gloopy` | Synthwave (Am, 100 bpm) | built-in kit + saw bass, pad, arp, lead |
+| `demo-lofi.gloopy` | Lo-fi / chill (Cmaj7, 76 bpm) | built-in kit + jazzy keys, bass, Rhodes |
+| `demo-ambient.gloopy` | Ambient (60 bpm) | built-in synth: evolving pads, sub, bell |
+| `demo-cinematic.gloopy` | Cinematic (Dm, 68 bpm) | **VPO** strings (sfizz) + violin melody |
+| `demo-nocturne.gloopy` | Moody art-rock (Am, 76 bpm) | **VPO** strings + **Salamander** grand piano (sfizz), bass, lead |
+
+The first three are **portable** (built-in synth/kit only). `demo-cinematic` and
+`demo-nocturne` host the **sfizz** SFZ sampler and reference sample libraries by
+absolute path (like the Surge demo needs Surge), so they need these installed
+locally to make sound:
+
+- **sfizz** VST3/LV2 in `~/.vst3` / `~/.lv2`.
+- **Virtual Playing Orchestra** at `~/sfz/Virtual-Playing-Orchestra3/` (strings).
+- **Salamander Grand Piano** at `~/sfz/SalamanderGrandPianoV3_OggVorbis/` (nocturne piano).
+
+See `AGENTS.md` for how sfizz is set up and how a specific SFZ is loaded into a
+hosted sfizz track (`tools/sfizz-state.py`).
