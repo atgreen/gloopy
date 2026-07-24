@@ -1,5 +1,12 @@
 # Gloopy roadmap
 
+> **Status (2026-07): all items below are implemented.** Phases 1–4 shipped —
+> MIDI recording, limiter/meters, mixer control-API, MIDI hot-plug, undo/redo,
+> parameter automation, native in-app SFZ loading, structural change events,
+> region/stem render, the Python client, the expanded dual-osc/filter/LFO synth,
+> groove/swing + piano-roll velocity editing, and unit tests + CI. This document
+> is kept as the design record for each feature.
+
 Implementation plans for the next round of features, ordered by leverage. Each
 entry has a **goal**, an **approach** grounded in the current code, concrete
 **steps**, and an effort estimate (**S** ≈ hours, **M** ≈ a day or two, **L** ≈ a
