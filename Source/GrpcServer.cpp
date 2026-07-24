@@ -129,6 +129,15 @@ namespace
             return Status::OK;
         }
 
+        Status SetInsertParams (ServerContext*, const pb::InsertParams* q, pb::Ack* r) override
+        {
+            const bool ok = main.apiSetInsertParams (q->index(),
+                                q->has_volume(), q->volume(), q->has_pan(), q->pan(),
+                                q->has_mute(),   q->mute(),   q->has_solo(), q->solo());
+            r->set_ok (ok); if (! ok) r->set_error ("insert not found");
+            return Status::OK;
+        }
+
         Status AddEffect (ServerContext*, const pb::AddEffectRequest* q, pb::EffectRef* r) override
         {
             const int slot = main.apiAddEffect (q->insert(), (int) q->type());

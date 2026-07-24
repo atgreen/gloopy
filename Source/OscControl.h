@@ -83,6 +83,9 @@ private:
             return handleTrack (parts[2].getIntValue(), parts[3], m);
         if (parts[1] == "insert" && parts.size() >= 7 && parts[3] == "fx" && parts[5] == "param")
             return handleEffectParam (parts[2].getIntValue(), parts[4].getIntValue(), parts[6], m);
+        if (parts[1] == "insert" && parts.size() >= 4
+              && (parts[3] == "vol" || parts[3] == "pan" || parts[3] == "mute"))
+            return handleInsertParam (parts[2].getIntValue(), parts[3], m);
     }
 
     void handleTransport (const juce::StringArray& p, const juce::OSCMessage& m)
@@ -120,6 +123,21 @@ private:
         else if (cmd == "vol"  && m.size() >= 1) t->volume.store (juce::jlimit (0.0f, 1.0f, argF (m[0])));
         else if (cmd == "pan"  && m.size() >= 1) t->pan.store (juce::jlimit (-1.0f, 1.0f, argF (m[0])));
         else if (cmd == "mute" && m.size() >= 1) t->mute.store (argI (m[0]) != 0);
+    }
+
+    void handleInsertParam (int insert, const juce::String& cmd, const juce::OSCMessage& m)
+    {
+        if (hooks.mixerTracks == nullptr || hooks.engineLock == nullptr || m.size() < 1)
+            return;
+        const juce::ScopedTryLock stl (*hooks.engineLock);
+        if (! stl.isLocked())
+            return;
+        auto& mt = *hooks.mixerTracks;
+        if (! juce::isPositiveAndBelow (insert, (int) mt.size())) return;
+        auto& x = *mt[(size_t) insert];
+        if      (cmd == "vol")  x.volume.store (juce::jlimit (0.0f, 1.0f, argF (m[0])));
+        else if (cmd == "pan")  x.pan.store (juce::jlimit (-1.0f, 1.0f, argF (m[0])));
+        else if (cmd == "mute") x.mute.store (argI (m[0]) != 0);
     }
 
     void handleEffectParam (int insert, int fxSlot, const juce::String& name, const juce::OSCMessage& m)

@@ -70,6 +70,13 @@ message MixerInsert {
   bool mute = 5; bool solo = 6; repeated EffectInfo effects = 7;
 }
 message InsertList  { repeated MixerInsert inserts = 1; }
+message InsertParams {
+  int32 index = 1;
+  optional float  volume = 2;
+  optional float  pan    = 3;
+  optional bool   mute   = 4;
+  optional bool   solo   = 5;
+}
 message EffectRef   { int32 insert = 1; int32 slot = 2; }
 message AddEffectRequest { int32 insert = 1; EffectType type = 2; }
 message EffectParamSet   { int32 insert = 1; int32 slot = 2; string name = 3; float value = 4; }
@@ -150,6 +157,7 @@ service Gloopy {
 
   // mixer & effects
   rpc ListInserts    (Empty)            returns (InsertList);
+  rpc SetInsertParams(InsertParams)     returns (Ack);
   rpc AddEffect      (AddEffectRequest) returns (EffectRef);
   rpc RemoveEffect   (EffectRef)        returns (Ack);
   rpc SetEffectParam (EffectParamSet)   returns (Ack);

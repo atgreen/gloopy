@@ -82,6 +82,8 @@ public:
     struct ParamSnap  { juce::String name; float value; float min; float max; };
 
     std::vector<InsertSnap> apiListInserts();
+    bool apiSetInsertParams (int index, bool hasVol, float vol, bool hasPan, float pan,
+                             bool hasMute, bool mute, bool hasSolo, bool solo);
     int  apiAddEffect (int insert, int type);                 // slot, or -1
     bool apiRemoveEffect (int insert, int slot);
     bool apiSetEffectParam (int insert, int slot, const juce::String& name, float value);

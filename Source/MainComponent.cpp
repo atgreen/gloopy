@@ -414,6 +414,23 @@ std::vector<MainComponent::InsertSnap> MainComponent::apiListInserts()
     });
 }
 
+bool MainComponent::apiSetInsertParams (int index, bool hasVol, float vol, bool hasPan, float pan,
+                                        bool hasMute, bool mute, bool hasSolo, bool solo)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        const juce::ScopedLock sl (engineLock);
+        if (! juce::isPositiveAndBelow (index, (int) mixerTracks.size())) return false;
+        auto& mt = *mixerTracks[(size_t) index];
+        if (hasVol)  mt.volume.store (juce::jlimit (0.0f, 1.0f, vol));
+        if (hasPan)  mt.pan.store (juce::jlimit (-1.0f, 1.0f, pan));
+        if (hasMute) mt.mute.store (mute);
+        if (hasSolo) mt.solo.store (solo);
+        if (mixerView) mixerView->repaint();
+        return true;
+    });
+}
+
 int MainComponent::apiAddEffect (int insert, int type)
 {
     return callOnMessageThread ([&] () -> int
