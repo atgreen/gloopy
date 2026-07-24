@@ -1,3 +1,6 @@
+;;; SPDX-FileCopyrightText: 2026 Anthony Green <anthony@atgreen.org>
+;;; SPDX-License-Identifier: GPL-3.0-only
+
 ;;;; gloopy-grpc.lisp — drive Gloopy's gRPC control surface from Common Lisp.
 ;;;;
 ;;;; The gRPC lane is the *structural* half of Gloopy's control API: create and

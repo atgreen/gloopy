@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Anthony Green <anthony@atgreen.org>
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "MainComponent.h"
 #include "NoteScheduler.h"
 #include "Sampler.h"

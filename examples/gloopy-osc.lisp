@@ -1,3 +1,6 @@
+;;; SPDX-FileCopyrightText: 2026 Anthony Green <anthony@atgreen.org>
+;;; SPDX-License-Identifier: GPL-3.0-only
+
 ;;;; gloopy-osc.lisp — drive Gloopy's OSC control lane from Common Lisp (SBCL)
 ;;;;
 ;;;; Gloopy listens for OSC on UDP 127.0.0.1:9000 and prints its track ids on

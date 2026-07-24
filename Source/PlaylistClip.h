@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Anthony Green <anthony@atgreen.org>
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 /** One block on the playlist: an instance of a pattern placed on a track at a

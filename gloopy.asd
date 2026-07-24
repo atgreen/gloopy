@@ -1,3 +1,6 @@
+;;; SPDX-FileCopyrightText: 2026 Anthony Green <anthony@atgreen.org>
+;;; SPDX-License-Identifier: GPL-3.0-only
+
 ;;;; gloopy.asd — Common Lisp client for the Gloopy DAW's gRPC control API.
 ;;;;
 ;;;; Prerequisite (once):  ocicl install ag-grpc

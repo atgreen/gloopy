@@ -1,3 +1,6 @@
+;;; SPDX-FileCopyrightText: 2026 Anthony Green <anthony@atgreen.org>
+;;; SPDX-License-Identifier: GPL-3.0-only
+
 ;;;; gloopy-pb.lisp — the proto layer for the Gloopy gRPC client.
 ;;;;
 ;;;; Compiles gloopy.proto at load time into an isolated GLOOPY.PB package that
