@@ -12,6 +12,9 @@
 #include "MainComponent.h"
 #include "Toml.h"
 #include <iostream>
+#include <set>
+#include <map>
+#include <vector>
 
 using namespace gloopy;
 
@@ -37,15 +40,63 @@ juce::String uniqueSlug (const juce::String& base, std::map<juce::String, int>& 
     return out;
 }
 
-// ── binary/asset helpers ────────────────────────────────────────────────────
-void ensureParent (const juce::File& f) { f.getParentDirectory().createDirectory(); }
-
-// planar float base64 (the layout toValueTree writes) <-> WAV sidecar
-void base64ToWav (const juce::String& b64, int channels, int frames, double rate, const juce::File& out)
+// ── dirty-aware writer ──────────────────────────────────────────────────────
+// Writes files only when their content actually differs from what's on disk, and
+// prunes managed files that are no longer produced. So a no-op save touches
+// nothing, and moving one fader rewrites exactly one file.
+struct SaveCtx
 {
-    juce::MemoryOutputStream os;
-    juce::Base64::convertFromBase64 (os, b64);
-    const auto mb = os.getMemoryBlock();
+    juce::File dir;
+    std::set<juce::String> kept;
+    int written = 0, pruned = 0;
+
+    void keep (const juce::String& rel) { kept.insert (dir.getChildFile (rel).getRelativePathFrom (dir)); }
+
+    void writeText (const juce::String& rel, const juce::String& text)
+    {
+        keep (rel);
+        auto f = dir.getChildFile (rel);
+        if (f.existsAsFile() && f.loadFileAsString() == text) return;
+        f.getParentDirectory().createDirectory();
+        f.replaceWithText (text, false, false, "\n");   // Unix newlines; keeps content == text
+        ++written;
+    }
+    void writeBytes (const juce::String& rel, const juce::MemoryBlock& data)
+    {
+        keep (rel);
+        auto f = dir.getChildFile (rel);
+        if (f.existsAsFile())
+        {
+            juce::MemoryBlock cur; f.loadFileAsData (cur);
+            if (cur == data) return;
+        }
+        f.getParentDirectory().createDirectory();
+        f.replaceWithData (data.getData(), data.getSize());
+        ++written;
+    }
+    void prune()
+    {
+        for (auto* sub : { "tracks", "clips", "mixer", "automation", "assets", "plugins" })
+        {
+            auto d = dir.getChildFile (sub);
+            if (! d.isDirectory()) continue;
+            for (auto& f : d.findChildFiles (juce::File::findFiles, true))
+                if (! kept.count (f.getRelativePathFrom (dir))) { f.deleteFile(); ++pruned; }
+            for (auto& sd : d.findChildFiles (juce::File::findDirectories, true))
+                if (sd.getNumberOfChildFiles (juce::File::findFilesAndDirectories) == 0) sd.deleteRecursively();
+        }
+    }
+};
+
+juce::MemoryBlock decodeBase64 (const juce::String& b64)
+{
+    juce::MemoryOutputStream os; juce::Base64::convertFromBase64 (os, b64); return os.getMemoryBlock();
+}
+
+// planar float base64 (the layout toValueTree writes) -> deterministic WAV bytes
+juce::MemoryBlock buildWav (const juce::String& b64, int channels, int frames, double rate)
+{
+    const auto mb = decodeBase64 (b64);
     const auto* src = (const float*) mb.getData();
     const size_t count = mb.getSize() / sizeof (float);
     juce::AudioBuffer<float> buf (juce::jmax (1, channels), juce::jmax (0, frames));
@@ -55,15 +106,15 @@ void base64ToWav (const juce::String& b64, int channels, int frames, double rate
         for (int i = 0; i < frames; ++i)
             if (idx < count) buf.setSample (ch, i, src[idx++]);
 
-    ensureParent (out); out.deleteFile();
+    juce::MemoryBlock out;
     juce::WavAudioFormat fmt;
-    if (auto stream = out.createOutputStream())
-        if (auto* w = fmt.createWriterFor (stream.get(), rate, (unsigned) buf.getNumChannels(), 32, {}, 0))
-        {
-            stream.release();
-            std::unique_ptr<juce::AudioFormatWriter> writer (w);
-            writer->writeFromAudioSampleBuffer (buf, 0, buf.getNumSamples());
-        }
+    if (auto* w = fmt.createWriterFor (new juce::MemoryOutputStream (out, false),
+                                       rate, (unsigned) buf.getNumChannels(), 32, {}, 0))
+    {
+        std::unique_ptr<juce::AudioFormatWriter> writer (w);
+        writer->writeFromAudioSampleBuffer (buf, 0, buf.getNumSamples());
+    }
+    return out;
 }
 
 juce::String wavToBase64 (const juce::File& wav, juce::AudioFormatManager& fm,
@@ -81,18 +132,13 @@ juce::String wavToBase64 (const juce::File& wav, juce::AudioFormatManager& fm,
     return juce::Base64::toBase64 (mb.getData(), mb.getSize());
 }
 
-void writeBinary (const juce::File& f, const juce::String& base64)
-{
-    juce::MemoryBlock mb; mb.fromBase64Encoding (base64);
-    ensureParent (f); f.replaceWithData (mb.getData(), mb.getSize());
-}
 juce::String readBinaryAsBase64 (const juce::File& f)
 {
     juce::MemoryBlock mb; f.loadFileAsData (mb); return mb.toBase64Encoding();
 }
 
 // ── notes / points line files ───────────────────────────────────────────────
-void writeNotes (const juce::File& f, const juce::ValueTree& clip)
+juce::String buildNotes (const juce::ValueTree& clip)
 {
     std::vector<juce::ValueTree> notes;
     for (int i = 0; i < clip.getNumChildren(); ++i)
@@ -111,7 +157,7 @@ void writeNotes (const juce::File& f, const juce::ValueTree& clip)
             << toml::Writer::num (n.getProperty ("start")) << "\t"
             << toml::Writer::num (n.getProperty ("nlen"))  << "\t"
             << toml::Writer::num (n.getProperty ("vel"))   << "\n";
-    ensureParent (f); f.replaceWithText (out);
+    return out;
 }
 
 void readNotes (const juce::File& f, juce::ValueTree& clip)
@@ -132,7 +178,7 @@ void readNotes (const juce::File& f, juce::ValueTree& clip)
     }
 }
 
-void writePoints (const juce::File& f, const juce::ValueTree& lane)
+juce::String buildPoints (const juce::ValueTree& lane)
 {
     juce::String out ("# beat\tvalue\n");
     for (int i = 0; i < lane.getNumChildren(); ++i)
@@ -142,7 +188,7 @@ void writePoints (const juce::File& f, const juce::ValueTree& lane)
         out << toml::Writer::num (pt.getProperty ("beat")) << "\t"
             << toml::Writer::num (pt.getProperty ("value")) << "\n";
     }
-    ensureParent (f); f.replaceWithText (out);
+    return out;
 }
 
 void readPoints (const juce::File& f, juce::ValueTree& lane)
@@ -171,15 +217,12 @@ bool MainComponent::saveComposition (const juce::File& dir)
 {
     const auto root = toValueTree();   // reuse the canonical serialisation
 
-    // Regenerate the managed subtrees; leave notes/, scripts/, exports/ alone.
     dir.createDirectory();
-    for (auto* sub : { "tracks", "clips", "mixer", "automation" })
-    {
-        dir.getChildFile (sub).deleteRecursively();
-        dir.getChildFile (sub).createDirectory();
-    }
+    SaveCtx ctx { dir };               // writes only changed files; prunes stale ones
 
-    const auto title = currentProjectFile.getFileNameWithoutExtension();
+    // Title is the composition's own directory name, so it's stable across a
+    // dir -> runtime -> dir round-trip (independent of currentProjectFile).
+    const auto title = dir.getFileName();
 
     // --- manifest ---
     toml::Writer man;
@@ -212,7 +255,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
     }
     man.blank().table ("mixer").str ("file", "mixer/inserts.toml");
     man.blank().table ("automation").str ("file", "automation/lanes.toml");
-    dir.getChildFile ("gloopy.toml").replaceWithText (man.str());
+    ctx.writeText ("gloopy.toml", man.str());
 
     // --- per-track files ---
     for (int i = 0; i < tracks.getNumChildren(); ++i)
@@ -250,9 +293,9 @@ bool MainComponent::saveComposition (const juce::File& dir)
         else if (auto sm = tr.getChildWithName ("SAMPLE"); sm.isValid())
         {
             const auto rel = "assets/samples/" + slug + ".wav";
-            base64ToWav (sm.getProperty ("data").toString(),
-                         (int) sm.getProperty ("channels", 1), (int) sm.getProperty ("frames", 0),
-                         (double) sm.getProperty ("rate", 44100.0), dir.getChildFile (rel));
+            ctx.writeBytes (rel, buildWav (sm.getProperty ("data").toString(),
+                                           (int) sm.getProperty ("channels", 1), (int) sm.getProperty ("frames", 0),
+                                           (double) sm.getProperty ("rate", 44100.0)));
             w.str ("type", "sampler").str ("sample_file", rel)
              .integer ("root", (int) sm.getProperty ("root", 60))
              .str ("sample_name", sm.getProperty ("sname").toString())
@@ -260,8 +303,8 @@ bool MainComponent::saveComposition (const juce::File& dir)
         }
         else if (auto pl = tr.getChildWithName ("PLUGIN"); pl.isValid())
         {
-            writeBinary (dir.getChildFile ("plugins/state/" + slug + ".bin"), pl.getProperty ("pstate").toString());
-            dir.getChildFile ("plugins/state/" + slug + ".desc.xml").replaceWithText (pl.getProperty ("pdesc").toString());
+            ctx.writeBytes ("plugins/state/" + slug + ".bin", decodeBase64 (pl.getProperty ("pstate").toString()));
+            ctx.writeText ("plugins/state/" + slug + ".desc.xml", pl.getProperty ("pdesc").toString());
             w.str ("type", "plugin").str ("state_file", "plugins/state/" + slug + ".bin")
              .str ("desc_file", "plugins/state/" + slug + ".desc.xml");
         }
@@ -288,20 +331,20 @@ bool MainComponent::saveComposition (const juce::File& dir)
             if (cl.hasProperty ("adata"))    // audio clip -> wav sidecar
             {
                 const auto rel = "assets/audio/" + slug + "-" + cslug + ".wav";
-                base64ToWav (cl.getProperty ("adata").toString(),
-                             (int) cl.getProperty ("achannels", 1), (int) cl.getProperty ("aframes", 0),
-                             (double) cl.getProperty ("arate", 44100.0), dir.getChildFile (rel));
+                ctx.writeBytes (rel, buildWav (cl.getProperty ("adata").toString(),
+                                               (int) cl.getProperty ("achannels", 1), (int) cl.getProperty ("aframes", 0),
+                                               (double) cl.getProperty ("arate", 44100.0)));
                 w.str ("audio_file", rel).number ("audio_rate", cl.getProperty ("arate", 44100.0))
                  .number ("audio_gain", cl.getProperty ("again", 1.0));
             }
             else                              // MIDI clip -> .notes sidecar
             {
                 const auto rel = "clips/" + slug + "/" + cslug + ".notes";
-                writeNotes (dir.getChildFile (rel), cl);
+                ctx.writeText (rel, buildNotes (cl));
                 w.str ("notes", rel);
             }
         }
-        dir.getChildFile ("tracks/" + slug + ".toml").replaceWithText (w.str());
+        ctx.writeText ("tracks/" + slug + ".toml", w.str());
     }
 
     // --- mixer ---
@@ -323,12 +366,10 @@ bool MainComponent::saveComposition (const juce::File& dir)
               .boolean ("bypassed", fx.getProperty ("bypass", false));
             if (fx.getProperty ("type").toString() == "Plugin")
             {
-                writeBinary (dir.getChildFile ("plugins/state/ins" + juce::String (i) + "-fx" + juce::String (slot - 1) + ".bin"),
-                             fx.getProperty ("pstate").toString());
-                dir.getChildFile ("plugins/state/ins" + juce::String (i) + "-fx" + juce::String (slot - 1) + ".desc.xml")
-                    .replaceWithText (fx.getProperty ("pdesc").toString());
-                ew.str ("state_file", "plugins/state/ins" + juce::String (i) + "-fx" + juce::String (slot - 1) + ".bin")
-                  .str ("desc_file",  "plugins/state/ins" + juce::String (i) + "-fx" + juce::String (slot - 1) + ".desc.xml");
+                const auto stem = "plugins/state/ins" + juce::String (i) + "-fx" + juce::String (slot - 1);
+                ctx.writeBytes (stem + ".bin", decodeBase64 (fx.getProperty ("pstate").toString()));
+                ctx.writeText (stem + ".desc.xml", fx.getProperty ("pdesc").toString());
+                ew.str ("state_file", stem + ".bin").str ("desc_file", stem + ".desc.xml");
             }
             else
             {
@@ -342,8 +383,8 @@ bool MainComponent::saveComposition (const juce::File& dir)
             ew.blank();
         }
     }
-    dir.getChildFile ("mixer/inserts.toml").replaceWithText (mw.str());
-    dir.getChildFile ("mixer/effects.toml").replaceWithText (ew.str());
+    ctx.writeText ("mixer/inserts.toml", mw.str());
+    ctx.writeText ("mixer/effects.toml", ew.str());
 
     // --- automation ---
     toml::Writer aw;
@@ -357,7 +398,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
                     + juce::String ((int) lane.getProperty ("id", 0));
         const auto lslug = uniqueSlug (base, laneSeen);
         const auto rel = "automation/" + lslug + ".points";
-        writePoints (dir.getChildFile (rel), lane);
+        ctx.writeText (rel, buildPoints (lane));
         aw.arrayItem ("lanes").str ("id", lslug)
           .integer ("type", (int) lane.getProperty ("type", 0))
           .integer ("target_id", (int) lane.getProperty ("id", 0))
@@ -365,19 +406,38 @@ bool MainComponent::saveComposition (const juce::File& dir)
           .str ("param", lane.getProperty ("param").toString())
           .str ("points", rel).blank();
     }
-    dir.getChildFile ("automation/lanes.toml").replaceWithText (aw.str());
+    ctx.writeText ("automation/lanes.toml", aw.str());
+    ctx.writeText (".gitignore", kGitignore);
+    ctx.prune();
 
-    dir.getChildFile (".gitignore").replaceWithText (kGitignore);
     std::cout << "[composition] saved " << tracks.getNumChildren() << " tracks to "
-              << dir.getFullPathName() << std::endl;
+              << dir.getFullPathName() << " (" << ctx.written << " written, "
+              << ctx.pruned << " pruned)" << std::endl;
     return true;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
 // LOAD : directory -> ValueTree -> runtime  (read-only)
 // ═════════════════════════════════════════════════════════════════════════════
-bool MainComponent::loadComposition (const juce::File& dir)
+bool MainComponent::loadComposition (const juce::File& pathIn)
 {
+    juce::File dir = pathIn;
+
+    // A .zip archive: unpack to a read-only temp workspace and load that. The
+    // gloopy.toml may sit at the root or inside a single top-level folder.
+    if (pathIn.existsAsFile() && pathIn.hasFileExtension ("zip"))
+    {
+        auto tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                     .getChildFile ("gloopy-comp-" + juce::String (juce::Time::getMillisecondCounter()));
+        tmp.deleteRecursively(); tmp.createDirectory();
+        juce::ZipFile zf (pathIn);
+        if (zf.uncompressTo (tmp, true).failed()) return false;
+        dir = tmp;
+        if (! dir.getChildFile ("gloopy.toml").existsAsFile())
+            for (auto& c : dir.findChildFiles (juce::File::findDirectories, false))
+                if (c.getChildFile ("gloopy.toml").existsAsFile()) { dir = c; break; }
+    }
+
     const auto manifest = dir.getChildFile ("gloopy.toml");
     if (! manifest.existsAsFile()) return false;
     const auto man = toml::parse (manifest.loadFileAsString());

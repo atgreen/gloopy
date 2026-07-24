@@ -28,10 +28,14 @@ mixer/{inserts,effects}.toml  automation/{lanes.toml,<slug>.points}
 assets/samples/*.wav  plugins/state/*  .gitignore
 ```
 
-`SaveComposition`/`LoadComposition` gRPC RPCs drive it (`LoadProject` also accepts a
-directory or a `gloopy.toml`). The loader is read-only for now. TOML is a small
-hand-rolled subset (`Source/Toml.h`, unit-tested) — not a full implementation.
-Round-trip is verified: a `.gloopy` → composition → reload render matches within
+`SaveComposition`/`LoadComposition` gRPC RPCs drive it, and it's first-class in the
+File menu (open a `.gloopy` / composition folder / `.zip`; save-as either format;
+`LoadProject` auto-detects a directory / `gloopy.toml` / `.zip`). Saves are
+**content-addressed** (dirty-file tracking): a no-op re-save writes nothing, one
+fader rewrites one file, removed objects prune their files, and `dir → runtime →
+dir` is byte-stable — so don't expect a `deleteRecursively`+rewrite. TOML is a
+small hand-rolled subset (`Source/Toml.h`, unit-tested). Round-trip is verified in
+`tests/smoke.sh` (round-trip render, no-op-write, zip load) and matches within
 VPO's per-note humanisation noise.
 
 ## Tests

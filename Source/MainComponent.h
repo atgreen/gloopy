@@ -241,6 +241,7 @@ private:
     bool undoSuppressed { false };
 
     void showFileMenu();
+    void openAny (const juce::File& f);   // dispatch .gloopy / composition dir / .zip
     void newProject();
     void saveProject (const juce::File&);
     void openProject (const juce::File&);

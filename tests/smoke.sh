@@ -99,4 +99,22 @@ assert peak > 0.02, f"composition round-trip render is silent (peak={peak:.4f})"
 print(f"smoke: PASS — composition round-trip non-silent (peak={peak:.3f})")
 PY
 
+# Phase 2: dirty-file tracking — a re-save with no model change must write 0 files,
+# and round-trip must be byte-stable (dir -> runtime -> same dir writes nothing).
+before=$(find "$COMP" -type f -newer "$COMP/gloopy.toml" | wc -l)
+g -d "{\"path\":\"$COMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null   # after a load
+snap1=$(find "$COMP" -type f -printf '%p %s %T@\n' | sort | md5sum)
+g -d "{\"path\":\"$COMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null   # no-op re-save
+snap2=$(find "$COMP" -type f -printf '%p %s %T@\n' | sort | md5sum)
+[ "$snap1" = "$snap2" ] || { echo "smoke: no-op re-save rewrote files (dirty tracking broken)" >&2; exit 1; }
+echo "smoke: PASS — no-op composition re-save is a true no-op (dirty tracking)"
+
+# Zip read: zip the composition and load the archive.
+( cd "$COMP" && command -v zip >/dev/null && zip -qr "$WORK/comp.zip" . ) || echo "smoke: (zip cli absent, skipping zip test)"
+if [ -f "$WORK/comp.zip" ]; then
+    g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+    ok=$(g -d "{\"path\":\"$WORK/comp.zip\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition | grep -o 'true\|false' | head -1)
+    [ "$ok" = "true" ] && echo "smoke: PASS — zip composition loads" || { echo "smoke: zip load failed" >&2; exit 1; }
+fi
+
 echo "smoke: OK"

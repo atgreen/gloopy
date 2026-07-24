@@ -822,11 +822,13 @@ bool MainComponent::apiLoadProject (const juce::String& path)
     {
         auto f = juce::File::isAbsolutePath (path) ? juce::File (path)
                     : juce::File::getCurrentWorkingDirectory().getChildFile (path);
-        // Accept a composition directory (or its gloopy.toml) as well as a .gloopy file.
+        // Accept a composition directory / gloopy.toml / .zip as well as a .gloopy file.
         if (f.isDirectory() && f.getChildFile ("gloopy.toml").existsAsFile())
             return loadComposition (f);
         if (f.getFileName() == "gloopy.toml" && f.existsAsFile())
             return loadComposition (f.getParentDirectory());
+        if (f.existsAsFile() && f.hasFileExtension ("zip"))
+            return loadComposition (f);
         if (! f.existsAsFile()) return false;
         openProject (f);
         return true;
@@ -1902,35 +1904,66 @@ void MainComponent::resized()
 // ===========================================================================
 // Project save / load
 // ===========================================================================
+// Open a .gloopy file, a composition directory (or its gloopy.toml), or a .zip.
+void MainComponent::openAny (const juce::File& f)
+{
+    if (f.isDirectory() && f.getChildFile ("gloopy.toml").existsAsFile())      loadComposition (f);
+    else if (f.getFileName() == "gloopy.toml" && f.existsAsFile())             loadComposition (f.getParentDirectory());
+    else if (f.existsAsFile() && f.hasFileExtension ("zip"))                   loadComposition (f);
+    else if (f.existsAsFile())                                                 openProject (f);
+}
+
 void MainComponent::showFileMenu()
 {
     juce::PopupMenu menu;
+    const bool haveProject = currentProjectFile != juce::File();
+    const bool isComposition = currentProjectFile.getFileName() == "gloopy.toml";
     menu.addItem (1, "New Project");
-    menu.addItem (2, "Open...");
-    menu.addItem (3, "Save", currentProjectFile != juce::File());
-    menu.addItem (4, "Save As...");
+    menu.addItem (2, "Open...");                         // .gloopy or .zip
+    menu.addItem (6, "Open Composition Folder...");
+    menu.addSeparator();
+    menu.addItem (3, "Save", haveProject);
+    menu.addItem (4, "Save As .gloopy...");
+    menu.addItem (7, "Save As Composition...");
     menu.addSeparator();
     menu.addItem (5, "Rescan Plugins");
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
-        [this] (int result)
+        [this, isComposition] (int result)
         {
             if (result == 1) newProject();
             else if (result == 2)
             {
-                fileChooser = std::make_unique<juce::FileChooser> ("Open project", juce::File(), "*.gloopy");
+                fileChooser = std::make_unique<juce::FileChooser> ("Open project", juce::File(), "*.gloopy;*.zip");
                 fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-                    [this] (const juce::FileChooser& fc) { if (fc.getResult().existsAsFile()) openProject (fc.getResult()); });
+                    [this] (const juce::FileChooser& fc) { if (fc.getResult() != juce::File()) openAny (fc.getResult()); });
             }
-            else if (result == 5) { scanPlugins (true); }
-            else if (result == 3) saveProject (currentProjectFile);
+            else if (result == 6)
+            {
+                fileChooser = std::make_unique<juce::FileChooser> ("Open composition folder", juce::File());
+                fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+                    [this] (const juce::FileChooser& fc) { if (fc.getResult().isDirectory()) openAny (fc.getResult()); });
+            }
+            else if (result == 3)   // Save — same format the project was opened as
+            {
+                if (isComposition) saveComposition (currentProjectFile.getParentDirectory());
+                else               saveProject (currentProjectFile);
+            }
             else if (result == 4)
             {
-                fileChooser = std::make_unique<juce::FileChooser> ("Save project", juce::File(), "*.gloopy");
+                fileChooser = std::make_unique<juce::FileChooser> ("Save as .gloopy", juce::File(), "*.gloopy");
                 fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
                                             | juce::FileBrowserComponent::warnAboutOverwriting,
                     [this] (const juce::FileChooser& fc)
                     { auto f = fc.getResult(); if (f != juce::File()) saveProject (f.withFileExtension ("gloopy")); });
             }
+            else if (result == 7)
+            {
+                fileChooser = std::make_unique<juce::FileChooser> ("Save as composition folder", juce::File());
+                fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectDirectories,
+                    [this] (const juce::FileChooser& fc)
+                    { auto d = fc.getResult(); if (d != juce::File()) saveComposition (d); });
+            }
+            else if (result == 5) scanPlugins (true);
         });
 }
 

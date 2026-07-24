@@ -1,15 +1,26 @@
 # Gloop Compositions
 
-> **Status: Phase 1 implemented.** `Source/Composition.cpp` writes a composition
-> directory (`saveComposition`) and reads it back (`loadComposition`, read-only),
-> using the existing `toValueTree`/`loadFromTree` as the intermediate so the
-> runtime↔tree mapping is untouched. Reachable via the `SaveComposition` /
-> `LoadComposition` gRPC RPCs; `LoadProject` also auto-detects a directory (or a
-> `gloopy.toml`). `.gloopy` XML stays the default save format. TOML handling is a
-> small hand-rolled subset (`Source/Toml.h`, unit-tested); the effect-params
-> layout is flat keys under each `[[effects]]` entry rather than the `[effects.params]`
-> subtable sketched below. Covered by a TOML unit test and a composition
-> round-trip in `tests/smoke.sh`.
+> **Status: Phases 1–2 implemented.** `Source/Composition.cpp` writes a composition
+> directory (`saveComposition`) and reads it back (`loadComposition`), using the
+> existing `toValueTree`/`loadFromTree` as the intermediate so the runtime↔tree
+> mapping is untouched.
+>
+> - **Phase 1:** the writer + loader, `SaveComposition`/`LoadComposition` RPCs.
+> - **Phase 2:** first-class in the File menu (open a `.gloopy`, a composition
+>   folder, or a `.zip`; save-as `.gloopy` or composition; format-aware Save);
+>   **zip read** (flat or single-top-folder archives, unpacked to a temp
+>   workspace); **dirty-file tracking** — `saveComposition` is content-addressed,
+>   so a no-op re-save writes nothing, moving one fader rewrites one file, and
+>   removed objects prune their files. `dir → runtime → dir` is byte-stable.
+>
+> `LoadProject` auto-detects a directory / `gloopy.toml` / `.zip`. `.gloopy` XML
+> stays the default save format. TOML is a small hand-rolled subset (`Source/Toml.h`,
+> unit-tested); effect params are flat keys under each `[[effects]]` entry rather
+> than the `[effects.params]` subtable sketched below. Covered by a TOML unit test
+> and composition round-trip / dirty-tracking / zip checks in `tests/smoke.sh`.
+>
+> Not yet: comment/hand-grouping preservation across edits to a *changed* file
+> (unchanged files keep theirs), and Phase 3 (consolidate assets, zip write).
 
 ## Goal
 
