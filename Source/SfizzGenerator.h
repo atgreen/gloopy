@@ -40,6 +40,9 @@ public:
             error = "sfizz failed to parse " + f.getFileName();
             return false;
         }
+        // sfizz's master volume defaults to -7.35 dB (Default::globalVolume); the
+        // sfizz plugin overrides it to unity, so match that for a natural level.
+        synth.setVolume (0.0f);
         sfzPath     = f.getFullPathName();
         displayName = f.getFileNameWithoutExtension();
         std::cout << "[sfz] " << displayName << ": " << synth.getNumRegions()

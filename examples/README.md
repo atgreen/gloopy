@@ -55,9 +55,8 @@ make sound:
 - **Virtual Playing Orchestra** at `~/sfz/Virtual-Playing-Orchestra3/` (strings).
 - **Salamander Grand Piano** at `~/sfz/SalamanderGrandPianoV3_OggVorbis/` (nocturne piano).
 
-SFZ is now played by the **vendored, embedded sfizz** engine (`third_party/sfizz`,
-via `Source/SfizzGenerator.h`) — no plugin install and no state hack. Add an SFZ
-instrument with the **`+ SFZ`** button or `AddSfzTrack`. (These two demo files were
-authored before the switch and still carry hosted-sfizz *plugin* state, so today
-they also need the sfizz VST3/LV2 installed; re-saving them as native SFZ tracks is
-a pending follow-up.) See `AGENTS.md` for details.
+SFZ is played by the **vendored, embedded sfizz** engine (`third_party/sfizz`, via
+`Source/SfizzGenerator.h`) — no plugin install and no state hack. Both demos use
+native `<SFZ>` tracks (add one yourself with the **`+ SFZ`** button or `AddSfzTrack`),
+so they need only the sample libraries above, not the sfizz plugin. See `AGENTS.md`
+for details.
