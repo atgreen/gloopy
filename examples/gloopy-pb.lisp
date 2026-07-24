@@ -1,4 +1,4 @@
-;;; SPDX-FileCopyrightText: 2026 Anthony Green <anthony@atgreen.org>
+;;; SPDX-FileCopyrightText: 2026 Anthony Green <green@moxielogic.com>
 ;;; SPDX-License-Identifier: GPL-3.0-only
 
 ;;;; gloopy-pb.lisp — the proto layer for the Gloopy gRPC client.
