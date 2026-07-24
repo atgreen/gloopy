@@ -888,7 +888,7 @@ int MainComponent::apiAddSfzTrack (const juce::String& name, const juce::String&
     return callOnMessageThread ([&] () -> int
     {
         pushUndoSnapshot();
-        juce::File f (path);
+        juce::File f = resolveSamplePath (path);
         auto sfz = std::make_unique<SfizzGenerator>();
         sfz->prepare (currentSampleRate, currentBlockSize);
         juce::String err;
@@ -2151,6 +2151,7 @@ void MainComponent::saveProject (const juce::File& file)
 
 void MainComponent::openProject (const juce::File& file)
 {
+    currentProjectFile = file;   // set first so sample-path resolution can use the project dir
     if (auto xml = juce::parseXML (file))
     {
         undoSuppressed = true;
@@ -2159,7 +2160,40 @@ void MainComponent::openProject (const juce::File& file)
         undoStack.clear(); redoStack.clear();
         refreshUiAfterLoad();
     }
-    currentProjectFile = file;
+}
+
+// Resolve a stored sample/SFZ reference to an actual file. Handles absolute
+// paths (backward compatible), ~ expansion, and portable relative paths — which
+// are searched against $GLOOPY_SAMPLE_PATH (colon-separated), then the project's
+// own directory, then ~/sfz. First existing hit wins.
+juce::File MainComponent::resolveSamplePath (const juce::String& stored) const
+{
+    if (stored.isEmpty()) return {};
+
+    juce::String s = stored;
+    if (s.startsWithChar ('~'))
+        s = juce::File::getSpecialLocation (juce::File::userHomeDirectory).getFullPathName()
+              + s.substring (1);
+
+    if (juce::File::isAbsolutePath (s))
+        return juce::File (s);
+
+    juce::StringArray roots;
+    const auto env = juce::SystemStats::getEnvironmentVariable ("GLOOPY_SAMPLE_PATH", {});
+    if (env.isNotEmpty())
+        roots.addTokens (env, ":", "");
+    if (currentProjectFile.existsAsFile())
+        roots.add (currentProjectFile.getParentDirectory().getFullPathName());
+    roots.add (juce::File::getSpecialLocation (juce::File::userHomeDirectory)
+                   .getChildFile ("sfz").getFullPathName());
+
+    for (auto& r : roots)
+    {
+        if (r.isEmpty()) continue;
+        auto cand = juce::File (r).getChildFile (s);
+        if (cand.existsAsFile()) return cand;
+    }
+    return juce::File (s);   // fallback: return as-is so the error names the path
 }
 
 void MainComponent::loadFromTree (const juce::ValueTree& root)
@@ -2238,7 +2272,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             auto sf = std::make_unique<SfizzGenerator>();
             sf->prepare (currentSampleRate, currentBlockSize);
             juce::String err;
-            if (sf->loadSfz (juce::File (s.getProperty ("path", "").toString()), err))
+            if (sf->loadSfz (resolveSamplePath (s.getProperty ("path", "").toString()), err))
                 gen = std::move (sf);
             else
                 std::cout << "[load] SFZ load failed: " << err << std::endl;

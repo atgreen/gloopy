@@ -23,7 +23,7 @@
       </CLIP>
     </TRACK>
     <TRACK name="Strings (VPO)" colour="-2513855" pitch="60" vol="0.2899999916553497" pan="0.0" mute="0" solo="0" mixerTrack="2" type="0" gen="Sfz">
-      <SFZ path="/home/green/sfz/Virtual-Playing-Orchestra3/Strings/all-strings-SEC-sustain.sfz" /><CLIP ctype="0" name="Strings (VPO)" start="0.0" len="96.0" content="96.0" looped="0">
+      <SFZ path="Virtual-Playing-Orchestra3/Strings/all-strings-SEC-sustain.sfz" /><CLIP ctype="0" name="Strings (VPO)" start="0.0" len="96.0" content="96.0" looped="0">
         <NOTE pitch="69" start="16.0" nlen="16.0" vel="0.550000011920929" />
         <NOTE pitch="72" start="16.0" nlen="16.0" vel="0.550000011920929" />
         <NOTE pitch="77" start="16.0" nlen="16.0" vel="0.550000011920929" />
@@ -42,7 +42,7 @@
       </CLIP>
     </TRACK>
     <TRACK name="Piano" colour="-11095445" pitch="60" vol="0.9399999976158142" pan="0.0" mute="0" solo="0" mixerTrack="3" type="0" gen="Sfz">
-      <SFZ path="/home/green/sfz/SalamanderGrandPianoV3_OggVorbis/SalamanderGrandPianoV3.sfz" /><CLIP ctype="0" name="Piano" start="0.0" len="96.0" content="96.0" looped="0">
+      <SFZ path="SalamanderGrandPianoV3_OggVorbis/SalamanderGrandPianoV3.sfz" /><CLIP ctype="0" name="Piano" start="0.0" len="96.0" content="96.0" looped="0">
         <NOTE pitch="57" start="0.0" nlen="0.8" vel="0.6000000238418579" />
         <NOTE pitch="69" start="0.6666666666666666" nlen="0.8" vel="0.6000000238418579" />
         <NOTE pitch="72" start="1.333333333333333" nlen="0.8" vel="0.6000000238418579" />

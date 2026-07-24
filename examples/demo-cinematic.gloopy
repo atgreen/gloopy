@@ -2,7 +2,7 @@
 <GLOOPY version="2" bpm="68.0">
   <TRACKS>
     <TRACK name="Strings (VPO)" colour="-2070982" pitch="60" vol="0.800000011920929" pan="0.0" mute="0" solo="0" mixerTrack="1" type="0" gen="Sfz">
-      <SFZ path="/home/green/sfz/Virtual-Playing-Orchestra3/Strings/all-strings-SEC-sustain.sfz" /><CLIP ctype="0" name="Cinematic" start="0.0" len="64.0" content="64.0" looped="0">
+      <SFZ path="Virtual-Playing-Orchestra3/Strings/all-strings-SEC-sustain.sfz" /><CLIP ctype="0" name="Cinematic" start="0.0" len="64.0" content="64.0" looped="0">
         <NOTE pitch="38" start="0.0" nlen="4.0" vel="0.5199999809265137" />
         <NOTE pitch="50" start="0.0" nlen="4.0" vel="0.5199999809265137" />
         <NOTE pitch="53" start="0.0" nlen="4.0" vel="0.5199999809265137" />

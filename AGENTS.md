@@ -78,7 +78,10 @@ to the full multi-GB Salamander piano in a small footprint (641 regions, ~80 MB 
 
 Load via the **`+ SFZ`** toolbar button, `AddSfzTrack` gRPC, or
 `add_sfz_track`/`add-sfz-track` in the clients. Projects store just the `.sfz` path;
-sfizz re-parses on load. `SfizzGenerator::allNotesOff()` → `allSoundOff()`, which
+sfizz re-parses on load. Paths are resolved by `MainComponent::resolveSamplePath`:
+absolute paths and a leading `~` are used as-is, and **relative** paths are searched
+against `$GLOOPY_SAMPLE_PATH` (colon-separated), the project's directory, then `~/sfz`
+— so the demo songs ship relative paths and stay portable. `SfizzGenerator::allNotesOff()` → `allSoundOff()`, which
 actually stops notes (the sfizz *plugin* ignored CC120/CC123 — the embedded library
 does not).
 

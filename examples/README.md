@@ -48,12 +48,14 @@ instruments — no baked audio), assembled through the gRPC control API:
 | `demo-nocturne.gloopy` | Moody art-rock (Am, 76 bpm) | **VPO** strings + **Salamander** grand piano (sfizz), bass, lead |
 
 The first three are **portable** (built-in synth/kit only). `demo-cinematic` and
-`demo-nocturne` use SFZ instruments and reference sample libraries by absolute
-path (like the Surge demo needs Surge), so they need these installed locally to
-make sound:
+`demo-nocturne` use SFZ instruments and reference sample libraries by
+**relative path**, resolved at load against (in order) `$GLOOPY_SAMPLE_PATH`
+(colon-separated roots), the project's own directory, then `~/sfz`. So they play
+on any machine with these libraries under `~/sfz` — or anywhere, via
+`GLOOPY_SAMPLE_PATH=/my/samples`:
 
-- **Virtual Playing Orchestra** at `~/sfz/Virtual-Playing-Orchestra3/` (strings).
-- **Salamander Grand Piano** at `~/sfz/SalamanderGrandPianoV3_OggVorbis/` (nocturne piano).
+- **Virtual Playing Orchestra** → `<root>/Virtual-Playing-Orchestra3/` (strings).
+- **Salamander Grand Piano** → `<root>/SalamanderGrandPianoV3_OggVorbis/` (nocturne piano).
 
 SFZ is played by the **vendored, embedded sfizz** engine (`third_party/sfizz`, via
 `Source/SfizzGenerator.h`) — no plugin install and no state hack. Both demos use
