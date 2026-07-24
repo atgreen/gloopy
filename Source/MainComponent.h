@@ -58,7 +58,7 @@ public:
     void apiRedo();
 
     /** Open a project on startup (from the command line). */
-    void openProjectFile (const juce::File& f) { if (f.existsAsFile()) openProject (f); }
+    void openProjectFile (const juce::File& f) { openAny (f); }   // .gloopy / dir / gloopy.toml / .zip
 
     /** Play the song once and capture the master output to a WAV, then the app
         quits itself when finished (headless offline bounce). */
