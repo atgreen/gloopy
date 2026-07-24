@@ -24,6 +24,8 @@
 #include "Palette.h"
 #include "GloopyLookAndFeel.h"
 #include <unordered_map>
+#include <map>
+#include <mutex>
 #include <future>
 
 /** Linear-arranger workspace: an arrangement of instrument tracks (each owning
@@ -97,6 +99,13 @@ public:
     std::vector<ParamSnap> apiGetEffectParams (int insert, int slot);
     bool apiSnapshotMeters (std::vector<float>& L, std::vector<float>& R, std::vector<char>& clip);   // gRPC thread (try-lock)
     void clearClipIndicators();
+
+    // Structural change events, streamed to Subscribe clients.
+    struct ChangeSnap { juce::String kind; int trackId; int insert; };
+    int  apiAddChangeSink();                                          // returns a sink id
+    void apiPollChanges (int sinkId, std::vector<ChangeSnap>& out);   // drains one sink
+    void apiRemoveChangeSink (int sinkId);
+    void emitChange (const juce::String& kind, int trackId = -1, int insert = -1);
     void apiNewProject();
     bool apiLoadProject (const juce::String& path);
     bool apiSaveProject (const juce::String& path);
@@ -265,6 +274,11 @@ private:
     // Live MIDI input: the instrument track id that receives played notes.
     std::atomic<int> midiInputTarget { -1 };
     std::atomic<int> firstInstrumentId { -1 };   // fallback when nothing is selected
+
+    struct ChangeSink { std::mutex m; std::vector<ChangeSnap> pending; };
+    std::map<int, std::shared_ptr<ChangeSink>> changeSinks;
+    std::mutex changeSinksLock;
+    int nextSinkId { 0 };
 
     // MIDI recording: audio thread appends played input, message thread drains to a clip.
     void startRecording();

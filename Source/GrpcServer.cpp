@@ -276,8 +276,21 @@ namespace
         Status Subscribe (ServerContext* ctx, const pb::SubscribeRequest* q, ServerWriter<pb::Event>* writer) override
         {
             const int interval = q->interval_ms() > 0 ? (int) q->interval_ms() : 50;
+            const int sinkId = q->changes() ? main.apiAddChangeSink() : -1;
             while (! ctx->IsCancelled())
             {
+                if (sinkId >= 0)
+                {
+                    std::vector<MainComponent::ChangeSnap> changes;
+                    main.apiPollChanges (sinkId, changes);
+                    for (auto& c : changes)
+                    {
+                        pb::Event e;
+                        auto* ch = e.mutable_change();
+                        ch->set_kind (c.kind.toStdString()); ch->set_track_id (c.trackId); ch->set_insert (c.insert);
+                        if (! writer->Write (e)) { main.apiRemoveChangeSink (sinkId); return Status::OK; }
+                    }
+                }
                 if (q->transport())
                 {
                     auto s = main.apiGetTransport();
@@ -301,6 +314,7 @@ namespace
                 }
                 std::this_thread::sleep_for (std::chrono::milliseconds (interval));
             }
+            if (sinkId >= 0) main.apiRemoveChangeSink (sinkId);
             return Status::OK;
         }
 

@@ -251,6 +251,7 @@ void MainComponent::addTrack (std::unique_ptr<Track> track)
         tracks.push_back (std::move (track));
     }
     refreshTrackIds();
+    if (! undoSuppressed && ! tracks.empty()) emitChange ("track_added", tracks.back()->id);
     if (arrangeView) arrangeView->rebuild();
     resized();
 }
@@ -476,6 +477,7 @@ int MainComponent::apiAddClip (int trackId, double start, double len, double con
             t->clips.push_back (std::move (c));
             idx = (int) t->clips.size() - 1;
         }
+        emitChange ("clip_changed", trackId);
         if (arrangeView) arrangeView->repaint();
         return idx;
     });
@@ -531,6 +533,7 @@ int MainComponent::apiAddEffect (int insert, int type)
             mixerTracks[(size_t) insert]->effects.push_back (std::move (fx));
             slot = (int) mixerTracks[(size_t) insert]->effects.size() - 1;
         }
+        emitChange ("effect_changed", -1, insert);
         if (mixerView) mixerView->rebuild();
         return slot;
     });
@@ -551,6 +554,7 @@ bool MainComponent::apiRemoveEffect (int insert, int slot)
                 if (juce::isPositiveAndBelow (slot, (int) fx.size())) { fx.erase (fx.begin() + slot); ok = true; }
             }
         }
+        if (ok) emitChange ("effect_changed", -1, insert);
         if (mixerView) mixerView->rebuild();
         return ok;
     });
@@ -619,6 +623,41 @@ void MainComponent::clearClipIndicators()
     for (auto& mt : mixerTracks) mt->clipped.store (false);
 }
 
+// --- structural change events (one queue per active Subscribe consumer) ---
+void MainComponent::emitChange (const juce::String& kind, int trackId, int insert)
+{
+    std::lock_guard<std::mutex> lk (changeSinksLock);
+    for (auto& [id, s] : changeSinks)
+    {
+        std::lock_guard<std::mutex> sl (s->m);
+        s->pending.push_back ({ kind, trackId, insert });
+    }
+}
+
+int MainComponent::apiAddChangeSink()
+{
+    std::lock_guard<std::mutex> lk (changeSinksLock);
+    const int id = nextSinkId++;
+    changeSinks[id] = std::make_shared<ChangeSink>();
+    return id;
+}
+
+void MainComponent::apiPollChanges (int sinkId, std::vector<ChangeSnap>& out)
+{
+    std::shared_ptr<ChangeSink> s;
+    { std::lock_guard<std::mutex> lk (changeSinksLock);
+      auto it = changeSinks.find (sinkId); if (it != changeSinks.end()) s = it->second; }
+    if (s == nullptr) return;
+    std::lock_guard<std::mutex> sl (s->m);
+    out.swap (s->pending);
+}
+
+void MainComponent::apiRemoveChangeSink (int sinkId)
+{
+    std::lock_guard<std::mutex> lk (changeSinksLock);
+    changeSinks.erase (sinkId);
+}
+
 void MainComponent::apiNewProject()
 {
     callOnMessageThread ([&] () -> bool { newProject(); return true; });
@@ -662,6 +701,7 @@ bool MainComponent::apiRemoveTrack (int id)
         }
         if (! ok) return false;
         refreshTrackIds();
+        emitChange ("track_removed", id);
         if (arrangeView) arrangeView->rebuild();
         selectClip (-1, -1);
         resized();
@@ -732,7 +772,7 @@ bool MainComponent::apiRemoveClip (int trackId, int index)
             if (juce::isPositiveAndBelow (index, (int) t->clips.size()))
                 { t->clips.erase (t->clips.begin() + index); ok = true; }
         }
-        if (ok) { if (arrangeView) arrangeView->rebuild(); selectClip (-1, -1); }
+        if (ok) { emitChange ("clip_changed", trackId); if (arrangeView) arrangeView->rebuild(); selectClip (-1, -1); }
         return ok;
     });
 }
@@ -839,6 +879,7 @@ int MainComponent::apiAddPluginEffect (int insert, const juce::String& identifie
             mixerTracks[(size_t) insert]->effects.push_back (std::move (fx));
             slot = (int) mixerTracks[(size_t) insert]->effects.size() - 1;
         }
+        emitChange ("effect_changed", -1, insert);
         if (mixerView) mixerView->rebuild();
         return slot;
     });
@@ -2115,6 +2156,7 @@ void MainComponent::refreshUiAfterLoad()
 
     if (arrangeView) { arrangeView->setSelection (-1, -1); arrangeView->rebuild(); }
     if (mixerView) mixerView->rebuild();
+    if (! undoSuppressed) emitChange ("project_loaded");
 
     transport.requestReset();
     bpmSlider.setValue (transport.getBpm(), juce::dontSendNotification);

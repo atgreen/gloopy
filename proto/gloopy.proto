@@ -114,7 +114,10 @@ message ProjectState {
 }
 
 // ── events (streamed out) ──────────────────────────────────
-message SubscribeRequest { bool transport = 1; bool meters = 2; uint32 interval_ms = 3; }
+message SubscribeRequest { bool transport = 1; bool meters = 2; uint32 interval_ms = 3; bool changes = 4; }
+// A structural edit: kind is "track_added"|"track_removed"|"clip_changed"|
+// "effect_changed"|"project_loaded". track_id/insert set when relevant (else -1).
+message ChangeEvent { string kind = 1; int32 track_id = 2; int32 insert = 3; }
 // Per insert, [0] = master. Sent unpacked ([packed=false]) so decoders that
 // don't implement packed repeated scalars (e.g. ag-proto in the Lisp client)
 // read them correctly; standard protobuf decoders accept unpacked too.
@@ -127,6 +130,7 @@ message Event {
   oneof kind {
     TransportState transport = 1;
     Meters         meters    = 2;
+    ChangeEvent    change    = 3;
   }
 }
 
