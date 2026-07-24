@@ -52,12 +52,16 @@ private:
 
     // ---- coordinate helpers -------------------------------------------
     double rowHeight()          const;
+    float  gridBottom()         const;   // y where the note grid ends (above vel strip)
+    bool   hasVelStrip()        const;
     float  xForBeat (double b)  const;
     double beatForX (float x)   const;
     float  yForPitch (int p)    const;
     int    pitchForY (float y)  const;
     double snapBeat (double b)  const;
     int    noteIndexAt (juce::Point<float> p) const;
+    int    velNoteAt (float x)  const;   // note whose span/start is nearest x
+    void   setVelFromY (int noteIdx, float y);
 
     static bool isBlackKey (int pitch);
 
@@ -72,10 +76,11 @@ private:
     static constexpr int   pitchHigh = 84;   // C6
     static constexpr double gridSnap = 0.25; // sixteenth-note grid
     static constexpr int   keyGutter = 34;   // left piano-key strip (px)
+    static constexpr int   velStripH = 46;   // bottom velocity-editing strip (px)
 
     float noteAreaWidth() const;
 
-    enum class Drag { none, create, move, resize };
+    enum class Drag { none, create, move, resize, velocity };
     Drag  drag        { Drag::none };
     int   activeNote  { -1 };
     int   selectedNote { -1 };

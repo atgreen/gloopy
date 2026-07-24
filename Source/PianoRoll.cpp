@@ -25,9 +25,20 @@ void PianoRoll::setNotes (std::vector<Note> newNotes)
 // ---------------------------------------------------------------------------
 // Coordinate helpers
 // ---------------------------------------------------------------------------
+bool PianoRoll::hasVelStrip() const
+{
+    // Only when there's room to keep the grid usable.
+    return editable && getHeight() > velStripH + 120;
+}
+
+float PianoRoll::gridBottom() const
+{
+    return (float) getHeight() - (hasVelStrip() ? (float) velStripH : 0.0f);
+}
+
 double PianoRoll::rowHeight() const
 {
-    return (double) getHeight() / (double) (pitchHigh - pitchLow + 1);
+    return (double) gridBottom() / (double) (pitchHigh - pitchLow + 1);
 }
 
 float PianoRoll::noteAreaWidth() const
@@ -67,6 +78,32 @@ bool PianoRoll::isBlackKey (int pitch)
         case 1: case 3: case 6: case 8: case 10: return true;
         default:                                 return false;
     }
+}
+
+int PianoRoll::velNoteAt (float x) const
+{
+    // Prefer a note whose horizontal span contains x; else the nearest by start.
+    int best = -1;
+    float bestDist = 1.0e9f;
+    for (int i = 0; i < (int) notes.size(); ++i)
+    {
+        const auto& n = notes[(size_t) i];
+        const float x0 = xForBeat (n.startBeat);
+        const float x1 = xForBeat (n.startBeat + n.lengthBeats);
+        if (x >= x0 && x <= x1) return i;              // inside a note's span → exact
+        const float d = juce::jmin (std::abs (x - x0), std::abs (x - x1));
+        if (d < bestDist) { bestDist = d; best = i; }
+    }
+    return (bestDist <= 12.0f) ? best : -1;            // only snap if reasonably close
+}
+
+void PianoRoll::setVelFromY (int noteIdx, float y)
+{
+    if (! juce::isPositiveAndBelow (noteIdx, (int) notes.size())) return;
+    const float top = gridBottom() + 4.0f;
+    const float bot = (float) getHeight() - 4.0f;
+    const float t = juce::jlimit (0.0f, 1.0f, (bot - y) / juce::jmax (1.0f, bot - top));
+    notes[(size_t) noteIdx].velocity = juce::jlimit (0.05f, 1.0f, t);
 }
 
 int PianoRoll::noteIndexAt (juce::Point<float> p) const
@@ -139,12 +176,42 @@ void PianoRoll::paint (juce::Graphics& g)
         g.drawRoundedRectangle (r, 2.0f, 1.0f);
     }
 
+    // Velocity strip along the bottom: one bar per note, drag to shape dynamics.
+    if (hasVelStrip())
+    {
+        const float top = gridBottom();
+        g.setColour (Palette::inset);
+        g.fillRect (gx, top, w - gx, (float) velStripH);
+        g.setColour (Palette::line);
+        g.drawHorizontalLine ((int) top, 0.0f, w);
+
+        const float barTop = top + 4.0f;
+        const float barBot = h - 4.0f;
+        for (int i = 0; i < (int) notes.size(); ++i)
+        {
+            const auto& n = notes[(size_t) i];
+            const float x = xForBeat (n.startBeat);
+            const float bh = (barBot - barTop) * juce::jlimit (0.0f, 1.0f, n.velocity);
+            juce::Rectangle<float> bar (x + 1.0f, barBot - bh, 4.0f, bh);
+            g.setColour (i == selectedNote ? Palette::accent.brighter (0.25f)
+                                           : Palette::accent.withAlpha (0.75f));
+            g.fillRoundedRectangle (bar, 1.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.20f));
+            g.fillEllipse (x + 0.5f, barBot - bh - 2.5f, 5.0f, 5.0f);   // handle cap
+        }
+
+        g.setColour (Palette::textDim);
+        g.setFont (juce::FontOptions (9.0f));
+        g.drawText ("VEL", (int) gx + 3, (int) top + 2, 30, 12,
+                    juce::Justification::topLeft, false);
+    }
+
     // Playhead (optional — the arrange view owns the main one).
     if (showPlayhead)
     {
         const float px = xForBeat (std::fmod (transport.getPlayheadBeats(), editLength));
         g.setColour (Palette::playhead);
-        g.drawVerticalLine ((int) px, gx, h);
+        g.drawVerticalLine ((int) px, gx, gridBottom());
     }
 
     // Piano-key gutter on the left.
@@ -191,6 +258,22 @@ void PianoRoll::mouseDown (const juce::MouseEvent& e)
         return;
 
     const auto p = e.position;
+
+    // Velocity strip along the bottom: drag a note's bar to set its velocity.
+    if (hasVelStrip() && p.y >= gridBottom())
+    {
+        const int vn = velNoteAt (p.x);
+        if (vn >= 0)
+        {
+            activeNote = selectedNote = vn;
+            drag = Drag::velocity;
+            setVelFromY (vn, p.y);
+            if (onNotesChanged) onNotesChanged();
+            repaint();
+        }
+        return;
+    }
+
     const int hit = noteIndexAt (p);
 
     // Delete on right-click / double-click.
@@ -248,6 +331,18 @@ void PianoRoll::mouseDrag (const juce::MouseEvent& e)
     auto& n = notes[(size_t) activeNote];
     const auto p = e.position;
     const int loopBeats = transport.getLoopBeats();
+
+    if (drag == Drag::velocity)
+    {
+        // Scrub horizontally to shape neighbouring notes, like a velocity pencil.
+        const int vn = velNoteAt (p.x);
+        const int target = vn >= 0 ? vn : activeNote;
+        setVelFromY (target, p.y);
+        selectedNote = target;
+        if (onNotesChanged) onNotesChanged();
+        repaint();
+        return;
+    }
 
     if (drag == Drag::move)
     {
