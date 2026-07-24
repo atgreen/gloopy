@@ -92,6 +92,21 @@ grpcurl -plaintext -proto proto/gloopy.proto -import-path proto \
     127.0.0.1:50051 gloopy.v1.Gloopy/GetState
 ```
 
+...or drive it from Common Lisp via the `gloopy` system (`ocicl install ag-grpc`
+first, then run `sbcl` from the repo root):
+
+```lisp
+(asdf:load-system :gloopy)
+(in-package :gloopy)
+(connect)                                     ; 127.0.0.1:50051
+(let ((id (add-synth-track "Lead" :wave :saw)))
+  (add-clip id :notes (list (note 60 0 1) (note 64 1 1) (note 67 2 1)))
+  (play)
+  (subscribe :seconds 3 :on-event #'print)    ; stream playhead + meters
+  (stop)
+  (render "/tmp/mix.wav"))                     ; offline bounce
+```
+
 ## Layout
 
 See [`docs/PRD.md`](docs/PRD.md) for the product spec and architecture.
@@ -106,6 +121,7 @@ See [`docs/PRD.md`](docs/PRD.md) for the product spec and architecture.
 | Transport | `Transport.h` |
 | UI | `ArrangeView.*`, `PianoRoll.*`, `StepEditor.h`, `MixerView.*`, `GloopyLookAndFeel.*` |
 | Control API | `OscControl.h`, `GrpcServer.*`, `proto/gloopy.proto` |
+| Lisp clients | `gloopy.asd`, `examples/gloopy-grpc.lisp`, `gloopy-pb.lisp`, `gloopy-osc.lisp` |
 
 ## License
 
