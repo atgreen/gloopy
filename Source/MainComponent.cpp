@@ -857,12 +857,14 @@ bool MainComponent::apiOpenPluginEditor (int trackId)
     });
 }
 
-bool MainComponent::apiRenderToFile (const juce::String& path, double tailSeconds)
+bool MainComponent::apiRenderToFile (const juce::String& path, double tailSeconds,
+                                     double startBeat, double endBeat, bool hasTrack, int trackId)
 {
     // Offline bounce. Runs on the calling (gRPC) thread and holds the engine lock
     // for the whole render, so the live audio callback is locked out (it outputs
     // silence) and the transport / mixer buffers are ours exclusively. Faster than
     // real time — we pump blocks in a tight loop rather than waiting on the device.
+    // Optional [startBeat, endBeat) range and a single soloed track (stem export).
     juce::File f = juce::File::isAbsolutePath (path) ? juce::File (path)
                      : juce::File::getCurrentWorkingDirectory().getChildFile (path);
     f = f.withFileExtension ("wav");
@@ -872,14 +874,29 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
 
     const bool        wasPlaying = transport.isPlaying();
     const juce::int64 savedHead  = transport.getPlayheadSamples();
-    auto restore = [&] { transport.setPlaying (false); transport.setPlayheadSamples (savedHead);
-                         transport.setPlaying (wasPlaying);
-                         for (auto& t : tracks) if (t->generator) t->generator->allNotesOff(); };
 
-    // Start from the top, playing, ignoring any live seek/reset or loop region.
+    // Solo one track for a stem, remembering every track's solo to restore later.
+    std::vector<bool> savedSolo;
+    Track* soloT = hasTrack ? resolveTrack (trackId) : nullptr;
+    if (soloT != nullptr)
+        for (auto& t : tracks) { savedSolo.push_back (t->solo.load()); t->solo.store (t.get() == soloT); }
+
+    auto restore = [&]
+    {
+        transport.setPlaying (false); transport.setPlayheadSamples (savedHead);
+        transport.setPlaying (wasPlaying);
+        if (soloT != nullptr)
+            for (size_t i = 0; i < tracks.size() && i < savedSolo.size(); ++i) tracks[i]->solo.store (savedSolo[i]);
+        for (auto& t : tracks) if (t->generator) t->generator->allNotesOff();
+    };
+
+    const double spb = juce::jmax (1.0, transport.samplesPerBeat());
+    const juce::int64 startSample = (juce::int64) (juce::jmax (0.0, startBeat) * spb);
+
+    // Start at the range beginning, playing, ignoring any live seek/reset or loop region.
     double dummy; transport.consumeSeek (dummy); transport.consumeReset();
     transport.setPlaying (true);
-    transport.setPlayheadSamples (0);
+    transport.setPlayheadSamples (startSample);
     for (auto& t : tracks) if (t->generator) t->generator->allNotesOff();
 
     const int    block = juce::jmax (32, currentBlockSize);
@@ -894,19 +911,23 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
 
     juce::AudioBuffer<float> buf (2, block);
     const juce::int64 tailSamples = (juce::int64) (tail * rate);
-    juce::int64 songLen = 0, target = 0, written = 0;
+    juce::int64 bodyLen = 0, target = 0, written = 0;
 
     for (;;)
     {
         buf.clear();
-        const juce::int64 loopLen = renderBlock (buf, 0, block, /*ignoreLoopWindow*/ true);
-        if (target == 0) { songLen = loopLen; target = songLen + tailSamples; }   // known after 1st block
-
+        const juce::int64 songLen = renderBlock (buf, 0, block, /*ignoreLoopWindow*/ true);
+        if (target == 0)   // known after the first block
+        {
+            const juce::int64 endSample = endBeat > startBeat ? (juce::int64) (endBeat * spb) : songLen;
+            bodyLen = juce::jmax ((juce::int64) 1, endSample - startSample);
+            target  = bodyLen + tailSamples;
+        }
         const int toWrite = (int) juce::jmin ((juce::int64) block, target - written);
         if (toWrite <= 0) break;
         writer->writeFromAudioSampleBuffer (buf, 0, toWrite);
         written += toWrite;
-        if (written >= songLen) transport.setPlaying (false);   // stop triggering notes; let tails ring
+        if (written >= bodyLen) transport.setPlaying (false);   // stop triggering notes; let tails ring
         if (written >= target)  break;
     }
 

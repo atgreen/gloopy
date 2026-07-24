@@ -116,7 +116,9 @@ public:
     std::vector<PluginSnap> apiListPlugins();
     int  apiAddPluginEffect (int insert, const juce::String& identifier);   // slot, or -1
     bool apiOpenPluginEditor (int trackId);
-    bool apiRenderToFile (const juce::String& path, double tailSeconds);     // offline bounce
+    bool apiRenderToFile (const juce::String& path, double tailSeconds,
+                          double startBeat = 0.0, double endBeat = 0.0,
+                          bool hasTrack = false, int trackId = -1);           // offline bounce / stem
 
 private:
     struct EditorPanel : public juce::Component

@@ -219,7 +219,9 @@ namespace
         { r->set_ok (main.apiSaveProject (js (q->path()))); return Status::OK; }
 
         Status RenderToFile (ServerContext*, const pb::RenderRequest* q, pb::Ack* r) override
-        { const bool ok = main.apiRenderToFile (js (q->path()), q->tail_seconds());
+        { const bool ok = main.apiRenderToFile (js (q->path()), q->tail_seconds(),
+                                                q->start_beat(), q->end_beat(),
+                                                q->has_track_id(), q->track_id());
           r->set_ok (ok); if (! ok) r->set_error ("render failed"); return Status::OK; }
 
         // ---- track & clip management ----

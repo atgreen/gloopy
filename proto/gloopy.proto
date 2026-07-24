@@ -100,7 +100,13 @@ message AddPluginEffectRequest { int32 insert = 1; string identifier = 2; }
 
 // ── project / state ────────────────────────────────────────
 message FilePath { string path = 1; }
-message RenderRequest { string path = 1; double tail_seconds = 2; }   // offline bounce to WAV
+message RenderRequest {                       // offline bounce to WAV
+  string path = 1;
+  double tail_seconds = 2;
+  double start_beat = 3;                      // range start (default 0)
+  double end_beat = 4;                        // range end (0 = whole song)
+  optional int32 track_id = 5;                // solo this track (stem export)
+}
 message ProjectState {
   TransportState transport = 1;
   repeated TrackInfo   tracks  = 2;
