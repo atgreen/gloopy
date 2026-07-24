@@ -277,14 +277,7 @@ Track* MainComponent::resolveTrack (int id)
 // ---------------------------------------------------------------------------
 void MainComponent::setupMidiInputs()
 {
-    // Open every available hardware input...
-    for (const auto& d : juce::MidiInput::getAvailableDevices())
-    {
-        deviceManager.setMidiInputDeviceEnabled (d.identifier, true);
-        deviceManager.addMidiInputDeviceCallback (d.identifier, this);
-        openMidiInputs.add (d.identifier);
-        std::cout << "[midi] input open: " << d.name << std::endl;
-    }
+    openAvailableMidiInputs();
     // ...plus a virtual port so a keyboard/software can connect at any time.
     virtualMidiIn = juce::MidiInput::createNewDevice ("Gloopy MIDI In", this);
     if (virtualMidiIn != nullptr)
@@ -293,10 +286,29 @@ void MainComponent::setupMidiInputs()
         std::cout << "[midi] virtual input 'Gloopy MIDI In' ready" << std::endl;
     }
     std::cout << "[midi] played notes go to the selected instrument track" << std::endl;
+    // Hot-plug: open inputs that appear after startup.
+    midiListConnection = juce::MidiDeviceListConnection::make ([this]
+    {
+        juce::MessageManager::callAsync ([this] { openAvailableMidiInputs(); });
+    });
 }
+
+void MainComponent::openAvailableMidiInputs()
+{
+    for (const auto& d : juce::MidiInput::getAvailableDevices())
+    {
+        if (openMidiInputs.contains (d.identifier)) continue;   // already open
+        deviceManager.setMidiInputDeviceEnabled (d.identifier, true);
+        deviceManager.addMidiInputDeviceCallback (d.identifier, this);
+        openMidiInputs.add (d.identifier);
+        std::cout << "[midi] input open: " << d.name << std::endl;
+    }
+}
+
 
 void MainComponent::teardownMidiInputs()
 {
+    midiListConnection = {};   // stop hot-plug callbacks
     for (const auto& id : openMidiInputs)
         deviceManager.removeMidiInputDeviceCallback (id, this);
     openMidiInputs.clear();

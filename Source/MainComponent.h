@@ -180,6 +180,7 @@ private:
 
     // Live MIDI input (hardware + a virtual "Gloopy MIDI In" port).
     void setupMidiInputs();
+    void openAvailableMidiInputs();
     void teardownMidiInputs();
 
     /** Run @p fn on the message thread and return its result (blocks the caller
@@ -250,6 +251,7 @@ private:
     std::atomic<int> firstInstrumentId { -1 };   // fallback when nothing is selected
     juce::StringArray openMidiInputs;
     std::unique_ptr<juce::MidiInput> virtualMidiIn;
+    juce::MidiDeviceListConnection midiListConnection;   // hot-plug notifications
 
     juce::Viewport   arrangeViewport;
     std::unique_ptr<ArrangeView> arrangeView;
