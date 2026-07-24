@@ -252,6 +252,14 @@ namespace
         Status SaveProject (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
         { r->set_ok (main.apiSaveProject (js (q->path()))); return Status::OK; }
 
+        Status SaveComposition (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        { const bool ok = main.apiSaveComposition (js (q->path()));
+          r->set_ok (ok); if (! ok) r->set_error ("save failed"); return Status::OK; }
+
+        Status LoadComposition (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        { const bool ok = main.apiLoadComposition (js (q->path()));
+          r->set_ok (ok); if (! ok) r->set_error ("no gloopy.toml / load failed"); return Status::OK; }
+
         Status RenderToFile (ServerContext*, const pb::RenderRequest* q, pb::Ack* r) override
         { const bool ok = main.apiRenderToFile (js (q->path()), q->tail_seconds(),
                                                 q->start_beat(), q->end_beat(),

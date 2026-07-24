@@ -14,6 +14,26 @@ cmake --build build --target Gloopy                  # incremental; LTO is off f
 Needs the gRPC/protobuf and JUCE dev deps in `README.md`. The C++ is generated from
 `proto/gloopy.proto` at build time. This is a GUI app but runs on the current X display.
 
+## Composition (directory) format — Phase 1
+
+Besides the single-file `.gloopy` XML (still the default), Gloopy can serialise a
+project as a **composition directory** for diff-friendly, "song as repo" workflows
+(design: `gloop-compositions.md`). `Source/Composition.cpp` maps the same ValueTree
+that `toValueTree`/`loadFromTree` use to a tree of TOML manifests + line-oriented
+`.notes`/`.points` files + binary WAV/plugin sidecars:
+
+```
+gloopy.toml  tracks/<slug>.toml  clips/<track>/<clip>.notes
+mixer/{inserts,effects}.toml  automation/{lanes.toml,<slug>.points}
+assets/samples/*.wav  plugins/state/*  .gitignore
+```
+
+`SaveComposition`/`LoadComposition` gRPC RPCs drive it (`LoadProject` also accepts a
+directory or a `gloopy.toml`). The loader is read-only for now. TOML is a small
+hand-rolled subset (`Source/Toml.h`, unit-tested) — not a full implementation.
+Round-trip is verified: a `.gloopy` → composition → reload render matches within
+VPO's per-note humanisation noise.
+
 ## Tests
 
 ```sh

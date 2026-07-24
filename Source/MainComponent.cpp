@@ -822,9 +822,35 @@ bool MainComponent::apiLoadProject (const juce::String& path)
     {
         auto f = juce::File::isAbsolutePath (path) ? juce::File (path)
                     : juce::File::getCurrentWorkingDirectory().getChildFile (path);
+        // Accept a composition directory (or its gloopy.toml) as well as a .gloopy file.
+        if (f.isDirectory() && f.getChildFile ("gloopy.toml").existsAsFile())
+            return loadComposition (f);
+        if (f.getFileName() == "gloopy.toml" && f.existsAsFile())
+            return loadComposition (f.getParentDirectory());
         if (! f.existsAsFile()) return false;
         openProject (f);
         return true;
+    });
+}
+
+bool MainComponent::apiSaveComposition (const juce::String& path)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto dir = juce::File::isAbsolutePath (path) ? juce::File (path)
+                     : juce::File::getCurrentWorkingDirectory().getChildFile (path);
+        return saveComposition (dir);
+    });
+}
+
+bool MainComponent::apiLoadComposition (const juce::String& path)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto dir = juce::File::isAbsolutePath (path) ? juce::File (path)
+                     : juce::File::getCurrentWorkingDirectory().getChildFile (path);
+        if (dir.getFileName() == "gloopy.toml") dir = dir.getParentDirectory();
+        return loadComposition (dir);
     });
 }
 

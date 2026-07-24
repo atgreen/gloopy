@@ -9,6 +9,7 @@
 #include <JuceHeader.h>
 #include "Note.h"
 #include "NoteScheduler.h"
+#include "Toml.h"
 
 //==============================================================================
 struct NoteSchedulerTests : juce::UnitTest
@@ -148,7 +149,67 @@ struct SerializationTests : juce::UnitTest
 };
 
 //==============================================================================
+struct TomlTests : juce::UnitTest
+{
+    TomlTests() : juce::UnitTest ("Toml") {}
+
+    void runTest() override
+    {
+        using namespace gloopy;
+
+        beginTest ("writer/parser round-trip of scalars, tables, arrays-of-tables");
+        {
+            toml::Writer w;
+            w.str ("title", "Nocturne \"Sketch\"").number ("bpm", 76.5).boolean ("looped", true)
+             .integer ("count", 3).strArray ("roots", { "assets/samples", "~/sfz" }).blank();
+            w.table ("generator").str ("type", "sfz").str ("path", "a/b c.sfz").blank();
+            w.arrayItem ("clips").str ("id", "intro").number ("start", 0.0);
+            w.arrayItem ("clips").str ("id", "verse").number ("start", 16.0);
+
+            const auto doc = toml::parse (w.str());
+            expectEquals (doc.root.getString ("title"), juce::String ("Nocturne \"Sketch\""));
+            expectWithinAbsoluteError (doc.root.getDouble ("bpm"), 76.5, 1e-9);
+            expect (doc.root.getBool ("looped"));
+            expectEquals (doc.root.getInt ("count"), 3);
+            expectEquals (doc.root.getStringArray ("roots").size(), 2);
+            expectEquals (doc.root.getStringArray ("roots")[1], juce::String ("~/sfz"));
+
+            auto* g = doc.table ("generator");
+            expect (g != nullptr);
+            expectEquals (g->getString ("path"), juce::String ("a/b c.sfz"));
+
+            auto* clips = doc.array ("clips");
+            expect (clips != nullptr);
+            expectEquals ((int) clips->size(), 2);
+            expectEquals ((*clips)[1].getString ("id"), juce::String ("verse"));
+            expectWithinAbsoluteError ((*clips)[1].getDouble ("start"), 16.0, 1e-9);
+        }
+
+        beginTest ("tolerates comments, blank lines, quoted keys with spaces");
+        {
+            const juce::String src =
+                "# a comment\n\n"
+                "type = \"Limiter\"   # inline comment\n"
+                "\"Thresh dB\" = -1.0\n"
+                "bypassed = false\n";
+            const auto doc = toml::parse (src);
+            expectEquals (doc.root.getString ("type"), juce::String ("Limiter"));
+            expectWithinAbsoluteError (doc.root.getDouble ("Thresh dB"), -1.0, 1e-9);
+            expect (! doc.root.getBool ("bypassed"));
+        }
+
+        beginTest ("%.17g preserves a float-promoted double exactly");
+        {
+            const double v = (double) 0.8f;   // the classic 0.800000011920929
+            const auto doc = toml::parse ("v = " + toml::Writer::num (v) + "\n");
+            expect (doc.root.getDouble ("v") == v);
+        }
+    }
+};
+
+//==============================================================================
 static NoteSchedulerTests noteSchedulerTests;
+static TomlTests         tomlTests;
 static SerializationTests serializationTests;
 
 int main (int, char**)

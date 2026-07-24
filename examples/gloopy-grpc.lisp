@@ -61,7 +61,7 @@
            ;; plugins
            :list-plugins :scan-plugins :open-plugin-editor
            ;; project / render
-           :new-project :load-project :save-project :render
+           :new-project :load-project :save-project :save-composition :load-composition :render
            ;; events
            :subscribe))
 (in-package :gloopy)
@@ -317,6 +317,10 @@ Returns (:track-id :index)."
 (defun new-project  ()     (%ack "NewProject" (mk 'gloopy.pb::empty)))
 (defun load-project (path) (%ack "LoadProject" (mk 'gloopy.pb::file-path :path (namestring path))))
 (defun save-project (path) (%ack "SaveProject" (mk 'gloopy.pb::file-path :path (namestring path))))
+(defun save-composition (path) ; directory "composition as repo" format
+  (%ack "SaveComposition" (mk 'gloopy.pb::file-path :path (namestring path))))
+(defun load-composition (path)
+  (%ack "LoadComposition" (mk 'gloopy.pb::file-path :path (namestring path))))
 
 (defun render (path &key (tail-seconds 2.0))
   "Bounce the whole song to a WAV at PATH (server-side).  Blocks until done."

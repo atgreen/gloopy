@@ -235,6 +235,16 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.FilePath.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SaveComposition = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SaveComposition',
+                request_serializer=gloopy__pb2.FilePath.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.LoadComposition = channel.unary_unary(
+                '/gloopy.v1.Gloopy/LoadComposition',
+                request_serializer=gloopy__pb2.FilePath.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.RenderToFile = channel.unary_unary(
                 '/gloopy.v1.Gloopy/RenderToFile',
                 request_serializer=gloopy__pb2.RenderRequest.SerializeToString,
@@ -501,6 +511,19 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SaveComposition(self, request, context):
+        """directory "composition as repo" format
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def LoadComposition(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def RenderToFile(self, request, context):
         """offline bounce to WAV
         """
@@ -715,6 +738,16 @@ def add_GloopyServicer_to_server(servicer, server):
             ),
             'SaveProject': grpc.unary_unary_rpc_method_handler(
                     servicer.SaveProject,
+                    request_deserializer=gloopy__pb2.FilePath.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SaveComposition': grpc.unary_unary_rpc_method_handler(
+                    servicer.SaveComposition,
+                    request_deserializer=gloopy__pb2.FilePath.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'LoadComposition': grpc.unary_unary_rpc_method_handler(
+                    servicer.LoadComposition,
                     request_deserializer=gloopy__pb2.FilePath.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
@@ -1808,6 +1841,60 @@ class Gloopy:
             request,
             target,
             '/gloopy.v1.Gloopy/SaveProject',
+            gloopy__pb2.FilePath.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SaveComposition(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SaveComposition',
+            gloopy__pb2.FilePath.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def LoadComposition(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/LoadComposition',
             gloopy__pb2.FilePath.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,

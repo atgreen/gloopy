@@ -121,6 +121,8 @@ public:
     void apiNewProject();
     bool apiLoadProject (const juce::String& path);
     bool apiSaveProject (const juce::String& path);
+    bool apiSaveComposition (const juce::String& path);   // directory "composition as repo" format
+    bool apiLoadComposition (const juce::String& path);
 
     // track & clip management
     bool apiRemoveTrack (int id);
@@ -242,6 +244,8 @@ private:
     void newProject();
     void saveProject (const juce::File&);
     void openProject (const juce::File&);
+    bool saveComposition (const juce::File& dir);   // implemented in Composition.cpp
+    bool loadComposition (const juce::File& dir);
     juce::ValueTree toValueTree();
     void loadFromTree (const juce::ValueTree&);
     void refreshUiAfterLoad();

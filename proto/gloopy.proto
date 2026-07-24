@@ -210,6 +210,8 @@ service Gloopy {
   rpc Redo       (Empty)    returns (Ack);
   rpc LoadProject(FilePath) returns (Ack);
   rpc SaveProject(FilePath) returns (Ack);
+  rpc SaveComposition(FilePath) returns (Ack);   // directory "composition as repo" format
+  rpc LoadComposition(FilePath) returns (Ack);
   rpc RenderToFile(RenderRequest) returns (Ack);   // offline bounce to WAV
 
   // events (playhead, meters) — closed-loop control

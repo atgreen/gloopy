@@ -78,4 +78,25 @@ assert peak > 0.02, f"render is essentially silent (peak={peak:.4f})"
 print("smoke: PASS — render is non-silent")
 PY
 
+# Composition (directory) round-trip: save the current project as a composition,
+# reload it, and re-render — the reloaded render must also be non-silent.
+COMP="$WORK/comp"
+RT="$WORK/rt.wav"
+g -d "{\"path\":\"$COMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+[ -f "$COMP/gloopy.toml" ] || { echo "smoke: composition save produced no gloopy.toml" >&2; exit 1; }
+echo "smoke: saved composition ($(find "$COMP" -type f | wc -l) files)"
+g -d "{\"path\":\"$COMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+g -d "{\"path\":\"$RT\",\"tail_seconds\":1.0,\"start_beat\":0,\"end_beat\":4}" \
+    127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 - "$RT" <<'PY'
+import sys, wave
+w = wave.open(sys.argv[1], 'rb'); n = w.getnframes(); sw = w.getsampwidth(); ch = w.getnchannels()
+frames = w.readframes(min(n, w.getframerate()))
+peak = 0.0
+for i in range(0, len(frames), sw*ch):
+    peak = max(peak, abs(int.from_bytes(frames[i:i+sw], 'little', signed=True)) / float(1 << (8*sw-1)))
+assert peak > 0.02, f"composition round-trip render is silent (peak={peak:.4f})"
+print(f"smoke: PASS — composition round-trip non-silent (peak={peak:.3f})")
+PY
+
 echo "smoke: OK"

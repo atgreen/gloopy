@@ -259,6 +259,14 @@ class Gloopy:
     def save_project(self, path: str) -> None:
         self._ack(self.stub.SaveProject(pb.FilePath(path=path)))
 
+    def save_composition(self, path: str) -> None:
+        """Save the project as a directory 'composition as repo' (diff-friendly TOML+notes)."""
+        self._ack(self.stub.SaveComposition(pb.FilePath(path=path)))
+
+    def load_composition(self, path: str) -> None:
+        """Load a composition directory (or its gloopy.toml)."""
+        self._ack(self.stub.LoadComposition(pb.FilePath(path=path)))
+
     def render(self, path: str, tail_seconds: float = 0.0, start_beat: float = 0.0,
                end_beat: float = 0.0, track_id: Optional[int] = None) -> None:
         kw = {"path": path, "tail_seconds": tail_seconds,
