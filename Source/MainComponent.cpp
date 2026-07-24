@@ -1267,6 +1267,22 @@ void MainComponent::scanPlugins (bool force)
     pluginHost.scanAll();                             // slow full scan, then caches
 }
 
+juce::PluginDescription MainComponent::resolvePluginDescription (const juce::PluginDescription& saved)
+{
+    // A saved description's fileOrIdentifier can point at a binary the format
+    // manager won't load directly (e.g. a VST3 bundle's inner .so). Match it
+    // against the freshly scanned list, whose paths are known-good.
+    scanPlugins();
+    const juce::PluginDescription* fallback = nullptr;
+    for (const auto& kd : pluginHost.knownList.getTypes())
+    {
+        if (kd.pluginFormatName != saved.pluginFormatName || kd.name != saved.name) continue;
+        if (kd.uniqueId == saved.uniqueId) return kd;   // exact match
+        if (fallback == nullptr) fallback = &kd;        // same name+format
+    }
+    return fallback != nullptr ? *fallback : saved;
+}
+
 void MainComponent::showAddPluginMenu()
 {
     scanPlugins();
@@ -1723,6 +1739,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             auto pv = tr.getChildWithName ("PLUGIN");
             juce::PluginDescription d;
             if (auto xml = juce::parseXML (pv.getProperty ("pdesc").toString())) d.loadFromXml (*xml);
+            d = resolvePluginDescription (d);
             juce::String err;
             if (auto inst = pluginHost.create (d, currentSampleRate, currentBlockSize, err))
             {
@@ -1730,6 +1747,8 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
                 if (st.getSize() > 0) inst->setStateInformation (st.getData(), (int) st.getSize());
                 gen = std::make_unique<PluginInstrument> (std::move (inst));
             }
+            else
+                std::cout << "[load] plugin '" << d.name << "' create failed: " << err << std::endl;
         }
         else if (genType == "Synth")
         {
@@ -1848,7 +1867,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
                 {
                     juce::PluginDescription d;
                     if (auto xml = juce::parseXML (ft.getProperty ("pdesc").toString())) d.loadFromXml (*xml);
-                    fx = makePluginEffect (d);
+                    fx = makePluginEffect (resolvePluginDescription (d));
                     if (fx != nullptr)
                     {
                         juce::MemoryBlock st; st.fromBase64Encoding (ft.getProperty ("pstate").toString());

@@ -165,6 +165,7 @@ private:
 
     // Plugins.
     void scanPlugins (bool force = false);
+    juce::PluginDescription resolvePluginDescription (const juce::PluginDescription& saved);
     void showAddPluginMenu();
     void createInstrumentTrack (const juce::PluginDescription&);
     std::unique_ptr<Effect> makePluginEffect (const juce::PluginDescription&);
