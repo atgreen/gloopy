@@ -3,3 +3,6 @@ cmake-build-*/
 .cache/
 *.o
 *.a
+
+# Python bytecode (tools/)
+__pycache__/
