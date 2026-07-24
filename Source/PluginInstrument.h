@@ -5,6 +5,7 @@
 
 #include <JuceHeader.h>
 #include <atomic>
+#include <bitset>
 #include "Generator.h"
 
 /** A hosted instrument plugin (VST3/LV2) as a track generator: MIDI in → audio out. */
@@ -29,21 +30,21 @@ public:
                                       buffer.getNumChannels(), startSample, numSamples);
         if (panic.exchange (false))
         {
-            // Hard stop: All Sound Off (CC120) kills voices immediately — All Notes
-            // Off (CC123) alone only starts the release, which for long sustained/
-            // looped samples (e.g. orchestral strings) rings on for seconds.
+            // Hard stop. sfizz ignores the All Sound/Notes Off controllers, and
+            // blasting note-offs makes it emit a release burst, so ask the plugin
+            // to clear its own voice state, then release the notes we know were held.
+            plugin->reset();
             juce::MidiBuffer m;
-            for (int ch = 1; ch <= 16; ++ch)
-            {
-                m.addEvent (juce::MidiMessage::controllerEvent (ch, 120, 0), 0);  // All Sound Off
-                m.addEvent (juce::MidiMessage::controllerEvent (ch, 123, 0), 0);  // All Notes Off
-                m.addEvent (juce::MidiMessage::controllerEvent (ch,  64, 0), 0);  // Sustain off
-            }
+            for (int i = 0; i < 16 * 128; ++i)
+                if (held[i]) m.addEvent (juce::MidiMessage::noteOff (i / 128 + 1, i % 128), 0);
+            held.reset();
             m.addEvents (midi, 0, numSamples, 0);
+            trackHeld (m);
             plugin->processBlock (sub, m);
         }
         else
         {
+            trackHeld (midi);
             plugin->processBlock (sub, midi);
         }
     }
@@ -53,6 +54,19 @@ public:
     juce::AudioProcessor* getPluginInstance() override { return plugin.get(); }
 
 private:
+    /** Track which (channel,note) pairs are currently sounding, so a panic can
+        release exactly those. */
+    void trackHeld (const juce::MidiBuffer& midi)
+    {
+        for (const auto meta : midi)
+        {
+            const auto msg = meta.getMessage();
+            if (msg.isNoteOn())       held.set ((msg.getChannel() - 1) * 128 + msg.getNoteNumber());
+            else if (msg.isNoteOff()) held.reset ((msg.getChannel() - 1) * 128 + msg.getNoteNumber());
+        }
+    }
+
     std::unique_ptr<juce::AudioPluginInstance> plugin;
     std::atomic<bool> panic { false };
+    std::bitset<16 * 128> held;
 };
