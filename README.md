@@ -110,6 +110,17 @@ first, then run `sbcl` from the repo root):
   (render "/tmp/mix.wav"))                     ; offline bounce
 ```
 
+...or from Python via the [`gloopy` client package](python/README.md)
+(`pip install ./python`):
+
+```python
+from gloopy import Gloopy, note
+with Gloopy() as g:
+    lead = g.add_synth_track("Lead", wave="SAW")
+    g.add_clip(lead, notes=[note(60, 0, 1), note(64, 1, 1), note(67, 2, 1)])
+    g.play(); g.render("/tmp/mix.wav", tail_seconds=1.0)   # offline bounce
+```
+
 ## Layout
 
 See [`docs/PRD.md`](docs/PRD.md) for the product spec and architecture.
@@ -125,6 +136,7 @@ See [`docs/PRD.md`](docs/PRD.md) for the product spec and architecture.
 | UI | `ArrangeView.*`, `PianoRoll.*`, `StepEditor.h`, `MixerView.*`, `GloopyLookAndFeel.*` |
 | Control API | `OscControl.h`, `GrpcServer.*`, `proto/gloopy.proto` |
 | Lisp clients | `gloopy.asd`, `examples/gloopy-grpc.lisp`, `gloopy-pb.lisp`, `gloopy-osc.lisp` |
+| Python client | `python/gloopy/`, `python/example.py`, `python/README.md` |
 
 ## License
 

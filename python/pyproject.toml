@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 Anthony Green <green@moxielogic.com>
+# SPDX-License-Identifier: AGPL-3.0-only
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gloopy-client"
+version = "0.1.0"
+description = "Python client for the Gloopy DAW gRPC control API"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "AGPL-3.0-only"
+authors = [{ name = "Anthony Green", email = "green@moxielogic.com" }]
+dependencies = ["grpcio>=1.50", "protobuf>=4.21"]
+
+[project.optional-dependencies]
+dev = ["grpcio-tools>=1.50"]
+
+[tool.setuptools]
+packages = ["gloopy"]
