@@ -128,5 +128,6 @@ See [`docs/PRD.md`](docs/PRD.md) for the product spec and architecture.
 
 ## License
 
-Gloopy is licensed under the GNU General Public License, version 3 — see
-[`LICENSE`](LICENSE).
+Gloopy is licensed under the GNU Affero General Public License, version 3
+(AGPL-3.0-only) — see [`LICENSE`](LICENSE). This aligns with JUCE's GPL/AGPL
+licensing terms.

@@ -1,5 +1,5 @@
 ;;; SPDX-FileCopyrightText: 2026 Anthony Green <green@moxielogic.com>
-;;; SPDX-License-Identifier: GPL-3.0-only
+;;; SPDX-License-Identifier: AGPL-3.0-only
 
 ;;;; gloopy-grpc.lisp — drive Gloopy's gRPC control surface from Common Lisp.
 ;;;;

@@ -1,5 +1,5 @@
 ;;; SPDX-FileCopyrightText: 2026 Anthony Green <green@moxielogic.com>
-;;; SPDX-License-Identifier: GPL-3.0-only
+;;; SPDX-License-Identifier: AGPL-3.0-only
 
 ;;;; gloopy.asd — Common Lisp client for the Gloopy DAW's gRPC control API.
 ;;;;
@@ -15,7 +15,7 @@
 (asdf:defsystem "gloopy"
   :description "Common Lisp client for the Gloopy DAW's gRPC control API."
   :author "Anthony Green <green@moxielogic.com>"
-  :license "GPL-3.0-only"
+  :license "AGPL-3.0-only"
   :version "0.1.0"
   :depends-on ("ag-grpc")
   :serial t
