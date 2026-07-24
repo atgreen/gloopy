@@ -4,7 +4,7 @@
 
 - **Status:** Draft v1
 - **Date:** 2026-07-22
-- **Owner:** anthony@atgreen.org
+- **Owner:** green@moxielogic.com
 - **Supersedes:** the initial single-timeline piano-roll MVP (M0, shipped)
 
 ---
