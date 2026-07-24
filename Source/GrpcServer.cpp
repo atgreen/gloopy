@@ -268,6 +268,9 @@ namespace
         Status AddSamplerTrack (ServerContext*, const pb::AddSamplerTrackRequest* q, pb::TrackId* r) override
         { r->set_id (main.apiAddSamplerTrack (js (q->name()), js (q->path()), q->root_note())); return Status::OK; }
 
+        Status AddSfzTrack (ServerContext*, const pb::AddSfzTrackRequest* q, pb::TrackId* r) override
+        { r->set_id (main.apiAddSfzTrack (js (q->name()), js (q->path()))); return Status::OK; }
+
         Status AddPluginTrack (ServerContext*, const pb::AddPluginTrackRequest* q, pb::TrackId* r) override
         { r->set_id (main.apiAddPluginTrack (js (q->identifier()))); return Status::OK; }
 

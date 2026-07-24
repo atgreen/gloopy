@@ -50,7 +50,7 @@
            ;; transport
            :play :stop :set-tempo :set-swing :seek :transport
            ;; tracks
-           :list-tracks :get-state :add-synth-track :add-sampler-track
+           :list-tracks :get-state :add-synth-track :add-sampler-track :add-sfz-track
            :add-audio-track :add-plugin-track :set-track-params :set-synth-param
            :remove-track
            ;; clips
@@ -172,6 +172,13 @@
    (%unary "AddSamplerTrack"
            (mk 'gloopy.pb::add-sampler-track-request
                :name name :path (namestring path) :root-note (round root-note))
+           'gloopy.pb::track-id)))
+
+(defun add-sfz-track (name path)
+  "Load a native SFZ instrument from PATH on the server; returns its track id."
+  (gloopy.pb::id
+   (%unary "AddSfzTrack"
+           (mk 'gloopy.pb::add-sfz-track-request :name name :path (namestring path))
            'gloopy.pb::track-id)))
 
 (defun add-audio-track (name)

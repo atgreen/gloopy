@@ -93,6 +93,7 @@ message ParamList { repeated Param params = 1; }
 // ── track & clip management ────────────────────────────────
 message AddAudioTrackRequest   { string name = 1; }                             // empty audio track
 message AddSamplerTrackRequest { string name = 1; string path = 2; int32 root_note = 3; }
+message AddSfzTrackRequest     { string name = 1; string path = 2; }   // native SFZ instrument
 message AddPluginTrackRequest  { string identifier = 1; }                        // PluginInfo.identifier
 message ClipRef            { int32 track_id = 1; int32 index = 2; }
 message MoveClipRequest    { int32 track_id = 1; int32 index = 2; double start_beat = 3; optional int32 to_track_id = 4; }
@@ -177,6 +178,7 @@ service Gloopy {
   rpc RemoveTrack     (TrackId)                returns (Ack);
   rpc AddAudioTrack   (AddAudioTrackRequest)   returns (TrackId);
   rpc AddSamplerTrack (AddSamplerTrackRequest) returns (TrackId);
+  rpc AddSfzTrack     (AddSfzTrackRequest)     returns (TrackId);
   rpc AddPluginTrack  (AddPluginTrackRequest)  returns (TrackId);
   rpc RemoveClip      (ClipRef)                returns (Ack);
   rpc MoveClip        (MoveClipRequest)        returns (Ack);

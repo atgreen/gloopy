@@ -106,6 +106,10 @@ class Gloopy:
         return self.stub.AddSamplerTrack(pb.AddSamplerTrackRequest(
             name=name, path=path, root_note=root_note)).id
 
+    def add_sfz_track(self, path: str, name: str = "") -> int:
+        """Load a native SFZ instrument (samples preloaded) onto a new track."""
+        return self.stub.AddSfzTrack(pb.AddSfzTrackRequest(name=name, path=path)).id
+
     def add_audio_track(self, name: str = "") -> int:
         return self.stub.AddAudioTrack(pb.AddAudioTrackRequest(name=name)).id
 

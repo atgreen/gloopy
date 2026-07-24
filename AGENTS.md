@@ -67,6 +67,18 @@ VST3 is the bundle's inner `.so` — the loader needs the `.vst3` bundle, so on 
 re-match against the scanned list (`resolvePluginDescription`). Native editors embed
 only for X11UI plugins (Surge, sfizz); others fall back to a generic panel.
 
+### Native SFZ instrument (no plugin) — preferred for SFZ
+`Source/SfzInstrument.h` is a built-in `Generator` that parses a subset of SFZ
+(`<global>/<master>/<group>/<region>` inheritance; `sample`, `lokey/hikey/key`,
+`pitch_keycenter`, `lovel/hivel`, `volume`, `pan`, `tune`, `transpose`, `offset`,
+`loop_mode`, `ampeg_*`; note names `c4`=60) and preloads its samples (deduped,
+lock-free playback). Load via the **`+ SFZ`** toolbar button, `AddSfzTrack` gRPC,
+or `add_sfz_track`/`add-sfz-track` in the clients. Projects store just the `.sfz`
+path and re-parse on load — no state hack. VPO loads fully (~111 MB); very large
+libraries (full Salamander decodes to multi-GB PCM) hit the ~900 MB preload cap
+and get truncated with a `[sfz] … skipped` warning — those still work via the
+hosted-sfizz path below, and disk-streaming is the documented next step.
+
 ### sfizz (SFZ sampler) — installed without sudo
 Not in Fedora repos and no prebuilt Linux binary. We pulled the **Audinux COPR** rpm
 (matches Fedora's ABI) and extracted it into `~/.vst3` / `~/.lv2` with no install:

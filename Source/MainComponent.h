@@ -126,6 +126,7 @@ public:
     bool apiRemoveTrack (int id);
     int  apiAddAudioTrack (const juce::String& name);
     int  apiAddSamplerTrack (const juce::String& name, const juce::String& path, int rootNote);
+    int  apiAddSfzTrack (const juce::String& name, const juce::String& path);   // native SFZ, or -1
     int  apiAddPluginTrack (const juce::String& identifier);           // track id, or -1
     bool apiRemoveClip (int trackId, int index);
     bool apiMoveClip (int trackId, int index, double startBeat, bool hasToTrack, int toTrackId);
@@ -268,6 +269,7 @@ private:
     juce::Label      posLabel;
     juce::TextButton addSynthBtn   { "+ Synth" };
     juce::TextButton loadSampleBtn { "+ Sample" };
+    juce::TextButton addSfzBtn     { "+ SFZ" };
     juce::TextButton addAudioBtn   { "+ Audio" };
     juce::TextButton addPluginBtn  { "+ Plugin" };
     juce::TextButton loopButton    { "Loop" };

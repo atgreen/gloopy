@@ -129,7 +129,7 @@ See [`docs/PRD.md`](docs/PRD.md) for the product spec and architecture.
 |------|-------|
 | App shell / audio engine | `Source/Main.cpp`, `Source/MainComponent.*` |
 | Model | `Track.h`, `Clip.h`, `Note.h`, `MixerTrack.h` |
-| Generators | `Generator.h`, `Sampler.h`, `SynthGenerator.h`, `SynthEngine.h`, `SynthVoice.h`, `DrumSynth.h`, `PluginInstrument.h` |
+| Generators | `Generator.h`, `Sampler.h`, `SfzInstrument.h`, `SynthGenerator.h`, `SynthEngine.h`, `SynthVoice.h`, `DrumSynth.h`, `PluginInstrument.h` |
 | Effects | `Effect.h`, `Effects.h`, `PluginEffect.h` |
 | Plugin hosting | `PluginHost.h` |
 | Transport | `Transport.h` |

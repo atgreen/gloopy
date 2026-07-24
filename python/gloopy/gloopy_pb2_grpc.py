@@ -115,6 +115,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.AddSamplerTrackRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.TrackId.FromString,
                 _registered_method=True)
+        self.AddSfzTrack = channel.unary_unary(
+                '/gloopy.v1.Gloopy/AddSfzTrack',
+                request_serializer=gloopy__pb2.AddSfzTrackRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.TrackId.FromString,
+                _registered_method=True)
         self.AddPluginTrack = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AddPluginTrack',
                 request_serializer=gloopy__pb2.AddPluginTrackRequest.SerializeToString,
@@ -343,6 +348,12 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def AddSamplerTrack(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AddSfzTrack(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -585,6 +596,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'AddSamplerTrack': grpc.unary_unary_rpc_method_handler(
                     servicer.AddSamplerTrack,
                     request_deserializer=gloopy__pb2.AddSamplerTrackRequest.FromString,
+                    response_serializer=gloopy__pb2.TrackId.SerializeToString,
+            ),
+            'AddSfzTrack': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddSfzTrack,
+                    request_deserializer=gloopy__pb2.AddSfzTrackRequest.FromString,
                     response_serializer=gloopy__pb2.TrackId.SerializeToString,
             ),
             'AddPluginTrack': grpc.unary_unary_rpc_method_handler(
@@ -1145,6 +1161,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/AddSamplerTrack',
             gloopy__pb2.AddSamplerTrackRequest.SerializeToString,
+            gloopy__pb2.TrackId.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AddSfzTrack(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/AddSfzTrack',
+            gloopy__pb2.AddSfzTrackRequest.SerializeToString,
             gloopy__pb2.TrackId.FromString,
             options,
             channel_credentials,

@@ -4,6 +4,7 @@
 #include "MainComponent.h"
 #include "NoteScheduler.h"
 #include "Sampler.h"
+#include "SfzInstrument.h"
 #include "SynthGenerator.h"
 #include "DrumSynth.h"
 #include <array>
@@ -90,6 +91,28 @@ MainComponent::MainComponent()
                 if (sampler->loadFile (file, formatManager))
                     addTrack (std::make_unique<Track> (file.getFileNameWithoutExtension(),
                                   std::move (sampler), 60, paletteColour ((int) tracks.size())));
+            });
+    };
+
+    addAndMakeVisible (addSfzBtn);
+    addSfzBtn.onClick = [this]
+    {
+        fileChooser = std::make_unique<juce::FileChooser> (
+            "Load an SFZ instrument", juce::File(), "*.sfz");
+        fileChooser->launchAsync (juce::FileBrowserComponent::openMode
+                                    | juce::FileBrowserComponent::canSelectFiles,
+            [this] (const juce::FileChooser& fc)
+            {
+                const auto file = fc.getResult();
+                if (! file.existsAsFile()) return;
+                auto sfz = std::make_unique<SfzInstrument>();
+                sfz->prepare (currentSampleRate, currentBlockSize);
+                juce::String err;
+                if (sfz->loadSfz (file, formatManager, err))
+                    addTrack (std::make_unique<Track> (sfz->getName(),
+                                  std::move (sfz), 60, paletteColour ((int) tracks.size())));
+                else
+                    std::cout << "[sfz] " << err << std::endl;
             });
     };
 
@@ -854,6 +877,28 @@ int MainComponent::apiAddSamplerTrack (const juce::String& name, const juce::Str
         sampler->setRootNote (root);
         auto t = std::make_unique<Track> (name.isNotEmpty() ? name : f.getFileNameWithoutExtension(),
                                           std::move (sampler), root, paletteColour ((int) tracks.size()));
+        Track* raw = t.get();
+        addTrack (std::move (t));
+        return raw->id;
+    });
+}
+
+int MainComponent::apiAddSfzTrack (const juce::String& name, const juce::String& path)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        pushUndoSnapshot();
+        juce::File f (path);
+        auto sfz = std::make_unique<SfzInstrument>();
+        sfz->prepare (currentSampleRate, currentBlockSize);
+        juce::String err;
+        if (! sfz->loadSfz (f, formatManager, err))
+        {
+            std::cout << "[sfz] load failed: " << err << std::endl;
+            return -1;
+        }
+        auto t = std::make_unique<Track> (name.isNotEmpty() ? name : sfz->getName(),
+                                          std::move (sfz), 60, paletteColour ((int) tracks.size()));
         Track* raw = t.get();
         addTrack (std::move (t));
         return raw->id;
@@ -1793,6 +1838,7 @@ void MainComponent::resized()
 
     addSynthBtn  .setBounds (bar.removeFromLeft (64)); bar.removeFromLeft (5);
     loadSampleBtn.setBounds (bar.removeFromLeft (74)); bar.removeFromLeft (5);
+    addSfzBtn    .setBounds (bar.removeFromLeft (56)); bar.removeFromLeft (5);
     addAudioBtn  .setBounds (bar.removeFromLeft (68)); bar.removeFromLeft (5);
     addPluginBtn .setBounds (bar.removeFromLeft (72));
     mixerButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (6);
@@ -1965,6 +2011,13 @@ juce::ValueTree MainComponent::toValueTree()
                 for (int i = 0; i < buf.getNumSamples(); ++i)
                     *dst++ = buf.getSample (ch, i);
             s.setProperty ("data", juce::Base64::toBase64 (mb.getData(), mb.getSize()), nullptr);
+            tr.addChild (s, -1, nullptr);
+        }
+        else if (auto* sf = dynamic_cast<SfzInstrument*> (t->generator.get()))
+        {
+            // Store only the .sfz path — samples are re-parsed/reloaded on load.
+            juce::ValueTree s ("SFZ");
+            s.setProperty ("path", sf->getSfzPath(), nullptr);
             tr.addChild (s, -1, nullptr);
         }
         else if (auto* proc = t->generator ? t->generator->getPluginInstance() : nullptr)
@@ -2174,6 +2227,17 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             p.lfoRate.store      ((float) (double) s.getProperty ("lforate", 5.0));
             p.lfoDepth.store     ((float) (double) s.getProperty ("lfodepth", 0.0));
             gen = std::move (sg);
+        }
+        else if (genType == "Sfz")
+        {
+            auto s = tr.getChildWithName ("SFZ");
+            auto sf = std::make_unique<SfzInstrument>();
+            sf->prepare (currentSampleRate, currentBlockSize);
+            juce::String err;
+            if (sf->loadSfz (juce::File (s.getProperty ("path", "").toString()), formatManager, err))
+                gen = std::move (sf);
+            else
+                std::cout << "[load] SFZ load failed: " << err << std::endl;
         }
         else
         {
