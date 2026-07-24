@@ -12,7 +12,7 @@
 (asdf:defsystem "gloopy"
   :description "Common Lisp client for the Gloopy DAW's gRPC control API."
   :author "Anthony Green <anthony@atgreen.org>"
-  :license "MIT"
+  :license "GPL-3.0-only"
   :version "0.1.0"
   :depends-on ("ag-grpc")
   :serial t

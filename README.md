@@ -106,3 +106,8 @@ See [`docs/PRD.md`](docs/PRD.md) for the product spec and architecture.
 | Transport | `Transport.h` |
 | UI | `ArrangeView.*`, `PianoRoll.*`, `StepEditor.h`, `MixerView.*`, `GloopyLookAndFeel.*` |
 | Control API | `OscControl.h`, `GrpcServer.*`, `proto/gloopy.proto` |
+
+## License
+
+Gloopy is licensed under the GNU General Public License, version 3 — see
+[`LICENSE`](LICENSE).
