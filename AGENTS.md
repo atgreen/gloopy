@@ -14,6 +14,17 @@ cmake --build build --target Gloopy                  # incremental; LTO is off f
 Needs the gRPC/protobuf and JUCE dev deps in `README.md`. The C++ is generated from
 `proto/gloopy.proto` at build time. This is a GUI app but runs on the current X display.
 
+## Tests
+
+```sh
+cmake -B build -G Ninja -DGLOOPY_TESTS=ON        # opt in; off by default
+cmake --build build --target GloopyTests
+ctest --test-dir build --output-on-failure       # NoteScheduler/swing + ValueTree round-trip
+python3 tools/test_sfizz_state.py                # sfizz-state codec round-trip
+./tests/smoke.sh                                 # boots the app, drives gRPC, renders, checks non-silent
+```
+CI (`.github/workflows/ci.yml`) runs all of the above on push/PR under `xvfb`.
+
 ## Driving it headless
 
 Gloopy opens two control ports at startup: **OSC** UDP `9000` (live notes/knobs) and

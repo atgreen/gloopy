@@ -97,3 +97,24 @@ target_sources(Gloopy PRIVATE
     Source/GrpcServer.cpp)
 target_include_directories(Gloopy PRIVATE ${GLOOPY_GEN})
 target_link_libraries(Gloopy PRIVATE PkgConfig::GRPCPP PkgConfig::PROTOBUF)
+
+# ---------------------------------------------------------------------------
+# Unit tests — a small headless console target over the pure logic
+# (NoteScheduler / swing, ValueTree serialisation). Built with -DGLOOPY_TESTS=ON.
+# Kept out of the default build so it doesn't slow the app iteration loop.
+# ---------------------------------------------------------------------------
+option(GLOOPY_TESTS "Build the Gloopy unit-test target" OFF)
+if(GLOOPY_TESTS)
+    enable_testing()
+    juce_add_console_app(GloopyTests PRODUCT_NAME "GloopyTests")
+    juce_generate_juce_header(GloopyTests)
+    target_sources(GloopyTests PRIVATE tests/TestMain.cpp)
+    target_include_directories(GloopyTests PRIVATE Source)
+    target_link_libraries(GloopyTests PRIVATE
+        juce::juce_audio_basics
+        juce::juce_data_structures
+        PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_warning_flags)
+    add_test(NAME GloopyUnitTests COMMAND GloopyTests)
+endif()

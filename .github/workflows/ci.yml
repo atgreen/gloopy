@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: 2026 Anthony Green <green@moxielogic.com>
+# SPDX-License-Identifier: AGPL-3.0-only
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ pkg-config \
+            libasound2-dev libjack-jackd2-dev \
+            libx11-dev libxext-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxcomposite-dev \
+            libfreetype6-dev libfontconfig1-dev libgl1-mesa-dev \
+            libprotobuf-dev protobuf-compiler \
+            libgrpc++-dev protobuf-compiler-grpc \
+            xvfb
+
+      - name: Install grpcurl (smoke-test driver)
+        run: |
+          VER=1.9.1
+          curl -fsSL "https://github.com/fullstorydev/grpcurl/releases/download/v${VER}/grpcurl_${VER}_linux_x86_64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin grpcurl
+
+      - name: Cache JUCE checkout
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: juce-8.0.15-${{ runner.os }}
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGLOOPY_TESTS=ON
+
+      - name: Build app + tests
+        run: cmake --build build
+
+      - name: Unit tests (NoteScheduler / serialization)
+        run: ctest --test-dir build --output-on-failure
+
+      - name: sfizz-state codec tests
+        run: python3 tools/test_sfizz_state.py
+
+      - name: Headless smoke test (gRPC + offline render)
+        run: xvfb-run -a ./tests/smoke.sh
