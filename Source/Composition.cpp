@@ -328,7 +328,14 @@ bool MainComponent::saveComposition (const juce::File& dir)
              .number ("content_length", cl.getProperty ("content", 4.0))
              .boolean ("looped", cl.getProperty ("looped", false));
 
-            if (cl.hasProperty ("adata"))    // audio clip -> wav sidecar
+            if (cl.hasProperty ("afile"))    // referenced audio (recorded take / import)
+            {
+                const auto ref = cl.getProperty ("afile").toString();
+                w.str ("audio_file", ref).number ("audio_gain", cl.getProperty ("again", 1.0));
+                if (cl.hasProperty ("take")) w.str ("take", cl.getProperty ("take").toString());
+                ctx.keep (ref);              // don't prune the referenced take/asset
+            }
+            else if (cl.hasProperty ("adata"))   // embedded audio -> wav sidecar
             {
                 const auto rel = "assets/audio/" + slug + "-" + cslug + ".wav";
                 ctx.writeBytes (rel, buildWav (cl.getProperty ("adata").toString(),
@@ -578,7 +585,13 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                     cl.setProperty ("len", cd.getDouble ("length", 4.0), nullptr);
                     cl.setProperty ("content", cd.getDouble ("content_length", 4.0), nullptr);
                     cl.setProperty ("looped", cd.getBool ("looped"), nullptr);
-                    if (cd.has ("audio_file"))
+                    if (cd.has ("take"))          // referenced take/asset — keep the reference
+                    {
+                        cl.setProperty ("afile", cd.getString ("audio_file"), nullptr);
+                        cl.setProperty ("take",  cd.getString ("take"), nullptr);
+                        cl.setProperty ("again", cd.getDouble ("audio_gain", 1.0), nullptr);
+                    }
+                    else if (cd.has ("audio_file"))   // embedded audio sidecar
                     {
                         int ch = 1, fr = 0; double rate = 44100.0;
                         cl.setProperty ("adata", wavToBase64 (dir.getChildFile (cd.getString ("audio_file")),

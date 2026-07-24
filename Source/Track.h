@@ -38,5 +38,10 @@ struct Track
     std::atomic<bool>  solo   { false };
     std::atomic<int>   mixerTrack { 0 };
 
+    // Audio-recording state (project state, not global prefs).
+    std::atomic<bool> recordArmed   { false };
+    std::atomic<int>  recordInput   { 0 };   // first hardware input channel
+    std::atomic<int>  recordChannels{ 2 };   // 1 = mono, 2 = stereo
+
     std::vector<Clip> clips;   // guarded by the engine lock
 };

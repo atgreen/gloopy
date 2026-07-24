@@ -89,10 +89,19 @@ class Gloopy:
         return {"playing": t.playing, "bpm": t.bpm, "position_beats": t.position_beats}
 
     def start_recording(self) -> None:
+        """Record armed MIDI + armed audio tracks from the playhead."""
         self._ack(self.stub.StartRecording(pb.Empty()))
 
     def stop_recording(self) -> None:
         self._ack(self.stub.StopRecording(pb.Empty()))
+
+    def list_audio_inputs(self) -> list[str]:
+        return list(self.stub.ListAudioInputs(pb.Empty()).names)
+
+    def arm_track(self, track_id: int, armed: bool = True, input: int = 0, channels: int = 2) -> None:
+        """Arm an audio track for recording (input = first hardware channel)."""
+        self._ack(self.stub.ArmTrack(pb.ArmRequest(
+            track_id=track_id, armed=armed, input=input, channels=channels)))
 
     # -- tracks -----------------------------------------------------------
     def add_synth_track(self, name: str = "", wave="SINE", attack=0.01,

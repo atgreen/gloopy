@@ -313,6 +313,30 @@ private:
     std::atomic<bool> recording { false };
     std::atomic<int>  recordTrackId { -1 };
     juce::int64       recordStartSample { 0 };
+
+    // --- audio input recording (Recording.cpp) ---
+    bool startAudioRecording();
+    void stopAudioRecording();
+    void captureRecordingInput (const juce::AudioSourceChannelInfo&);   // audio thread
+    void finalizeTake (int trackId, const juce::File& take, int channels, double startBeat);
+    juce::File recordingsDir() const;
+    juce::TimeSliceThread recordThread { "gloopy-record" };
+    juce::CriticalSection takeWriterLock;
+    std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> audioTakeWriter;
+    std::atomic<int>    audioRecFrames   { 0 };
+    std::atomic<double> recordTestToneHz { 0.0 };   // >0 injects a test tone (self-test)
+    double  recordTonePhase   { 0.0 };
+    int     audioRecTrackId   { -1 };
+    int     audioRecChannels  { 2 };
+    int     audioRecInput     { 0 };
+    double  audioRecRate      { 44100.0 };
+    double  audioRecStartBeat { 0.0 };
+    juce::File audioTakeFile;
+  public:
+    std::vector<juce::String> apiListAudioInputs();
+    bool apiArmTrack (int trackId, bool armed, int input, int channels);
+    void apiSetRecordTestTone (double hz) { recordTestToneHz.store (hz); }
+  private:
     juce::StringArray openMidiInputs;
     std::unique_ptr<juce::MidiInput> virtualMidiIn;
     juce::MidiDeviceListConnection midiListConnection;   // hot-plug notifications

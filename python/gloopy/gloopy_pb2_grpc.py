@@ -75,6 +75,16 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.ListAudioInputs = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ListAudioInputs',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.AudioInputs.FromString,
+                _registered_method=True)
+        self.ArmTrack = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ArmTrack',
+                request_serializer=gloopy__pb2.ArmRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.AddSynthTrack = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AddSynthTrack',
                 request_serializer=gloopy__pb2.AddSynthTrackRequest.SerializeToString,
@@ -299,13 +309,26 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def StartRecording(self, request, context):
-        """record played MIDI into the armed track
+        """record armed MIDI + armed audio tracks
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def StopRecording(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListAudioInputs(self, request, context):
+        """audio recording (Phase 1)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ArmTrack(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -579,6 +602,16 @@ def add_GloopyServicer_to_server(servicer, server):
             'StopRecording': grpc.unary_unary_rpc_method_handler(
                     servicer.StopRecording,
                     request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ListAudioInputs': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListAudioInputs,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.AudioInputs.SerializeToString,
+            ),
+            'ArmTrack': grpc.unary_unary_rpc_method_handler(
+                    servicer.ArmTrack,
+                    request_deserializer=gloopy__pb2.ArmRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'AddSynthTrack': grpc.unary_unary_rpc_method_handler(
@@ -978,6 +1011,60 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/StopRecording',
             gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListAudioInputs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ListAudioInputs',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.AudioInputs.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ArmTrack(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ArmTrack',
+            gloopy__pb2.ArmRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

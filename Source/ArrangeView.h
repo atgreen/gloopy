@@ -68,6 +68,7 @@ private:
     std::vector<std::unique_ptr<juce::TextButton>> muteButtons;
     std::vector<std::unique_ptr<juce::TextButton>> soloButtons;
     std::vector<std::unique_ptr<juce::TextButton>> editButtons;   // plugin UI (plugin tracks only)
+    std::vector<std::unique_ptr<juce::TextButton>> armButtons;    // record-arm (audio tracks only)
     std::vector<std::unique_ptr<juce::Slider>>     volSliders;
 
     int selTrack { -1 }, selClip { -1 };

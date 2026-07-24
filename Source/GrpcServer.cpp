@@ -69,6 +69,13 @@ namespace
         Status StopRecording (ServerContext*, const pb::Empty*, pb::Ack* r) override
         { main.apiStopRecording(); r->set_ok (true); return Status::OK; }
 
+        Status ListAudioInputs (ServerContext*, const pb::Empty*, pb::AudioInputs* r) override
+        { for (auto& n : main.apiListAudioInputs()) r->add_names (n.toStdString()); return Status::OK; }
+
+        Status ArmTrack (ServerContext*, const pb::ArmRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiArmTrack (q->track_id(), q->armed(), q->input(), q->channels());
+          r->set_ok (ok); if (! ok) r->set_error ("track not found"); return Status::OK; }
+
         Status GetTransport (ServerContext*, const pb::Empty*, pb::TransportState* r) override
         {
             auto s = main.apiGetTransport();

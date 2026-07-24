@@ -246,7 +246,16 @@ MainComponent::MainComponent()
 
     setWantsKeyboardFocus (true);   // catch Ctrl+Z / Ctrl+Shift+Z (bubbles up from children)
     setSize (1180, 820);
-    setAudioChannels (0, 2);
+    setAudioChannels (2, 2);
+    if (auto* dev = deviceManager.getCurrentAudioDevice())
+        std::cout << "[audio] device='" << dev->getName() << "' inputs="
+                  << dev->getActiveInputChannels().countNumberOfSetBits() << " outputs="
+                  << dev->getActiveOutputChannels().countNumberOfSetBits()
+                  << " rate=" << dev->getCurrentSampleRate() << std::endl;
+    else
+        std::cout << "[audio] NO audio device open (headless?)" << std::endl;
+    // Self-test seam: GLOOPY_REC_TEST_TONE_HZ injects a tone in place of the mic.
+    recordTestToneHz.store (juce::SystemStats::getEnvironmentVariable ("GLOOPY_REC_TEST_TONE_HZ", "0").getDoubleValue());
     setupMidiInputs();
     startTimerHz (30);
 }
@@ -372,19 +381,24 @@ void MainComponent::handleIncomingMidiMessage (juce::MidiInput*, const juce::Mid
 
 void MainComponent::startRecording()
 {
+    // MIDI capture into the selected instrument track (if any) ...
     int target = midiInputTarget.load();
     if (target < 0) target = firstInstrumentId.load();
-    if (resolveTrack (target) == nullptr) return;   // nothing armed to record into
-    recordTrackId.store (target);
-    recordStartSample = transport.getPlayheadSamples();
-    recordWrite.store (0);
+    if (resolveTrack (target) != nullptr)
+    {
+        recordTrackId.store (target);
+        recordStartSample = transport.getPlayheadSamples();
+        recordWrite.store (0);
+        recording.store (true);
+    }
+    startAudioRecording();              // ... and audio capture for any armed audio track
     clearClipIndicators();
-    recording.store (true);
     transport.setPlaying (true);
 }
 
 void MainComponent::finalizeRecording()
 {
+    stopAudioRecording();               // finalize audio takes independently of MIDI
     if (! recording.exchange (false)) return;
     const int count = juce::jmin (recordWrite.load(), (int) recordBuffer.size());
     Track* t = resolveTrack (recordTrackId.load());
@@ -1569,6 +1583,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
 
 void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
 {
+    captureRecordingInput (info);   // read input BEFORE it's cleared by the output pass
     info.clearActiveBufferRegion();
     auto* out = info.buffer;
     const int start = info.startSample;
@@ -2122,7 +2137,14 @@ juce::ValueTree MainComponent::toValueTree()
             cl.setProperty ("len", c.lengthBeats, nullptr);
             cl.setProperty ("content", c.contentLenBeats, nullptr);
             cl.setProperty ("looped", c.looped, nullptr);
-            if (c.isAudio() && c.audio != nullptr)
+            if (c.isAudio() && c.audioFile.isNotEmpty())
+            {
+                // Referenced audio (recorded take / import) — store the path, not the blob.
+                cl.setProperty ("afile", c.audioFile, nullptr);
+                cl.setProperty ("again", c.audioGain, nullptr);
+                if (c.takeId.isNotEmpty()) cl.setProperty ("take", c.takeId, nullptr);
+            }
+            else if (c.isAudio() && c.audio != nullptr)
             {
                 const auto& ab = *c.audio;
                 cl.setProperty ("arate", c.audioSourceRate, nullptr);
@@ -2424,7 +2446,25 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             c.contentLenBeats = (double) cl.getProperty ("content", 4.0);
             c.looped = (bool) cl.getProperty ("looped", true);
 
-            if (c.isAudio())
+            if (c.isAudio() && cl.hasProperty ("afile"))
+            {
+                // Referenced audio: resolve the path and load the file for playback.
+                c.audioFile = cl.getProperty ("afile").toString();
+                c.takeId    = cl.getProperty ("take", "").toString();
+                c.audioGain = (float) (double) cl.getProperty ("again", 1.0);
+                const auto f = resolveSamplePath (c.audioFile);
+                if (std::unique_ptr<juce::AudioFormatReader> r (formatManager.createReaderFor (f)); r != nullptr)
+                {
+                    auto buf = std::make_shared<juce::AudioBuffer<float>> ((int) r->numChannels, (int) r->lengthInSamples);
+                    r->read (buf.get(), 0, (int) r->lengthInSamples, 0, true, true);
+                    c.audio = buf;
+                    c.audioSourceRate = r->sampleRate;
+                    c.peaks = std::make_shared<std::vector<float>> (buildPeaks (*buf));
+                }
+                else
+                    std::cout << "[load] missing referenced audio: " << f.getFullPathName() << std::endl;
+            }
+            else if (c.isAudio())
             {
                 const int nch = juce::jmax (1, (int) cl.getProperty ("achannels", 1));
                 const int fr  = juce::jmax (0, (int) cl.getProperty ("aframes", 0));

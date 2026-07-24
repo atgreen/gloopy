@@ -24,6 +24,7 @@ void ArrangeView::rebuild()
     muteButtons.clear();
     soloButtons.clear();
     editButtons.clear();
+    armButtons.clear();
     volSliders.clear();
     removeAllChildren();
 
@@ -63,6 +64,17 @@ void ArrangeView::rebuild()
         addChildComponent (*edit);
         edit->setVisible (t->generator != nullptr && t->generator->getPluginInstance() != nullptr);
         editButtons.push_back (std::move (edit));
+
+        // Record-arm (audio tracks) — a red toggle; the transport Record captures armed tracks.
+        auto arm = std::make_unique<juce::TextButton> (juce::String::fromUTF8 ("\xe2\x97\x8f"));  // ●
+        arm->setClickingTogglesState (true);
+        arm->setToggleState (t->recordArmed.load(), juce::dontSendNotification);
+        arm->setColour (juce::TextButton::buttonOnColourId, juce::Colours::red);
+        arm->setTooltip ("Arm for audio recording");
+        arm->onClick = [t, a = arm.get()] { t->recordArmed.store (a->getToggleState()); };
+        addChildComponent (*arm);
+        arm->setVisible (t->type == TrackType::Audio);
+        armButtons.push_back (std::move (arm));
     }
 
     setSize (getWidth(), preferredHeight());
@@ -78,6 +90,7 @@ void ArrangeView::resized()
         soloButtons[(size_t) i]->setBounds (headerWidth - 62, y + 6, 26, 20);
         muteButtons[(size_t) i]->setBounds (headerWidth - 32, y + 6, 26, 20);
         editButtons[(size_t) i]->setBounds (headerWidth - 58, y + 28, 52, 16);
+        armButtons [(size_t) i]->setBounds (headerWidth - 90, y + 6, 26, 20);
         volSliders [(size_t) i]->setBounds (12, y + trackHeight - 18, headerWidth - 24, 12);
     }
 }

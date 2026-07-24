@@ -38,6 +38,20 @@ small hand-rolled subset (`Source/Toml.h`, unit-tested). Round-trip is verified 
 `tests/smoke.sh` (round-trip render, no-op-write, zip load) and matches within
 VPO's per-note humanisation noise.
 
+## Audio recording (Phase 1)
+
+`Source/Recording.cpp` captures live input to a WAV take and creates a *referencing*
+audio clip (design: `recording.md`). The device opens inputs (`setAudioChannels(2,2)`);
+the audio thread copies input into a JUCE `ThreadedWriter` (FIFO + background thread)
+— never allocate/open/close/block on the audio thread. Takes go to a composition's
+`assets/recordings/` + `recordings/takes.toml`; the clip references them by path
+(`Clip.audioFile`/`takeId`), serialised as a reference (not embedded) in both
+`.gloopy` and the composition format — so `assets/recordings/*.wav` is kept, not
+pruned, on save. API: `ListAudioInputs`, `ArmTrack`; the existing
+`StartRecording`/`StopRecording` also drive armed audio tracks. To self-test without
+a mic (e.g. headless/CI), launch with `GLOOPY_REC_TEST_TONE_HZ=440` — it injects a
+tone in place of the input, so a real record→take→clip→playback cycle is verifiable.
+
 ## Tests
 
 ```sh

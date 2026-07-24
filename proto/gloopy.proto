@@ -37,6 +37,10 @@ message AddSynthTrackRequest {
 }
 message TrackId { int32 id = 1; }
 
+// ── audio recording ────────────────────────────────────────
+message AudioInputs { repeated string names = 1; }
+message ArmRequest  { int32 track_id = 1; bool armed = 2; int32 input = 3; int32 channels = 4; }
+
 // Live tweak of the built-in synth engine on a track. `name` is one of:
 // wave osc2wave osc2detune oscmix sub attack decay sustain release gain
 // ftype cutoff reso fenvamt fattack fdecay fsustain frelease lfotarget lforate lfodepth
@@ -162,8 +166,10 @@ service Gloopy {
   rpc SetSwing    (Swing)    returns (Ack);
   rpc Seek        (Position) returns (Ack);
   rpc GetTransport(Empty)    returns (TransportState);
-  rpc StartRecording(Empty)  returns (Ack);   // record played MIDI into the armed track
+  rpc StartRecording(Empty)  returns (Ack);   // record armed MIDI + armed audio tracks
   rpc StopRecording (Empty)  returns (Ack);
+  rpc ListAudioInputs(Empty) returns (AudioInputs);   // audio recording (Phase 1)
+  rpc ArmTrack       (ArmRequest) returns (Ack);
 
   // tracks
   rpc AddSynthTrack (AddSynthTrackRequest) returns (TrackId);

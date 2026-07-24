@@ -30,6 +30,11 @@ struct Clip
     double audioSourceRate { 44100.0 };
     float  audioGain       { 1.0f };
     std::shared_ptr<std::vector<float>> peaks;   // display overview (max-abs per bucket)
+    // When non-empty, the audio came from a file (a recorded take or imported
+    // reference) — serialised as a path, not embedded. `audio` still holds the
+    // decoded buffer for playback; this just records where it came from.
+    juce::String audioFile;
+    juce::String takeId;
 
     double endBeat() const noexcept { return startBeat + lengthBeats; }
     bool   isAudio() const noexcept { return type == ClipType::Audio; }
