@@ -98,6 +98,18 @@ message PluginInfo { string name = 1; string format = 2; bool is_instrument = 3;
 message PluginList  { repeated PluginInfo plugins = 1; }
 message AddPluginEffectRequest { int32 insert = 1; string identifier = 2; }
 
+// ── automation ─────────────────────────────────────────────
+enum AutoTarget { TRACK_VOL = 0; TRACK_PAN = 1; INSERT_VOL = 2; INSERT_PAN = 3; EFFECT_PARAM = 4; }
+message AutoPoint { double beat = 1; float value = 2; }
+message Automation {
+  AutoTarget target = 1;
+  int32 id = 2;                 // track id (TRACK_*) or insert index (INSERT_*/EFFECT_PARAM)
+  int32 slot = 3;               // effect slot (EFFECT_PARAM)
+  string param = 4;             // effect param name (EFFECT_PARAM)
+  repeated AutoPoint points = 5;   // empty = clear this lane
+}
+message AutomationList { repeated Automation lanes = 1; }
+
 // ── project / state ────────────────────────────────────────
 message FilePath { string path = 1; }
 message RenderRequest {                       // offline bounce to WAV
@@ -176,6 +188,10 @@ service Gloopy {
   rpc SetEffectParam (EffectParamSet)   returns (Ack);
   rpc SetEffectBypass(EffectBypassSet)  returns (Ack);
   rpc GetEffectParams(EffectRef)        returns (ParamList);
+
+  // automation
+  rpc SetAutomation  (Automation)       returns (Ack);
+  rpc GetAutomation  (Empty)            returns (AutomationList);
 
   // project & state
   rpc GetState   (Empty)    returns (ProjectState);

@@ -8,6 +8,7 @@
 #include "DrumSynth.h"
 #include <array>
 #include <cmath>
+#include <algorithm>
 #include <iostream>
 
 MainComponent::MainComponent()
@@ -658,6 +659,76 @@ void MainComponent::apiRemoveChangeSink (int sinkId)
     changeSinks.erase (sinkId);
 }
 
+// --- parameter automation ---
+static float interpAuto (const std::vector<MainComponent::AutoPointSnap>& p, double beat)
+{
+    if (p.empty()) return 0.0f;
+    if (beat <= p.front().beat) return p.front().value;
+    if (beat >= p.back().beat)  return p.back().value;
+    for (size_t i = 1; i < p.size(); ++i)
+        if (beat <= p[i].beat)
+        {
+            const double t = (beat - p[i-1].beat) / juce::jmax (1e-9, p[i].beat - p[i-1].beat);
+            return (float) (p[i-1].value + t * (p[i].value - p[i-1].value));
+        }
+    return p.back().value;
+}
+
+void MainComponent::evaluateAutomation (double beat)
+{
+    // Called from renderBlock while holding engineLock — iterate the locked vectors.
+    for (auto& lane : automationLanes)
+    {
+        if (lane.points.empty()) continue;
+        const float v = interpAuto (lane.points, beat);
+        const bool insertOk = juce::isPositiveAndBelow (lane.id, (int) mixerTracks.size());
+        switch (lane.type)
+        {
+            case 0: for (auto& t : tracks) if (t->id == lane.id) { t->volume.store (juce::jlimit (0.0f, 1.0f, v)); break; } break;
+            case 1: for (auto& t : tracks) if (t->id == lane.id) { t->pan.store (juce::jlimit (-1.0f, 1.0f, v)); break; } break;
+            case 2: if (insertOk) mixerTracks[(size_t) lane.id]->volume.store (juce::jlimit (0.0f, 1.0f, v)); break;
+            case 3: if (insertOk) mixerTracks[(size_t) lane.id]->pan.store (juce::jlimit (-1.0f, 1.0f, v)); break;
+            case 4:
+                if (insertOk)
+                {
+                    auto& fx = mixerTracks[(size_t) lane.id]->effects;
+                    if (juce::isPositiveAndBelow (lane.slot, (int) fx.size()))
+                        for (auto& pr : fx[(size_t) lane.slot]->parameters())
+                            if (pr.name.equalsIgnoreCase (lane.param)) { pr.set (v); break; }
+                }
+                break;
+            default: break;
+        }
+    }
+}
+
+void MainComponent::apiSetAutomation (int type, int id, int slot, const juce::String& param,
+                                      const std::vector<AutoPointSnap>& points)
+{
+    callOnMessageThread ([&]
+    {
+        pushUndoSnapshot();
+        const juce::ScopedLock sl (engineLock);
+        automationLanes.erase (std::remove_if (automationLanes.begin(), automationLanes.end(),
+            [&] (const AutoLaneSnap& l) { return l.type == type && l.id == id && l.slot == slot
+                                                 && l.param.equalsIgnoreCase (param); }),
+            automationLanes.end());
+        if (! points.empty())
+        {
+            AutoLaneSnap lane { type, id, slot, param, points };
+            std::sort (lane.points.begin(), lane.points.end(),
+                       [] (const AutoPointSnap& a, const AutoPointSnap& b) { return a.beat < b.beat; });
+            automationLanes.push_back (std::move (lane));
+        }
+        return true;
+    });
+}
+
+std::vector<MainComponent::AutoLaneSnap> MainComponent::apiGetAutomation()
+{
+    return callOnMessageThread ([&] { const juce::ScopedLock sl (engineLock); return automationLanes; });
+}
+
 void MainComponent::apiNewProject()
 {
     callOnMessageThread ([&] () -> bool { newProject(); return true; });
@@ -1134,6 +1205,9 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     const bool        playing = transport.isPlaying();
     const double      spb     = transport.samplesPerBeat();
     const juce::int64 blockStartPlayhead = transport.getPlayheadSamples();   // for MIDI capture
+
+    if (playing && ! automationLanes.empty())
+        evaluateAutomation ((double) blockStartPlayhead / juce::jmax (1.0, spb));
 
     // Seek (from dragging the playhead) — applies whether playing or stopped.
     double seekBeats = 0.0;
@@ -1921,6 +1995,22 @@ juce::ValueTree MainComponent::toValueTree()
         mx.addChild (t, -1, nullptr);
     }
     root.addChild (mx, -1, nullptr);
+
+    juce::ValueTree au ("AUTOMATION");
+    for (auto& lane : automationLanes)
+    {
+        juce::ValueTree l ("LANE");
+        l.setProperty ("type", lane.type, nullptr); l.setProperty ("id", lane.id, nullptr);
+        l.setProperty ("slot", lane.slot, nullptr); l.setProperty ("param", lane.param, nullptr);
+        for (auto& p : lane.points)
+        {
+            juce::ValueTree pt ("PT");
+            pt.setProperty ("beat", p.beat, nullptr); pt.setProperty ("value", p.value, nullptr);
+            l.addChild (pt, -1, nullptr);
+        }
+        au.addChild (l, -1, nullptr);
+    }
+    root.addChild (au, -1, nullptr);
     return root;
 }
 
@@ -1956,6 +2046,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     transport.setPlaying (false);
     tracks.clear();
     mixerTracks.clear();
+    automationLanes.clear();
     nextTrackId = 0;
 
     auto trks = root.getChildWithName ("TRACKS");
@@ -2137,6 +2228,20 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
         mixerTracks.push_back (std::make_unique<MixerTrack> ("Master"));
         for (int i = 1; i <= 8; ++i)
             mixerTracks.push_back (std::make_unique<MixerTrack> ("Ins " + juce::String (i)));
+    }
+
+    auto au = root.getChildWithName ("AUTOMATION");
+    for (int i = 0; i < au.getNumChildren(); ++i)
+    {
+        auto l = au.getChild (i);
+        AutoLaneSnap lane { (int) l.getProperty ("type"), (int) l.getProperty ("id"),
+                            (int) l.getProperty ("slot"), l.getProperty ("param").toString(), {} };
+        for (int j = 0; j < l.getNumChildren(); ++j)
+        {
+            auto pt = l.getChild (j);
+            lane.points.push_back ({ (double) pt.getProperty ("beat"), (float) pt.getProperty ("value") });
+        }
+        automationLanes.push_back (std::move (lane));
     }
 
     transport.setBpm ((double) root.getProperty ("bpm", 128.0));

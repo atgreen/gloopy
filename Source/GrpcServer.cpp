@@ -183,6 +183,29 @@ namespace
             return Status::OK;
         }
 
+        // ---- automation ----
+        Status SetAutomation (ServerContext*, const pb::Automation* q, pb::Ack* r) override
+        {
+            std::vector<MainComponent::AutoPointSnap> pts;
+            for (int i = 0; i < q->points_size(); ++i)
+                pts.push_back ({ q->points (i).beat(), q->points (i).value() });
+            main.apiSetAutomation ((int) q->target(), q->id(), q->slot(), js (q->param()), pts);
+            r->set_ok (true);
+            return Status::OK;
+        }
+
+        Status GetAutomation (ServerContext*, const pb::Empty*, pb::AutomationList* r) override
+        {
+            for (auto& lane : main.apiGetAutomation())
+            {
+                auto* a = r->add_lanes();
+                a->set_target ((pb::AutoTarget) lane.type); a->set_id (lane.id);
+                a->set_slot (lane.slot); a->set_param (lane.param.toStdString());
+                for (auto& p : lane.points) { auto* pt = a->add_points(); pt->set_beat (p.beat); pt->set_value (p.value); }
+            }
+            return Status::OK;
+        }
+
         // ---- project / state ----
         Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override
         {

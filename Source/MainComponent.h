@@ -106,6 +106,15 @@ public:
     void apiPollChanges (int sinkId, std::vector<ChangeSnap>& out);   // drains one sink
     void apiRemoveChangeSink (int sinkId);
     void emitChange (const juce::String& kind, int trackId = -1, int insert = -1);
+
+    // Parameter automation (built-in targets). type: 0=track vol, 1=track pan,
+    // 2=insert vol, 3=insert pan, 4=effect param.
+    struct AutoPointSnap { double beat; float value; };
+    struct AutoLaneSnap  { int type; int id; int slot; juce::String param; std::vector<AutoPointSnap> points; };
+    void apiSetAutomation (int type, int id, int slot, const juce::String& param,
+                           const std::vector<AutoPointSnap>& points);        // empty points = clear the lane
+    std::vector<AutoLaneSnap> apiGetAutomation();
+    void evaluateAutomation (double beat);   // audio thread, under engineLock
     void apiNewProject();
     bool apiLoadProject (const juce::String& path);
     bool apiSaveProject (const juce::String& path);
@@ -279,6 +288,8 @@ private:
     std::map<int, std::shared_ptr<ChangeSink>> changeSinks;
     std::mutex changeSinksLock;
     int nextSinkId { 0 };
+
+    std::vector<AutoLaneSnap> automationLanes;   // guarded by engineLock
 
     // MIDI recording: audio thread appends played input, message thread drains to a clip.
     void startRecording();
