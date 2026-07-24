@@ -29,9 +29,16 @@ public:
                                       buffer.getNumChannels(), startSample, numSamples);
         if (panic.exchange (false))
         {
+            // Hard stop: All Sound Off (CC120) kills voices immediately — All Notes
+            // Off (CC123) alone only starts the release, which for long sustained/
+            // looped samples (e.g. orchestral strings) rings on for seconds.
             juce::MidiBuffer m;
             for (int ch = 1; ch <= 16; ++ch)
-                m.addEvent (juce::MidiMessage::allNotesOff (ch), 0);
+            {
+                m.addEvent (juce::MidiMessage::controllerEvent (ch, 120, 0), 0);  // All Sound Off
+                m.addEvent (juce::MidiMessage::controllerEvent (ch, 123, 0), 0);  // All Notes Off
+                m.addEvent (juce::MidiMessage::controllerEvent (ch,  64, 0), 0);  // Sustain off
+            }
             m.addEvents (midi, 0, numSamples, 0);
             plugin->processBlock (sub, m);
         }
