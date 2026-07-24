@@ -213,8 +213,15 @@ MainComponent::MainComponent()
     {
         OscControl::Hooks h;
         h.resolveTrack = [this] (int id) { return resolveTrack (id); };
-        h.setSynthParam = [this] (int id, const juce::String& n, float v)
-                          { return applySynthParam (resolveTrack (id), n, v); };
+        h.setSynthParam = [this] (int id, const juce::String& n, float v) -> bool
+        {
+            // Real-time (OSC) thread: hold the engineLock try-lock so a structural
+            // edit can't erase the Track while we dereference its generator. Drop
+            // the update if the lock is contended (audio mid-block or edit running).
+            const juce::ScopedTryLock stl (engineLock);
+            if (! stl.isLocked()) return false;
+            return applySynthParam (resolveTrack (id), n, v);
+        };
         h.mixerTracks  = &mixerTracks;
         h.engineLock   = &engineLock;
         h.transport    = &transport;
@@ -474,9 +481,12 @@ bool MainComponent::apiSetTrackParams (int id, bool hasVol, float vol, bool hasP
 
 bool MainComponent::apiSetSynthParam (int trackId, const juce::String& name, float value)
 {
-    // Params are atomic, so this is safe to run on the caller's thread (gRPC or,
-    // via the hook, the OSC real-time thread) — no message-thread hop needed.
-    return applySynthParam (resolveTrack (trackId), name, value);
+    // Hop to the message thread: although the synth params themselves are atomic,
+    // resolveTrack hands back a raw Track* whose lifetime is only stable there —
+    // a concurrent RemoveTrack/load (message thread, engineLock) could otherwise
+    // free the Track while we dereference t->generator. (The OSC hook takes the
+    // engineLock try-lock instead, to stay real-time safe.)
+    return callOnMessageThread ([&] { return applySynthParam (resolveTrack (trackId), name, value); });
 }
 
 bool MainComponent::applySynthParam (Track* t, const juce::String& name, float value)
@@ -1343,13 +1353,18 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         int rem = num, local = 0;
         while (rem > 0 && nseg < (int) segs.size())
         {
-            if (ph >= winEnd) ph = winStart;
+            if (ph >= winEnd)
+            {
+                if (ignoreLoopWindow) break;   // offline bounce: play through once, never
+                ph = winStart;                 // wrap to the top and retrigger the opening
+            }
             const juce::int64 dist = winEnd - ph;
             if (dist < 1) break;
             const int chunk = (int) juce::jmin ((juce::int64) rem, dist);
-            const bool wrap = (ph + chunk >= winEnd);
+            const bool wrap = (ph + chunk >= winEnd) && ! ignoreLoopWindow;
             segs[(size_t) nseg++] = { ph, chunk, local, wrap };
-            ph += chunk; if (ph >= winEnd) ph = winStart;
+            ph += chunk;
+            if (ph >= winEnd && ! ignoreLoopWindow) ph = winStart;
             rem -= chunk; local += chunk;
         }
         transport.setPlayheadSamples (ph);
@@ -2019,9 +2034,10 @@ juce::ValueTree MainComponent::toValueTree()
         }
         else if (auto* sf = dynamic_cast<SfizzGenerator*> (t->generator.get()))
         {
-            // Store only the .sfz path — sfizz re-parses on load.
+            // Store the .sfz path in portable (relative-to-sample-root) form when
+            // possible — sfizz re-parses, and resolveSamplePath resolves it on load.
             juce::ValueTree s ("SFZ");
-            s.setProperty ("path", sf->getSfzPath(), nullptr);
+            s.setProperty ("path", portableSamplePath (sf->getSfzPath()), nullptr);
             tr.addChild (s, -1, nullptr);
         }
         else if (auto* proc = t->generator ? t->generator->getPluginInstance() : nullptr)
@@ -2166,6 +2182,22 @@ void MainComponent::openProject (const juce::File& file)
 // paths (backward compatible), ~ expansion, and portable relative paths — which
 // are searched against $GLOOPY_SAMPLE_PATH (colon-separated), then the project's
 // own directory, then ~/sfz. First existing hit wins.
+// Sample search roots, highest priority first: $GLOOPY_SAMPLE_PATH entries, the
+// current project's directory, then ~/sfz. Shared by resolve (load) and portable
+// (save) so the two round-trip.
+juce::StringArray MainComponent::sampleSearchRoots() const
+{
+    juce::StringArray roots;
+    const auto env = juce::SystemStats::getEnvironmentVariable ("GLOOPY_SAMPLE_PATH", {});
+    if (env.isNotEmpty())
+        roots.addTokens (env, ":", "");
+    if (currentProjectFile.existsAsFile())
+        roots.add (currentProjectFile.getParentDirectory().getFullPathName());
+    roots.add (juce::File::getSpecialLocation (juce::File::userHomeDirectory)
+                   .getChildFile ("sfz").getFullPathName());
+    return roots;
+}
+
 juce::File MainComponent::resolveSamplePath (const juce::String& stored) const
 {
     if (stored.isEmpty()) return {};
@@ -2178,22 +2210,32 @@ juce::File MainComponent::resolveSamplePath (const juce::String& stored) const
     if (juce::File::isAbsolutePath (s))
         return juce::File (s);
 
-    juce::StringArray roots;
-    const auto env = juce::SystemStats::getEnvironmentVariable ("GLOOPY_SAMPLE_PATH", {});
-    if (env.isNotEmpty())
-        roots.addTokens (env, ":", "");
-    if (currentProjectFile.existsAsFile())
-        roots.add (currentProjectFile.getParentDirectory().getFullPathName());
-    roots.add (juce::File::getSpecialLocation (juce::File::userHomeDirectory)
-                   .getChildFile ("sfz").getFullPathName());
-
-    for (auto& r : roots)
+    for (auto& r : sampleSearchRoots())
     {
         if (r.isEmpty()) continue;
         auto cand = juce::File (r).getChildFile (s);
         if (cand.existsAsFile()) return cand;
     }
     return juce::File (s);   // fallback: return as-is so the error names the path
+}
+
+// Inverse of resolveSamplePath: express an absolute sample path relative to a
+// known search root when possible, so saved projects stay portable (a path added
+// via gRPC as "VPO/x.sfz" resolves to absolute at load, but must save relative
+// again). Falls back to the absolute path when the file is under no known root.
+juce::String MainComponent::portableSamplePath (const juce::String& absolute) const
+{
+    if (absolute.isEmpty() || ! juce::File::isAbsolutePath (absolute))
+        return absolute;   // already relative / empty — keep as-is
+    const juce::File file (absolute);
+    for (auto& r : sampleSearchRoots())
+    {
+        if (r.isEmpty()) continue;
+        const juce::File rootDir (r);
+        if (file.isAChildOf (rootDir))
+            return file.getRelativePathFrom (rootDir);
+    }
+    return absolute;
 }
 
 void MainComponent::loadFromTree (const juce::ValueTree& root)

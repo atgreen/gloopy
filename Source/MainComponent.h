@@ -128,6 +128,8 @@ public:
     int  apiAddSamplerTrack (const juce::String& name, const juce::String& path, int rootNote);
     int  apiAddSfzTrack (const juce::String& name, const juce::String& path);   // native SFZ, or -1
     juce::File resolveSamplePath (const juce::String& stored) const;            // portable path resolution
+    juce::String portableSamplePath (const juce::String& absolute) const;       // inverse, for saving
+    juce::StringArray sampleSearchRoots() const;
     int  apiAddPluginTrack (const juce::String& identifier);           // track id, or -1
     bool apiRemoveClip (int trackId, int index);
     bool apiMoveClip (int trackId, int index, double startBeat, bool hasToTrack, int toTrackId);
