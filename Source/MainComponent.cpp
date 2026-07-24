@@ -405,6 +405,7 @@ void MainComponent::apiStop()  { if (recording.load()) finalizeRecording(); tran
 void MainComponent::apiStartRecording() { callOnMessageThread ([&] { startRecording(); return true; }); }
 void MainComponent::apiStopRecording()  { callOnMessageThread ([&] { finalizeRecording(); transport.setPlaying (false); return true; }); }
 void MainComponent::apiSetTempo (double bpm) { transport.setBpm (juce::jlimit (20.0, 400.0, bpm)); }
+void MainComponent::apiSetSwing (double s)   { transport.setSwing (s); }
 void MainComponent::apiSeek (double beats)   { transport.requestSeek (juce::jmax (0.0, beats)); }
 
 MainComponent::TransportSnap MainComponent::apiGetTransport()
@@ -1260,7 +1261,8 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     const double deviceRate = currentSampleRate;
 
     // Collect a MIDI clip's notes over a song-sample window (content loops to fill).
-    auto collectClip = [spb] (juce::MidiBuffer& midi, const Clip& clip,
+    const double swing = transport.getSwing();
+    auto collectClip = [spb, swing] (juce::MidiBuffer& midi, const Clip& clip,
                               juce::int64 songStart, int chunk, int tsOffset)
     {
         if (clip.type != ClipType::Midi) return;
@@ -1283,7 +1285,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
             const juce::int64 winHi = juce::jmin (hi, repStart + repUnit);
             if (winLo < winHi)
                 collectNotes (clip.notes, midi, winLo - repStart, (int) (winHi - winLo),
-                              tsOffset + (int) (winLo - songStart), spb);
+                              tsOffset + (int) (winLo - songStart), spb, swing);
         }
     };
 
@@ -1854,6 +1856,7 @@ juce::ValueTree MainComponent::toValueTree()
     juce::ValueTree root ("GLOOPY");
     root.setProperty ("version", 2, nullptr);
     root.setProperty ("bpm", transport.getBpm(), nullptr);
+    root.setProperty ("swing", transport.getSwing(), nullptr);
 
     juce::ValueTree trks ("TRACKS");
     for (auto& t : tracks)
@@ -2245,6 +2248,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     }
 
     transport.setBpm ((double) root.getProperty ("bpm", 128.0));
+    transport.setSwing ((double) root.getProperty ("swing", 0.5));
 }
 
 void MainComponent::refreshUiAfterLoad()

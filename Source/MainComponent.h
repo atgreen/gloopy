@@ -74,6 +74,7 @@ public:
     void apiStartRecording();
     void apiStopRecording();
     void apiSetTempo (double bpm);
+    void apiSetSwing (double amount);
     void apiSeek (double beats);
     TransportSnap apiGetTransport();
     int  apiAddSynthTrack (const juce::String& name, int wave, float a, float d, float s, float r, float g);

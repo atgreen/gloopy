@@ -57,6 +57,9 @@ namespace
         Status SetTempo (ServerContext*, const pb::Tempo* q, pb::Ack* r) override
         { main.apiSetTempo (q->bpm()); r->set_ok (true); return Status::OK; }
 
+        Status SetSwing (ServerContext*, const pb::Swing* q, pb::Ack* r) override
+        { main.apiSetSwing (q->amount()); r->set_ok (true); return Status::OK; }
+
         Status Seek (ServerContext*, const pb::Position* q, pb::Ack* r) override
         { main.apiSeek (q->beats()); r->set_ok (true); return Status::OK; }
 

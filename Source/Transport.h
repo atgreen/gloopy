@@ -20,6 +20,9 @@ public:
     void   setBpm (double b) noexcept          { bpm = b; }
     double getBpm() const noexcept             { return bpm.load(); }
 
+    void   setSwing (double s) noexcept        { swing = juce::jlimit (0.5, 0.9, s); }
+    double getSwing() const noexcept           { return swing.load(); }
+
     double samplesPerBeat() const noexcept     { return sampleRate * 60.0 / bpm.load(); }
 
     void setLoopBeats (int b) noexcept         { loopBeats = juce::jmax (1, b); }
@@ -70,6 +73,7 @@ public:
 private:
     double sampleRate { 44100.0 };
     std::atomic<double>      bpm            { 120.0 };
+    std::atomic<double>      swing          { 0.5 };
     std::atomic<int>         loopBeats      { 16 };
     std::atomic<bool>        playing        { false };
     std::atomic<int>         playMode       { PatternMode };
