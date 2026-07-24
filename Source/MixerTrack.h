@@ -23,6 +23,7 @@ struct MixerTrack
 
     std::atomic<float> peakL { 0.0f };
     std::atomic<float> peakR { 0.0f };
+    std::atomic<bool>  clipped { false };   // sticky: set when a block hits >= 0 dBFS
 
     std::vector<std::unique_ptr<Effect>> effects;   // guarded by the engine lock
     juce::AudioBuffer<float>             buffer;     // audio-thread scratch

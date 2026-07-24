@@ -53,6 +53,12 @@ public:
         meterL = juce::jmax (track->peakL.load(), meterL * 0.82f);
         meterR = juce::jmax (track->peakR.load(), meterR * 0.82f);
         repaint (meterArea);
+        repaint (clipLedArea);
+    }
+
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        if (clipLedArea.contains (e.getPosition())) { track->clipped.store (false); repaint (clipLedArea); }
     }
 
     void paint (juce::Graphics& g) override
@@ -61,6 +67,10 @@ public:
         g.fillRoundedRectangle (getLocalBounds().toFloat().reduced (2.0f), 4.0f);
         g.setColour (index == 0 ? Palette::accent.withAlpha (0.5f) : Palette::line);
         g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (2.0f), 4.0f, 1.0f);
+
+        // Clip LED (red when the insert has hit >= 0 dBFS; click to reset).
+        g.setColour (track->clipped.load() ? Palette::red : Palette::inset.brighter (0.15f));
+        g.fillRect (clipLedArea.reduced (1));
 
         // Meter.
         g.setColour (Palette::inset);
@@ -89,7 +99,9 @@ public:
         solo.setBounds (ms.reduced (1, 0));
         pan.setBounds  (a.removeFromBottom (16));
         a.removeFromBottom (4);
-        meterArea = a.removeFromRight (12);
+        auto meterCol = a.removeFromRight (12);
+        clipLedArea = meterCol.removeFromTop (6);
+        meterArea = meterCol;
         fader.setBounds (a);
     }
 
@@ -101,7 +113,7 @@ private:
     juce::Label name;
     juce::Slider fader, pan;
     juce::TextButton mute { "M" }, solo { "S" }, fx { "FX" };
-    juce::Rectangle<int> meterArea;
+    juce::Rectangle<int> meterArea, clipLedArea;
     float meterL { 0.0f }, meterR { 0.0f };
 };
 

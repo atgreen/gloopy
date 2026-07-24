@@ -89,7 +89,8 @@ public:
     bool apiSetEffectParam (int insert, int slot, const juce::String& name, float value);
     bool apiSetEffectBypass (int insert, int slot, bool bypassed);
     std::vector<ParamSnap> apiGetEffectParams (int insert, int slot);
-    bool apiSnapshotMeters (std::vector<float>& L, std::vector<float>& R);   // gRPC thread (try-lock)
+    bool apiSnapshotMeters (std::vector<float>& L, std::vector<float>& R, std::vector<char>& clip);   // gRPC thread (try-lock)
+    void clearClipIndicators();
     void apiNewProject();
     bool apiLoadProject (const juce::String& path);
     bool apiSaveProject (const juce::String& path);

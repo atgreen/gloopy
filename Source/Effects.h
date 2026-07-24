@@ -233,19 +233,61 @@ private:
     std::atomic<float> room { 0.5f }, damp { 0.5f }, wet { 0.33f };
 };
 
+/** A simple brickwall peak limiter (instant attack, exponential release) — a
+    safety net for the master bus so summed tracks don't clip at 0 dBFS. */
+class LimiterFx : public Effect
+{
+public:
+    void prepare (double sampleRate, int, int) override { sr = (float) sampleRate; reset(); }
+    void reset() override { env = 1.0f; }
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        if (bypassed.load()) return;
+        const float thr = juce::Decibels::decibelsToGain (threshDb.load());
+        const float relCoef = std::exp (-1.0f / (juce::jmax (1.0f, release.load()) * 0.001f * sr));
+        const int n = b.getNumSamples(), ch = b.getNumChannels();
+        for (int i = 0; i < n; ++i)
+        {
+            float peak = 0.0f;
+            for (int c = 0; c < ch; ++c) peak = juce::jmax (peak, std::abs (b.getSample (c, i)));
+            const float target = peak > thr ? thr / peak : 1.0f;
+            env = target < env ? target : target + (env - target) * relCoef;   // attack instant, release smooth
+            for (int c = 0; c < ch; ++c) b.getWritePointer (c)[i] *= env;
+        }
+    }
+
+    juce::String name() const override { return "Limiter"; }
+
+    std::vector<EffectParam> parameters() override
+    {
+        return {
+            { "Thresh dB", -24.0f, 0.0f, -1.0f,
+              [this] { return threshDb.load(); }, [this] (float v) { threshDb.store (v); } },
+            { "Release ms", 1.0f, 500.0f, 80.0f,
+              [this] { return release.load(); }, [this] (float v) { release.store (v); } }
+        };
+    }
+
+private:
+    std::atomic<float> threshDb { -1.0f }, release { 80.0f };
+    float env { 1.0f }, sr { 44100.0f };
+};
+
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 namespace EffectFactory
 {
-    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb" }; }
+    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter" }; }
 
     inline std::unique_ptr<Effect> create (const juce::String& type)
     {
-        if (type == "Gain")   return std::make_unique<GainFx>();
-        if (type == "Filter") return std::make_unique<FilterFx>();
-        if (type == "Delay")  return std::make_unique<DelayFx>();
-        if (type == "Reverb") return std::make_unique<ReverbFx>();
+        if (type == "Gain")    return std::make_unique<GainFx>();
+        if (type == "Filter")  return std::make_unique<FilterFx>();
+        if (type == "Delay")   return std::make_unique<DelayFx>();
+        if (type == "Reverb")  return std::make_unique<ReverbFx>();
+        if (type == "Limiter") return std::make_unique<LimiterFx>();
         return nullptr;
     }
 }

@@ -274,13 +274,14 @@ namespace
                 }
                 if (q->meters())
                 {
-                    std::vector<float> L, R;
-                    if (main.apiSnapshotMeters (L, R))
+                    std::vector<float> L, R; std::vector<char> clip;
+                    if (main.apiSnapshotMeters (L, R, clip))
                     {
                         pb::Event e;
                         auto* m = e.mutable_meters();
                         for (float v : L) m->add_peak_l (v);
                         for (float v : R) m->add_peak_r (v);
+                        for (char c : clip) m->add_clipped (c != 0);
                         if (! writer->Write (e)) break;
                     }
                 }

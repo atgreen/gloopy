@@ -24,6 +24,7 @@ MainComponent::MainComponent()
     playButton.onClick = [this]
     {
         const bool playing = playButton.getToggleState();
+        if (playing) clearClipIndicators();
         transport.setPlaying (playing);
         playButton.setIcon (playing ? IconButton::Pause : IconButton::Play);
     };
@@ -329,7 +330,7 @@ void MainComponent::handleIncomingMidiMessage (juce::MidiInput*, const juce::Mid
 // ===========================================================================
 // gRPC control API  (transport = atomic/direct; structural = message thread)
 // ===========================================================================
-void MainComponent::apiPlay()  { transport.setPlaying (true); }
+void MainComponent::apiPlay()  { clearClipIndicators(); transport.setPlaying (true); }
 void MainComponent::apiStop()  { transport.setPlaying (false); transport.requestReset(); }
 void MainComponent::apiSetTempo (double bpm) { transport.setBpm (juce::jlimit (20.0, 400.0, bpm)); }
 void MainComponent::apiSeek (double beats)   { transport.requestSeek (juce::jmax (0.0, beats)); }
@@ -447,8 +448,8 @@ int MainComponent::apiAddEffect (int insert, int type)
 {
     return callOnMessageThread ([&] () -> int
     {
-        static const char* names[] = { "Gain", "Filter", "Delay", "Reverb" };
-        if (type < 0 || type > 3) return -1;
+        static const char* names[] = { "Gain", "Filter", "Delay", "Reverb", "Limiter" };
+        if (type < 0 || type >= (int) (sizeof (names) / sizeof (names[0]))) return -1;
         auto fx = makeEffect (names[type]);
         if (fx == nullptr) return -1;
         int slot = -1;
@@ -526,13 +527,23 @@ std::vector<MainComponent::ParamSnap> MainComponent::apiGetEffectParams (int ins
     });
 }
 
-bool MainComponent::apiSnapshotMeters (std::vector<float>& L, std::vector<float>& R)
+bool MainComponent::apiSnapshotMeters (std::vector<float>& L, std::vector<float>& R, std::vector<char>& clip)
 {
     const juce::ScopedTryLock stl (engineLock);
     if (! stl.isLocked()) return false;
-    L.clear(); R.clear();
-    for (auto& mt : mixerTracks) { L.push_back (mt->peakL.load()); R.push_back (mt->peakR.load()); }
+    L.clear(); R.clear(); clip.clear();
+    for (auto& mt : mixerTracks)
+    {
+        L.push_back (mt->peakL.load());
+        R.push_back (mt->peakR.load());
+        clip.push_back (mt->clipped.load() ? 1 : 0);
+    }
     return true;
+}
+
+void MainComponent::clearClipIndicators()
+{
+    for (auto& mt : mixerTracks) mt->clipped.store (false);
 }
 
 void MainComponent::apiNewProject()
@@ -1164,8 +1175,9 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     {
         MixerTrack& mt = *mixerTracks[(size_t) ti];
         { auto sub = subView (mt.buffer); for (auto& fx : mt.effects) fx->process (sub); }
-        mt.peakL.store (mt.buffer.getMagnitude (0, 0, num));
-        mt.peakR.store (mt.buffer.getMagnitude (1, 0, num));
+        const float mpL = mt.buffer.getMagnitude (0, 0, num), mpR = mt.buffer.getMagnitude (1, 0, num);
+        mt.peakL.store (mpL); mt.peakR.store (mpR);
+        if (mpL >= 1.0f || mpR >= 1.0f) mt.clipped.store (true);
 
         const bool audible = ! mt.mute.load() && (! anyTrackSolo || mt.solo.load());
         if (! audible) continue;
@@ -1178,8 +1190,9 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
 
     // --- master -> output ---
     { auto sub = subView (master.buffer); for (auto& fx : master.effects) fx->process (sub); }
-    master.peakL.store (master.buffer.getMagnitude (0, 0, num));
-    master.peakR.store (master.buffer.getMagnitude (1, 0, num));
+    const float mpL = master.buffer.getMagnitude (0, 0, num), mpR = master.buffer.getMagnitude (1, 0, num);
+    master.peakL.store (mpL); master.peakR.store (mpR);
+    if (mpL >= 1.0f || mpR >= 1.0f) master.clipped.store (true);
     const float mv = master.volume.load();
     if (out->getNumChannels() > 0) out->addFrom (0, start, master.buffer, 0, 0, num, mv);
     if (out->getNumChannels() > 1) out->addFrom (1, start, master.buffer, 1, 0, num, mv);
