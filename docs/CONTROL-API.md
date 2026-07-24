@@ -132,13 +132,14 @@ not disturb the live transport or playback state.
 
 ### Common Lisp client
 
-[`examples/gloopy-grpc.lisp`](../examples/gloopy-grpc.lisp) is a worked client
-built on [ag-grpc](https://github.com/atgreen/ag-grpc) (`ocicl install ag-grpc`).
-It compiles `gloopy.proto` at load time (into an isolated `GLOOPY.PB` package)
-and wraps every RPC as a plain function returning plists:
+A worked client built on [ag-grpc](https://github.com/atgreen/ag-grpc)
+(`ocicl install ag-grpc`) ships as the **`gloopy` ASDF system** ([`gloopy.asd`](../gloopy.asd),
+sources in [`examples/`](../examples/)).  It compiles `gloopy.proto` at load time
+(into an isolated `GLOOPY.PB` package) and wraps every RPC as a plain function
+returning plists:
 
 ```lisp
-(load "examples/gloopy-grpc.lisp")
+(asdf:load-system :gloopy)   ; run sbcl from the repo root; or (load "examples/gloopy-grpc.lisp")
 (in-package :gloopy)
 (connect)                                         ; 127.0.0.1:50051
 (let ((id (add-synth-track "Lead" :wave :saw)))

@@ -79,10 +79,10 @@ build time using the system `protoc` / `grpc_cpp_plugin`.
 Gloopy listens on two ports at startup: **OSC** on UDP `9000` and **gRPC** on
 `127.0.0.1:50051`. External programs can create tracks, hand over MIDI
 sequences, add/tweak effects, drive instruments live, and subscribe to the
-playhead and meters. Two worked Common Lisp clients live in `examples/`:
-[`gloopy-grpc.lisp`](examples/gloopy-grpc.lisp) (the structural gRPC surface,
-via [ag-grpc](https://github.com/atgreen/ag-grpc) — `ocicl install ag-grpc`) and
-[`gloopy-osc.lisp`](examples/gloopy-osc.lisp) (the live OSC lane). The full
+playhead and meters. Two worked Common Lisp clients live in `examples/`: the structural gRPC surface
+(the [`gloopy`](gloopy.asd) ASDF system — `ocicl install ag-grpc` then
+`(asdf:load-system :gloopy)`, built on [ag-grpc](https://github.com/atgreen/ag-grpc))
+and [`gloopy-osc.lisp`](examples/gloopy-osc.lisp) (the live OSC lane). The full
 design and the gRPC/OSC split are documented in
 [`docs/CONTROL-API.md`](docs/CONTROL-API.md).
 

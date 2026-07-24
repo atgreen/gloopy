@@ -9,11 +9,15 @@
 ;;;; Setup (once, from the repo root):
 ;;;;     ocicl install ag-grpc
 ;;;;
-;;;; Usage:
-;;;;     sbcl
-;;;;     (load "examples/gloopy-grpc.lisp")
+;;;; Usage — as an ASDF system (run sbcl from the repo root):
+;;;;     (asdf:load-system :gloopy)
 ;;;;     (in-package :gloopy)
 ;;;;     (connect)                                  ; 127.0.0.1:50051
+;;;;
+;;;; ...or load this file directly:
+;;;;     (load "examples/gloopy-grpc.lisp")
+;;;;     (in-package :gloopy)
+;;;;     (connect)
 ;;;;     (get-state)                                ; => a snapshot plist
 ;;;;     (defparameter id (add-synth-track "Lead" :wave :saw :release 0.3))
 ;;;;     (add-clip id :length 4 :notes (list (note 60 0 1) (note 64 1 1)
@@ -28,22 +32,13 @@
 ;;;; with a locked CL symbol (Param's min/max) can't collide.  This wrapper hides
 ;;;; all of that: everything comes back as plain plists.
 
-(require :asdf)
-(asdf:load-system :ag-grpc)
-
-;;; --- generated proto messages/enums live here (isolated from CL) -------------
-(defpackage :gloopy.pb (:use))
-
+;;; The proto layer (GLOOPY.PB package) is a separate component; the :gloopy
+;;; system loads it first.  When this file is loaded on its own, pull it in
+;;; (it, in turn, loads ag-grpc and compiles the proto).
 (eval-when (:load-toplevel :execute)
-  (let ((proto (merge-pathnames "../proto/gloopy.proto"
-                                (or *load-truename* *default-pathname-defaults*))))
-    (unless (probe-file proto)
-      (error "Can't find gloopy.proto at ~a — load this file from the repo." proto))
-    ;; Bind *package* too: the codegen qualifies message *classes* with the target
-    ;; package but interns nested-field type references (in repeated-field
-    ;; deserializers) via *package* — bind both so the two agree.
-    (let ((*package* (find-package :gloopy.pb)))
-      (ag-proto:compile-proto-file proto :load t :package (find-package :gloopy.pb)))))
+  (unless (find-package :gloopy.pb)
+    (load (merge-pathnames "gloopy-pb.lisp"
+                           (or *load-truename* *default-pathname-defaults*)))))
 
 ;;; --- the friendly client API ------------------------------------------------
 (defpackage :gloopy
