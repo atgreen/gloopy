@@ -26,6 +26,9 @@ bounce it to a WAV.
 - **Mixer + effects** — tracks route to inserts → master, each with
   fader/pan/mute/solo/meters and an effect chain (**Gain, Filter, Delay,
   Reverb**, or any hosted plugin effect).
+- **Live MIDI input** — play the selected instrument track from a MIDI keyboard;
+  Gloopy opens available hardware inputs and exposes a virtual **"Gloopy MIDI In"**
+  port that a controller or another app can connect to at any time.
 - **Control API** — drive Gloopy from an external program (Common Lisp, Python,
   anything): **gRPC** for structural commands/queries and streamed feedback,
   **OSC** for low-latency live notes and knob turns. See

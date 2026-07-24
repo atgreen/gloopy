@@ -205,12 +205,14 @@ MainComponent::MainComponent()
 
     setSize (1180, 820);
     setAudioChannels (0, 2);
+    setupMidiInputs();
     startTimerHz (30);
 }
 
 MainComponent::~MainComponent()
 {
     stopTimer();
+    teardownMidiInputs();        // stop MIDI callbacks before tracks/audio go away
     grpc.reset();                // stop gRPC (and its message-thread callbacks) first
     osc.reset();                 // stop OSC before tracks/mixer are destroyed
     pluginWindows.clear();       // delete plugin editors before their processors
@@ -245,6 +247,7 @@ void MainComponent::addTrack (std::unique_ptr<Track> track)
 
 void MainComponent::refreshTrackIds()
 {
+    int firstInst = -1;
     {
         const juce::ScopedLock sl (idMapLock);
         idMap.clear();
@@ -252,8 +255,10 @@ void MainComponent::refreshTrackIds()
         {
             if (t->id < 0) t->id = nextTrackId++;
             idMap[t->id] = t.get();
+            if (firstInst < 0 && t->generator != nullptr) firstInst = t->id;
         }
     }
+    firstInstrumentId.store (firstInst);   // fallback target for live MIDI input
     // Log the id -> name map (control-API discovery until gRPC GetState exists).
     juce::String s = "[osc] tracks:";
     for (auto& t : tracks) s << "  " << t->id << "=" << t->name;
@@ -265,6 +270,48 @@ Track* MainComponent::resolveTrack (int id)
     const juce::ScopedLock sl (idMapLock);
     auto it = idMap.find (id);
     return it != idMap.end() ? it->second : nullptr;
+}
+
+// ---------------------------------------------------------------------------
+// Live MIDI input
+// ---------------------------------------------------------------------------
+void MainComponent::setupMidiInputs()
+{
+    // Open every available hardware input...
+    for (const auto& d : juce::MidiInput::getAvailableDevices())
+    {
+        deviceManager.setMidiInputDeviceEnabled (d.identifier, true);
+        deviceManager.addMidiInputDeviceCallback (d.identifier, this);
+        openMidiInputs.add (d.identifier);
+        std::cout << "[midi] input open: " << d.name << std::endl;
+    }
+    // ...plus a virtual port so a keyboard/software can connect at any time.
+    virtualMidiIn = juce::MidiInput::createNewDevice ("Gloopy MIDI In", this);
+    if (virtualMidiIn != nullptr)
+    {
+        virtualMidiIn->start();
+        std::cout << "[midi] virtual input 'Gloopy MIDI In' ready" << std::endl;
+    }
+    std::cout << "[midi] played notes go to the selected instrument track" << std::endl;
+}
+
+void MainComponent::teardownMidiInputs()
+{
+    for (const auto& id : openMidiInputs)
+        deviceManager.removeMidiInputDeviceCallback (id, this);
+    openMidiInputs.clear();
+    if (virtualMidiIn != nullptr) { virtualMidiIn->stop(); virtualMidiIn.reset(); }
+}
+
+void MainComponent::handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage& m)
+{
+    // Route to the selected instrument track (or the first instrument if none is
+    // selected) via its lock-free collector — the same path the OSC live lane uses.
+    int id = midiInputTarget.load();
+    if (id < 0) id = firstInstrumentId.load();
+    if (Track* t = resolveTrack (id))
+        if (t->generator != nullptr)
+            t->liveMidi.addMessageToQueue (m);
 }
 
 // ===========================================================================
@@ -795,6 +842,10 @@ void MainComponent::selectClip (int track, int clip)
     selTrack = track; selClip = clip;
     if (arrangeView) arrangeView->setSelection (track, clip);
     loadSelectedClipIntoEditor();
+    // Arm the selected instrument track for live MIDI input.
+    midiInputTarget.store (juce::isPositiveAndBelow (track, (int) tracks.size())
+                             && tracks[(size_t) track]->generator != nullptr
+                           ? tracks[(size_t) track]->id : -1);
 }
 
 void MainComponent::setEditorMode (int mode)

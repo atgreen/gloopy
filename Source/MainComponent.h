@@ -29,6 +29,7 @@
 /** Linear-arranger workspace: an arrangement of instrument tracks (each owning
     its clips), a clip editor (piano roll), and the mixer. */
 class MainComponent : public juce::AudioAppComponent,
+                      public juce::MidiInputCallback,
                       private juce::Timer
 {
 public:
@@ -38,6 +39,9 @@ public:
     void prepareToPlay (int samplesPerBlockExpected, double sampleRate) override;
     void getNextAudioBlock (const juce::AudioSourceChannelInfo&) override;
     void releaseResources() override;
+
+    /** Hardware / virtual MIDI input — routed to the selected instrument track. */
+    void handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage&) override;
 
     /** Mix one block (transport → tracks → inserts → master → @p outBuf) and
         return the song length in samples. Shared by the live callback and the
@@ -171,6 +175,10 @@ private:
     void refreshTrackIds();
     Track* resolveTrack (int id);
 
+    // Live MIDI input (hardware + a virtual "Gloopy MIDI In" port).
+    void setupMidiInputs();
+    void teardownMidiInputs();
+
     /** Run @p fn on the message thread and return its result (blocks the caller
         if invoked from another thread). Used by the gRPC api* methods. */
     template <typename Fn>
@@ -233,6 +241,12 @@ private:
     juce::CriticalSection idMapLock;
     std::unique_ptr<OscControl> osc;
     std::unique_ptr<GrpcServer> grpc;
+
+    // Live MIDI input: the instrument track id that receives played notes.
+    std::atomic<int> midiInputTarget { -1 };
+    std::atomic<int> firstInstrumentId { -1 };   // fallback when nothing is selected
+    juce::StringArray openMidiInputs;
+    std::unique_ptr<juce::MidiInput> virtualMidiIn;
 
     juce::Viewport   arrangeViewport;
     std::unique_ptr<ArrangeView> arrangeView;
