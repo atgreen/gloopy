@@ -180,6 +180,26 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.AddAudioClipRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.ClipId.FromString,
                 _registered_method=True)
+        self.SplitClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SplitClip',
+                request_serializer=gloopy__pb2.SplitClipRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.ClipId.FromString,
+                _registered_method=True)
+        self.DuplicateClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/DuplicateClip',
+                request_serializer=gloopy__pb2.DuplicateClipRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.ClipId.FromString,
+                _registered_method=True)
+        self.ReverseClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ReverseClip',
+                request_serializer=gloopy__pb2.ClipRef.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GetClipNotes = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GetClipNotes',
+                request_serializer=gloopy__pb2.ClipRef.SerializeToString,
+                response_deserializer=gloopy__pb2.NoteList.FromString,
+                _registered_method=True)
         self.ScanPlugins = channel.unary_unary(
                 '/gloopy.v1.Gloopy/ScanPlugins',
                 request_serializer=gloopy__pb2.ScanPluginsRequest.SerializeToString,
@@ -576,6 +596,31 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def AddAudioClip(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SplitClip(self, request, context):
+        """-> new (right) clip
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DuplicateClip(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReverseClip(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetClipNotes(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -997,6 +1042,26 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.AddAudioClip,
                     request_deserializer=gloopy__pb2.AddAudioClipRequest.FromString,
                     response_serializer=gloopy__pb2.ClipId.SerializeToString,
+            ),
+            'SplitClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.SplitClip,
+                    request_deserializer=gloopy__pb2.SplitClipRequest.FromString,
+                    response_serializer=gloopy__pb2.ClipId.SerializeToString,
+            ),
+            'DuplicateClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.DuplicateClip,
+                    request_deserializer=gloopy__pb2.DuplicateClipRequest.FromString,
+                    response_serializer=gloopy__pb2.ClipId.SerializeToString,
+            ),
+            'ReverseClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReverseClip,
+                    request_deserializer=gloopy__pb2.ClipRef.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GetClipNotes': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetClipNotes,
+                    request_deserializer=gloopy__pb2.ClipRef.FromString,
+                    response_serializer=gloopy__pb2.NoteList.SerializeToString,
             ),
             'ScanPlugins': grpc.unary_unary_rpc_method_handler(
                     servicer.ScanPlugins,
@@ -1993,6 +2058,114 @@ class Gloopy:
             '/gloopy.v1.Gloopy/AddAudioClip',
             gloopy__pb2.AddAudioClipRequest.SerializeToString,
             gloopy__pb2.ClipId.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SplitClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SplitClip',
+            gloopy__pb2.SplitClipRequest.SerializeToString,
+            gloopy__pb2.ClipId.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DuplicateClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/DuplicateClip',
+            gloopy__pb2.DuplicateClipRequest.SerializeToString,
+            gloopy__pb2.ClipId.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReverseClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ReverseClip',
+            gloopy__pb2.ClipRef.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetClipNotes(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GetClipNotes',
+            gloopy__pb2.ClipRef.SerializeToString,
+            gloopy__pb2.NoteList.FromString,
             options,
             channel_credentials,
             insecure,

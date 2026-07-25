@@ -151,6 +151,11 @@ message ClipRef            { int32 track_id = 1; int32 index = 2; }
 message MoveClipRequest    { int32 track_id = 1; int32 index = 2; double start_beat = 3; optional int32 to_track_id = 4; }
 message AddAudioClipRequest { int32 track_id = 1; double start_beat = 2; string path = 3; float gain = 4; }
 
+// clip / region operations
+message SplitClipRequest     { int32 track_id = 1; int32 index = 2; double beat = 3; }     // beat = absolute split point
+message DuplicateClipRequest { int32 track_id = 1; int32 index = 2; double at_beat = 3; }   // at_beat<0 => right after
+message NoteList             { repeated Note notes = 1; }
+
 // ── plugins ────────────────────────────────────────────────
 message ScanPluginsRequest { bool force = 1; }
 message PluginInfo { string name = 1; string format = 2; bool is_instrument = 3; string identifier = 4; }
@@ -244,6 +249,10 @@ service Gloopy {
   rpc RemoveClip      (ClipRef)                returns (Ack);
   rpc MoveClip        (MoveClipRequest)        returns (Ack);
   rpc AddAudioClip    (AddAudioClipRequest)    returns (ClipId);
+  rpc SplitClip       (SplitClipRequest)       returns (ClipId);    // -> new (right) clip
+  rpc DuplicateClip   (DuplicateClipRequest)   returns (ClipId);
+  rpc ReverseClip     (ClipRef)                returns (Ack);
+  rpc GetClipNotes    (ClipRef)                returns (NoteList);
 
   // plugins
   rpc ScanPlugins     (ScanPluginsRequest)     returns (PluginList);

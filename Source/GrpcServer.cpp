@@ -438,6 +438,33 @@ namespace
             return Status::OK;
         }
 
+        // ---- clip / region operations ----
+        Status SplitClip (ServerContext*, const pb::SplitClipRequest* q, pb::ClipId* r) override
+        {
+            const int idx = main.apiSplitClip (q->track_id(), q->index(), q->beat());
+            r->set_track_id (q->track_id()); r->set_index (idx);
+            return Status::OK;
+        }
+        Status DuplicateClip (ServerContext*, const pb::DuplicateClipRequest* q, pb::ClipId* r) override
+        {
+            const int idx = main.apiDuplicateClip (q->track_id(), q->index(), q->at_beat());
+            r->set_track_id (q->track_id()); r->set_index (idx);
+            return Status::OK;
+        }
+        Status ReverseClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
+        { const bool ok = main.apiReverseClip (q->track_id(), q->index());
+          r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
+        Status GetClipNotes (ServerContext*, const pb::ClipRef* q, pb::NoteList* r) override
+        {
+            for (auto& n : main.apiGetClipNotes (q->track_id(), q->index()))
+            {
+                auto* o = r->add_notes();
+                o->set_pitch (n.pitch); o->set_start_beat (n.startBeat);
+                o->set_length_beats (n.lengthBeats); o->set_velocity (n.velocity);
+            }
+            return Status::OK;
+        }
+
         // ---- plugins ----
         Status ScanPlugins (ServerContext*, const pb::ScanPluginsRequest* q, pb::PluginList* r) override
         { for (auto& p : main.apiScanPlugins (q->force())) fillPlugin (r->add_plugins(), p); return Status::OK; }

@@ -49,6 +49,7 @@ target_sources(Gloopy PRIVATE
     Source/Exports.cpp
     Source/Cli.cpp
     Source/Midi.cpp
+    Source/ClipOps.cpp
     Source/ArrangeView.cpp
     Source/PianoRoll.cpp
     Source/MixerView.cpp

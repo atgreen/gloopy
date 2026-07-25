@@ -206,6 +206,24 @@ class Gloopy:
             kw["to_track_id"] = to_track_id
         self._ack(self.stub.MoveClip(pb.MoveClipRequest(**kw)))
 
+    def split_clip(self, track_id: int, index: int, beat: float) -> int:
+        """Split a clip at an absolute beat; returns the new (right-hand) clip index."""
+        r = self.stub.SplitClip(pb.SplitClipRequest(track_id=track_id, index=index, beat=beat))
+        return r.index
+
+    def duplicate_clip(self, track_id: int, index: int, at_beat: float = -1.0) -> int:
+        """Copy a clip to at_beat (default -1 = butt up right after it); returns new index."""
+        r = self.stub.DuplicateClip(pb.DuplicateClipRequest(track_id=track_id, index=index, at_beat=at_beat))
+        return r.index
+
+    def reverse_clip(self, track_id: int, index: int) -> None:
+        self._ack(self.stub.ReverseClip(pb.ClipRef(track_id=track_id, index=index)))
+
+    def clip_notes(self, track_id: int, index: int) -> list[dict]:
+        r = self.stub.GetClipNotes(pb.ClipRef(track_id=track_id, index=index))
+        return [{"pitch": n.pitch, "start_beat": n.start_beat,
+                 "length_beats": n.length_beats, "velocity": n.velocity} for n in r.notes]
+
     # -- mixer / effects --------------------------------------------------
     def list_inserts(self) -> list[dict]:
         r = self.stub.ListInserts(pb.Empty())

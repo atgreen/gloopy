@@ -133,6 +133,12 @@ public:
     bool apiExportMidi (const juce::String& path);   // all instrument tracks -> a Type-1 SMF
     int  apiImportMidi (const juce::String& path);   // SMF -> synth tracks + clips; count, or -1
 
+    // --- clip / region operations (ClipOps.cpp) ---
+    int  apiSplitClip (int trackId, int index, double beat);        // -> new (right) clip index, or -1
+    int  apiDuplicateClip (int trackId, int index, double atBeat);  // atBeat<0 => right after; -> new index
+    bool apiReverseClip (int trackId, int index);                   // reverse notes (MIDI) or audio buffer
+    std::vector<Note> apiGetClipNotes (int trackId, int index);     // read-back for tooling/verification
+
     // track & clip management
     bool apiRemoveTrack (int id);
     int  apiAddAudioTrack (const juce::String& name);

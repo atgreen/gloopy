@@ -289,6 +289,16 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
    bounce-in-place. All through the API and expressible in the composition.
    *Done when:* each op has an RPC; a split/gain/reverse sequence round-trips and
    renders correctly.
+   - `[x]` **Split/duplicate/reverse + note read-back landed** (`Source/ClipOps.cpp`,
+     commit): `apiSplitClip` (absolute beat → two clips, notes distributed, straddlers
+     truncated), `apiDuplicateClip` (at beat, or butt-up-after), `apiReverseClip`
+     (mirror notes in the content window; reverse the audio buffer for audio clips),
+     `apiGetClipNotes` (read-back — also covers #5's deferred note-export). RPCs
+     SplitClip/DuplicateClip/ReverseClip/GetClipNotes + Python client. Clips already
+     serialise, so no new persistence. Verified precisely via GetClipNotes (split
+     8→4+4 with correct offsets; reverse 60→beat3/63→beat0; duplicate→3 clips) +
+     smoke.sh. **Not yet:** clip gain/normalize, per-clip fades, crop-to-range,
+     consolidate, bounce-in-place; split-at-named-marker convenience.
 
 7. **Buses & sends.** ✦ **L**
    *Ardour #8.* Explicit bus tracks; tracks route to a bus before master; per-send
