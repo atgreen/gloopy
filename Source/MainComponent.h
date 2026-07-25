@@ -199,11 +199,11 @@ public:
 
     // --- modulation matrix (Modulation.cpp) ---
     // shape: 0 sine, 1 triangle, 2 saw, 3 square. rate in Hz. Upsert by target id.
-    bool apiSetModulation (const juce::String& target, float rate, float depth, int shape, float center);
+    bool apiSetModulation (const juce::String& target, float rate, float depth, int shape, float center, float syncBeats = 0.0f);
     bool apiRemoveModulation (const juce::String& target);
-    struct ModSnap { juce::String target; float rate, depth, center; int shape; };
+    struct ModSnap { juce::String target; float rate, depth, center; int shape; float syncBeats; };
     std::vector<ModSnap> apiListModulations();
-    void evaluateModulation (double timeSeconds);          // audio thread, under engineLock
+    void evaluateModulation (double timeSeconds, double beatPos);   // audio thread, under engineLock
     void applyParamValue (const juce::String& id, float v); // audio-thread-safe direct write by ParamModel id
 
     // --- scales & microtuning (Scales.cpp) ---
@@ -533,7 +533,8 @@ private:
     std::vector<int> scaleIntervals { 0,1,2,3,4,5,6,7,8,9,10,11 };   // semitone offsets from root
     // Modulation matrix: LFO sources that drive a ParamModel target each block.
     // value = center + depth * osc(rate * t). One LFO per target (upsert by target).
-    struct Mod { juce::String target; float rate { 1.0f }, depth { 0.0f }, center { 0.0f }; int shape { 0 }; };
+    struct Mod { juce::String target; float rate { 1.0f }, depth { 0.0f }, center { 0.0f }; int shape { 0 };
+                 float syncBeats { 0.0f }; };   // >0: cycle length in beats (tempo-synced); 0: free-running Hz
     std::vector<Mod> modulations;                 // guarded by engineLock
     // Tempo map: sorted tempo markers {beat, bpm}. Empty => constant transport.bpm
     // (behaviour unchanged). Drives the beat<->seconds helpers; the render path does

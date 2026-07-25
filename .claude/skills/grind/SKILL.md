@@ -402,9 +402,17 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      writes any ParamModel id directly (audio-thread-safe, no message thread).
      `apiSetModulation`(upsert)/`apiRemoveModulation`/`apiListModulations`. Serialised
      (MODS/MOD + composition `mods.toml`). RPCs + Python. Verified: cutoff LFO changes
-     the render (mean abs diff 0.033), shapes differ, round-trips. **Not yet:**
-     envelope sources, tempo-sync, phase offset, unipolar/smoothing, multiple LFOs per
-     target, plugin-param targets.
+     the render (mean abs diff 0.033), shapes differ, round-trips.
+   - `[x]` **Tempo-sync landed** (commit): `Mod.syncBeats` (>0 = cycle length in beats).
+     The pure phase/osc math moved to `Source/Lfo.h` (`lfoPhaseCycles`/`lfoOsc`) so it's
+     unit-testable without the engine — a synced LFO takes its phase from the beat
+     position (`evaluateModulation` now gets `tc.sampleToBeat(playhead)`), so its period
+     tracks the tempo map; a free LFO still uses rate·seconds. `sync_beats` on the
+     SetModulation RPC + ListModulations + Python; serialised in MODS + `mods.toml`; the
+     mixer "Add LFO" prompt gains a Sync field. `GloopyTests::Lfo` proves the sync-vs-free
+     phase (and caught a wrong triangle expectation); smoke proves a synced LFO modulates
+     the render and `sync_beats` round-trips. **Not yet:** envelope sources, phase offset,
+     unipolar/smoothing, multiple LFOs per target, plugin-param targets.
 
 10. **Tempo & time-signature map.** ✦ **M**
     *Ardour #13.* Tempo / time-signature changes on the timeline, stored as tempo

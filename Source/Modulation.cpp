@@ -10,9 +10,10 @@
 
 #include "MainComponent.h"
 #include "SynthGenerator.h"
+#include "Lfo.h"
 #include <cmath>
 
-bool MainComponent::apiSetModulation (const juce::String& target, float rate, float depth, int shape, float center)
+bool MainComponent::apiSetModulation (const juce::String& target, float rate, float depth, int shape, float center, float syncBeats)
 {
     if (target.trim().isEmpty()) return false;
     return callOnMessageThread ([&] () -> bool
@@ -21,11 +22,11 @@ bool MainComponent::apiSetModulation (const juce::String& target, float rate, fl
         const juce::ScopedLock sl (engineLock);
         auto it = std::find_if (modulations.begin(), modulations.end(),
                                 [&] (const Mod& m) { return m.target == target; });
-        Mod m { target, juce::jmax (0.0f, rate), depth, center, juce::jlimit (0, 3, shape) };
+        Mod m { target, juce::jmax (0.0f, rate), depth, center, juce::jlimit (0, 3, shape), juce::jmax (0.0f, syncBeats) };
         if (it != modulations.end()) *it = m;      // upsert
         else                          modulations.push_back (m);
         std::cout << "[mod] " << target << " rate=" << rate << " depth=" << depth
-                  << " center=" << center << " shape=" << shape << std::endl;
+                  << " center=" << center << " shape=" << shape << " sync=" << syncBeats << std::endl;
         return true;
     });
 }
@@ -50,7 +51,7 @@ std::vector<MainComponent::ModSnap> MainComponent::apiListModulations()
     {
         const juce::ScopedLock sl (engineLock);
         std::vector<ModSnap> out;
-        for (auto& m : modulations) out.push_back ({ m.target, m.rate, m.depth, m.center, m.shape });
+        for (auto& m : modulations) out.push_back ({ m.target, m.rate, m.depth, m.center, m.shape, m.syncBeats });
         return out;
     });
 }
@@ -107,22 +108,15 @@ void MainComponent::applyParamValue (const juce::String& id, float v)
     }
 }
 
-void MainComponent::evaluateModulation (double timeSeconds)
+void MainComponent::evaluateModulation (double timeSeconds, double beatPos)
 {
     // Called from renderBlock while holding engineLock — iterate the locked vector.
+    // A tempo-synced LFO (syncBeats>0) derives its phase from beatPos so its period
+    // tracks the tempo; a free LFO uses rate (Hz) against transport seconds.
     for (auto& m : modulations)
     {
-        if (m.rate <= 0.0f && m.shape != 0) continue;
-        const double phase = m.rate * timeSeconds;                 // cycles
-        const double frac  = phase - std::floor (phase);           // 0..1
-        double osc;                                                // bipolar -1..1
-        switch (m.shape)
-        {
-            case 1:  osc = 4.0 * std::abs (frac - 0.5) - 1.0; break;                 // triangle
-            case 2:  osc = 2.0 * frac - 1.0; break;                                  // saw
-            case 3:  osc = frac < 0.5 ? 1.0 : -1.0; break;                           // square
-            default: osc = std::sin (2.0 * juce::MathConstants<double>::pi * frac);  // sine
-        }
-        applyParamValue (m.target, m.center + m.depth * (float) osc);
+        if (m.syncBeats <= 0.0f && m.rate <= 0.0f && m.shape != 0) continue;   // constant, nothing to do
+        const double phase = lfoPhaseCycles (m.syncBeats, beatPos, m.rate, timeSeconds);
+        applyParamValue (m.target, m.center + m.depth * (float) lfoOsc (m.shape, phase));
     }
 }

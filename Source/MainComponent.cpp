@@ -353,11 +353,11 @@ MainComponent::MainComponent (bool headless)
     mixerView->onOpenPluginEditor   = [this] (juce::AudioProcessor* p, const juce::String& n) { openPluginEditor (p, n); };
     mixerView->onBeforeStructuralChange = [this] { closeAllPluginWindows(); };
     mixerView->onMidiLearn          = [this] (const juce::String& target) { apiMidiLearn (target); };
-    mixerView->onSetModulation      = [this] (const juce::String& target, float rate, float depth, int shape)
+    mixerView->onSetModulation      = [this] (const juce::String& target, float rate, float depth, int shape, float sync)
     {
         ParamDesc d;
         const float center = apiGetParameter (target, d) ? d.value : 0.0f;   // LFO centres on the current value
-        apiSetModulation (target, rate, depth, shape, center);
+        apiSetModulation (target, rate, depth, shape, center, sync);
     };
     mixerView->onRemoveModulation   = [this] (const juce::String& target) { apiRemoveModulation (target); };
 
@@ -1782,9 +1782,11 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     if (playing && ! automationLanes.empty())
         evaluateAutomation (tc.sampleToBeat (blockStartPlayhead));
 
-    // LFO modulation is driven off the playhead time so a render is deterministic.
+    // LFO modulation is driven off the playhead so a render is deterministic — seconds
+    // for free LFOs, beats (via the tempo map) for tempo-synced ones.
     if (! modulations.empty())
-        evaluateModulation ((double) blockStartPlayhead / juce::jmax (1.0, currentSampleRate));
+        evaluateModulation ((double) blockStartPlayhead / juce::jmax (1.0, currentSampleRate),
+                            tc.sampleToBeat (blockStartPlayhead));
 
     // Seek (from dragging the playhead) — applies whether playing or stopped.
     double seekBeats = 0.0;
@@ -2852,6 +2854,7 @@ juce::ValueTree MainComponent::toValueTree()
         mv.setProperty ("target", m.target, nullptr); mv.setProperty ("rate", m.rate, nullptr);
         mv.setProperty ("depth", m.depth, nullptr);   mv.setProperty ("center", m.center, nullptr);
         mv.setProperty ("shape", m.shape, nullptr);
+        if (m.syncBeats > 0.0f) mv.setProperty ("sync", m.syncBeats, nullptr);
         mods.addChild (mv, -1, nullptr);
     }
     root.addChild (mods, -1, nullptr);
@@ -3263,7 +3266,8 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
                                  (float) (double) mv.getProperty ("rate", 1.0),
                                  (float) (double) mv.getProperty ("depth", 0.0),
                                  (float) (double) mv.getProperty ("center", 0.0),
-                                 (int) mv.getProperty ("shape", 0) });
+                                 (int) mv.getProperty ("shape", 0),
+                                 (float) (double) mv.getProperty ("sync", 0.0) });
     }
 
     auto tm = root.getChildWithName ("TEMPOMAP");

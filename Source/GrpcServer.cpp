@@ -345,7 +345,7 @@ namespace
 
         // ---- modulation matrix ----
         Status SetModulation (ServerContext*, const pb::ModRoute* q, pb::Ack* r) override
-        { const bool ok = main.apiSetModulation (js (q->target()), q->rate(), q->depth(), q->shape(), q->center());
+        { const bool ok = main.apiSetModulation (js (q->target()), q->rate(), q->depth(), q->shape(), q->center(), q->sync_beats());
           r->set_ok (ok); if (! ok) r->set_error ("invalid modulation target"); return Status::OK; }
         Status RemoveModulation (ServerContext*, const pb::ModTarget* q, pb::Ack* r) override
         { const bool ok = main.apiRemoveModulation (js (q->target()));
@@ -356,7 +356,7 @@ namespace
             {
                 auto* o = r->add_mods();
                 o->set_target (m.target.toStdString()); o->set_rate (m.rate);
-                o->set_depth (m.depth); o->set_center (m.center); o->set_shape (m.shape);
+                o->set_depth (m.depth); o->set_center (m.center); o->set_shape (m.shape); o->set_sync_beats (m.syncBeats);
             }
             return Status::OK;
         }

@@ -33,7 +33,7 @@ public:
     std::function<void (const juce::String&)> onMidiLearn;
     /** "Add LFO..." on the same right-click menu -> owner resolves the target's current
         value as the LFO centre and calls apiSetModulation (target, rate, depth, shape). */
-    std::function<void (const juce::String&, float, float, int)> onSetModulation;
+    std::function<void (const juce::String&, float, float, int, float)> onSetModulation;   // target, rate, depth, shape, syncBeats
     std::function<void (const juce::String&)>                     onRemoveModulation;
 
     // Plugin hooks (wired by the owner).

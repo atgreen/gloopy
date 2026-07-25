@@ -378,6 +378,7 @@ void MixerView::promptAddLfo (const juce::String& target)
     auto* aw = new juce::AlertWindow ("Add LFO", target, juce::MessageBoxIconType::NoIcon);
     aw->addTextEditor ("rate",  "2.0",  "Rate (Hz)");
     aw->addTextEditor ("depth", "0.25", "Depth");
+    aw->addTextEditor ("sync",  "0",    "Sync (beats, 0=free)");
     juce::StringArray shapes { "Sine", "Triangle", "Saw", "Square" };
     aw->addComboBox ("shape", shapes, "Shape");
     aw->addButton ("Add",    1, juce::KeyPress (juce::KeyPress::returnKey));
@@ -388,8 +389,9 @@ void MixerView::promptAddLfo (const juce::String& target)
         {
             const float rate  = aw->getTextEditorContents ("rate").getFloatValue();
             const float depth = aw->getTextEditorContents ("depth").getFloatValue();
+            const float sync  = aw->getTextEditorContents ("sync").getFloatValue();
             const int   shape = aw->getComboBoxComponent ("shape")->getSelectedItemIndex();
-            if (rate > 0.0f) onSetModulation (target, rate, depth, juce::jmax (0, shape));
+            if (rate > 0.0f || sync > 0.0f) onSetModulation (target, rate, depth, juce::jmax (0, shape), juce::jmax (0.0f, sync));
         }
         delete aw;
     }), false);

@@ -12,6 +12,7 @@
 #include "NoteEdits.h"
 #include "FileDrop.h"
 #include "StereoWiden.h"
+#include "Lfo.h"
 #include "Toml.h"
 
 //==============================================================================
@@ -430,7 +431,46 @@ struct StereoWidenerTests : juce::UnitTest
 };
 
 //==============================================================================
+// LFO math: a tempo-synced LFO's phase tracks the beat position (one cycle per
+// syncBeats beats), independent of rate/seconds; a free LFO uses rate*seconds.
+struct LfoTests : juce::UnitTest
+{
+    LfoTests() : juce::UnitTest ("Lfo") {}
+
+    void runTest() override
+    {
+        beginTest ("tempo-synced phase follows beats, ignores rate/time");
+        {
+            // sync=2 beats/cycle: beat 1 -> 0.5 cycles, beat 3 -> 1.5 cycles.
+            expectWithinAbsoluteError (lfoPhaseCycles (2.0f, 1.0, /*rate*/ 99.0f, /*t*/ 99.0), 0.5, 1e-12);
+            expectWithinAbsoluteError (lfoPhaseCycles (2.0f, 3.0, 99.0f, 99.0), 1.5, 1e-12);
+            // sync=4 (one cycle per 4/4 bar): beat 2 -> 0.5 cycles.
+            expectWithinAbsoluteError (lfoPhaseCycles (4.0f, 2.0, 0.0f, 0.0), 0.5, 1e-12);
+        }
+
+        beginTest ("free-running phase is rate*seconds, ignores beats");
+        {
+            expectWithinAbsoluteError (lfoPhaseCycles (0.0f, /*beat*/ 99.0, 2.0f, 3.0), 6.0, 1e-12);
+            expectWithinAbsoluteError (lfoPhaseCycles (0.0f, 99.0, 0.5f, 4.0), 2.0, 1e-12);
+        }
+
+        beginTest ("osc shapes at known phases (bipolar)");
+        {
+            expectWithinAbsoluteError (lfoOsc (0, 0.25), 1.0, 1e-9);    // sine peak
+            expectWithinAbsoluteError (lfoOsc (0, 0.75), -1.0, 1e-9);   // sine trough
+            expectWithinAbsoluteError (lfoOsc (1, 0.0), 1.0, 1e-9);     // triangle peaks at cycle start
+            expectWithinAbsoluteError (lfoOsc (1, 0.5), -1.0, 1e-9);    // triangle troughs at mid
+            expectWithinAbsoluteError (lfoOsc (2, 0.5), 0.0, 1e-9);     // saw zero at mid
+            expect (lfoOsc (3, 0.25) == 1.0 && lfoOsc (3, 0.75) == -1.0);   // square
+            // phase wraps: integer cycles land at the cycle start.
+            expectWithinAbsoluteError (lfoOsc (0, 5.25), lfoOsc (0, 0.25), 1e-12);
+        }
+    }
+};
+
+//==============================================================================
 static NoteSchedulerTests noteSchedulerTests;
+static LfoTests          lfoTests;
 static StereoWidenerTests stereoWidenerTests;
 static TomlTests         tomlTests;
 static SerializationTests serializationTests;

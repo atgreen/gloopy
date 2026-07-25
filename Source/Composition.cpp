@@ -512,6 +512,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
         mdw.arrayItem ("mods").str ("target", mv.getProperty ("target").toString())
            .number ("rate", mv.getProperty ("rate", 1.0)).number ("depth", mv.getProperty ("depth", 0.0))
            .number ("center", mv.getProperty ("center", 0.0)).integer ("shape", (int) mv.getProperty ("shape", 0))
+           .number ("sync", mv.getProperty ("sync", 0.0))
            .blank();
     }
     ctx.writeText ("mods.toml", mdw.str());
@@ -835,6 +836,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             mv.setProperty ("depth", md.getDouble ("depth", 0.0), nullptr);
             mv.setProperty ("center", md.getDouble ("center", 0.0), nullptr);
             mv.setProperty ("shape", md.getInt ("shape", 0), nullptr);
+            if (md.getDouble ("sync", 0.0) > 0.0) mv.setProperty ("sync", md.getDouble ("sync", 0.0), nullptr);
             modTree.addChild (mv, -1, nullptr);
         }
 

@@ -144,6 +144,21 @@ d=sum(abs(a[i]-b[i]) for i in range(m))/max(1,m)
 assert d>0.003,'modulation did not change the render (diff=%.5f)'%d
 print('smoke: PASS — cutoff LFO changes the render (mean abs diff %.4f)'%d)
 " || { echo "smoke: modulation had no audible effect" >&2; exit 1; }
+# Tempo-synced LFO (sync_beats>0): still modulates the render, and ListModulations
+# reports the sync length. The sync-vs-free phase math is unit-tested (GloopyTests::Lfo).
+g -d "{\"target\":\"track/$MT/synth/cutoff\",\"depth\":1400,\"center\":1500,\"shape\":0,\"sync_beats\":1}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetModulation >/dev/null
+g -d "{\"path\":\"$WORK/mod_sync.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+SYNCB=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListModulations | python3 -c "import json,sys;m=json.load(sys.stdin).get('mods',[]);print(m[0].get('syncBeats',0) if m else 0)")
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+a=rd('$WORK/mod_base.wav');b=rd('$WORK/mod_sync.wav');m=min(len(a),len(b))
+d=sum(abs(a[i]-b[i]) for i in range(m))/m/(1<<23)
+assert d>0.003, 'tempo-synced LFO did not change the render (diff=%.5f)'%d
+assert abs(float('$SYNCB')-1.0)<1e-4, 'ListModulations sync_beats not 1 (got $SYNCB)'
+print('smoke: PASS — tempo-synced LFO modulates render (diff %.4f), sync_beats=$SYNCB round-trips'%d)
+" || { echo "smoke: tempo-synced modulation failed" >&2; exit 1; }
 g -d "{\"target\":\"track/$MT/synth/cutoff\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveModulation >/dev/null
 g -d "{\"id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
