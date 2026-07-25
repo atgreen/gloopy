@@ -530,8 +530,14 @@ desktop control wiring the *same* api* op, screenshot-validated. Status:
   → Use this take (comp: unmute this, mute siblings) / Promote take (keep) / Clean up
   unused takes (commit 805e4f0). Validated with a real loop+punch recording harness
   (6 takes → promote moved raw→recordings, cleanup deleted an unreferenced file).
+- `[x]` **MIDI file import** (ImportMidi) — `File → Import MIDI File...` launches a
+  `.mid/.midi` chooser and calls apiImportMidi (synth track + clip per MIDI track),
+  the same op as the RPC (commit). Was API/CLI-only (Wave 2 #5 shipped the backend
+  without a desktop path). Screenshot-validated (menu item present on Xvfb); the
+  import op itself is smoke-proven. Fast-follow: drag-and-drop a `.mid` onto the
+  arrange view (needs a FileDragAndDropTarget + drop-position → track/time mapping).
 
-**UI-PARITY BACKLOG COMPLETE — all 11 audited API-only gaps now have desktop UI.**
+**UI-PARITY BACKLOG COMPLETE — all 11 audited API-only gaps + MIDI-import have desktop UI.**
 Next: Wave 6 Tier-1 piano-roll items (strum, arpeggiate, snap-to-scale-while-drawing),
 each shipping with desktop UI + screenshot validation.
 

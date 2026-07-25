@@ -2395,6 +2395,7 @@ void MainComponent::showFileMenu()
     menu.addSubMenu ("New from Template", templatesMenu);
     menu.addItem (2, "Open...");                         // .gloopy or .zip
     menu.addItem (6, "Open Composition Folder...");
+    menu.addItem (9, "Import MIDI File...");             // .mid/.midi -> synth track + clip per track
     menu.addSeparator();
     menu.addItem (3, "Save", haveProject);
     menu.addItem (4, "Save As .gloopy...");
@@ -2432,6 +2433,21 @@ void MainComponent::showFileMenu()
                 fileChooser = std::make_unique<juce::FileChooser> ("Open composition folder", juce::File());
                 fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
                     [this] (const juce::FileChooser& fc) { if (fc.getResult().isDirectory()) openAny (fc.getResult()); });
+            }
+            else if (result == 9)   // Import a standard MIDI file into the current project
+            {
+                fileChooser = std::make_unique<juce::FileChooser> ("Import MIDI file", juce::File(), "*.mid;*.midi");
+                fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                    [this] (const juce::FileChooser& fc)
+                    {
+                        const auto f = fc.getResult();
+                        if (! f.existsAsFile()) return;
+                        // apiImportMidi adds a synth track + clip per MIDI track and refreshes
+                        // the arrange view itself (same path as the ImportMidi RPC).
+                        if (apiImportMidi (f.getFullPathName()) <= 0)
+                            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                "Import MIDI", "No importable note tracks were found in\n" + f.getFileName());
+                    });
             }
             else if (result == 3)   // Save — same format the project was opened as
             {
