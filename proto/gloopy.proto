@@ -244,7 +244,12 @@ message RenderRequest {                       // offline bounce to WAV
   double end_beat = 4;                        // range end (0 = whole song)
   optional int32 track_id = 5;                // solo this track (stem export)
   string range_name = 6;                      // resolve a named range/section -> start/end (overrides 3/4)
+  bool report = 7;                            // also analyse the output and return loudness
 }
+
+// RenderToFile result. Wire-compatible with Ack on fields 1/2 (ok/error), plus an
+// optional loudness report when RenderRequest.report is set.
+message RenderResult { bool ok = 1; string error = 2; LoudnessReport report = 3; }
 message ProjectState {
   TransportState transport = 1;
   repeated TrackInfo   tracks  = 2;
@@ -416,7 +421,7 @@ service Gloopy {
   rpc SaveProject(FilePath) returns (Ack);
   rpc SaveComposition(FilePath) returns (Ack);   // directory "composition as repo" format
   rpc LoadComposition(FilePath) returns (Ack);
-  rpc RenderToFile(RenderRequest) returns (Ack);   // offline bounce to WAV
+  rpc RenderToFile(RenderRequest) returns (RenderResult);   // offline bounce (+ optional loudness report)
   rpc ExportMidi (FilePath) returns (Ack);         // all instrument tracks -> Type-1 SMF
   rpc ImportMidi (FilePath) returns (Ack);         // SMF -> synth tracks + clips
   rpc ImportAudio (FilePath) returns (Ack);        // wav/aiff/flac -> a new audio track

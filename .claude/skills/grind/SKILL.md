@@ -437,9 +437,14 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       any rate + gated 400ms/100ms blocks, abs −70 / rel −10). No juce_dsp, no
       audio-thread. `AnalyzeFile` RPC + `gloopy analyze <wav>` CLI (JSON) + Python
       `analyze_file`. Verified against a −20 dBFS 1 kHz tone (peak −20.0, RMS −23.01,
-      LUFS −23.26 vs ~−23.6 ref) and the smoke render. **Not yet:** wire into
-      `RenderToFile`'s return / `gloopy validate` (render+analyze), transient/onset
-      detection, momentary/short-term LUFS + LRA.
+      LUFS −23.26 vs ~−23.6 ref) and the smoke render.
+    - `[x]` **Wired into RenderToFile's return** (commit): `RenderRequest.report` (bool)
+      makes `RenderToFile` return a `RenderResult { ok, error, LoudnessReport report }`
+      — one call for "render + measure" in CI/scripts. `RenderResult` is wire-compatible
+      with `Ack` on fields 1/2, so existing clients are unaffected; Python `render(...,
+      report=True)` returns the loudness dict. smoke.sh asserts the inline report equals
+      a standalone `AnalyzeFile` and is non-silent. **Not yet:** `gloopy validate`
+      render+analyze, transient/onset detection, momentary/short-term LUFS + LRA.
 
 13. **Plugin scan cache + CLI scan.** **S/M**
     *Ardour #15.* Persist scan results (id, name, format, path, vendor, category,

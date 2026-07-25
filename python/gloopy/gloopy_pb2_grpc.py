@@ -568,7 +568,7 @@ class GloopyStub:
         self.RenderToFile = channel.unary_unary(
                 '/gloopy.v1.Gloopy/RenderToFile',
                 request_serializer=gloopy__pb2.RenderRequest.SerializeToString,
-                response_deserializer=gloopy__pb2.Ack.FromString,
+                response_deserializer=gloopy__pb2.RenderResult.FromString,
                 _registered_method=True)
         self.ExportMidi = channel.unary_unary(
                 '/gloopy.v1.Gloopy/ExportMidi',
@@ -1288,7 +1288,7 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def RenderToFile(self, request, context):
-        """offline bounce to WAV
+        """offline bounce (+ optional loudness report)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1872,7 +1872,7 @@ def add_GloopyServicer_to_server(servicer, server):
             'RenderToFile': grpc.unary_unary_rpc_method_handler(
                     servicer.RenderToFile,
                     request_deserializer=gloopy__pb2.RenderRequest.FromString,
-                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+                    response_serializer=gloopy__pb2.RenderResult.SerializeToString,
             ),
             'ExportMidi': grpc.unary_unary_rpc_method_handler(
                     servicer.ExportMidi,
@@ -4794,7 +4794,7 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/RenderToFile',
             gloopy__pb2.RenderRequest.SerializeToString,
-            gloopy__pb2.Ack.FromString,
+            gloopy__pb2.RenderResult.FromString,
             options,
             channel_credentials,
             insecure,

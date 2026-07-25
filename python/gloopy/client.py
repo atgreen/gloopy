@@ -579,12 +579,21 @@ class Gloopy:
 
     def render(self, path: str, tail_seconds: float = 0.0, start_beat: float = 0.0,
                end_beat: float = 0.0, track_id: Optional[int] = None,
-               range_name: str = "") -> None:
+               range_name: str = "", report: bool = False) -> Optional[dict]:
+        """Offline bounce. With report=True, also analyse the output and return its
+        loudness {peak_dbfs, true_peak_dbtp, rms_dbfs, lufs}; otherwise return None."""
         kw = {"path": path, "tail_seconds": tail_seconds,
-              "start_beat": start_beat, "end_beat": end_beat, "range_name": range_name}
+              "start_beat": start_beat, "end_beat": end_beat, "range_name": range_name,
+              "report": report}
         if track_id is not None:
             kw["track_id"] = track_id
-        self._ack(self.stub.RenderToFile(pb.RenderRequest(**kw)))
+        res = self.stub.RenderToFile(pb.RenderRequest(**kw))
+        self._ack(res)
+        if not report:
+            return None
+        lr = res.report
+        return {"peak_dbfs": lr.peak_dbfs, "true_peak_dbtp": lr.true_peak_dbtp,
+                "rms_dbfs": lr.rms_dbfs, "lufs": lr.lufs}
 
     # -- events -----------------------------------------------------------
     def subscribe(self, transport: bool = True, meters: bool = False,

@@ -470,14 +470,30 @@ namespace
         { const bool ok = main.apiLoadComposition (js (q->path()));
           r->set_ok (ok); if (! ok) r->set_error ("no gloopy.toml / load failed"); return Status::OK; }
 
-        Status RenderToFile (ServerContext*, const pb::RenderRequest* q, pb::Ack* r) override
+        Status RenderToFile (ServerContext*, const pb::RenderRequest* q, pb::RenderResult* r) override
         {
             double s = q->start_beat(), e = q->end_beat();
             if (! q->range_name().empty() && ! main.apiResolveRange (js (q->range_name()), s, e))
             { r->set_ok (false); r->set_error ("unknown range name"); return Status::OK; }
             const bool ok = main.apiRenderToFile (js (q->path()), q->tail_seconds(),
                                                   s, e, q->has_track_id(), q->track_id());
-            r->set_ok (ok); if (! ok) r->set_error ("render failed"); return Status::OK;
+            r->set_ok (ok); if (! ok) { r->set_error ("render failed"); return Status::OK; }
+
+            if (q->report())   // analyse the file we just wrote (mirror the render's extension rule)
+            {
+                juce::File out = juce::File::isAbsolutePath (js (q->path())) ? juce::File (js (q->path()))
+                                   : juce::File::getCurrentWorkingDirectory().getChildFile (js (q->path()));
+                if (! out.hasFileExtension ("wav") && ! out.hasFileExtension ("flac"))
+                    out = out.withFileExtension ("wav");
+                MainComponent::LoudnessReport rep;
+                if (main.apiAnalyzeFile (out.getFullPathName(), rep))
+                {
+                    auto* lr = r->mutable_report();
+                    lr->set_peak_dbfs (rep.peakDbfs); lr->set_true_peak_dbtp (rep.truePeakDbtp);
+                    lr->set_rms_dbfs (rep.rmsDbfs);   lr->set_lufs (rep.lufs);
+                }
+            }
+            return Status::OK;
         }
         Status GetWaveform (ServerContext*, const pb::WaveformRequest* q, pb::WaveformData* r) override
         {

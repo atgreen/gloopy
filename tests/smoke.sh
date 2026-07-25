@@ -491,6 +491,22 @@ print('smoke: PASS — loudness analysis (peak %.1f dBFS, true-peak %.1f dBTP, %
 "$BIN" analyze "$WAV" 2>/dev/null | python3 -c "import json,sys;json.load(sys.stdin);print('smoke: PASS — CLI analyze emits JSON')" \
     || { echo "smoke: CLI analyze did not emit JSON" >&2; exit 1; }
 
+# Render report: RenderToFile with report=true returns the output's loudness inline,
+# so a script gets "render + measure" from one call. It must match a standalone
+# AnalyzeFile of the same file (and be non-silent on this populated project).
+REP=$(g -d "{\"path\":\"$WORK/rep.wav\",\"tail_seconds\":0,\"end_beat\":4,\"report\":true}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile)
+g -d "{\"path\":\"$WORK/rep.wav\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AnalyzeFile > "$WORK/rep_ana.json"
+echo "$REP" | python3 -c "
+import json,sys
+rep=json.load(sys.stdin).get('report',{})
+ana=json.load(open('$WORK/rep_ana.json'))
+assert 'lufs' in rep, 'render report missing loudness'
+for k in ('peakDbfs','truePeakDbtp','rmsDbfs','lufs'):
+    assert abs(rep.get(k,0)-ana.get(k,0)) < 1e-2, 'render report %s != AnalyzeFile (%s vs %s)'%(k,rep.get(k),ana.get(k))
+assert rep['lufs'] > -60, 'render report is silent (%.1f LUFS)'%rep['lufs']
+print('smoke: PASS — RenderToFile report matches AnalyzeFile (%.1f LUFS inline)'%rep['lufs'])
+" || { echo "smoke: render report did not match AnalyzeFile" >&2; exit 1; }
+
 # Waveform thumbnail cache: min/max peaks for the render, with the expected bucket count.
 g -d "{\"path\":\"$WAV\",\"buckets\":64}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetWaveform | python3 -c "
 import json,sys
