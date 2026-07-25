@@ -48,6 +48,7 @@ public:
     /** Tempo markers drawn on the ruler + edited by right-clicking it. Owner wires
         these to apiListTempoMarkers/apiAddTempoMarker/apiRemoveTempoMarker. */
     std::function<std::vector<std::pair<double, double>>()> getTempoMarkers;   // (beat, bpm)
+    std::function<std::vector<std::pair<juce::String, double>>()> getMarkers;   // timeline locations (name, beat) for "Split at marker"
     std::function<void (double, double)> onAddTempoMarker;                     // beat, bpm
     std::function<void (double)>         onRemoveTempoMarker;                  // beat
     std::function<void (int, int)>       onSetTimeSignature;                   // numerator, denominator

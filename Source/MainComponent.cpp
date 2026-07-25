@@ -207,6 +207,12 @@ MainComponent::MainComponent (bool headless)
         for (auto& m : apiListTempoMarkers()) out.push_back ({ m.beat, m.bpm });
         return out;
     };
+    arrangeView->getMarkers = [this]
+    {
+        std::vector<std::pair<juce::String, double>> out;
+        for (auto& l : apiListLocations()) out.push_back ({ l.name, l.startBeat });
+        return out;
+    };
     arrangeView->onAddTempoMarker = [this] (double beat, double bpm)
     {
         apiAddTempoMarker (beat, bpm);
@@ -275,6 +281,7 @@ MainComponent::MainComponent (bool headless)
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
         const int id = tracks[(size_t) trackIdx]->id;          // map view index -> stable API id
         if      (cmd == "split")     apiSplitClip (id, clip, transport.getPlayheadBeats());
+        else if (cmd.startsWith ("splitmarker:")) apiSplitClipAtMarker (id, clip, cmd.substring (12));
         else if (cmd == "duplicate") apiDuplicateClip (id, clip, -1.0);
         else if (cmd == "reverse")   apiReverseClip (id, clip);
         else if (cmd == "snapscale") apiSnapClipToScale (id, clip);

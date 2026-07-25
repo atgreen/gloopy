@@ -10,6 +10,24 @@
 #include "NoteEdits.h"
 #include <algorithm>
 
+// Split a clip at a named timeline location (marker/section/range start). Resolves the
+// marker's beat from `locations`, then delegates to apiSplitClip (which no-ops if the
+// beat falls outside the clip). Returns the new right-clip index, or -1.
+int MainComponent::apiSplitClipAtMarker (int trackId, int index, const juce::String& marker)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        double beat = -1.0;
+        {
+            const juce::ScopedLock sl (engineLock);
+            for (auto& l : locations)
+                if (l.name == marker) { beat = l.startBeat; break; }
+        }
+        if (beat < 0.0) return -1;                    // no such marker
+        return apiSplitClip (trackId, index, beat);   // re-enters on the message thread; no-op if outside the clip
+    });
+}
+
 int MainComponent::apiSplitClip (int trackId, int index, double beat)
 {
     return callOnMessageThread ([&] () -> int

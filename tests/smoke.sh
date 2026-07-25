@@ -454,6 +454,23 @@ assert ns==[(60,0.0,1.0),(60,1.0,1.0),(64,1.0,1.0)], 'knife split wrong: %s'%ns
 print('smoke: PASS — SplitNotesAtBeat cut the spanning note into halves (60@0/60@1), left 64@1')
 " || { echo 'smoke: knife split wrong' >&2; exit 1; }
 g -d "{\"id\":$CO}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   # isolate: drop the scratch track
+# Split-at-named-marker: a marker at beat 2 splits a [0,4) clip (notes 0/1/2/3) into
+# [0,2)+[2,4); the right clip's notes rebase to 0/1. Reuses the locations model.
+SM=$(g -d '{"name":"markertk","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$SM,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":0.5,\"velocity\":0.8},{\"pitch\":62,\"start_beat\":1,\"length_beats\":0.5,\"velocity\":0.8},{\"pitch\":64,\"start_beat\":2,\"length_beats\":0.5,\"velocity\":0.8},{\"pitch\":65,\"start_beat\":3,\"length_beats\":0.5,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d '{"name":"chorus","kind":"marker","start_beat":2,"end_beat":2}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddLocation >/dev/null
+NEWIDX=$(g -d "{\"track_id\":$SM,\"index\":0,\"marker\":\"chorus\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SplitClipAtMarker | python3 -c "import json,sys;print(json.load(sys.stdin).get('index',-1))")
+[ "$NEWIDX" = 1 ] || { echo "smoke: SplitClipAtMarker did not return the new clip (got $NEWIDX)" >&2; exit 1; }
+NC=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t['id']==$SM))")
+[ "$NC" = 2 ] || { echo "smoke: SplitClipAtMarker wrong clip count ($NC, expected 2)" >&2; exit 1; }
+g -d "{\"track_id\":$SM,\"index\":1}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "
+import json,sys
+ns=sorted((round(n.get('startBeat',0),3),n['pitch']) for n in json.load(sys.stdin)['notes'])
+assert ns==[(0.0,64),(1.0,65)], 'right clip notes wrong after marker split: %s'%ns
+print('smoke: PASS — SplitClipAtMarker split [0,4) at marker \"chorus\"(2) -> 2 clips, right=64@0/65@1')
+" || { echo 'smoke: SplitClipAtMarker notes wrong' >&2; exit 1; }
+g -d '{"name":"chorus"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveLocation >/dev/null 2>&1 || true
+g -d "{\"id\":$SM}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
 g -d "{\"path\":\"$WAV\",\"tail_seconds\":1.0,\"start_beat\":0,\"end_beat\":4}" \
     127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null

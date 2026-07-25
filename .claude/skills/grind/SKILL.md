@@ -369,8 +369,15 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      level differs (verified identical to a manual audio round-trip, so it's a mixer-hop
      cost, not a bounce bug). A level-exact freeze needs a pre-master / pre-pan capture
      path — follow-up.
-     **Not yet:** level-matched freeze (pre-master capture); split-at-named-marker; fade
-     curve shapes (linear only); audio-clip consolidate (audio clips are one-shot).
+   - `[x]` **Split-at-named-marker landed** (commit): `apiSplitClipAtMarker(trackId,index,
+     marker)` resolves a named timeline location's beat from `locations` and delegates to
+     `apiSplitClip` (no-op if the marker falls outside the clip). SplitClipAtMarker RPC
+     (→ClipId) + Python. **Desktop UI:** a "Split at marker ▸ <names>" submenu on the clip
+     menu, listing only markers that fall strictly inside the clicked clip (via a `getMarkers`
+     hook) — screenshot-validated. smoke proves a marker at beat 2 splits a [0,4) clip into
+     [0,2)+[2,4) with the right clip's notes rebased to 0/1.
+     **Not yet:** level-matched freeze (pre-master capture); fade curve shapes (linear only);
+     audio-clip consolidate (audio clips are one-shot).
 
 7. **Buses & sends.** ✦ **L**
    *Ardour #8.* Explicit bus tracks; tracks route to a bus before master; per-send

@@ -657,6 +657,12 @@ namespace
             r->set_track_id (q->track_id()); r->set_index (idx);
             return Status::OK;
         }
+        Status SplitClipAtMarker (ServerContext*, const pb::SplitAtMarkerRequest* q, pb::ClipId* r) override
+        {
+            const int idx = main.apiSplitClipAtMarker (q->track_id(), q->index(), js (q->marker()));
+            r->set_track_id (q->track_id()); r->set_index (idx);
+            return Status::OK;
+        }
         Status DuplicateClip (ServerContext*, const pb::DuplicateClipRequest* q, pb::ClipId* r) override
         {
             const int idx = main.apiDuplicateClip (q->track_id(), q->index(), q->at_beat());

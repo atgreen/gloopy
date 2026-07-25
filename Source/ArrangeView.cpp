@@ -420,6 +420,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         repaint();
 
         bool isMidi = false, isTake = false, isMutedTake = false, isLoopedMidi = false;
+        double clipStart = 0.0, clipEnd = 0.0;
         {
             const juce::ScopedLock sl (engineLock);
             if (juce::isPositiveAndBelow (hit, (int) tracks[(size_t) track]->clips.size()))
@@ -430,11 +431,27 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 isMutedTake = isTake && cl.muted;
                 isLoopedMidi = isMidi && cl.looped && cl.contentLenBeats > 0.0
                                && cl.contentLenBeats < cl.lengthBeats - 1.0e-9;   // actually tiles
+                clipStart = cl.startBeat;
+                clipEnd   = cl.startBeat + cl.lengthBeats;
             }
         }
 
+        // Markers that fall strictly inside this clip -> "Split at marker" submenu.
+        std::vector<std::pair<juce::String, double>> clipMarkers;
+        if (getMarkers)
+            for (auto& mk : getMarkers())
+                if (mk.second > clipStart + 1.0e-6 && mk.second < clipEnd - 1.0e-6)
+                    clipMarkers.push_back (mk);
+
         juce::PopupMenu m;
         m.addItem (1, "Split at playhead");
+        if (! clipMarkers.empty())
+        {
+            juce::PopupMenu markerMenu;
+            for (int i = 0; i < (int) clipMarkers.size(); ++i)
+                markerMenu.addItem (500 + i, clipMarkers[(size_t) i].first);
+            m.addSubMenu ("Split at marker", markerMenu);
+        }
         m.addItem (2, "Duplicate");
         m.addItem (3, "Reverse");
         m.addItem (4, "Snap to scale", isMidi);
@@ -457,9 +474,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addSeparator();
         m.addItem (9, "Delete");
         const int t = track, c = hit;
-        m.showMenuAsync (juce::PopupMenu::Options(), [this, t, c] (int r)
+        m.showMenuAsync (juce::PopupMenu::Options(), [this, t, c, clipMarkers] (int r)
         {
             if (r == 0) return;
+            if (r >= 500 && r - 500 < (int) clipMarkers.size())    // "Split at marker <name>"
+            { if (onClipCommand) onClipCommand (t, c, "splitmarker:" + clipMarkers[(size_t) (r - 500)].first); return; }
             if (r == 11) { promptClipGain (t, c); return; }        // "Gain..." -> dB prompt
             if (r == 12) { promptClipFades (t, c); return; }       // "Fades..." -> in/out prompt
             const char* cmd = r == 1  ? "split"
