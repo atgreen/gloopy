@@ -37,6 +37,9 @@ public:
     std::function<void()> onLoopChanged;
     /** Open the plugin editor for a plugin-instrument track (arg = track index). */
     std::function<void (int)> onOpenTrackEditor;
+    /** Right-click clip menu command: (track, clip, command). Commands: "split",
+        "duplicate", "reverse", "snapscale", "delete". Owner routes to the api* ops. */
+    std::function<void (int, int, const juce::String&)> onClipCommand;
 
     void paint (juce::Graphics&) override;
     void resized() override;

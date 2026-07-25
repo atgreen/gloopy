@@ -177,6 +177,17 @@ MainComponent::MainComponent (bool headless)
         if (auto* g = tracks[(size_t) i]->generator.get())
             openPluginEditor (g->getPluginInstance(), tracks[(size_t) i]->name);
     };
+    arrangeView->onClipCommand = [this] (int trackIdx, int clip, const juce::String& cmd)
+    {
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+        const int id = tracks[(size_t) trackIdx]->id;          // map view index -> stable API id
+        if      (cmd == "split")     apiSplitClip (id, clip, transport.getPlayheadBeats());
+        else if (cmd == "duplicate") apiDuplicateClip (id, clip, -1.0);
+        else if (cmd == "reverse")   apiReverseClip (id, clip);
+        else if (cmd == "snapscale") apiSnapClipToScale (id, clip);
+        else if (cmd == "delete")    apiRemoveClip (id, clip);
+        if (arrangeView) arrangeView->repaint();
+    };
     arrangeViewport.setViewedComponent (arrangeView.get(), false);
     arrangeViewport.setScrollBarsShown (true, false);
     addAndMakeVisible (arrangeViewport);

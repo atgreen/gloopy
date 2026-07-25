@@ -331,7 +331,44 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
 
     const int hit = clipAt (track, p);
 
-    if (hit >= 0 && (e.mods.isPopupMenu() || e.getNumberOfClicks() >= 2))
+    // Right-click a clip: context menu of the everyday edit ops (same operations the
+    // control API exposes as SplitClip/DuplicateClip/ReverseClip/SnapClipToScale).
+    if (hit >= 0 && e.mods.isPopupMenu())
+    {
+        selTrack = track; selClip = hit;
+        if (onClipSelected) onClipSelected (track, hit);
+        repaint();
+
+        bool isMidi = false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (juce::isPositiveAndBelow (hit, (int) tracks[(size_t) track]->clips.size()))
+                isMidi = ! tracks[(size_t) track]->clips[(size_t) hit].isAudio();
+        }
+
+        juce::PopupMenu m;
+        m.addItem (1, "Split at playhead");
+        m.addItem (2, "Duplicate");
+        m.addItem (3, "Reverse");
+        m.addItem (4, "Snap to scale", isMidi);
+        m.addSeparator();
+        m.addItem (9, "Delete");
+        const int t = track, c = hit;
+        m.showMenuAsync (juce::PopupMenu::Options(), [this, t, c] (int r)
+        {
+            if (r == 0) return;
+            const char* cmd = r == 1 ? "split"
+                            : r == 2 ? "duplicate"
+                            : r == 3 ? "reverse"
+                            : r == 4 ? "snapscale"
+                            :          "delete";
+            if (onClipCommand) onClipCommand (t, c, cmd);
+        });
+        return;
+    }
+
+    // Double-click a clip still deletes it directly (fast removal gesture).
+    if (hit >= 0 && e.getNumberOfClicks() >= 2)
     {
         {
             const juce::ScopedLock sl (engineLock);
