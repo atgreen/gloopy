@@ -173,10 +173,11 @@ public:
     // --- controller mapping / MIDI-learn (Controllers.cpp) ---
     // source: "cc:<n>" MIDI CC, "osc:<name>", or any string -> a ParamModel target,
     // scaling the 0..1 input to [lo, hi].
-    struct CtrlMap { juce::String source, target; float lo, hi; };
+    struct CtrlMap { juce::String source, target; float lo, hi; bool bypass { false }; };   // lo>hi = inverted
     bool apiAddControllerMap (const juce::String& source, const juce::String& target, float lo, float hi);
     bool apiRemoveControllerMap (const juce::String& source);
     std::vector<CtrlMap> apiListControllerMaps();
+    bool apiSetControllerBypass (const juce::String& source, const juce::String& target, bool bypass);
     void apiSetController (const juce::String& source, float value01);   // apply mapped params (or capture if learning)
     void apiMidiLearn (const juce::String& target);                      // arm learn for the next controller ("" cancels)
     void apiAuditionNote (int pitch, float velocity, bool noteOn);        // play a note through the edited instrument (piano-roll preview)

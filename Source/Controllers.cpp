@@ -71,6 +71,19 @@ void MainComponent::apiSetController (const juce::String& source, float value01)
     const float v01 = juce::jlimit (0.0f, 1.0f, value01);
     const juce::ScopedLock sl (engineLock);
     for (auto& m : controllerMaps)
-        if (m.source == source)
-            applyParamValue (m.target, m.lo + v01 * (m.hi - m.lo));   // lock held -> audio-thread-safe writer
+        if (m.source == source && ! m.bypass)
+            applyParamValue (m.target, m.lo + v01 * (m.hi - m.lo));   // lo>hi inverts; lock held -> audio-thread-safe
+}
+
+// Enable/disable a mapping without removing it (keyed by source+target).
+bool MainComponent::apiSetControllerBypass (const juce::String& source, const juce::String& target, bool bypass)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        const juce::ScopedLock sl (engineLock);
+        for (auto& m : controllerMaps)
+            if (m.source == source && m.target == target) { m.bypass = bypass; return true; }
+        return false;
+    });
 }

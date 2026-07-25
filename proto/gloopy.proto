@@ -137,8 +137,9 @@ message ParameterSet  { string id = 1; float value = 2; }
 // ── controller mapping / MIDI-learn ────────────────────────
 // source: "cc:<n>" (MIDI CC), "osc:<name>", or any string; drives `target` (a
 // ParameterInfo.id), scaling the 0..1 input to [lo, hi].
-message ControllerMap    { string source = 1; string target = 2; float lo = 3; float hi = 4; }
+message ControllerMap    { string source = 1; string target = 2; float lo = 3; float hi = 4; bool bypass = 5; }   // lo>hi inverts
 message ControllerList   { repeated ControllerMap maps = 1; }
+message ControllerBypass { string source = 1; string target = 2; bool bypass = 3; }
 message ControllerSource { string source = 1; }
 message ControllerValue  { string source = 1; float value = 2; }   // value 0..1
 message LearnRequest     { string target = 1; }                    // arm learn for the next controller
@@ -405,6 +406,7 @@ service Gloopy {
   rpc RemoveControllerMap (ControllerSource) returns (Ack);
   rpc ListControllerMaps  (Empty)           returns (ControllerList);
   rpc SetController       (ControllerValue) returns (Ack);   // feed a source (0..1); MIDI CC / OSC feed the same path
+  rpc SetControllerBypass (ControllerBypass) returns (Ack);  // enable/disable a map without removing it
   rpc MidiLearn           (LearnRequest)    returns (Ack);
 
   // scales — project scale + snap-to-scale

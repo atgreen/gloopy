@@ -2879,6 +2879,7 @@ juce::ValueTree MainComponent::toValueTree()
         juce::ValueTree v ("CTRL");
         v.setProperty ("source", m.source, nullptr); v.setProperty ("target", m.target, nullptr);
         v.setProperty ("lo", m.lo, nullptr);         v.setProperty ("hi", m.hi, nullptr);
+        if (m.bypass) v.setProperty ("bypass", true, nullptr);
         ctl.addChild (v, -1, nullptr);
     }
     root.addChild (ctl, -1, nullptr);
@@ -3290,7 +3291,8 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     {
         auto v = ctl.getChild (i);
         controllerMaps.push_back ({ v.getProperty ("source").toString(), v.getProperty ("target").toString(),
-                                    (float) (double) v.getProperty ("lo", 0.0), (float) (double) v.getProperty ("hi", 1.0) });
+                                    (float) (double) v.getProperty ("lo", 0.0), (float) (double) v.getProperty ("hi", 1.0),
+                                    (bool) v.getProperty ("bypass", false) });
     }
 
     transport.setBpm ((double) root.getProperty ("bpm", 128.0));

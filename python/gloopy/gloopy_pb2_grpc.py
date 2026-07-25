@@ -485,6 +485,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ControllerValue.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SetControllerBypass = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetControllerBypass',
+                request_serializer=gloopy__pb2.ControllerBypass.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.MidiLearn = channel.unary_unary(
                 '/gloopy.v1.Gloopy/MidiLearn',
                 request_serializer=gloopy__pb2.LearnRequest.SerializeToString,
@@ -1226,6 +1231,13 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetControllerBypass(self, request, context):
+        """enable/disable a map without removing it
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def MidiLearn(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1881,6 +1893,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'SetController': grpc.unary_unary_rpc_method_handler(
                     servicer.SetController,
                     request_deserializer=gloopy__pb2.ControllerValue.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetControllerBypass': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetControllerBypass,
+                    request_deserializer=gloopy__pb2.ControllerBypass.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'MidiLearn': grpc.unary_unary_rpc_method_handler(
@@ -4469,6 +4486,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/SetController',
             gloopy__pb2.ControllerValue.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetControllerBypass(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetControllerBypass',
+            gloopy__pb2.ControllerBypass.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

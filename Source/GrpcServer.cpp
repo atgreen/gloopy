@@ -383,11 +383,14 @@ namespace
         {
             for (auto& m : main.apiListControllerMaps())
             { auto* o = r->add_maps(); o->set_source (m.source.toStdString()); o->set_target (m.target.toStdString());
-              o->set_lo (m.lo); o->set_hi (m.hi); }
+              o->set_lo (m.lo); o->set_hi (m.hi); o->set_bypass (m.bypass); }
             return Status::OK;
         }
         Status SetController (ServerContext*, const pb::ControllerValue* q, pb::Ack* r) override
         { main.apiSetController (js (q->source()), q->value()); r->set_ok (true); return Status::OK; }
+        Status SetControllerBypass (ServerContext*, const pb::ControllerBypass* q, pb::Ack* r) override
+        { const bool ok = main.apiSetControllerBypass (js (q->source()), js (q->target()), q->bypass());
+          r->set_ok (ok); if (! ok) r->set_error ("controller map not found"); return Status::OK; }
         Status MidiLearn (ServerContext*, const pb::LearnRequest* q, pb::Ack* r) override
         { main.apiMidiLearn (js (q->target())); r->set_ok (true); return Status::OK; }
 

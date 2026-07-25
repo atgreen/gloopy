@@ -736,8 +736,15 @@ each shipping with desktop UI + screenshot validation.
       Serialised (CONTROLLERS + composition `controllers.toml`). Verified headless:
       cc:1→cutoff scales exactly, learn captures cc:7→reso, round-trips; smoke asserts
       it. **UI FLAGGED — no mapping-view / learn-button UI yet** (the mapping is usable
-      now via hardware CC knobs + API, but the visual rack is a follow-up). **Not yet:**
-      OSC-lane wiring, inversion/smoothing/bypass per map, device-map files.
+      now via hardware CC knobs + API, but the visual rack is a follow-up).
+    - `[x]` **Inversion + per-map bypass landed** (commit): *inversion* was already
+      implicit — `lo + v01*(hi-lo)` reverses when `lo>hi`, now verified/documented. Added
+      `CtrlMap.bypass` (disable a map without removing it): `apiSetControllerBypass`
+      (keyed by source+target) + `SetControllerBypass` RPC + Python; `apiSetController`
+      skips bypassed maps; serialised in CONTROLLERS + `controllers.toml`; ListController
+      Maps returns the flag. smoke proves an inverted map (cc value 1 → low cutoff) and
+      that bypass freezes the param while un-bypass re-applies. **Not yet:** OSC-lane
+      wiring, per-map smoothing (slew), device-map files, the mapping-rack UI.
 20. **Product-surface tier** — in-app markdown **project notes** under `notes/`
     (Idea #10); a static-file **localhost web control surface** for transport/mixer/
     markers/live notes, doubling as an API test client (Ardour #7); an **MCP tool

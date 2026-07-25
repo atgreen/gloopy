@@ -388,15 +388,20 @@ class Gloopy:
 
     # -- controller mapping / MIDI-learn ----------------------------------
     def add_controller_map(self, source: str, target: str, lo: float = 0.0, hi: float = 1.0) -> None:
-        """Map a source (cc:<n> / osc:<name> / any string) to a ParamModel target, scaled to [lo,hi]."""
+        """Map a source (cc:<n> / osc:<name> / any string) to a ParamModel target, scaled to [lo,hi].
+        Set lo>hi to invert the mapping."""
         self._ack(self.stub.AddControllerMap(pb.ControllerMap(source=source, target=target, lo=lo, hi=hi)))
+
+    def set_controller_bypass(self, source: str, target: str, bypass: bool) -> None:
+        """Enable/disable a controller map without removing it."""
+        self._ack(self.stub.SetControllerBypass(pb.ControllerBypass(source=source, target=target, bypass=bypass)))
 
     def remove_controller_map(self, source: str) -> None:
         self._ack(self.stub.RemoveControllerMap(pb.ControllerSource(source=source)))
 
     def list_controller_maps(self) -> list[dict]:
         r = self.stub.ListControllerMaps(pb.Empty())
-        return [{"source": m.source, "target": m.target, "lo": m.lo, "hi": m.hi} for m in r.maps]
+        return [{"source": m.source, "target": m.target, "lo": m.lo, "hi": m.hi, "bypass": m.bypass} for m in r.maps]
 
     def set_controller(self, source: str, value: float) -> None:
         """Feed a controller source a 0..1 value (MIDI CC and OSC feed the same path)."""

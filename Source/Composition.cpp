@@ -540,7 +540,8 @@ bool MainComponent::saveComposition (const juce::File& dir)
         if (! v.hasType ("CTRL")) continue;
         cw.arrayItem ("controllers").str ("source", v.getProperty ("source").toString())
           .str ("target", v.getProperty ("target").toString())
-          .number ("lo", v.getProperty ("lo", 0.0)).number ("hi", v.getProperty ("hi", 1.0)).blank();
+          .number ("lo", v.getProperty ("lo", 0.0)).number ("hi", v.getProperty ("hi", 1.0))
+          .boolean ("bypass", (bool) v.getProperty ("bypass", false)).blank();
     }
     ctx.writeText ("controllers.toml", cw.str());
 
@@ -870,6 +871,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             v.setProperty ("target", cd.getString ("target"), nullptr);
             v.setProperty ("lo", cd.getDouble ("lo", 0.0), nullptr);
             v.setProperty ("hi", cd.getDouble ("hi", 1.0), nullptr);
+            if (cd.getBool ("bypass")) v.setProperty ("bypass", true, nullptr);
             ctlTree.addChild (v, -1, nullptr);
         }
 

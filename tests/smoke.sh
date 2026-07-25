@@ -128,6 +128,24 @@ CVAL=$(g -d "{\"id\":\"track/$CT/synth/cutoff\"}" 127.0.0.1:$PORT gloopy.v1.Gloo
 python3 -c "assert abs(float('$CVAL')-5000)<1, 'controller did not drive param (got %s)'%'$CVAL'" \
     || { echo "smoke: controller mapping did not drive the parameter" >&2; exit 1; }
 echo "smoke: PASS — controller map cc:20 -> cutoff (=$CVAL at full)"
+# Inversion (lo>hi) + per-map bypass: invert so value 1 -> low cutoff; bypass freezes
+# the param against further feeds; un-bypass re-applies.
+TGT="track/$CT/synth/cutoff"
+cut() { g -d "{\"id\":\"$TGT\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetParameter | python3 -c "import json,sys;print(round(json.load(sys.stdin).get('value',0)))"; }
+g -d "{\"source\":\"cc:20\",\"target\":\"$TGT\",\"lo\":5000,\"hi\":500}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddControllerMap >/dev/null
+g -d '{"source":"cc:20","value":1.0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetController >/dev/null; INVL=$(cut)
+g -d '{"source":"cc:20","value":0.0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetController >/dev/null; INVH=$(cut)
+g -d "{\"source\":\"cc:20\",\"target\":\"$TGT\",\"bypass\":true}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetControllerBypass >/dev/null
+g -d '{"source":"cc:20","value":1.0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetController >/dev/null; BYP=$(cut)
+g -d "{\"source\":\"cc:20\",\"target\":\"$TGT\",\"bypass\":false}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetControllerBypass >/dev/null
+g -d '{"source":"cc:20","value":1.0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetController >/dev/null; UNB=$(cut)
+python3 -c "
+invl,invh,byp,unb=float('$INVL'),float('$INVH'),float('$BYP'),float('$UNB')
+assert abs(invl-500)<2 and abs(invh-5000)<2, 'inverted map wrong (v1=%.0f v0=%.0f)'%(invl,invh)
+assert abs(byp-5000)<2, 'bypassed map still moved the param (%.0f, expected ~5000)'%byp
+assert abs(unb-500)<2, 'un-bypass did not re-apply (%.0f, expected ~500)'%unb
+print('smoke: PASS — controller inversion (v1->%.0f) + bypass (frozen %.0f) + un-bypass (->%.0f)'%(invl,byp,unb))
+" || { echo "smoke: controller inversion/bypass failed" >&2; exit 1; }
 g -d "{\"id\":$CT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
 # Project notes: set markdown, save+reload a composition, confirm notes.md carries it
