@@ -197,13 +197,35 @@ int PianoRoll::velNoteAt (float x) const
     return (bestDist <= 12.0f) ? best : -1;            // only snap if reasonably close
 }
 
-void PianoRoll::setVelFromY (int noteIdx, float y)
+float PianoRoll::velForY (float y) const
 {
-    if (! juce::isPositiveAndBelow (noteIdx, (int) notes.size())) return;
     const float top = gridBottom() + 4.0f;
     const float bot = (float) getHeight() - 4.0f;
     const float t = juce::jlimit (0.0f, 1.0f, (bot - y) / juce::jmax (1.0f, bot - top));
-    notes[(size_t) noteIdx].velocity = juce::jlimit (0.05f, 1.0f, t);
+    return juce::jlimit (0.05f, 1.0f, t);
+}
+
+void PianoRoll::setVelFromY (int noteIdx, float y)
+{
+    if (! juce::isPositiveAndBelow (noteIdx, (int) notes.size())) return;
+    notes[(size_t) noteIdx].velocity = velForY (y);
+}
+
+// Linear velocity ramp: every note whose start-x falls between a and b gets a velocity
+// interpolated between velForY(a.y) and velForY(b.y) — a crescendo/decrescendo tool.
+void PianoRoll::applyVelRamp (juce::Point<float> a, juce::Point<float> b)
+{
+    const float x0 = juce::jmin (a.x, b.x), x1 = juce::jmax (a.x, b.x);
+    const float v0 = velForY (a.x <= b.x ? a.y : b.y);     // velocity at the left end
+    const float v1 = velForY (a.x <= b.x ? b.y : a.y);     // velocity at the right end
+    const float span = juce::jmax (1.0f, x1 - x0);
+    for (auto& n : notes)
+    {
+        const float nx = xForBeat (n.startBeat);
+        if (nx < x0 - 1.0f || nx > x1 + 1.0f) continue;
+        const float f = juce::jlimit (0.0f, 1.0f, (nx - x0) / span);
+        n.velocity = juce::jlimit (0.05f, 1.0f, v0 + (v1 - v0) * f);
+    }
 }
 
 int PianoRoll::noteIndexAt (juce::Point<float> p) const
@@ -424,9 +446,20 @@ void PianoRoll::mouseDown (const juce::MouseEvent& e)
         return;
     }
 
-    // Velocity strip along the bottom: drag a note's bar to set its velocity.
+    // Velocity strip along the bottom: drag a note's bar to set its velocity, or
+    // shift-drag to draw a linear velocity ramp (crescendo/decrescendo) across notes.
     if (hasVelStrip() && p.y >= gridBottom())
     {
+        if (e.mods.isShiftDown())
+        {
+            velRamp = true;
+            velRampStart = p;
+            drag = Drag::velocity;
+            applyVelRamp (p, p);
+            if (onNotesChanged) onNotesChanged();
+            repaint();
+            return;
+        }
         const int vn = velNoteAt (p.x);
         if (vn >= 0)
         {
@@ -549,6 +582,15 @@ void PianoRoll::mouseDrag (const juce::MouseEvent& e)
         return;
     }
 
+    // Velocity ramp: redraw the crescendo/decrescendo from the drag start to here.
+    if (velRamp)
+    {
+        applyVelRamp (velRampStart, e.position);
+        if (onNotesChanged) onNotesChanged();
+        repaint();
+        return;
+    }
+
     if (! editable || activeNote < 0 || activeNote >= (int) notes.size())
         return;
 
@@ -627,6 +669,7 @@ void PianoRoll::mouseUp (const juce::MouseEvent&)
     drag = Drag::none;
     activeNote = -1;
     dragOrigins.clear();
+    velRamp = false;
     gutterAuditioning = false;
     stopAudition();
 }

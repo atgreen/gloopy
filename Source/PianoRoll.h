@@ -109,7 +109,9 @@ private:
     void   auditionChord (const std::vector<int>& pitches, float velocity);
     void   stopAudition();
     int    velNoteAt (float x)  const;   // note whose span/start is nearest x
+    float  velForY (float y)    const;   // velocity strip y -> 0.05..1
     void   setVelFromY (int noteIdx, float y);
+    void   applyVelRamp (juce::Point<float> a, juce::Point<float> b);   // linear crescendo across notes
 
     static bool isBlackKey (int pitch);
 
@@ -151,6 +153,8 @@ private:
     juce::Point<float> marqueeStart;
     juce::Rectangle<float> marqueeRect;
     std::vector<std::tuple<int, double, int>> dragOrigins; // (index, startBeat, pitch) for group move
+    bool velRamp { false };                                // shift-drag on the velocity strip = ramp
+    juce::Point<float> velRampStart;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PianoRoll)
 };
