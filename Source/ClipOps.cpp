@@ -128,6 +128,53 @@ bool MainComponent::apiReverseClip (int trackId, int index)
     });
 }
 
+// Crop a MIDI clip to the absolute beat range [startBeat, endBeat): the clip moves/shrinks
+// to the intersection, and notes overlapping the window are kept (onset/length clamped into
+// it). MIDI clips only for now (audio crop needs buffer trimming). false on empty/no-op.
+bool MainComponent::apiCropClip (int trackId, int index, double startBeat, double endBeat)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        pushUndoSnapshot();
+        bool ok = false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+            Clip& c = t->clips[(size_t) index];
+            if (c.isAudio()) return false;                       // MIDI clips only
+            const double clipEnd = c.startBeat + c.lengthBeats;
+            const double s = juce::jmax (startBeat, c.startBeat);
+            const double e = juce::jmin (endBeat,   clipEnd);
+            if (e - s < 1.0e-6) return false;                    // empty intersection
+            const double head = s - c.startBeat;                 // clip-relative beats dropped from the front
+            const double newLen = e - s;
+
+            std::vector<Note> kept;
+            for (auto& n : c.notes)
+            {
+                const double onsetRel = n.startBeat - head;
+                const double endRel   = onsetRel + n.lengthBeats;
+                if (endRel <= 0.0 || onsetRel >= newLen) continue;   // note doesn't sound in the window
+                Note nn = n;
+                nn.startBeat   = juce::jmax (0.0, onsetRel);
+                nn.lengthBeats = juce::jmax (0.0625, juce::jmin (newLen, endRel) - nn.startBeat);
+                kept.push_back (nn);
+            }
+            c.notes           = std::move (kept);
+            c.startBeat       = s;
+            c.lengthBeats     = newLen;
+            c.contentLenBeats = newLen;
+            c.looped          = false;
+            ok = true;
+        }
+        emitChange ("clip_changed", trackId);
+        if (arrangeView) arrangeView->repaint();
+        return ok;
+    });
+}
+
 // Set an audio clip's playback gain (dB). Audio clips only — MIDI dynamics are per-note
 // velocity. false if the clip isn't found or isn't audio.
 bool MainComponent::apiSetClipGain (int trackId, int index, float gainDb)

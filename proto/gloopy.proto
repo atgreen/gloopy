@@ -185,6 +185,7 @@ message AddAudioClipRequest { int32 track_id = 1; double start_beat = 2; string 
 // clip / region operations
 message SplitClipRequest     { int32 track_id = 1; int32 index = 2; double beat = 3; }     // beat = absolute split point
 message DuplicateClipRequest { int32 track_id = 1; int32 index = 2; double at_beat = 3; }   // at_beat<0 => right after
+message CropClipRequest      { int32 track_id = 1; int32 index = 2; double start_beat = 3; double end_beat = 4; }  // trim to [start,end)
 message ClipGainRequest      { int32 track_id = 1; int32 index = 2; float gain_db = 3; }     // audio clip gain (dB)
 message NormalizeClipRequest { int32 track_id = 1; int32 index = 2; float target_dbfs = 3; } // gain so peak=target (0=full scale)
 message ClipFadesRequest     { int32 track_id = 1; int32 index = 2; double fade_in_beats = 3; double fade_out_beats = 4; }
@@ -339,6 +340,7 @@ service Gloopy {
   rpc SplitClip       (SplitClipRequest)       returns (ClipId);    // -> new (right) clip
   rpc DuplicateClip   (DuplicateClipRequest)   returns (ClipId);
   rpc ReverseClip     (ClipRef)                returns (Ack);
+  rpc CropClip        (CropClipRequest)        returns (Ack);      // trim a MIDI clip to a beat range
   rpc SetClipGain     (ClipGainRequest)        returns (Ack);      // audio clip gain (dB)
   rpc NormalizeClip   (NormalizeClipRequest)   returns (Ack);      // gain so the clip peaks at target dBFS
   rpc SetClipFades    (ClipFadesRequest)       returns (Ack);      // audio clip fade-in / fade-out (beats)

@@ -436,6 +436,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addItem (2, "Duplicate");
         m.addItem (3, "Reverse");
         m.addItem (4, "Snap to scale", isMidi);
+        m.addItem (13, "Crop to loop region", isMidi && transport.isLoopEnabled());
         if (! isMidi)                                   // audio-clip level ops
         {
             m.addItem (10, "Normalize");                // to -1 dBFS
@@ -461,6 +462,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                             : r == 2  ? "duplicate"
                             : r == 3  ? "reverse"
                             : r == 4  ? "snapscale"
+                            : r == 13 ? "croploop"
                             : r == 10 ? "normalize"
                             : r == 5  ? "usetake"
                             : r == 6  ? "promotetake"

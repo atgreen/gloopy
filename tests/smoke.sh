@@ -272,6 +272,20 @@ g -d "{\"track_id\":$CO,\"index\":1,\"at_beat\":-1}" 127.0.0.1:$PORT gloopy.v1.G
 CLIPN=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t.get('name')=='clipops'))")
 [ "$CLIPN" = 3 ] || { echo "smoke: DuplicateClip wrong clip count ($CLIPN, expected 3)" >&2; exit 1; }
 echo "smoke: PASS — DuplicateClip (clipops track now has 3 clips)"
+# CropClip: a fresh 4-beat clip with notes at 0/1/2/3, cropped to [1,3), keeps the
+# middle two re-based to 0 and 1; an empty range is rejected.
+CR=$(g -d '{"name":"croptest","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$CR,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":0.5,\"velocity\":0.8},{\"pitch\":62,\"start_beat\":1,\"length_beats\":0.5,\"velocity\":0.8},{\"pitch\":64,\"start_beat\":2,\"length_beats\":0.5,\"velocity\":0.8},{\"pitch\":65,\"start_beat\":3,\"length_beats\":0.5,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"track_id\":$CR,\"index\":0,\"start_beat\":1,\"end_beat\":3}" 127.0.0.1:$PORT gloopy.v1.Gloopy/CropClip >/dev/null
+g -d "{\"track_id\":$CR,\"index\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "
+import json,sys
+ns=sorted(((n.get('startBeat',0),n['pitch']) for n in json.load(sys.stdin)['notes']))
+assert ns==[(0.0,62),(1.0,64)], 'crop kept wrong notes: %s'%ns
+print('smoke: PASS — CropClip [1,3) kept notes 62@0, 64@1')
+" || { echo "smoke: CropClip did not keep the right notes" >&2; exit 1; }
+BADCROP=$(g -d "{\"track_id\":$CR,\"index\":0,\"start_beat\":2,\"end_beat\":2}" 127.0.0.1:$PORT gloopy.v1.Gloopy/CropClip | python3 -c "import json,sys;print(json.load(sys.stdin).get('ok',False))")
+[ "$BADCROP" = "False" ] || { echo "smoke: CropClip accepted an empty range" >&2; exit 1; }
+g -d "{\"id\":$CR}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 # Piano-roll note ops (quantize/transpose) on an off-grid clip, verified via GetClipNotes.
 g -d "{\"track_id\":$CO,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\
 \"notes\":[{\"pitch\":60,\"start_beat\":0.1,\"length_beats\":1,\"velocity\":0.8},\

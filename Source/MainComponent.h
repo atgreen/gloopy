@@ -239,6 +239,7 @@ public:
     int  apiSplitClip (int trackId, int index, double beat);        // -> new (right) clip index, or -1
     int  apiDuplicateClip (int trackId, int index, double atBeat);  // atBeat<0 => right after; -> new index
     bool apiReverseClip (int trackId, int index);                   // reverse notes (MIDI) or audio buffer
+    bool apiCropClip (int trackId, int index, double startBeat, double endBeat);   // trim a MIDI clip to a beat range
     bool  apiSetClipGain (int trackId, int index, float gainDb);    // audio clip gain (dB); false if not audio
     float apiNormalizeClip (int trackId, int index, float targetDbfs); // gain so peak=target; applied gain or -1
     bool  apiSetClipFades (int trackId, int index, double fadeInBeats, double fadeOutBeats); // audio clip edges

@@ -336,8 +336,14 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      round-trip. **Desktop UI:** `Fades...` on the audio-clip menu (in/out beats prompt)
      — screenshot-validated. smoke.sh proves a 2-beat fade-in drops the first 0.25 s by
      ~16 dB vs no fade.
-     **Not yet:** crop-to-range, consolidate, bounce-in-place; split-at-named-marker
-     convenience; fade curve shapes (linear only).
+   - `[x]` **Crop-to-range landed** (commit): `apiCropClip(trackId,index,start,end)` trims a
+     MIDI clip to the absolute beat intersection — the clip moves/shrinks and notes
+     overlapping the window are kept (onset/length clamped, re-based). CropClip RPC +
+     Python. **Desktop UI:** "Crop to loop region" on the arrange-view clip menu (MIDI
+     clips, enabled when a loop is set) → crops to the transport loop — screenshot-
+     validated. smoke proves [0,1,2,3]→crop[1,3) keeps 62@0/64@1 and rejects empty ranges.
+     **Not yet:** audio-clip crop (buffer trim), consolidate, bounce-in-place;
+     split-at-named-marker; fade curve shapes (linear only).
 
 7. **Buses & sends.** ✦ **L**
    *Ardour #8.* Explicit bus tracks; tracks route to a bus before master; per-send

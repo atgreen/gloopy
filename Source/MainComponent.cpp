@@ -279,6 +279,7 @@ MainComponent::MainComponent (bool headless)
         else if (cmd == "reverse")   apiReverseClip (id, clip);
         else if (cmd == "snapscale") apiSnapClipToScale (id, clip);
         else if (cmd == "normalize") apiNormalizeClip (id, clip, -1.0f);   // audio clip -> -1 dBFS
+        else if (cmd == "croploop")  apiCropClip (id, clip, transport.getLoopStartBeats(), transport.getLoopEndBeats());
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")

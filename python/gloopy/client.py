@@ -220,6 +220,11 @@ class Gloopy:
     def reverse_clip(self, track_id: int, index: int) -> None:
         self._ack(self.stub.ReverseClip(pb.ClipRef(track_id=track_id, index=index)))
 
+    def crop_clip(self, track_id: int, index: int, start_beat: float, end_beat: float) -> None:
+        """Trim a MIDI clip to the absolute beat range [start_beat, end_beat)."""
+        self._ack(self.stub.CropClip(pb.CropClipRequest(track_id=track_id, index=index,
+                                                        start_beat=start_beat, end_beat=end_beat)))
+
     def set_clip_gain(self, track_id: int, index: int, gain_db: float) -> None:
         """Set an audio clip's playback gain in dB."""
         self._ack(self.stub.SetClipGain(pb.ClipGainRequest(track_id=track_id, index=index, gain_db=gain_db)))

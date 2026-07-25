@@ -240,6 +240,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ClipRef.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.CropClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/CropClip',
+                request_serializer=gloopy__pb2.CropClipRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.SetClipGain = channel.unary_unary(
                 '/gloopy.v1.Gloopy/SetClipGain',
                 request_serializer=gloopy__pb2.ClipGainRequest.SerializeToString,
@@ -910,6 +915,13 @@ class GloopyServicer:
 
     def ReverseClip(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CropClip(self, request, context):
+        """trim a MIDI clip to a beat range
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -1648,6 +1660,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'ReverseClip': grpc.unary_unary_rpc_method_handler(
                     servicer.ReverseClip,
                     request_deserializer=gloopy__pb2.ClipRef.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'CropClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.CropClip,
+                    request_deserializer=gloopy__pb2.CropClipRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'SetClipGain': grpc.unary_unary_rpc_method_handler(
@@ -3163,6 +3180,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/ReverseClip',
             gloopy__pb2.ClipRef.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CropClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/CropClip',
+            gloopy__pb2.CropClipRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,
