@@ -130,6 +130,11 @@ public:
     juce::String apiInspectJson();               // structural summary as JSON
     juce::String apiValidateJson (bool& ok);     // problems as JSON; ok=false if any errors
 
+    // --- RT diagnostics (Diagnostics.cpp) ---
+    struct DiagSnap { double sampleRate; int blockSize, inputs, outputs;
+                      double callbackUs, maxCallbackUs, dspLoad, renderSpeedX; long long dropouts; };
+    DiagSnap apiGetDiagnostics();
+
     // --- offline loudness analysis (Loudness.cpp) ---
     // Peak (sample), true-peak (4x oversampled), RMS, and integrated LUFS
     // (ITU-R BS.1770 / EBU R128: K-weighting + gated mean of 400ms blocks).
@@ -315,6 +320,12 @@ private:
     PluginHost pluginHost;
     double currentSampleRate { 44100.0 };
     int    currentBlockSize  { 512 };
+
+    // RT diagnostics — written lock-free from the audio thread / offline render.
+    std::atomic<double>      diagLastCallbackUs { 0.0 };
+    std::atomic<double>      diagMaxCallbackUs  { 0.0 };
+    std::atomic<juce::int64> diagDropouts       { 0 };
+    std::atomic<double>      diagRenderSpeedX   { 0.0 };   // last offline bounce, x realtime
     juce::AudioBuffer<float> mixBuffer;
 
     int selTrack { -1 }, selClip { -1 };

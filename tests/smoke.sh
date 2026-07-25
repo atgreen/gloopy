@@ -301,4 +301,15 @@ print('smoke: PASS — loudness analysis (peak %.1f dBFS, true-peak %.1f dBTP, %
 "$BIN" analyze "$WAV" 2>/dev/null | python3 -c "import json,sys;json.load(sys.stdin);print('smoke: PASS — CLI analyze emits JSON')" \
     || { echo "smoke: CLI analyze did not emit JSON" >&2; exit 1; }
 
+# RT diagnostics: after the offline renders above, the engine reports device settings
+# and a render speed well above realtime.
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetDiagnostics | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+sr=d.get('sampleRate',0); bs=d.get('blockSize',0); rx=d.get('renderSpeedX',0.0)
+assert sr>0 and bs>0, 'bad device settings: %s/%s'%(sr,bs)
+assert rx>1.0, 'offline render not faster than realtime: '+str(rx)
+print('smoke: PASS — diagnostics (%g Hz / %d smp, render %.0fx realtime)'%(sr,bs,rx))
+" || { echo "smoke: diagnostics out of range" >&2; exit 1; }
+
 echo "smoke: OK"

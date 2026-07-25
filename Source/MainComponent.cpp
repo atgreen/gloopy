@@ -1192,6 +1192,7 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
     juce::AudioBuffer<float> buf (2, block);
     const juce::int64 tailSamples = (juce::int64) (tail * rate);
     juce::int64 bodyLen = 0, target = 0, written = 0;
+    const juce::int64 renderT0 = juce::Time::getHighResolutionTicks();
 
     for (;;)
     {
@@ -1212,6 +1213,10 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
     }
 
     writer.reset();   // flush + close the WAV
+
+    const double wall = juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - renderT0);
+    if (wall > 1.0e-6) diagRenderSpeedX.store ((double) written / rate / wall, std::memory_order_relaxed);
+
     restore();
     return true;
 }
@@ -1624,9 +1629,20 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
 
     const juce::ScopedTryLock stl (engineLock);
     if (! stl.isLocked())
+    {
+        diagDropouts.fetch_add (1, std::memory_order_relaxed);   // block skipped -> silence
         return;
+    }
 
+    const bool live = ! renderMode.load();
+    const juce::int64 t0 = live ? juce::Time::getHighResolutionTicks() : 0;
     const juce::int64 loopLen = renderBlock (*out, start, num, renderMode.load());
+    if (live)
+    {
+        const double us = juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0) * 1.0e6;
+        diagLastCallbackUs.store (us, std::memory_order_relaxed);
+        if (us > diagMaxCallbackUs.load (std::memory_order_relaxed)) diagMaxCallbackUs.store (us, std::memory_order_relaxed);
+    }
 
     if (! renderMode.load())
         addMonitoring (info);   // dry input -> output for armed+monitor tracks

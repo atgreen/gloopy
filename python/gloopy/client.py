@@ -463,6 +463,14 @@ class Gloopy:
         """Load a standard MIDI file as synth tracks + clips."""
         self._ack(self.stub.ImportMidi(pb.FilePath(path=path)))
 
+    def diagnostics(self) -> dict:
+        """Engine health: device settings, callback timing, DSP load, dropouts, render speed."""
+        d = self.stub.GetDiagnostics(pb.Empty())
+        return {"sample_rate": d.sample_rate, "block_size": d.block_size,
+                "inputs": d.inputs, "outputs": d.outputs, "callback_us": d.callback_us,
+                "max_callback_us": d.max_callback_us, "dsp_load": d.dsp_load,
+                "dropouts": d.dropouts, "render_speed_x": d.render_speed_x}
+
     def analyze_file(self, path: str) -> dict:
         """Offline loudness of a WAV: peak/true-peak (dBFS/dBTP), RMS (dBFS), integrated LUFS."""
         r = self.stub.AnalyzeFile(pb.FilePath(path=path))

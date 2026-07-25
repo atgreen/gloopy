@@ -196,6 +196,12 @@ message ModTarget { string target = 1; }
 message FilePath { string path = 1; }
 // Offline loudness report (ITU-R BS.1770 / EBU R128).
 message LoudnessReport { float peak_dbfs = 1; float true_peak_dbtp = 2; float rms_dbfs = 3; float lufs = 4; }
+// Engine health snapshot.
+message Diagnostics {
+  double sample_rate = 1; int32 block_size = 2; int32 inputs = 3; int32 outputs = 4;
+  double callback_us = 5; double max_callback_us = 6; double dsp_load = 7;
+  int64 dropouts = 8; double render_speed_x = 9;   // last offline bounce, x realtime
+}
 message RenderRequest {                       // offline bounce to WAV
   string path = 1;
   double tail_seconds = 2;
@@ -340,7 +346,8 @@ service Gloopy {
   rpc RunExport           (ExportRun)     returns (ExportResult);
 
   // project & state
-  rpc GetState   (Empty)    returns (ProjectState);
+  rpc GetState      (Empty) returns (ProjectState);
+  rpc GetDiagnostics(Empty) returns (Diagnostics);   // engine health / RT metrics
   rpc NewProject (Empty)    returns (Ack);
   rpc Undo       (Empty)    returns (Ack);
   rpc Redo       (Empty)    returns (Ack);

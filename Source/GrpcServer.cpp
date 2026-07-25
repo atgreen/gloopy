@@ -362,6 +362,17 @@ namespace
             return Status::OK;
         }
 
+        // ---- diagnostics ----
+        Status GetDiagnostics (ServerContext*, const pb::Empty*, pb::Diagnostics* r) override
+        {
+            auto d = main.apiGetDiagnostics();
+            r->set_sample_rate (d.sampleRate); r->set_block_size (d.blockSize);
+            r->set_inputs (d.inputs); r->set_outputs (d.outputs);
+            r->set_callback_us (d.callbackUs); r->set_max_callback_us (d.maxCallbackUs);
+            r->set_dsp_load (d.dspLoad); r->set_dropouts (d.dropouts); r->set_render_speed_x (d.renderSpeedX);
+            return Status::OK;
+        }
+
         // ---- project / state ----
         Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override
         {

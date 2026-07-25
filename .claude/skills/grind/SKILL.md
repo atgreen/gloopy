@@ -417,6 +417,15 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
     CI smoke logs. Debug counters/asserts for allocations/locks on the audio path;
     mark xrun events on the timeline.
     *Done when:* `GetDiagnostics` returns live counters; the smoke log includes them.
+    - `[x]` **Landed** (`Source/Diagnostics.cpp`, commit): `GetDiagnostics` RPC →
+      device sample-rate/block-size/inputs/outputs, live audio-callback time (last +
+      max µs) and DSP load, dropped-block count (engine-lock contention in
+      getNextAudioBlock), and last offline render speed (x realtime). Instrumented with
+      lock-free relaxed atomics on the audio thread + timing in apiRenderToFile — the
+      audio path stays lock-free. Python `diagnostics()`; smoke logs it. Verified:
+      44100/512/2in/2out, render ~130-180x realtime, DSP load ~0.2%. **Not yet:**
+      per-plugin latency, xrun marks on the timeline, allocation/lock debug asserts, a
+      big transport/record status view.
 
 15. **Selective built-in effects & analyzers.** **M** (curated — see principle 5)
     *Idea #8/#13.* Fill obvious gaps only: parametric EQ, compressor (have limiter),
