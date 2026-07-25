@@ -1,0 +1,383 @@
+---
+name: grind
+version: 1.0.0
+description: |
+  The long-march roadmap for GLOOPY — the compact JUCE 8 / C++17 linear-arranger
+  DAW at ~/git/gloopy (plugin hosting, composition-as-repo projects, OSC + gRPC
+  control, automation, embedded sfizz, scriptable/headless workflows). Invoke when
+  the user says "grind", "keep going on Gloopy", "what's next", "pick the next
+  feature", or wants to continue the roadmap across sessions. Loads the north star,
+  the principles that judge each slice, the current shipped state, the working
+  discipline (build/test/commit/verify-headless), and the full ordered backlog of
+  features we have actually committed to building. NOTE: this is the *Gloopy* grind
+  (project-local). A separate global `grind` skill belongs to the Plume Lisp project
+  — don't confuse them.
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - Agent
+---
+
+# grind — the march to make Gloopy the scriptable, composition-as-repo DAW
+
+This skill is the durable map and process for **Gloopy** (`~/git/gloopy`): a compact
+JUCE 8 / C++17 linear-arranger DAW that hosts VST3/LV2 plugins and an embedded sfizz
+SFZ engine, and that is driven end-to-end by a **control API** (OSC UDP 9000 + gRPC
+`127.0.0.1:50051`) over projects stored as a **diff-friendly composition-as-repo**
+text format.
+
+Three living documents, in order of authority:
+- **`AGENTS.md`** (repo root) — the hard-won landmines: proto3-omits-zero, one
+  instance at a time (`pkill -x Gloopy`), `NewProject` resets to the 5-track kit,
+  manual level staging, the sfizz vendoring, sample-path resolution. Read it every
+  session; it is the operational ground truth.
+- **`docs/ROADMAP.md`** + **`ideas.md`** — the *design record* of what shipped
+  (Phases 1–4, composition, recording, presets) and the *raw idea pool* (14 Feature
+  Ideas + 16 Ardour borrowings). This skill is the curated subset of that pool that
+  we will actually build, in order. `ideas.md` is the superset; **this file is the
+  commitment.**
+- **This skill** — the *shape* of the journey and *how* to walk it. Stable. The
+  volatile per-feature detail lives in `docs/ROADMAP.md` and the git log.
+
+## The north star (what Gloopy is trying to be)
+
+**The DAW you can drive from a script and store in git.** Not a full DAW with an API
+bolted on — a DAW whose *primary* surface is the composition-as-repo text format and
+the OSC/gRPC control API, with the GUI as one client among Python, Common Lisp, CI,
+and future AI agents. Every capability is reachable *and verifiable* headlessly:
+`grpcurl` builds it, `--render` bounces it, a script asserts the WAV. Gloopy stays
+**smaller, more scriptable, and more composition-repo friendly** than a typical DAW —
+that constraint is the product, not a limitation.
+
+## The principles (how every slice is judged)
+
+1. **API-first, GUI-second.** A feature isn't done until it's reachable over gRPC (and
+   OSC where it's a live knob) with a stable id. The UI is a client of that surface,
+   built after — and never the only way to do the thing. If it can't be scripted, it
+   isn't Gloopy-shaped.
+2. **Everything lives in the composition text format.** New state serialises to
+   readable TOML / `.notes` / `.points` under the content-addressed dirty-write model
+   (`Source/Composition.cpp`), so it diffs and travels. No new hidden project blobs. A
+   `dir → runtime → dir` round-trip must stay byte-stable.
+3. **Every slice is headless-verifiable.** Prove it with `grpcurl` + `--render` + a
+   WAV/text assertion, wired into `tests/smoke.sh` where it fits. "I built the UI, it
+   looks right" is not proof. Favour work whose correctness a script can see.
+4. **The audio thread is sacred.** No allocation, locks, file I/O, or blocking in
+   `renderBlock`. New realtime data reaches the audio thread lock-free or under the
+   `engineLock` try-lock; structural edits go on the message thread
+   (`callOnMessageThread`, `pushUndoSnapshot()` first). Build the object off-thread,
+   then swap it in under the lock — the presets/instrument-swap pattern.
+5. **Stay curated, not comprehensive.** Gloopy hosts VST3/LV2, so built-ins are a
+   small high-value set, not a catalog. Borrow *systems and workflows* from bigger
+   DAWs (Ardour, trackers) — never their code or assets without a license review
+   against Gloopy's **AGPL-3.0** (Ardour is GPL; direct copying needs review). Keep the
+   JUCE layout simple; don't grow a window-heavy workspace or a per-device C++
+   subsystem for every controller — keep mappings data-driven. Don't embed a second
+   scripting VM (no Lua): scripts drive the existing gRPC API. **Never name other
+   named DAWs/trackers as the source in code, docs, or commits — borrow the idea, not
+   the brand.**
+
+## Current state (verify against git log + docs/ROADMAP.md each session)
+
+`[x]` done · `[~]` partial · `[ ]` not started
+
+- `[x]` **Phases 1–4 (docs/ROADMAP.md):** MIDI recording into clips, master limiter +
+  clip meters, mixer-insert control API, MIDI hot-plug, undo/redo (snapshot-based),
+  parameter **automation** (breakpoint lanes, `SetAutomation`/`GetAutomation`),
+  structural **change events** on `Subscribe`, **region/stem render**
+  (`RenderToFile` + range/target), Python client + CL client, expanded
+  **dual-osc + resonant filter + LFO synth**, groove/swing + piano-roll velocity
+  editing, unit tests (`GloopyTests`, ctest) + smoke test + CI under xvfb.
+- `[x]` **Composition-as-repo format** (`Source/Composition.cpp`,
+  `gloop-compositions.md`): TOML manifests + `.notes`/`.points` + WAV/plugin
+  sidecars; content-addressed dirty writes; zip read; `.gloopy` / folder / `.zip`
+  all first-class in the File menu; `SaveComposition`/`LoadComposition` RPCs.
+- `[x]` **Audio recording** (`Source/Recording.cpp`, `recording.md`): live-input
+  capture to a WAV take via `ThreadedWriter`; *referencing* audio clips
+  (`Clip.audioFile`/`takeId`); monitoring, count-in, punch, take lanes / take
+  management, loop recording; `GLOOPY_REC_TEST_TONE_HZ` test seam; `SetLoop` RPC.
+- `[x]` **Embedded sfizz** (`Source/SfizzGenerator.h`, `third_party/sfizz/`, BSD-2,
+  vendored no-submodule): native `loadSfzFile`/`renderBlock`, disk-streaming, portable
+  sample-path resolution, freewheeling for offline bounce.
+- `[~]` **Presets** (`Source/Presets.cpp`): synth, effect-chain, and general
+  instrument (synth **or** SFZ, cross-type) presets as composition-friendly TOML under
+  `<userAppData>/Gloopy/presets/` (`GLOOPY_PRESET_PATH` override); `ListPresets` +
+  save/load RPCs + Python client. **Remaining:** sampler + plugin instrument presets,
+  plugin effects inside effect-chain presets, and all preset UI (menus, browser,
+  New-From-Template). These fold into Wave 6 items #16 below.
+
+So the model layers (tracks, mixer inserts, effects, automation, plugins, sfizz,
+composition I/O, recording, presets, the OSC/gRPC surface) all exist. The backlog
+below is about *depth, routing, musical model, analysis, and product surface* — not
+foundational plumbing.
+
+## The working discipline (the meta-process that works — follow it)
+
+- **Read `AGENTS.md` and `git log --oneline -15` first.** The landmines there are
+  non-negotiable; re-learning them costs real time.
+- **One slice = one feature = one commit.** Pick the next unchecked backlog item.
+  Implement the smallest coherent version that is API-reachable and headless-provable,
+  not the whole grand vision at once.
+- **The full stack of a slice** (most features touch all of these — miss one and it's
+  half-built):
+  1. **Model / audio** — a new `Source/<Feature>.cpp` (or extend an existing one);
+     realtime data lock-free / under `engineLock`, structural ops via
+     `callOnMessageThread` + `pushUndoSnapshot()`.
+  2. **Serialisation** — extend `toValueTree`/`loadFromTree` **and** the composition
+     mapping in `Source/Composition.cpp` (readable TOML / `.points`), preserving the
+     dirty-write round-trip. Add to `tests/smoke.sh`'s round-trip check.
+  3. **proto + gRPC** — add messages/RPCs to `proto/gloopy.proto` (proto3;
+     `--experimental_allow_proto3_optional`), implement the override in
+     `Source/GrpcServer.cpp` (the `main.apiX(...)` → `set_ok`/`set_error` pattern,
+     `js()` for `std::string`→`juce::String`). Remember **proto3 omits zero/false** —
+     always `.get('x', 0)`, and use OSC for "set to 0 / turn a bool off".
+  4. **OSC** — add a `/gloopy/...` lane for anything that's a live knob (`OscControl.h`).
+  5. **Clients** — regenerate stubs (`python/gen.sh`) and add thin wrappers to
+     `python/gloopy/client.py` (and the CL client where it earns it).
+  6. **Register the source** in `CMakeLists.txt` `target_sources` if it's a new `.cpp`.
+- **Build & prove, synchronously, in one place:**
+  ```sh
+  cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+  cmake --build build --target Gloopy
+  pkill -x Gloopy; ./build/Gloopy_artefacts/Release/Gloopy &   # ONE instance; -x not -f
+  G="grpcurl -plaintext -proto proto/gloopy.proto -import-path proto"
+  # ... drive the new RPC, SaveProject/SaveComposition, RenderToFile ...
+  python3 - <<'PY'  # assert the WAV: non-silent, peak below 0 dBFS (aim ~ -3 dB)
+  ...
+  PY
+  pkill -x Gloopy
+  ```
+  For pure-logic slices, add a `GloopyTests` case (`tests/TestMain.cpp`) and run
+  `ctest --test-dir build --output-on-failure`. For anything that renders, extend
+  `tests/smoke.sh`.
+- **Level staging is manual** — there's no auto-master-limiter unless a project adds
+  one. Summing tracks clips at 0 dBFS; after any render, assert `max_volume` stays
+  below 0 (≈ −3 dB), lowering per-track `volume`/synth `gain` as needed.
+- **Commit cadence.** Green build + green tests first. One slice per commit. Source
+  headers use `green@moxielogic.com`; commit messages end with
+  `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`. No git
+  remote — commits are local. Commit only a coherent, verified slice; branch first
+  only if asked. Update `docs/ROADMAP.md` (or a new design doc) with the feature's
+  goal/approach, and check the item off in this skill's backlog.
+- **A slice may span sessions — that's fine.** If you must stop mid-slice: commit the
+  green sub-step, and write the exact resumption state (done / half-built / next
+  concrete action / open question) into `docs/ROADMAP.md`. Don't fake "done" to
+  satisfy a goal or a hook.
+- **Consult prior art at real design forks (✦), but adapt, don't copy.** For DAW
+  systems (export profiles, location/marker models, bus/send routing, mixer scenes,
+  tempo maps, loudness analysis) study Ardour's *shape* and the format conventions,
+  then implement the small Gloopy version in Gloopy's idioms. Cross-check any
+  third-party mechanism against the AGPL/GPL boundary before adopting. Record which
+  prior art a decision followed in the commit or the design doc — by concept, not by
+  brand name in shipped text.
+
+## The backlog — the real list we're building, ordered
+
+The through-line: **make the scriptable composition-as-repo surface deep and
+complete before making it pretty.** Waves are roughly sequential; within a wave, order
+by leverage. Each item is a slice: model+serialise+proto+client → headless proof →
+commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈ hours,
+**M** ≈ a day or two, **L** ≈ a week+.
+
+### Wave 1 — Keystone model work (everything downstream rides on these)
+
+1. **Universal parameter model — `ParamModel` / `ParameterRef`.** ✦ **L**
+   *Idea #3.* One parameter abstraction: `{ stable id, name, min, max, default,
+   scaling (linear|log|dB), unit, current value, thread policy }`. Back UI knobs,
+   automation targets, MIDI/OSC mapping, gRPC state, plugin generic editors, and
+   save/load with it. Reconcile the existing `TargetRef` (automation/insert params)
+   into it so ids are stable across composition files and external clients.
+   *Done when:* `ListParameters` returns stable ids for track/insert/effect/plugin
+   params; `GetParameter`/`SetParameter` work by id; an automation lane and an OSC map
+   both address the same id; ids survive a composition round-trip.
+   - `[~]` **Minimal slice landed** (`Source/Parameters.cpp`, commit): flat string-id
+     read/write layer — `ListParameters`/`GetParameter`/`SetParameter` RPCs +
+     `ParameterInfo{id,name,value,min,max,default_value,unit,scaling}`, delegating to
+     the existing thread-safe setters. Covers `track/<id>/{volume,pan,mute,solo}`,
+     `track/<id>/synth/<name>`, `insert/<i>/{volume,pan,mute,solo}`,
+     `effect/<i>/<slot>/<param>`. Proven via smoke.sh (102 params; cutoff set/get) +
+     grpcurl. **Still to do for full done:** plugin-param ids; make automation/OSC
+     *address these same ids* (today they still use the `AutoTarget` tuple / OSC
+     lanes); persist a param snapshot in the composition; log/dB scaling used by UI.
+
+2. **Timeline locations — markers / ranges / loop / punch / sections.** ✦ **M**
+   *Ardour #3.* A project-level `TimelineLocation { kind: marker|range|loop|punch|
+   section|export|skip, name, startBeat, endBeat }`. Fold the existing loop/punch
+   ranges into it. Store as readable TOML in the composition; surface on the ruler and
+   in the API. Named ranges (`intro`, `chorus-2`, `loop-a`) become render/export
+   targets.
+   *Done when:* `AddLocation`/`ListLocations`/`RemoveLocation` RPCs; locations
+   round-trip in the composition; `RenderToFile` can target a named range.
+
+### Wave 2 — Turn the control surface into the product
+
+3. **Export profiles / named render targets.** ✦ **M**
+   *Ardour #2 + Idea #9.* Named export presets stored in composition text. Targets:
+   full mix, named range (Wave 1 #2), selected tracks, stems, current clip, loop
+   region. Delivery presets: WAV master, FLAC archive, streaming WAV, loop pack,
+   stems. Default outputs to `exports/`, deterministic filenames.
+   *Done when:* `DefineExportPreset` + `RunExport(name)` RPCs; a preset renders the
+   right files to `exports/` at correct levels; presets round-trip in the composition.
+
+4. **CLI composition utilities.** **M**
+   *Ardour #1.* `gloopy` subcommands reusing the GUI load/render code paths, with
+   predictable JSON/stdout for scripts and agents: `inspect <proj>`,
+   `validate <proj>`, `render <proj> [--preset NAME]`, `export-stems <proj>`,
+   `pack <proj> out.zip`. `validate` uses Wave 5 #12 loudness/report data.
+   *Done when:* each subcommand runs headless with no GUI, emits stable JSON, and is
+   exercised in `tests/smoke.sh` / CI.
+
+5. **MIDI import/export + bulk JSON note I/O.** **M**
+   *Idea #9/#14 + Ardour #5.* Standard `.mid` file in/out (map to/from the beat-based
+   note model), plus `ImportNotesJSON` / `ExportNotesJSON` for fast generative
+   workflows. Define a small importer interface (Wave 6 grows it to Hydrogen, SFZ
+   folders).
+   *Done when:* import a `.mid` → render; export a clip → re-import → note lists match;
+   JSON note import builds a clip via the API.
+
+### Wave 3 — Editing + routing depth (still API-first)
+
+6. **Clip / region operations.** **M**
+   *Ardour #12.* Split at playhead / at marker, clip gain, normalize, reverse audio,
+   per-clip fades (audio), duplicate-to-grid, crop-to-range, consolidate,
+   bounce-in-place. All through the API and expressible in the composition.
+   *Done when:* each op has an RPC; a split/gain/reverse sequence round-trips and
+   renders correctly.
+
+7. **Buses & sends.** ✦ **L**
+   *Ardour #8.* Explicit bus tracks; tracks route to a bus before master; per-send
+   levels; signal flow generator → track inserts → sends → bus inserts → master. Send
+   presets (vocal reverb, drum parallel comp, delay throw). Keep it minimal — no
+   general patchbay.
+   *Done when:* a reverb bus with two sends renders the expected wet/dry mix; routing
+   round-trips in the composition.
+
+8. **Mixer scenes + control groups (VCA-lite).** **M**
+   *Ardour #9/#10.* Named mixer snapshots (rough mix, vocal up, print mix) capturing
+   faders/pans/mutes/solos/send levels/bypass, stored as small composition files;
+   automation stays separate. Control groups = group fader/mute/solo/color as control
+   *scaling*, not extra audio routing.
+   *Done when:* snapshot → change faders → recall restores them (assert via
+   `GetState`); a group fader scales its members; both round-trip.
+
+### Wave 4 — Musical model & modulation
+
+9. **Modulation matrix — LFO/envelope → any `ParamModel`.** ✦ **M** (needs Wave 1 #1)
+   *Idea #12.* Modulation sources (LFO, envelope) route to any parameter id with
+   tempo-sync, phase, shape, depth, smoothing, bipolar/unipolar. Persist routes as
+   readable composition files; expose over gRPC.
+   *Done when:* an LFO modulating a filter-cutoff param audibly moves it in a render;
+   routes round-trip.
+
+10. **Tempo & time-signature map.** ✦ **M**
+    *Ardour #13.* Tempo / time-signature changes on the timeline, stored as tempo
+    markers in the composition. Note/clip data stays beat-based, rendering
+    sample-based; add API helpers for bars/beats ↔ beats/seconds.
+    *Done when:* a tempo change mid-song changes the rendered duration as computed;
+    tempo markers round-trip.
+
+11. **Scales & microtuning.** **M**
+    *Idea #11.* Project-level scale definitions; per-track tuning mode; piano-roll
+    scale highlighting + optional snap-to-scale; API helpers for generative clients;
+    Scala/keymap import later.
+    *Done when:* set a project scale via API, snap a note list to it, render; scale
+    defs round-trip.
+
+### Wave 5 — Analysis, plugins, diagnostics (offline / headless-friendly)
+
+12. **Offline loudness + render reports.** **S/M**
+    *Ardour #14.* After a render, report peak, true-peak, RMS, and LUFS (EBU R128);
+    feed `gloopy validate` (Wave 2 #4) and a render report. Transient/onset detection
+    later (for slicing).
+    *Done when:* `RenderToFile` optionally returns/writes a report; the numbers match a
+    known test signal within tolerance.
+
+13. **Plugin scan cache + CLI scan.** **S/M**
+    *Ardour #15.* Persist scan results (id, name, format, path, vendor, category,
+    parameter summary, scan status); record failed scans without blocking startup;
+    keep plugin identity stable in composition files even if the path moves; add a CLI
+    `gloopy scan`.
+    *Done when:* a scan writes a cache, a moved-path plugin still resolves on load, and
+    `gloopy scan` runs headless.
+
+14. **Real-time safety diagnostics.** **S/M**
+    *Ardour #16.* A small diagnostics surface: audio-callback time, DSP load,
+    xruns/dropouts, plugin latency, render speed, device settings — over the API and in
+    CI smoke logs. Debug counters/asserts for allocations/locks on the audio path;
+    mark xrun events on the timeline.
+    *Done when:* `GetDiagnostics` returns live counters; the smoke log includes them.
+
+15. **Selective built-in effects & analyzers.** **M** (curated — see principle 5)
+    *Idea #8/#13.* Fill obvious gaps only: parametric EQ, compressor (have limiter),
+    bitcrusher, chorus/flanger, stereo widener, waveshaper/soft-clipper; plus
+    oscilloscope / spectrum / vectorscope as **non-mutating** inserts exposing
+    API-visible analyzer snapshots. Each registers in `Effects.h` `makeEffect` + the
+    `EffectType` proto enum, and works in effect-chain presets.
+    *Done when:* each effect renders its expected transform; an analyzer snapshot is
+    retrievable over the API.
+
+### Wave 6 — Product surface & UI (deferred: harder to verify headless; keep layout simple)
+
+These are lower priority precisely because they're GUI-heavy — build them *on top of*
+the API surface the earlier waves harden, so they stay thin clients. Finish the
+deferred preset work (sampler + plugin instrument presets, plugin effects in
+effect-chain presets) as part of #16.
+
+16. **Browser sidebar + demo/template browser + `File → New From Template`** *(Idea
+    #1/#2; absorbs remaining preset UI/work).* **L**
+17. **Stronger piano-roll editing modes** — knife/split, strum, duplicate, transpose,
+    quantize, humanize, velocity tools, ghost notes, scale highlight, step recording
+    *(Idea #5; shares the note model with the step grid)*. **L**
+18. **Richer sampler controls + cached waveform thumbnails** — start/end/loop/reverse,
+    root note, choke group, fades, interpolation; a multi-resolution peak cache keyed
+    by path+mtime+size, reused across clips/sampler/browser/exports *(Idea #6/#7)*. **M/L**
+19. **Controller rack / MIDI-learn / parameter linking + MIDI device maps** — a
+    source→target mapping view; MIDI-learn for any `ParamModel` id; OSC/API sources as
+    mappable controllers; per-mapping scaling/inversion/smoothing/range/bypass;
+    data-driven device maps for common controllers; persisted in composition files
+    *(Idea #4 + Ardour #6; rides on Wave 1 #1)*. **L**
+20. **Product-surface tier** — in-app markdown **project notes** under `notes/`
+    (Idea #10); a static-file **localhost web control surface** for transport/mixer/
+    markers/live notes, doubling as an API test client (Ardour #7); an **MCP tool
+    surface** (`session/get_info`, `tracks/list`, `track/add`, `clip/move`,
+    `midi_note/import_json`, `markers/add_range`, `render/preset`) alongside gRPC/OSC
+    (Ardour #5); a **script browser** exposing composition-local + built-in scripts as
+    installable actions that run against the gRPC API — not an embedded VM (Ardour #4).
+    **L**, each independent.
+
+## Explicitly NOT doing (the guardrails, made concrete)
+
+- No full Ardour-style recording/post-production workflow; no general patchbay until
+  buses/sends (#7) actually demand it.
+- No hardware-specific C++ subsystem per controller — mappings stay data-driven (#19).
+- No embedded Lua or second scripting VM — scripts drive the existing gRPC API.
+- No built-in-effect catalog — keep the set small and high-value (#15); Gloopy hosts
+  VST3/LV2 for the long tail.
+- No broad foreign-format support before the composition-as-repo format is rock-solid.
+- **Never** copy third-party code/assets without an explicit AGPL-3.0 license review
+  (Ardour is GPL), and **never** name other DAWs/trackers as the source in code, docs,
+  or commit messages — borrow the idea, not the brand.
+
+## How to run a grind session
+
+1. `cd ~/git/gloopy`; read `AGENTS.md` and `git log --oneline -15`. If
+   `docs/ROADMAP.md` records a half-built slice, resume exactly there.
+2. Pick the next unchecked backlog item (top-down within the lowest incomplete wave).
+   If it's a ✦ design fork, study the prior art's *shape* first, then design the small
+   Gloopy version — adapt, don't copy, and mind the AGPL/GPL boundary.
+3. Implement the smallest coherent slice across the full stack (model → serialise →
+   proto+gRPC → OSC → clients → CMake). Build. Boot ONE instance
+   (`pkill -x Gloopy` first). Drive it over `grpcurl`, round-trip through the
+   composition, `RenderToFile`, and assert the WAV/JSON in a script. Add the assertion
+   to `tests/smoke.sh` (renders) or `GloopyTests` (pure logic).
+4. Green build + `ctest` + `tests/smoke.sh` before committing. One slice per commit
+   (co-author trailer). Update `docs/ROADMAP.md` and check the item off in this skill.
+5. If the slice is large and the session is ending, stop cleanly: commit the green
+   sub-step, checkpoint the resumption state in `docs/ROADMAP.md`, hand off. Multi-
+   session slices are normal — don't fake completion.
+6. Repeat. Gloopy gets deeper one API-reachable, headless-proven, composition-stable
+   slice at a time.
