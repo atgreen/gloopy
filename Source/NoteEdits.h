@@ -63,6 +63,45 @@ inline void strumNotes (std::vector<Note>& notes, double stepBeats, bool down)
     }
 }
 
+/** Arpeggiate: turn each chord (notes sharing a start beat) into a sequence of single
+    notes, each `stepBeats` long, played in order. mode 0 = up, 1 = down, 2 = up-down.
+    Single notes pass through unchanged. Note lengths become the step (classic arp gate). */
+inline void arpeggiateNotes (std::vector<Note>& notes, double stepBeats, int mode)
+{
+    if (stepBeats <= 0.0 || notes.empty()) return;
+    std::map<long long, std::vector<int>> clusters;           // key = start beat (ms-quantised)
+    for (int i = 0; i < (int) notes.size(); ++i)
+        clusters[(long long) std::llround (notes[(size_t) i].startBeat * 1000.0)].push_back (i);
+
+    std::vector<Note> out;
+    for (auto& cl : clusters)                                  // std::map → ascending start order
+    {
+        auto& idx = cl.second;
+        if (idx.size() < 2) { out.push_back (notes[(size_t) idx[0]]); continue; }
+
+        std::vector<int> pitches;
+        for (int i : idx) pitches.push_back (notes[(size_t) i].pitch);
+        std::sort (pitches.begin(), pitches.end());            // ascending
+
+        std::vector<int> seq;
+        if (mode == 1)                                         // down
+            for (auto it = pitches.rbegin(); it != pitches.rend(); ++it) seq.push_back (*it);
+        else if (mode == 2)                                    // up-down (don't repeat the ends)
+        {
+            seq = pitches;
+            for (int k = (int) pitches.size() - 2; k >= 1; --k) seq.push_back (pitches[(size_t) k]);
+        }
+        else seq = pitches;                                    // up
+
+        const double base = notes[(size_t) idx[0]].startBeat;
+        const float  vel  = notes[(size_t) idx[0]].velocity;
+        for (int k = 0; k < (int) seq.size(); ++k)
+            out.push_back ({ seq[(size_t) k], juce::jmax (0.0, base + k * stepBeats),
+                             juce::jmax (0.0625, stepBeats), juce::jlimit (0.0f, 1.0f, vel) });
+    }
+    notes = std::move (out);
+}
+
 /** Semitone offsets for a chord type (falls back to a major triad). */
 inline std::vector<int> chordIntervals (const juce::String& type)
 {

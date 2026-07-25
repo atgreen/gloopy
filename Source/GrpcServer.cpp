@@ -621,6 +621,9 @@ namespace
         Status StrumClip (ServerContext*, const pb::StrumRequest* q, pb::Ack* r) override
         { const bool ok = main.apiStrumClip (q->track_id(), q->index(), q->step_beats(), q->down());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
+        Status ArpeggiateClip (ServerContext*, const pb::ArpeggiateRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiArpeggiateClip (q->track_id(), q->index(), q->step_beats(), q->mode());
+          r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
 
         // ---- plugins ----
         Status ScanPlugins (ServerContext*, const pb::ScanPluginsRequest* q, pb::PluginList* r) override

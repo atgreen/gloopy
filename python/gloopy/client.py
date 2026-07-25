@@ -241,6 +241,11 @@ class Gloopy:
         self._ack(self.stub.StrumClip(pb.StrumRequest(
             track_id=track_id, index=index, step_beats=step_beats, down=down)))
 
+    def arpeggiate_clip(self, track_id: int, index: int, step_beats: float = 0.25, mode: int = 0) -> None:
+        """Turn each chord into an arpeggio; mode 0=up, 1=down, 2=up-down."""
+        self._ack(self.stub.ArpeggiateClip(pb.ArpeggiateRequest(
+            track_id=track_id, index=index, step_beats=step_beats, mode=mode)))
+
     def add_chord(self, track_id: int, index: int, root: int, type: str = "maj",
                   start_beat: float = 0.0, length_beats: float = 1.0,
                   velocity: float = 0.8, inversion: int = 0) -> None:

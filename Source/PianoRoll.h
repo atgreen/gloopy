@@ -72,6 +72,10 @@ public:
         transform as apiStrumClip, then fires onNotesChanged. */
     void strumRollNotes (double stepBeats, bool down);
 
+    /** Arpeggiate chords into sequences (mode 0=up, 1=down, 2=up-down). Same
+        arpeggiateNotes transform as apiArpeggiateClip. */
+    void arpeggiateRollNotes (double stepBeats, int mode);
+
     void paint (juce::Graphics&) override;
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;

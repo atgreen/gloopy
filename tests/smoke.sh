@@ -210,6 +210,18 @@ starts=[round(n.get('startBeat',0),3) for n in ns]
 assert starts==[0.0,0.1,0.2,0.3], 'strum starts wrong: '+str(starts)
 print('smoke: PASS — StrumClip fanned Cmin7 starts to '+str(starts))
 " || { echo "smoke: strum wrong" >&2; exit 1; }
+# Arpeggiate: a fresh Cmaj triad -> up arp at 0.25 spacing = 3 sequential notes.
+g -d "{\"track_id\":$CO,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":false,\"notes\":[]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+AC=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t.get('name')=='clipops')-1)")
+g -d "{\"track_id\":$CO,\"index\":$AC,\"root\":60,\"type\":\"maj\",\"start_beat\":0,\"length_beats\":2,\"velocity\":0.8}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddChord >/dev/null
+g -d "{\"track_id\":$CO,\"index\":$AC,\"step_beats\":0.25,\"mode\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/ArpeggiateClip >/dev/null
+g -d "{\"track_id\":$CO,\"index\":$AC}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "
+import json,sys
+ns=sorted(json.load(sys.stdin)['notes'], key=lambda n:n.get('startBeat',0))
+seq=[(n['pitch'],round(n.get('startBeat',0),3)) for n in ns]
+assert seq==[(60,0.0),(64,0.25),(67,0.5)], 'arp seq wrong: '+str(seq)
+print('smoke: PASS — ArpeggiateClip up -> '+str(seq))
+" || { echo "smoke: arpeggiate wrong" >&2; exit 1; }
 g -d "{\"id\":$CO}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   # isolate: drop the scratch track
 
 g -d "{\"path\":\"$WAV\",\"tail_seconds\":1.0,\"start_beat\":0,\"end_beat\":4}" \

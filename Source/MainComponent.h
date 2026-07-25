@@ -224,6 +224,7 @@ public:
     bool apiTransposeClip (int trackId, int index, int semitones);
     bool apiHumanizeClip (int trackId, int index, double timing, double velocity);
     bool apiStrumClip (int trackId, int index, double stepBeats, bool down);   // fan out chord voices
+    bool apiArpeggiateClip (int trackId, int index, double stepBeats, int mode);   // chord -> arp (0 up/1 down/2 updown)
     bool apiAddChord (int trackId, int index, int root, const juce::String& type,
                       double startBeat, double lengthBeats, float velocity, int inversion);   // stamp a chord
 
@@ -280,6 +281,19 @@ private:
             strumBtn.onClick = [this] { roll.strumRollNotes (0.05, ! juce::ModifierKeys::getCurrentModifiers().isShiftDown()); };
             addAndMakeVisible (strumBtn);
 
+            // Arpeggiate: chords -> sequences. Button opens an Up/Down/Up-Down menu.
+            arpBtn.setTooltip ("Arpeggiate chords into a sequence");
+            arpBtn.onClick = [this]
+            {
+                juce::PopupMenu m;
+                m.addItem (1, "Arp Up");
+                m.addItem (2, "Arp Down");
+                m.addItem (3, "Arp Up-Down");
+                m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (arpBtn),
+                                 [this] (int r) { if (r) roll.arpeggiateRollNotes (0.25, r - 1); });
+            };
+            addAndMakeVisible (arpBtn);
+
             // Chord-stamp selector: pick a type, then click empty grid to stamp the
             // whole voicing. "Note" = ordinary single-note drawing.
             chordCombo.addItem ("Note", 1);
@@ -311,7 +325,8 @@ private:
             pianoBtn.setBounds (h.removeFromRight (58).reduced (2, 0));
             stepBtn .setBounds (h.removeFromRight (58).reduced (2, 0));
             chordCombo.setBounds (h.removeFromRight (74).reduced (2, 0));
-            strumBtn.setBounds (h.removeFromRight (56).reduced (2, 0));
+            strumBtn.setBounds (h.removeFromRight (52).reduced (2, 0));
+            arpBtn.setBounds (h.removeFromRight (46).reduced (2, 0));
             auditionBtn.setBounds (h.removeFromRight (72).reduced (2, 0));
             title.setBounds (h.withTrimmedLeft (10));
             roll.setBounds (a);
@@ -322,6 +337,7 @@ private:
         juce::TextButton pianoBtn { "PIANO" };
         juce::TextButton auditionBtn { "AUDITION" };
         juce::TextButton strumBtn { "STRUM" };
+        juce::TextButton arpBtn { "ARP" };
         juce::ComboBox   chordCombo;
         PianoRoll   roll;
         StepEditor  steps;

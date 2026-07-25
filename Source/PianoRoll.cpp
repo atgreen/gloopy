@@ -71,6 +71,15 @@ void PianoRoll::strumRollNotes (double stepBeats, bool down)
     repaint();
 }
 
+void PianoRoll::arpeggiateRollNotes (double stepBeats, int mode)
+{
+    if (! editable || notes.empty()) return;
+    arpeggiateNotes (notes, stepBeats, mode);   // count can change (up-down) → drop stale selection
+    selection.clear();
+    if (onNotesChanged) onNotesChanged();
+    repaint();
+}
+
 PianoRoll::~PianoRoll()
 {
     stopTimer();
