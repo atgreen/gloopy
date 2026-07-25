@@ -225,6 +225,21 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ClipRef.SerializeToString,
                 response_deserializer=gloopy__pb2.NoteList.FromString,
                 _registered_method=True)
+        self.QuantizeClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/QuantizeClip',
+                request_serializer=gloopy__pb2.QuantizeRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.TransposeClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/TransposeClip',
+                request_serializer=gloopy__pb2.TransposeRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.HumanizeClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/HumanizeClip',
+                request_serializer=gloopy__pb2.HumanizeRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.ScanPlugins = channel.unary_unary(
                 '/gloopy.v1.Gloopy/ScanPlugins',
                 request_serializer=gloopy__pb2.ScanPluginsRequest.SerializeToString,
@@ -749,6 +764,24 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def GetClipNotes(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def QuantizeClip(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def TransposeClip(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def HumanizeClip(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1308,6 +1341,21 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.GetClipNotes,
                     request_deserializer=gloopy__pb2.ClipRef.FromString,
                     response_serializer=gloopy__pb2.NoteList.SerializeToString,
+            ),
+            'QuantizeClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.QuantizeClip,
+                    request_deserializer=gloopy__pb2.QuantizeRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'TransposeClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.TransposeClip,
+                    request_deserializer=gloopy__pb2.TransposeRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'HumanizeClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.HumanizeClip,
+                    request_deserializer=gloopy__pb2.HumanizeRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'ScanPlugins': grpc.unary_unary_rpc_method_handler(
                     servicer.ScanPlugins,
@@ -2617,6 +2665,87 @@ class Gloopy:
             '/gloopy.v1.Gloopy/GetClipNotes',
             gloopy__pb2.ClipRef.SerializeToString,
             gloopy__pb2.NoteList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def QuantizeClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/QuantizeClip',
+            gloopy__pb2.QuantizeRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def TransposeClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/TransposeClip',
+            gloopy__pb2.TransposeRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def HumanizeClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/HumanizeClip',
+            gloopy__pb2.HumanizeRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,
             insecure,

@@ -500,6 +500,14 @@ effect-chain presets) as part of #16.
 17. **Stronger piano-roll editing modes** — knife/split, strum, duplicate, transpose,
     quantize, humanize, velocity tools, ghost notes, scale highlight, step recording
     *(Idea #5; shares the note model with the step grid)*. **L**
+    - `[~]` **Note ops landed** (`Source/NoteEdits.h` + ClipOps.cpp + PianoRoll, commit):
+      shared `quantizeNotes`/`transposeNotes`/`humanizeNotes` used by BOTH the control
+      API (`apiQuantizeClip`/`apiTransposeClip`/`apiHumanizeClip`, verifiable via
+      GetClipNotes) and the PianoRoll UI (keyboard: Q/Shift+Q quantize 1/16·1/8, ↑/↓
+      ±1 & Shift ±12 transpose, H humanize). RPCs + Python client. Verified headless
+      (0.1→0.0, 60→72, jitter ≤±0.02). **UI needs visual eval.** **Not yet:**
+      knife/strum tools, ghost notes, scale highlight, step recording, velocity-tool
+      drag, per-note selection ops.
 18. **Richer sampler controls + cached waveform thumbnails** — start/end/loop/reverse,
     root note, choke group, fades, interpolation; a multi-resolution peak cache keyed
     by path+mtime+size, reused across clips/sampler/browser/exports *(Idea #6/#7)*. **M/L**

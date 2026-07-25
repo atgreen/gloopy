@@ -7,6 +7,7 @@
 // just mutate the clips vector under the engine lock; no new persistence.
 
 #include "MainComponent.h"
+#include "NoteEdits.h"
 #include <algorithm>
 
 int MainComponent::apiSplitClip (int trackId, int index, double beat)
@@ -137,3 +138,33 @@ std::vector<Note> MainComponent::apiGetClipNotes (int trackId, int index)
         return t->clips[(size_t) index].notes;
     });
 }
+
+// Note-transform ops (piano-roll editing modes) — apply a shared NoteEdits transform
+// to a MIDI clip's notes. Verifiable via GetClipNotes; the PianoRoll UI uses the same
+// NoteEdits functions so the API and the editor make identical edits.
+#define GLOOPY_EDIT_CLIP_NOTES(BODY)                                          \
+    return callOnMessageThread ([&] () -> bool {                              \
+        Track* t = resolveTrack (trackId);                                    \
+        if (t == nullptr) return false;                                       \
+        pushUndoSnapshot();                                                   \
+        {                                                                     \
+            const juce::ScopedLock sl (engineLock);                           \
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false; \
+            auto& c = t->clips[(size_t) index];                               \
+            if (c.isAudio()) return false;                                    \
+            auto& notes = c.notes; (void) notes; BODY;                        \
+        }                                                                     \
+        emitChange ("clip_changed", trackId);                                 \
+        return true;                                                          \
+    });
+
+bool MainComponent::apiQuantizeClip (int trackId, int index, double grid)
+{ GLOOPY_EDIT_CLIP_NOTES (quantizeNotes (notes, grid)) }
+
+bool MainComponent::apiTransposeClip (int trackId, int index, int semitones)
+{ GLOOPY_EDIT_CLIP_NOTES (transposeNotes (notes, semitones)) }
+
+bool MainComponent::apiHumanizeClip (int trackId, int index, double timing, double velocity)
+{ juce::Random rng; GLOOPY_EDIT_CLIP_NOTES (humanizeNotes (notes, timing, velocity, rng)) }
+
+#undef GLOOPY_EDIT_CLIP_NOTES

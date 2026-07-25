@@ -571,6 +571,15 @@ namespace
             }
             return Status::OK;
         }
+        Status QuantizeClip (ServerContext*, const pb::QuantizeRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiQuantizeClip (q->track_id(), q->index(), q->grid());
+          r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
+        Status TransposeClip (ServerContext*, const pb::TransposeRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiTransposeClip (q->track_id(), q->index(), q->semitones());
+          r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
+        Status HumanizeClip (ServerContext*, const pb::HumanizeRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiHumanizeClip (q->track_id(), q->index(), q->timing(), q->velocity());
+          r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
 
         // ---- plugins ----
         Status ScanPlugins (ServerContext*, const pb::ScanPluginsRequest* q, pb::PluginList* r) override

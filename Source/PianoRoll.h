@@ -7,6 +7,7 @@
 #include <vector>
 #include <functional>
 #include "Note.h"
+#include "NoteEdits.h"
 #include "Transport.h"
 
 /** An editable piano-roll grid.
@@ -46,6 +47,7 @@ public:
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp   (const juce::MouseEvent&) override;
+    bool keyPressed (const juce::KeyPress&) override;   // Q quantize, H humanize, arrows transpose
 
 private:
     void timerCallback() override;

@@ -6,8 +6,27 @@
 
 PianoRoll::PianoRoll (Transport& transportToUse) : transport (transportToUse)
 {
-    setWantsKeyboardFocus (false);
+    setWantsKeyboardFocus (true);   // catch note-edit shortcuts (Q/H/arrows)
     startTimerHz (60); // playhead animation
+}
+
+bool PianoRoll::keyPressed (const juce::KeyPress& key)
+{
+    if (! editable || notes.empty()) return false;
+    const bool shift = key.getModifiers().isShiftDown();
+    bool changed = false;
+
+    if (key.getTextCharacter() == 'q' || key.getTextCharacter() == 'Q')
+    { quantizeNotes (notes, shift ? 0.5 : 0.25); changed = true; }        // Q = 1/16, Shift+Q = 1/8
+    else if (key.getTextCharacter() == 'h' || key.getTextCharacter() == 'H')
+    { juce::Random rng; humanizeNotes (notes, 0.02, 0.1, rng); changed = true; }
+    else if (key == juce::KeyPress::upKey)
+    { transposeNotes (notes, shift ? 12 : 1); changed = true; }           // arrows transpose all
+    else if (key == juce::KeyPress::downKey)
+    { transposeNotes (notes, shift ? -12 : -1); changed = true; }
+
+    if (changed) { if (onNotesChanged) onNotesChanged(); repaint(); }
+    return changed;
 }
 
 PianoRoll::~PianoRoll()

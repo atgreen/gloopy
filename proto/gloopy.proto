@@ -171,6 +171,10 @@ message AddAudioClipRequest { int32 track_id = 1; double start_beat = 2; string 
 message SplitClipRequest     { int32 track_id = 1; int32 index = 2; double beat = 3; }     // beat = absolute split point
 message DuplicateClipRequest { int32 track_id = 1; int32 index = 2; double at_beat = 3; }   // at_beat<0 => right after
 message NoteList             { repeated Note notes = 1; }
+// piano-roll note-edit ops
+message QuantizeRequest  { int32 track_id = 1; int32 index = 2; double grid = 3; }        // grid in beats
+message TransposeRequest { int32 track_id = 1; int32 index = 2; int32 semitones = 3; }
+message HumanizeRequest  { int32 track_id = 1; int32 index = 2; double timing = 3; double velocity = 4; }
 
 // ── plugins ────────────────────────────────────────────────
 message ScanPluginsRequest { bool force = 1; }
@@ -294,6 +298,9 @@ service Gloopy {
   rpc DuplicateClip   (DuplicateClipRequest)   returns (ClipId);
   rpc ReverseClip     (ClipRef)                returns (Ack);
   rpc GetClipNotes    (ClipRef)                returns (NoteList);
+  rpc QuantizeClip    (QuantizeRequest)        returns (Ack);
+  rpc TransposeClip   (TransposeRequest)       returns (Ack);
+  rpc HumanizeClip    (HumanizeRequest)        returns (Ack);
 
   // plugins
   rpc ScanPlugins     (ScanPluginsRequest)     returns (PluginList);

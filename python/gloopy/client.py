@@ -225,6 +225,17 @@ class Gloopy:
         return [{"pitch": n.pitch, "start_beat": n.start_beat,
                  "length_beats": n.length_beats, "velocity": n.velocity} for n in r.notes]
 
+    def quantize_clip(self, track_id: int, index: int, grid: float = 0.25) -> None:
+        """Snap note starts to a beat grid (0.25 = 16ths)."""
+        self._ack(self.stub.QuantizeClip(pb.QuantizeRequest(track_id=track_id, index=index, grid=grid)))
+
+    def transpose_clip(self, track_id: int, index: int, semitones: int) -> None:
+        self._ack(self.stub.TransposeClip(pb.TransposeRequest(track_id=track_id, index=index, semitones=semitones)))
+
+    def humanize_clip(self, track_id: int, index: int, timing: float = 0.02, velocity: float = 0.1) -> None:
+        self._ack(self.stub.HumanizeClip(pb.HumanizeRequest(
+            track_id=track_id, index=index, timing=timing, velocity=velocity)))
+
     # -- mixer / effects --------------------------------------------------
     def list_inserts(self) -> list[dict]:
         r = self.stub.ListInserts(pb.Empty())

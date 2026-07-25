@@ -196,6 +196,9 @@ public:
     int  apiDuplicateClip (int trackId, int index, double atBeat);  // atBeat<0 => right after; -> new index
     bool apiReverseClip (int trackId, int index);                   // reverse notes (MIDI) or audio buffer
     std::vector<Note> apiGetClipNotes (int trackId, int index);     // read-back for tooling/verification
+    bool apiQuantizeClip (int trackId, int index, double grid);     // snap starts to a beat grid
+    bool apiTransposeClip (int trackId, int index, int semitones);
+    bool apiHumanizeClip (int trackId, int index, double timing, double velocity);
 
     // track & clip management
     bool apiRemoveTrack (int id);

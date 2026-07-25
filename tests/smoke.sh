@@ -153,6 +153,21 @@ g -d "{\"track_id\":$CO,\"index\":1,\"at_beat\":-1}" 127.0.0.1:$PORT gloopy.v1.G
 CLIPN=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t.get('name')=='clipops'))")
 [ "$CLIPN" = 3 ] || { echo "smoke: DuplicateClip wrong clip count ($CLIPN, expected 3)" >&2; exit 1; }
 echo "smoke: PASS — DuplicateClip (clipops track now has 3 clips)"
+# Piano-roll note ops (quantize/transpose) on an off-grid clip, verified via GetClipNotes.
+g -d "{\"track_id\":$CO,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\
+\"notes\":[{\"pitch\":60,\"start_beat\":0.1,\"length_beats\":1,\"velocity\":0.8},\
+{\"pitch\":64,\"start_beat\":0.6,\"length_beats\":1,\"velocity\":0.8}]}" \
+    127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null   # appended as a new clip index
+NQ=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t.get('name')=='clipops')-1)")
+g -d "{\"track_id\":$CO,\"index\":$NQ,\"grid\":0.25}" 127.0.0.1:$PORT gloopy.v1.Gloopy/QuantizeClip >/dev/null
+g -d "{\"track_id\":$CO,\"index\":$NQ,\"semitones\":12}" 127.0.0.1:$PORT gloopy.v1.Gloopy/TransposeClip >/dev/null
+g -d "{\"track_id\":$CO,\"index\":$NQ}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "
+import json,sys
+d=json.load(sys.stdin)['notes']
+got=sorted((n['pitch'],round(n.get('startBeat',0.0),3)) for n in d)
+assert got==[(72,0.0),(76,0.5)], 'quantize/transpose wrong: '+str(got)
+print('smoke: PASS — quantize+transpose note ops (%s)'%got)
+" || { echo "smoke: piano-roll note ops wrong" >&2; exit 1; }
 g -d "{\"id\":$CO}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   # isolate: drop the scratch track
 
 g -d "{\"path\":\"$WAV\",\"tail_seconds\":1.0,\"start_beat\":0,\"end_beat\":4}" \
