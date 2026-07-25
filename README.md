@@ -13,19 +13,34 @@ bounce it to a WAV.
 
 - **Linear arranger** — tracks arranged down a timeline; every clip owns its own
   content (MIDI notes or audio), positioned and looped independently.
-- **Track types** — *instrument* (synth, sampler, or a hosted plugin), *audio*
-  (import and play `.wav` clips with waveforms), and *MIDI out*.
-- **Sound sources** — a one-shot **Sampler** (drag in a `.wav`) and a polyphonic
-  **Synth** (waveform + ADSR). Ships with a procedurally-generated drum kit so
-  it makes sound out of the box.
+- **Track types** — *instrument* (synth, sampler, an **SFZ** instrument, or a
+  hosted plugin), *audio* (import and play `.wav` clips with waveforms), and
+  *MIDI out*.
+- **Sound sources** — a one-shot **Sampler** (drag in a `.wav`), a polyphonic
+  **Synth** (waveform + ADSR), and a vendored **sfizz** SFZ player. Ships with a
+  procedurally-generated drum kit so it makes sound out of the box.
 - **Plugin hosting** — load **VST3** and **LV2** instruments and effects
   (e.g. [Surge XT](https://surge-synthesizer.github.io/)); native plugin editors
   open when the plugin embeds an X11 UI, otherwise a generic parameter panel.
-- **Clip editor** — the same note model behind a 16-step **grid** and a
-  **piano roll** (toggle STEPS / PIANO), with a black/white key gutter.
-- **Mixer + effects** — tracks route to inserts → master, each with
-  fader/pan/mute/solo/meters and an effect chain (**Gain, Filter, Delay,
-  Reverb**, or any hosted plugin effect).
+- **Piano-roll editing** — the same note model behind a 16-step **grid** and a
+  **piano roll** (toggle STEPS / PIANO). The roll has vertical zoom + scroll,
+  shift-drag **region selection** (move/transform groups), **note auditioning**
+  (hear notes as you click/brush), **ghost notes** from other tracks, a
+  **chord-stamp** tool, one-shot **strum** and **arpeggiate** actions, and
+  **scale highlighting** + snap-to-scale drawing driven by the project scale.
+- **Live arpeggiator** — a non-destructive per-track arp (rate, octaves, gate,
+  mode up/down/up-down/random, **swing**, **hold**) that plays a track's chords as
+  a pattern at playback without altering the clip.
+- **Musical model** — a project **scale** (snap notes to key), a **tempo map**
+  (tempo markers on the ruler), **automation** lanes and an **LFO/modulation**
+  matrix on any parameter, and **MIDI-learn** to bind hardware CCs to any control.
+- **Recording** — arm instrument/audio tracks, record MIDI and audio with a
+  **punch** region and count-in; loop-recording stacks **takes** you can comp,
+  promote, and clean up.
+- **Mixer + effects** — tracks route to inserts → master (plus **aux buses/sends**
+  and recallable **mixer scenes**), each with fader/pan/mute/solo/meters and an
+  effect chain (**Gain, Filter, EQ, Delay, Reverb, Compressor, Bitcrusher,
+  Waveshaper**, or any hosted plugin effect).
 - **Live MIDI input** — play the selected instrument track from a MIDI keyboard;
   Gloopy opens available hardware inputs and exposes a virtual **"Gloopy MIDI In"**
   port that a controller or another app can connect to at any time.
@@ -33,9 +48,14 @@ bounce it to a WAV.
   anything): **gRPC** for structural commands/queries and streamed feedback,
   **OSC** for low-latency live notes and knob turns. See
   [`docs/CONTROL-API.md`](docs/CONTROL-API.md).
-- **Save / Load / Render** — projects persist to a `.gloopy` file (JUCE
-  `ValueTree` → XML) with embedded sample and plugin-state data; `--render`
-  bounces a project to a WAV offline.
+- **Save / Load / Render** — projects persist either to a single `.gloopy` file
+  (JUCE `ValueTree` → XML, with embedded sample and plugin-state data) or to a
+  diff-friendly **composition-as-repo** directory (readable TOML + `.notes`/
+  `.points` + WAV sidecars). `--render` bounces to a WAV offline, and named
+  **export profiles** (mix / range / track / stems) drive batch renders.
+- **Headless + scriptable** — every capability is reachable over the control API,
+  plus offline CLI utilities (`scan`, `analyze`, `inspect`/`validate`/`pack`) and
+  loudness analysis (peak / true-peak / RMS / LUFS) for automation and CI.
 
 ## Building
 
