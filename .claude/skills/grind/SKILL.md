@@ -544,6 +544,13 @@ desktop control wiring the *same* api* op, screenshot-validated. Status:
       rows (chromatic ⇒ off); wired from `apiSetScale` + `refreshUiAfterLoad`. Verified
       by offscreen screenshot (Xvfb capture) — bumped tint 0.10→0.22 alpha for
       readability after the shot showed it too faint.
+    - `[x]` **Note auditioning landed** (commit 1d3c84c): the piano roll plays notes
+      through the edited track's instrument as you interact — click the key gutter (brush
+      down the keys to scrub pitches), draw/move a note (chords sound all voices),
+      re-triggering as pitch changes. AUDITION header toggle (default on). Routed via
+      `apiAuditionNote` → the track's live-MIDI collector (same lock-free path as MIDI-in
+      / OSC), so nothing added to the render thread. Validated: toggle renders + audio
+      callback live (GetDiagnostics) + click path fires. Like FL/Ableton/Cubase.
     - `[x]` **Ghost notes landed + screenshot-validated** (commit): other instrument
       tracks' notes overlapping the edited clip's window are gathered in
       `loadSelectedClipIntoEditor` (mapped to clip-relative beats) and drawn dim behind
