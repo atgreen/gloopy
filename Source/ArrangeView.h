@@ -37,6 +37,9 @@ public:
     std::function<void()> onLoopChanged;
     /** Open the plugin editor for a plugin-instrument track (arg = track index). */
     std::function<void (int)> onOpenTrackEditor;
+    /** Open the live-arpeggiator config menu for an instrument track (arg = track index).
+        The owner builds the menu from apiGetTrackArp / apiSetTrackArp. */
+    std::function<void (int)> onArpMenu;
     /** Right-click clip menu command: (track, clip, command). Commands: "split",
         "duplicate", "reverse", "snapscale", "delete". Owner routes to the api* ops. */
     std::function<void (int, int, const juce::String&)> onClipCommand;
@@ -83,6 +86,7 @@ private:
     std::vector<std::unique_ptr<juce::TextButton>> soloButtons;
     std::vector<std::unique_ptr<juce::TextButton>> editButtons;   // plugin UI (plugin tracks only)
     std::vector<std::unique_ptr<juce::TextButton>> armButtons;    // record-arm (audio tracks only)
+    std::vector<std::unique_ptr<juce::TextButton>> arpButtons;    // live arpeggiator (instrument tracks)
     std::vector<std::unique_ptr<juce::Slider>>     volSliders;
 
     int selTrack { -1 }, selClip { -1 };

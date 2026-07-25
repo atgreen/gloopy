@@ -25,6 +25,7 @@ void ArrangeView::rebuild()
     soloButtons.clear();
     editButtons.clear();
     armButtons.clear();
+    arpButtons.clear();
     volSliders.clear();
     removeAllChildren();
 
@@ -75,6 +76,16 @@ void ArrangeView::rebuild()
         addChildComponent (*arm);
         arm->setVisible (t->type == TrackType::Audio);
         armButtons.push_back (std::move (arm));
+
+        // Live arpeggiator config (instrument tracks) — lights up when the arp is on.
+        auto arp = std::make_unique<juce::TextButton> ("ARP");
+        arp->setColour (juce::TextButton::buttonOnColourId, Palette::accent);
+        arp->setToggleState (t->arp.enabled, juce::dontSendNotification);
+        arp->setTooltip ("Live arpeggiator");
+        arp->onClick = [this, ti] { if (onArpMenu) onArpMenu (ti); };
+        addChildComponent (*arp);
+        arp->setVisible (t->generator != nullptr);
+        arpButtons.push_back (std::move (arp));
     }
 
     setSize (getWidth(), preferredHeight());
@@ -91,6 +102,7 @@ void ArrangeView::resized()
         muteButtons[(size_t) i]->setBounds (headerWidth - 32, y + 6, 26, 20);
         editButtons[(size_t) i]->setBounds (headerWidth - 58, y + 28, 52, 16);
         armButtons [(size_t) i]->setBounds (headerWidth - 90, y + 6, 26, 20);
+        arpButtons [(size_t) i]->setBounds (headerWidth - 34, y + 28, 28, 16);
         volSliders [(size_t) i]->setBounds (12, y + trackHeight - 18, headerWidth - 24, 12);
     }
 }

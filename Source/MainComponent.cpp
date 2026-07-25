@@ -222,6 +222,40 @@ MainComponent::MainComponent (bool headless)
         apiSetPunchRange (en, in, out, countInBeats.load());
         if (arrangeView) arrangeView->repaint();
     };
+    arrangeView->onArpMenu = [this] (int trackIdx)
+    {
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+        const int id = tracks[(size_t) trackIdx]->id;
+        bool en=false; double rate=0.25; int oct=1, mode=0; float gate=0.5f;
+        apiGetTrackArp (id, en, rate, oct, gate, mode);
+
+        juce::PopupMenu m;
+        m.addItem (1, "Arpeggiator", true, en);                       // toggle on/off
+        m.addSeparator();
+        juce::PopupMenu rateM;
+        const std::pair<const char*, double> rates[] = { {"1/4", 1.0}, {"1/8", 0.5}, {"1/16", 0.25}, {"1/32", 0.125} };
+        for (int i = 0; i < 4; ++i) rateM.addItem (10 + i, rates[i].first, true, std::abs (rate - rates[i].second) < 1e-6);
+        m.addSubMenu ("Rate", rateM);
+        juce::PopupMenu octM;
+        for (int o = 1; o <= 4; ++o) octM.addItem (20 + o, juce::String (o) + (o == 1 ? " octave" : " octaves"), true, oct == o);
+        m.addSubMenu ("Octaves", octM);
+        juce::PopupMenu modeM;
+        const char* modes[] = { "Up", "Down", "Up-Down", "Random" };
+        for (int i = 0; i < 4; ++i) modeM.addItem (30 + i, modes[i], true, mode == i);
+        m.addSubMenu ("Mode", modeM);
+
+        m.showMenuAsync (juce::PopupMenu::Options(), [this, id, en, rate, oct, gate, mode] (int r)
+        {
+            if (r == 0) return;
+            bool nen = en; double nrate = rate; int noct = oct, nmode = mode;
+            if      (r == 1)                nen = ! en;
+            else if (r >= 10 && r <= 13)    { nrate = (const double[]){1.0,0.5,0.25,0.125}[r-10]; nen = true; }
+            else if (r >= 21 && r <= 24)    { noct = r - 20; nen = true; }
+            else if (r >= 30 && r <= 33)    { nmode = r - 30; nen = true; }
+            apiSetTrackArp (id, nen, nrate, noct, gate, nmode);
+            if (arrangeView) arrangeView->rebuild();                   // refresh the ARP button lit-state
+        });
+    };
     arrangeView->onClipCommand = [this] (int trackIdx, int clip, const juce::String& cmd)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
