@@ -556,10 +556,18 @@ each shipping with desktop UI + screenshot validation.
     - `[x]` **Strum landed** (commit a4e353e): shared strumNotes transform + apiStrumClip +
       StrumClip RPC + STRUM header button (Shift-click = up) + S/Shift+S keys. Smoke +
       screenshot validated.
-    - `[x]` **Arpeggiate landed** (commit c90da23): shared arpeggiateNotes + apiArpeggiateClip +
-      ArpeggiateClip RPC + ARP header button (Up/Down/Up-Down menu). Smoke + screenshot.
-      NOTE: this is a DESTRUCTIVE one-shot (rewrites the chord clip into a note sequence),
-      not a live/non-destructive MIDI-effect arpeggiator — revisit if a live arp is wanted.
+    - `[x]` **Arpeggiate (destructive one-shot) landed** (commit c90da23): shared arpeggiateNotes
+      + apiArpeggiateClip + ArpeggiateClip RPC + ARP header button (Up/Down/Up-Down menu).
+      Rewrites a chord clip into a note sequence in place. Smoke + screenshot.
+    - `[x]` **LIVE arpeggiator landed** (commits eb28823 + d47b188 + caeec9c + 907ed3d, user-
+      requested): non-destructive per-track MIDI-effect arp. `expandArp` (NoteEdits.h) STEP-
+      SAMPLES the held notes at each rate step (chord arpeggiates, single note repeats, octaves
+      cycle, overlaps included — matches Ableton/Logic per research). Per-track ArpSpec
+      (enabled/rate/octaves/gate/mode) played via transient Clip::arpNotes swapped under the
+      lock (audio thread stays arp-logic-free); recomputed on edit/set/load; persisted.
+      SetTrackArp/GetTrackArp RPCs + Python. UI: per-track ARP button + config menu. Verified:
+      unit tests + smoke render-diff + screenshot. Follow-ups possible: swing, hold/latch,
+      more note-orders (converge/diverge/as-played), triplet/dotted rates.
     - `[x]` **Snap-to-scale-while-drawing landed** (commit 9be97f6): SCALE header toggle snaps
       drawn/moved pitches to the project scale (roll scaleMask). Wave 6 Tier-1 batch COMPLETE.
     - `[x]` **Vertical zoom + scroll landed** (commit 5daac0e, user request): dynamic pitch
