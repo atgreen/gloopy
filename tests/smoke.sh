@@ -91,6 +91,27 @@ echo "smoke: PASS — snap-to-scale moved C# into C major ($SP)"
 g -d "{\"id\":$ST}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 g -d '{"root":0,"name":"chromatic"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetScale >/dev/null   # reset
 
+# Modulation matrix: an LFO on a synth cutoff must change the render vs a static
+# cutoff. Dedicated track + two renders, then cleaned up.
+MT=$(g -d '{"name":"modtest","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.2,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$MT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\"notes\":[{\"pitch\":72,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"id\":\"track/$MT/synth/cutoff\",\"value\":1500}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null
+g -d "{\"path\":\"$WORK/mod_base.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"target\":\"track/$MT/synth/cutoff\",\"rate\":6.0,\"depth\":1400,\"center\":1500,\"shape\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetModulation >/dev/null
+g -d "{\"path\":\"$WORK/mod_lfo.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes())
+    return [int.from_bytes(f[i:i+3],'little',signed=True)/(1<<23) for i in range(0,len(f),3)]
+a=rd('$WORK/mod_base.wav');b=rd('$WORK/mod_lfo.wav');m=min(len(a),len(b))
+d=sum(abs(a[i]-b[i]) for i in range(m))/max(1,m)
+assert d>0.003,'modulation did not change the render (diff=%.5f)'%d
+print('smoke: PASS — cutoff LFO changes the render (mean abs diff %.4f)'%d)
+" || { echo "smoke: modulation had no audible effect" >&2; exit 1; }
+g -d "{\"target\":\"track/$MT/synth/cutoff\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveModulation >/dev/null
+g -d "{\"id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
 g -d "{\"track_id\":$TID,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\
 \"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":0.9},\
 {\"pitch\":64,\"start_beat\":1,\"length_beats\":1,\"velocity\":0.9},\

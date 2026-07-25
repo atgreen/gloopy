@@ -265,6 +265,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
     man.blank().table ("locations").str ("file", "locations.toml");
     man.blank().table ("exports").str ("file", "exports.toml");
     man.blank().table ("scenes").str ("file", "scenes.toml");
+    man.blank().table ("mods").str ("file", "mods.toml");
     ctx.writeText ("gloopy.toml", man.str());
 
     // --- per-track files ---
@@ -493,6 +494,20 @@ bool MainComponent::saveComposition (const juce::File& dir)
           .strArray ("inserts", insEnc).blank();
     }
     ctx.writeText ("scenes.toml", sw.str());
+
+    // --- modulation matrix (LFO -> param) ---
+    toml::Writer mdw;
+    auto modsT = root.getChildWithName ("MODS");
+    for (int i = 0; i < modsT.getNumChildren(); ++i)
+    {
+        auto mv = modsT.getChild (i);
+        if (! mv.hasType ("MOD")) continue;
+        mdw.arrayItem ("mods").str ("target", mv.getProperty ("target").toString())
+           .number ("rate", mv.getProperty ("rate", 1.0)).number ("depth", mv.getProperty ("depth", 0.0))
+           .number ("center", mv.getProperty ("center", 0.0)).integer ("shape", (int) mv.getProperty ("shape", 0))
+           .blank();
+    }
+    ctx.writeText ("mods.toml", mdw.str());
 
     ctx.writeText (".gitignore", kGitignore);
     ctx.prune();
@@ -772,9 +787,25 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
     root.addChild (tracksTree, -1, nullptr);
     root.addChild (mixerTree, -1, nullptr);
     root.addChild (autoTree, -1, nullptr);
+    // Modulation matrix.
+    juce::ValueTree modTree ("MODS");
+    if (auto mdDoc = toml::parse (dir.getChildFile ("mods.toml").loadFileAsString());
+        auto* ms = mdDoc.array ("mods"))
+        for (auto& md : *ms)
+        {
+            juce::ValueTree mv ("MOD");
+            mv.setProperty ("target", md.getString ("target"), nullptr);
+            mv.setProperty ("rate", md.getDouble ("rate", 1.0), nullptr);
+            mv.setProperty ("depth", md.getDouble ("depth", 0.0), nullptr);
+            mv.setProperty ("center", md.getDouble ("center", 0.0), nullptr);
+            mv.setProperty ("shape", md.getInt ("shape", 0), nullptr);
+            modTree.addChild (mv, -1, nullptr);
+        }
+
     root.addChild (locTree, -1, nullptr);
     root.addChild (expTree, -1, nullptr);
     root.addChild (sceneTree, -1, nullptr);
+    root.addChild (modTree, -1, nullptr);
 
     currentProjectFile = manifest;   // so relative sample/SFZ paths resolve against the dir
     undoSuppressed = true;

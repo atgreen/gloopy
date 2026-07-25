@@ -330,6 +330,21 @@ class Gloopy:
     def set_parameter(self, id: str, value: float) -> None:
         self._ack(self.stub.SetParameter(pb.ParameterSet(id=id, value=value)))
 
+    # -- modulation matrix (LFO -> parameter) -----------------------------
+    def set_modulation(self, target: str, rate: float, depth: float,
+                       shape: int = 0, center: float = 0.0) -> None:
+        """LFO on a ParamModel target: value = center + depth*osc(rate*t). shape 0=sine 1=tri 2=saw 3=square."""
+        self._ack(self.stub.SetModulation(pb.ModRoute(
+            target=target, rate=rate, depth=depth, center=center, shape=shape)))
+
+    def remove_modulation(self, target: str) -> None:
+        self._ack(self.stub.RemoveModulation(pb.ModTarget(target=target)))
+
+    def list_modulations(self) -> list[dict]:
+        r = self.stub.ListModulations(pb.Empty())
+        return [{"target": m.target, "rate": m.rate, "depth": m.depth,
+                 "center": m.center, "shape": m.shape} for m in r.mods]
+
     # -- scales -----------------------------------------------------------
     def set_scale(self, root: int = 0, name: str = "", intervals: Iterable[int] = ()) -> None:
         """Set the project scale by built-in name (major/minor/dorian/...) or explicit intervals."""

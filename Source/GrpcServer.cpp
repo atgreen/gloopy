@@ -317,6 +317,24 @@ namespace
             return Status::OK;
         }
 
+        // ---- modulation matrix ----
+        Status SetModulation (ServerContext*, const pb::ModRoute* q, pb::Ack* r) override
+        { const bool ok = main.apiSetModulation (js (q->target()), q->rate(), q->depth(), q->shape(), q->center());
+          r->set_ok (ok); if (! ok) r->set_error ("invalid modulation target"); return Status::OK; }
+        Status RemoveModulation (ServerContext*, const pb::ModTarget* q, pb::Ack* r) override
+        { const bool ok = main.apiRemoveModulation (js (q->target()));
+          r->set_ok (ok); if (! ok) r->set_error ("modulation not found"); return Status::OK; }
+        Status ListModulations (ServerContext*, const pb::Empty*, pb::ModList* r) override
+        {
+            for (auto& m : main.apiListModulations())
+            {
+                auto* o = r->add_mods();
+                o->set_target (m.target.toStdString()); o->set_rate (m.rate);
+                o->set_depth (m.depth); o->set_center (m.center); o->set_shape (m.shape);
+            }
+            return Status::OK;
+        }
+
         // ---- universal parameter model ----
         static void fillParam (pb::ParameterInfo* pi, const MainComponent::ParamDesc& d)
         {

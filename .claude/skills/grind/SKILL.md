@@ -349,6 +349,17 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
    readable composition files; expose over gRPC.
    *Done when:* an LFO modulating a filter-cutoff param audibly moves it in a render;
    routes round-trip.
+   - `[x]` **LFO landed** (`Source/Modulation.cpp`, commit): `Mod{target,rate,depth,
+     center,shape}` LFO on any ParamModel id — `value = center + depth*osc(rate·t)`,
+     shapes sine/tri/saw/square. `evaluateModulation(timeSeconds)` runs on the audio
+     thread **under engineLock, mirroring `evaluateAutomation`'s shape**, driven off
+     the playhead so renders are deterministic; a new lock-held `applyParamValue`
+     writes any ParamModel id directly (audio-thread-safe, no message thread).
+     `apiSetModulation`(upsert)/`apiRemoveModulation`/`apiListModulations`. Serialised
+     (MODS/MOD + composition `mods.toml`). RPCs + Python. Verified: cutoff LFO changes
+     the render (mean abs diff 0.033), shapes differ, round-trips. **Not yet:**
+     envelope sources, tempo-sync, phase offset, unipolar/smoothing, multiple LFOs per
+     target, plugin-param targets.
 
 10. **Tempo & time-signature map.** ✦ **M**
     *Ardour #13.* Tempo / time-signature changes on the timeline, stored as tempo

@@ -330,6 +330,21 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
                 response_deserializer=gloopy__pb2.AutomationList.FromString,
                 _registered_method=True)
+        self.SetModulation = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetModulation',
+                request_serializer=gloopy__pb2.ModRoute.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.RemoveModulation = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RemoveModulation',
+                request_serializer=gloopy__pb2.ModTarget.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.ListModulations = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ListModulations',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.ModList.FromString,
+                _registered_method=True)
         self.ListParameters = channel.unary_unary(
                 '/gloopy.v1.Gloopy/ListParameters',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -836,6 +851,26 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetModulation(self, request, context):
+        """modulation matrix (LFO -> ParamModel target)
+        upsert by target
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RemoveModulation(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListModulations(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ListParameters(self, request, context):
         """universal parameter model — one flat, stable, string-addressed view of every
         automatable value (see ParameterInfo.id grammar).
@@ -1296,6 +1331,21 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.GetAutomation,
                     request_deserializer=gloopy__pb2.Empty.FromString,
                     response_serializer=gloopy__pb2.AutomationList.SerializeToString,
+            ),
+            'SetModulation': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetModulation,
+                    request_deserializer=gloopy__pb2.ModRoute.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'RemoveModulation': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemoveModulation,
+                    request_deserializer=gloopy__pb2.ModTarget.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ListModulations': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListModulations,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.ModList.SerializeToString,
             ),
             'ListParameters': grpc.unary_unary_rpc_method_handler(
                     servicer.ListParameters,
@@ -3017,6 +3067,87 @@ class Gloopy:
             '/gloopy.v1.Gloopy/GetAutomation',
             gloopy__pb2.Empty.SerializeToString,
             gloopy__pb2.AutomationList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetModulation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetModulation',
+            gloopy__pb2.ModRoute.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RemoveModulation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RemoveModulation',
+            gloopy__pb2.ModTarget.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListModulations(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ListModulations',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.ModList.FromString,
             options,
             channel_credentials,
             insecure,

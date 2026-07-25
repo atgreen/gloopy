@@ -1377,6 +1377,10 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     if (playing && ! automationLanes.empty())
         evaluateAutomation ((double) blockStartPlayhead / juce::jmax (1.0, spb));
 
+    // LFO modulation is driven off the playhead time so a render is deterministic.
+    if (! modulations.empty())
+        evaluateModulation ((double) blockStartPlayhead / juce::jmax (1.0, currentSampleRate));
+
     // Seek (from dragging the playhead) — applies whether playing or stopped.
     double seekBeats = 0.0;
     if (transport.consumeSeek (seekBeats))
@@ -2296,6 +2300,17 @@ juce::ValueTree MainComponent::toValueTree()
         scs.addChild (sv, -1, nullptr);
     }
     root.addChild (scs, -1, nullptr);
+
+    juce::ValueTree mods ("MODS");
+    for (auto& m : modulations)
+    {
+        juce::ValueTree mv ("MOD");
+        mv.setProperty ("target", m.target, nullptr); mv.setProperty ("rate", m.rate, nullptr);
+        mv.setProperty ("depth", m.depth, nullptr);   mv.setProperty ("center", m.center, nullptr);
+        mv.setProperty ("shape", m.shape, nullptr);
+        mods.addChild (mv, -1, nullptr);
+    }
+    root.addChild (mods, -1, nullptr);
     return root;
 }
 
@@ -2394,6 +2409,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     locations.clear();
     exportProfiles.clear();
     mixerScenes.clear();
+    modulations.clear();
     automationLanes.clear();
     nextTrackId = 0;
 
@@ -2658,6 +2674,17 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             sc.inserts.push_back (std::move (in));
         }
         mixerScenes.push_back (std::move (sc));
+    }
+
+    auto mods = root.getChildWithName ("MODS");
+    for (int i = 0; i < mods.getNumChildren(); ++i)
+    {
+        auto mv = mods.getChild (i);
+        modulations.push_back ({ mv.getProperty ("target").toString(),
+                                 (float) (double) mv.getProperty ("rate", 1.0),
+                                 (float) (double) mv.getProperty ("depth", 0.0),
+                                 (float) (double) mv.getProperty ("center", 0.0),
+                                 (int) mv.getProperty ("shape", 0) });
     }
 
     transport.setBpm ((double) root.getProperty ("bpm", 128.0));
