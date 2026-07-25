@@ -566,7 +566,9 @@ each shipping with desktop UI + screenshot validation.
       (enabled/rate/octaves/gate/mode) played via transient Clip::arpNotes swapped under the
       lock (audio thread stays arp-logic-free); recomputed on edit/set/load; persisted.
       SetTrackArp/GetTrackArp RPCs + Python. UI: per-track ARP button + config menu. Verified:
-      unit tests + smoke render-diff + screenshot. Follow-ups possible: swing, hold/latch,
+      unit tests + smoke render-diff + screenshot. SWING + HOLD added (commit 1026514):
+      swing delays every other step; hold latches the last chord across rests / fills the
+      clip. Both in ArpSpec + API + menu + persisted + unit-tested. Follow-ups possible:
       more note-orders (converge/diverge/as-played), triplet/dotted rates.
     - `[x]` **Snap-to-scale-while-drawing landed** (commit 9be97f6): SCALE header toggle snaps
       drawn/moved pitches to the project scale (roll scaleMask). Wave 6 Tier-1 batch COMPLETE.
