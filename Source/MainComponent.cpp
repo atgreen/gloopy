@@ -163,6 +163,24 @@ MainComponent::MainComponent (bool headless)
     addAndMakeVisible (mixerButton);
     mixerButton.onClick = [this] { openMixer(); };
 
+    // ---- project scale selector (drives snap-to-scale + piano-roll highlight) ----
+    {
+        const char* roots[] = { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B" };
+        for (int i = 0; i < 12; ++i) scaleRootBox.addItem (roots[i], i + 1);
+        const char* names[] = { "chromatic","major","minor","harmonic-minor","melodic-minor",
+                                "dorian","phrygian","lydian","mixolydian","locrian",
+                                "pentatonic-major","pentatonic-minor","blues","whole-tone" };
+        for (int i = 0; i < (int) (sizeof (names) / sizeof (names[0])); ++i)
+            scaleNameBox.addItem (names[i], i + 1);
+        scaleRootBox.setTooltip ("Project scale root");
+        scaleNameBox.setTooltip ("Project scale — highlights in-scale rows and drives Snap to scale");
+        scaleRootBox.onChange = [this] { applyScaleFromToolbar(); };
+        scaleNameBox.onChange = [this] { applyScaleFromToolbar(); };
+        addAndMakeVisible (scaleRootBox);
+        addAndMakeVisible (scaleNameBox);
+        refreshScaleToolbar();
+    }
+
     // ---- arrange view ----
     arrangeView = std::make_unique<ArrangeView> (tracks, transport, engineLock);
     arrangeView->onClipSelected = [this] (int t, int c) { selectClip (t, c); };
@@ -2020,7 +2038,9 @@ void MainComponent::resized()
     addAudioBtn  .setBounds (bar.removeFromLeft (68)); bar.removeFromLeft (5);
     addPluginBtn .setBounds (bar.removeFromLeft (72));
     mixerButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (6);
-    loopButton   .setBounds (bar.removeFromRight (54));
+    loopButton   .setBounds (bar.removeFromRight (54)); bar.removeFromRight (12);
+    scaleNameBox .setBounds (bar.removeFromRight (128).reduced (0, 4)); bar.removeFromRight (4);
+    scaleRootBox .setBounds (bar.removeFromRight (52).reduced (0, 4));
 
     // Arrangement | divider | editor.
     Component* comps[] = { &arrangeViewport, dividerBar.get(), &editorPanel };
@@ -2828,6 +2848,7 @@ void MainComponent::refreshUiAfterLoad()
 
     selTrack = selClip = -1;
     editorPanel.roll.setScale (scaleRoot, scaleIntervals);   // reflect a loaded project's scale
+    refreshScaleToolbar();                                   // and the toolbar combos
     editorPanel.roll.setEnabledEditing (false);
     editorPanel.roll.loadNotes ({});
     editorPanel.steps.setEnabledEditing (false);

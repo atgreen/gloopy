@@ -413,6 +413,10 @@ private:
     juce::TextButton addPluginBtn  { "+ Plugin" };
     juce::TextButton loopButton    { "Loop" };
     juce::TextButton mixerButton   { "Mixer" };
+    juce::ComboBox   scaleRootBox;                 // C..B    — project scale selector
+    juce::ComboBox   scaleNameBox;                 // chromatic/major/minor/...
+    void applyScaleFromToolbar();                  // reads both boxes -> apiSetScale
+    void refreshScaleToolbar();                    // model -> both boxes (after load)
 
     juce::OwnedArray<juce::DocumentWindow> pluginWindows;
     bool pluginsScanned { false };

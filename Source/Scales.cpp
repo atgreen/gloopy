@@ -72,6 +72,30 @@ void MainComponent::apiGetScale (int& root, juce::String& name, std::vector<int>
     });
 }
 
+// Toolbar scale selector -> model. Reads both combo boxes and applies via the same
+// apiSetScale the control API uses, so the UI and scripts set scales identically.
+void MainComponent::applyScaleFromToolbar()
+{
+    const int root = juce::jmax (0, scaleRootBox.getSelectedId() - 1);   // 0=C
+    const juce::String name = scaleNameBox.getText();
+    if (name.isNotEmpty())
+        apiSetScale (root, name, {});   // resolve intervals from the built-in name
+}
+
+// Model -> toolbar (after load / NewProject), without re-firing onChange.
+void MainComponent::refreshScaleToolbar()
+{
+    int root; juce::String name; std::vector<int> iv;
+    apiGetScale (root, name, iv);
+    scaleRootBox.setSelectedId (juce::jlimit (1, 12, root + 1), juce::dontSendNotification);
+    for (int i = 1; i <= scaleNameBox.getNumItems(); ++i)
+        if (scaleNameBox.getItemText (i - 1).equalsIgnoreCase (name))
+        {
+            scaleNameBox.setSelectedId (scaleNameBox.getItemId (i - 1), juce::dontSendNotification);
+            break;
+        }
+}
+
 int MainComponent::snapPitchToScale (int pitch) const
 {
     // Allowed pitch classes for the current scale.

@@ -509,8 +509,9 @@ desktop control wiring the *same* api* op, screenshot-validated. Status:
 - `[x]` **Clip ops split/duplicate/reverse/snap-to-scale** — right-click arrange-view
   clip context menu → routes to apiSplitClip/apiDuplicateClip/apiReverseClip/
   apiSnapClipToScale (commit 9f33668).
-- `[ ]` **Project scale selector** (SetScale/GetScale) — toolbar dropdown (root + name);
-  also drives the piano-roll scale highlight. NEXT.
+- `[x]` **Project scale selector** (SetScale/GetScale) — toolbar root + scale-name combos
+  wired to apiSetScale; drives the piano-roll highlight + snap-to-scale; refreshes from
+  the model on load (commit). Screenshot-validated (dorian tint + GetScale readback).
 - `[ ]` **Modulation / LFO matrix** (SetModulation/RemoveModulation) — a mod-matrix panel.
 - `[ ]` **MIDI-learn / controller rack** (AddControllerMap/MidiLearn) — right-click a
   param → Learn (see #19 below; backend done, UI flagged).
