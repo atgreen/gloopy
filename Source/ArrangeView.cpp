@@ -400,11 +400,16 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         if (onClipSelected) onClipSelected (track, hit);
         repaint();
 
-        bool isMidi = false;
+        bool isMidi = false, isTake = false, isMutedTake = false;
         {
             const juce::ScopedLock sl (engineLock);
             if (juce::isPositiveAndBelow (hit, (int) tracks[(size_t) track]->clips.size()))
-                isMidi = ! tracks[(size_t) track]->clips[(size_t) hit].isAudio();
+            {
+                const auto& cl = tracks[(size_t) track]->clips[(size_t) hit];
+                isMidi = ! cl.isAudio();
+                isTake = cl.takeId.isNotEmpty();
+                isMutedTake = isTake && cl.muted;
+            }
         }
 
         juce::PopupMenu m;
@@ -412,6 +417,13 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addItem (2, "Duplicate");
         m.addItem (3, "Reverse");
         m.addItem (4, "Snap to scale", isMidi);
+        if (isTake)
+        {
+            m.addSeparator();
+            m.addItem (5, "Use this take", isMutedTake);    // comp: make this the active take
+            m.addItem (6, "Promote take (keep)");           // move raw scratch -> recordings
+            m.addItem (7, "Clean up unused takes");
+        }
         m.addSeparator();
         m.addItem (9, "Delete");
         const int t = track, c = hit;
@@ -422,6 +434,9 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                             : r == 2 ? "duplicate"
                             : r == 3 ? "reverse"
                             : r == 4 ? "snapscale"
+                            : r == 5 ? "usetake"
+                            : r == 6 ? "promotetake"
+                            : r == 7 ? "cleanuptakes"
                             :          "delete";
             if (onClipCommand) onClipCommand (t, c, cmd);
         });

@@ -231,6 +231,30 @@ MainComponent::MainComponent (bool headless)
         else if (cmd == "reverse")   apiReverseClip (id, clip);
         else if (cmd == "snapscale") apiSnapClipToScale (id, clip);
         else if (cmd == "delete")    apiRemoveClip (id, clip);
+        else if (cmd == "cleanuptakes") apiCleanupTakes();
+        else if (cmd == "promotetake")
+        {
+            juce::String takeId;
+            { const juce::ScopedLock sl (engineLock);
+              auto& cl = tracks[(size_t) trackIdx]->clips;
+              if (juce::isPositiveAndBelow (clip, (int) cl.size())) takeId = cl[(size_t) clip].takeId; }
+            if (takeId.isNotEmpty()) apiPromoteTake (takeId);
+        }
+        else if (cmd == "usetake")
+        {
+            // Comp selection: activate this take, mute its siblings (same anchor).
+            pushUndoSnapshot();
+            { const juce::ScopedLock sl (engineLock);
+              auto& cl = tracks[(size_t) trackIdx]->clips;
+              if (juce::isPositiveAndBelow (clip, (int) cl.size()))
+              {
+                  const double anchor = cl[(size_t) clip].startBeat;
+                  for (auto& c : cl)
+                      if (c.takeId.isNotEmpty() && std::abs (c.startBeat - anchor) < 1e-6)
+                          c.muted = (&c != &cl[(size_t) clip]);
+              } }
+            emitChange ("clip_changed", id);
+        }
         if (arrangeView) arrangeView->repaint();
     };
     arrangeViewport.setViewedComponent (arrangeView.get(), false);
