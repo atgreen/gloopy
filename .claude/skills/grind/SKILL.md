@@ -553,6 +553,15 @@ each shipping with desktop UI + screenshot validation.
       rows (chromatic ⇒ off); wired from `apiSetScale` + `refreshUiAfterLoad`. Verified
       by offscreen screenshot (Xvfb capture) — bumped tint 0.10→0.22 alpha for
       readability after the shot showed it too faint.
+    - `[x]` **Strum landed** (commit a4e353e): shared strumNotes transform + apiStrumClip +
+      StrumClip RPC + STRUM header button (Shift-click = up) + S/Shift+S keys. Smoke +
+      screenshot validated.
+    - `[x]` **Vertical zoom + scroll landed** (commit 5daac0e, user request): dynamic pitch
+      window (viewRows/viewTop over A0..C8); wheel scrolls, Ctrl/Cmd+wheel zooms (cursor-
+      anchored); default ~2.5x more zoomed + auto-frames the clip's notes on load.
+    - `[x]` **Region selection landed** (commit db8e145, user request): shift-drag marquee
+      selects notes (gold highlight); shift-click toggles; group-move / Q/H/S/arrows /
+      Delete act on the selection. Screenshot + functional validated (group move).
     - `[x]` **Note auditioning landed** (commit 1d3c84c): the piano roll plays notes
       through the edited track's instrument as you interact — click the key gutter (brush
       down the keys to scrub pitches), draw/move a note (chords sound all voices),
