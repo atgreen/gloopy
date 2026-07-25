@@ -5,6 +5,7 @@
 
 #include <JuceHeader.h>
 #include <vector>
+#include <array>
 #include <functional>
 #include "Note.h"
 #include "NoteEdits.h"
@@ -36,6 +37,10 @@ public:
     const std::vector<Note>& getNotes() const noexcept { return notes; }
 
     void setEnabledEditing (bool shouldEdit) { editable = shouldEdit; repaint(); }
+
+    /** Highlight the rows of the project scale (root 0..11 + semitone intervals).
+        A chromatic (all-12) scale disables the highlight. */
+    void setScale (int root, const std::vector<int>& intervals);
 
     /** The visible/editable length in beats (a clip's content length). */
     void setLength (double beats) { editLength = juce::jmax (0.25, beats); repaint(); }
@@ -69,6 +74,8 @@ private:
 
     Transport& transport;
     std::vector<Note> notes;
+    std::array<bool, 12> scaleMask { };   // pitch classes in the project scale
+    bool  scaleActive { false };          // a non-chromatic scale is highlighted
     bool editable { true };
     double editLength { 4.0 };     // visible length in beats (clip content length)
     bool   showPlayhead { false };

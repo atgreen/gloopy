@@ -10,6 +10,15 @@ PianoRoll::PianoRoll (Transport& transportToUse) : transport (transportToUse)
     startTimerHz (60); // playhead animation
 }
 
+void PianoRoll::setScale (int root, const std::vector<int>& intervals)
+{
+    scaleMask.fill (false);
+    for (int i : intervals) scaleMask[(size_t) ((((root + i) % 12) + 12) % 12)] = true;
+    int count = 0; for (bool b : scaleMask) if (b) ++count;
+    scaleActive = (count > 0 && count < 12);   // a real (non-chromatic) scale
+    repaint();
+}
+
 bool PianoRoll::keyPressed (const juce::KeyPress& key)
 {
     if (! editable || notes.empty()) return false;
@@ -159,6 +168,12 @@ void PianoRoll::paint (juce::Graphics& g)
         const float y = yForPitch (pitch);
         g.setColour (isBlackKey (pitch) ? Palette::inset : Palette::panel);
         g.fillRect (gx, y, w - gx, rh);
+
+        if (scaleActive && scaleMask[(size_t) (((pitch % 12) + 12) % 12)])   // tint in-scale rows
+        {
+            g.setColour (Palette::accent.withAlpha (0.10f));
+            g.fillRect (gx, y, w - gx, rh);
+        }
 
         if (pitch % 12 == 0)   // C rows get a divider line
         {

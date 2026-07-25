@@ -2796,6 +2796,7 @@ void MainComponent::refreshUiAfterLoad()
     refreshTrackIds();
 
     selTrack = selClip = -1;
+    editorPanel.roll.setScale (scaleRoot, scaleIntervals);   // reflect a loaded project's scale
     editorPanel.roll.setEnabledEditing (false);
     editorPanel.roll.loadNotes ({});
     editorPanel.steps.setEnabledEditing (false);

@@ -506,8 +506,12 @@ effect-chain presets) as part of #16.
       GetClipNotes) and the PianoRoll UI (keyboard: Q/Shift+Q quantize 1/16·1/8, ↑/↓
       ±1 & Shift ±12 transpose, H humanize). RPCs + Python client. Verified headless
       (0.1→0.0, 60→72, jitter ≤±0.02). **UI needs visual eval.** **Not yet:**
-      knife/strum tools, ghost notes, scale highlight, step recording, velocity-tool
+      knife/strum tools, ghost notes, step recording, velocity-tool
       drag, per-note selection ops.
+    - `[~]` **Scale highlighting landed** (commit): `PianoRoll::setScale(root,intervals)`
+      builds a 12-pitch-class mask; `paint()` tints in-scale rows (chromatic ⇒ off);
+      wired from `apiSetScale` + `refreshUiAfterLoad` (Wave 4 #11 scale model). **Pure
+      visual — build-verified + smoke-no-regression only; needs eyeballing.**
 18. **Richer sampler controls + cached waveform thumbnails** — start/end/loop/reverse,
     root note, choke group, fades, interpolation; a multi-resolution peak cache keyed
     by path+mtime+size, reused across clips/sampler/browser/exports *(Idea #6/#7)*. **M/L**
