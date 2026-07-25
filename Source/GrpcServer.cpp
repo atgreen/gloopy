@@ -420,6 +420,15 @@ namespace
         Status ImportMidi (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
         { const int n = main.apiImportMidi (js (q->path()));
           r->set_ok (n >= 0); if (n < 0) r->set_error ("midi import failed (unreadable or not a MIDI file)"); return Status::OK; }
+        Status AnalyzeFile (ServerContext*, const pb::FilePath* q, pb::LoudnessReport* r) override
+        {
+            MainComponent::LoudnessReport rep;
+            if (! main.apiAnalyzeFile (js (q->path()), rep))
+                return Status (grpc::StatusCode::NOT_FOUND, "unreadable audio file");
+            r->set_peak_dbfs (rep.peakDbfs); r->set_true_peak_dbtp (rep.truePeakDbtp);
+            r->set_rms_dbfs (rep.rmsDbfs);   r->set_lufs (rep.lufs);
+            return Status::OK;
+        }
 
         // ---- timeline locations ----
         Status AddLocation (ServerContext*, const pb::TimelineLocation* q, pb::Ack* r) override

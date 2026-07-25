@@ -194,6 +194,8 @@ message ModTarget { string target = 1; }
 
 // ── project / state ────────────────────────────────────────
 message FilePath { string path = 1; }
+// Offline loudness report (ITU-R BS.1770 / EBU R128).
+message LoudnessReport { float peak_dbfs = 1; float true_peak_dbtp = 2; float rms_dbfs = 3; float lufs = 4; }
 message RenderRequest {                       // offline bounce to WAV
   string path = 1;
   double tail_seconds = 2;
@@ -349,6 +351,7 @@ service Gloopy {
   rpc RenderToFile(RenderRequest) returns (Ack);   // offline bounce to WAV
   rpc ExportMidi (FilePath) returns (Ack);         // all instrument tracks -> Type-1 SMF
   rpc ImportMidi (FilePath) returns (Ack);         // SMF -> synth tracks + clips
+  rpc AnalyzeFile(FilePath) returns (LoudnessReport);   // offline peak/true-peak/RMS/LUFS
 
   // events (playhead, meters) — closed-loop control
   rpc Subscribe  (SubscribeRequest) returns (stream Event);

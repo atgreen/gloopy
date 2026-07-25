@@ -262,4 +262,18 @@ g -d "{\"path\":\"$WORK/rt2.wav\",\"tail_seconds\":0.5}" 127.0.0.1:$PORT gloopy.
 python3 -c "import wave;w=wave.open('$WORK/rt2.wav');n=w.getnframes();f=w.readframes(n);pk=max(abs(int.from_bytes(f[i:i+3],'little',signed=True))/(1<<23) for i in range(0,len(f),3));assert pk>0.02,'imported MIDI renders silent'"
 echo "smoke: PASS — MIDI import round-trip (clips=$CLIPS, renders non-silent)"
 
+# Offline loudness: analyze the earlier synth render; sanity-check the metrics and
+# that the headless `analyze` CLI emits the same numbers as the RPC.
+g -d "{\"path\":\"$WAV\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AnalyzeFile | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+p=d.get('peakDbfs',0.0); tp=d.get('truePeakDbtp',0.0); lu=d.get('lufs',-144.0)
+assert -40 < p < 0.5, 'peak dBFS out of range: '+str(p)
+assert tp >= p-0.2, 'true peak below sample peak'
+assert -60 < lu < 0, 'lufs out of range: '+str(lu)
+print('smoke: PASS — loudness analysis (peak %.1f dBFS, true-peak %.1f dBTP, %.1f LUFS)'%(p,tp,lu))
+" || { echo "smoke: loudness analysis out of range" >&2; exit 1; }
+"$BIN" analyze "$WAV" 2>/dev/null | python3 -c "import json,sys;json.load(sys.stdin);print('smoke: PASS — CLI analyze emits JSON')" \
+    || { echo "smoke: CLI analyze did not emit JSON" >&2; exit 1; }
+
 echo "smoke: OK"

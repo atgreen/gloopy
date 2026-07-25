@@ -393,6 +393,15 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
     later (for slicing).
     *Done when:* `RenderToFile` optionally returns/writes a report; the numbers match a
     known test signal within tolerance.
+    - `[x]` **Landed** (`Source/Loudness.cpp`, commit): `apiAnalyzeFile` computes
+      peak (dBFS), true-peak (dBTP, 4x windowed-sinc oversampled), RMS (dBFS), and
+      integrated LUFS (ITU-R BS.1770 — hand-rolled RBJ K-weighting biquads correct at
+      any rate + gated 400ms/100ms blocks, abs −70 / rel −10). No juce_dsp, no
+      audio-thread. `AnalyzeFile` RPC + `gloopy analyze <wav>` CLI (JSON) + Python
+      `analyze_file`. Verified against a −20 dBFS 1 kHz tone (peak −20.0, RMS −23.01,
+      LUFS −23.26 vs ~−23.6 ref) and the smoke render. **Not yet:** wire into
+      `RenderToFile`'s return / `gloopy validate` (render+analyze), transient/onset
+      detection, momentary/short-term LUFS + LRA.
 
 13. **Plugin scan cache + CLI scan.** **S/M**
     *Ardour #15.* Persist scan results (id, name, format, path, vendor, category,

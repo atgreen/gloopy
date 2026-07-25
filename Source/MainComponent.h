@@ -130,6 +130,12 @@ public:
     juce::String apiInspectJson();               // structural summary as JSON
     juce::String apiValidateJson (bool& ok);     // problems as JSON; ok=false if any errors
 
+    // --- offline loudness analysis (Loudness.cpp) ---
+    // Peak (sample), true-peak (4x oversampled), RMS, and integrated LUFS
+    // (ITU-R BS.1770 / EBU R128: K-weighting + gated mean of 400ms blocks).
+    struct LoudnessReport { float peakDbfs, truePeakDbtp, rmsDbfs, lufs; };
+    bool apiAnalyzeFile (const juce::String& path, LoudnessReport& out);   // false if unreadable
+
     // --- MIDI file import/export (Midi.cpp) ---
     bool apiExportMidi (const juce::String& path);   // all instrument tracks -> a Type-1 SMF
     int  apiImportMidi (const juce::String& path);   // SMF -> synth tracks + clips; count, or -1

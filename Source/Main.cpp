@@ -157,6 +157,23 @@ public:
 
         // Headless composition utilities: gloopy <inspect|validate|pack> <project> [out]
         // Reuse the GUI/gRPC load paths; emit stable JSON on stdout; no control ports.
+        // Headless loudness analysis: gloopy analyze <file.wav> -> JSON
+        if (args.size() >= 2 && args[0] == "analyze")
+        {
+            std::unique_ptr<MainComponent> comp;
+            MainComponent::LoudnessReport rep;
+            bool ok; { CoutSilencer s; comp = std::make_unique<MainComponent> (true);   // headless CLI mode
+                       ok = comp->apiAnalyzeFile (resolve (args[1]).getFullPathName(), rep); }
+            int rc = 0;
+            if (ok)
+                std::cout << "{ \"peak_dbfs\": " << rep.peakDbfs << ", \"true_peak_dbtp\": " << rep.truePeakDbtp
+                          << ", \"rms_dbfs\": " << rep.rmsDbfs << ", \"lufs\": " << rep.lufs << " }" << std::endl;
+            else { std::cerr << "analyze: cannot read " << args[1] << "\n"; rc = 1; }
+            setApplicationReturnValue (rc);
+            quit();
+            return;
+        }
+
         if (args.size() >= 2 && (args[0] == "inspect" || args[0] == "validate" || args[0] == "pack"))
         {
             std::unique_ptr<MainComponent> comp;

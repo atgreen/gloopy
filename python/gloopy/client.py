@@ -462,6 +462,12 @@ class Gloopy:
         """Load a standard MIDI file as synth tracks + clips."""
         self._ack(self.stub.ImportMidi(pb.FilePath(path=path)))
 
+    def analyze_file(self, path: str) -> dict:
+        """Offline loudness of a WAV: peak/true-peak (dBFS/dBTP), RMS (dBFS), integrated LUFS."""
+        r = self.stub.AnalyzeFile(pb.FilePath(path=path))
+        return {"peak_dbfs": r.peak_dbfs, "true_peak_dbtp": r.true_peak_dbtp,
+                "rms_dbfs": r.rms_dbfs, "lufs": r.lufs}
+
     def render(self, path: str, tail_seconds: float = 0.0, start_beat: float = 0.0,
                end_beat: float = 0.0, track_id: Optional[int] = None,
                range_name: str = "") -> None:

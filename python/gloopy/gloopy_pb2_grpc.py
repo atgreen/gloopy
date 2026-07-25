@@ -465,6 +465,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.FilePath.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.AnalyzeFile = channel.unary_unary(
+                '/gloopy.v1.Gloopy/AnalyzeFile',
+                request_serializer=gloopy__pb2.FilePath.SerializeToString,
+                response_deserializer=gloopy__pb2.LoudnessReport.FromString,
+                _registered_method=True)
         self.Subscribe = channel.unary_stream(
                 '/gloopy.v1.Gloopy/Subscribe',
                 request_serializer=gloopy__pb2.SubscribeRequest.SerializeToString,
@@ -1027,6 +1032,13 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def AnalyzeFile(self, request, context):
+        """offline peak/true-peak/RMS/LUFS
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Subscribe(self, request, context):
         """events (playhead, meters) — closed-loop control
         """
@@ -1466,6 +1478,11 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.ImportMidi,
                     request_deserializer=gloopy__pb2.FilePath.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'AnalyzeFile': grpc.unary_unary_rpc_method_handler(
+                    servicer.AnalyzeFile,
+                    request_deserializer=gloopy__pb2.FilePath.FromString,
+                    response_serializer=gloopy__pb2.LoudnessReport.SerializeToString,
             ),
             'Subscribe': grpc.unary_stream_rpc_method_handler(
                     servicer.Subscribe,
@@ -3796,6 +3813,33 @@ class Gloopy:
             '/gloopy.v1.Gloopy/ImportMidi',
             gloopy__pb2.FilePath.SerializeToString,
             gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AnalyzeFile(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/AnalyzeFile',
+            gloopy__pb2.FilePath.SerializeToString,
+            gloopy__pb2.LoudnessReport.FromString,
             options,
             channel_credentials,
             insecure,
