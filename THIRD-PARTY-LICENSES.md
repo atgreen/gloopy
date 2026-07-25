@@ -32,3 +32,19 @@ Notes:
   Steinberg VST3 SDK) are disabled.
 - JUCE (fetched at build time, not vendored here) is used under its GPL/AGPL
   terms — the reason Gloopy is AGPL-3.0.
+
+## Bundled instrument (sample data)
+
+Gloopy also vendors one sampled instrument, used by the built-in **Piano + Bass +
+Drums** template:
+
+| Component | License | Attribution | In-tree |
+|-----------|---------|-------------|---------|
+| **Salamander Grand Piano V3** (Yamaha C5, OggVorbis) | CC-BY 3.0 | Alexander Holm; retuned by Markus Fiedler | `third_party/SalamanderGrandPiano/` (see its `README`) |
+
+- The Salamander Grand Piano is licensed under the Creative Commons Attribution
+  3.0 license (<https://creativecommons.org/licenses/by/3.0/>). CC-BY permits
+  redistribution — including inside this AGPL-3.0 work — provided attribution is
+  preserved, which the table above and the vendored `README` satisfy. The samples
+  are data, not linked code, so they place no license obligation on Gloopy's own
+  source.

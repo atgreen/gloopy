@@ -1412,20 +1412,39 @@ juce::StringArray MainComponent::builtinTemplateNames() const
     return { "Starter Beat", "Piano + Bass + Drums", "Drum Kit", "Lead + Bass" };
 }
 
-// Locate an installed piano SFZ for the Piano template — prefer Salamander Grand Piano
-// under ~/sfz, else any *piano*.sfz there. Empty File if none (caller falls back to synth).
+// Locate the Piano-template SFZ. Prefer the vendored Salamander Grand Piano (Retuned)
+// that ships with Gloopy; fall back to a copy next to the executable, then to ~/sfz.
+// Empty File if none (caller falls back to a synth patch).
 juce::File MainComponent::findPianoSfz() const
 {
-    auto dir = juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("sfz");
-    if (! dir.isDirectory()) return {};
-    for (auto* pref : { "SalamanderGrandPianoV3_OggVorbis/SalamanderGrandPianoV3.sfz",
-                        "SalamanderGrandPianoV3_OggVorbis/SalamanderGrandPianoV3Retuned.sfz" })
+    const juce::String vendored = "SalamanderGrandPiano/SalamanderGrandPianoV3Retuned.sfz";
+
+   #ifdef GLOOPY_ASSETS_DIR
     {
-        auto f = dir.getChildFile (pref);
+        auto f = juce::File (GLOOPY_ASSETS_DIR).getChildFile (vendored);
         if (f.existsAsFile()) return f;
     }
-    auto hits = dir.findChildFiles (juce::File::findFiles, true, "*iano*.sfz");
-    return hits.isEmpty() ? juce::File() : hits[0];
+   #endif
+    // Next to the executable (installed / relocated builds).
+    {
+        auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
+        auto f = exeDir.getChildFile ("assets").getChildFile (vendored);
+        if (f.existsAsFile()) return f;
+    }
+    // The user's own ~/sfz collection.
+    auto dir = juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("sfz");
+    if (dir.isDirectory())
+    {
+        for (auto* pref : { "SalamanderGrandPianoV3_OggVorbis/SalamanderGrandPianoV3Retuned.sfz",
+                            "SalamanderGrandPianoV3_OggVorbis/SalamanderGrandPianoV3.sfz" })
+        {
+            auto f = dir.getChildFile (pref);
+            if (f.existsAsFile()) return f;
+        }
+        auto hits = dir.findChildFiles (juce::File::findFiles, true, "*iano*.sfz");
+        if (! hits.isEmpty()) return hits[0];
+    }
+    return {};
 }
 
 void MainComponent::buildTemplate (const juce::String& name)

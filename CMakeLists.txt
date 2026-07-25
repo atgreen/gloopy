@@ -72,7 +72,8 @@ target_compile_definitions(Gloopy PUBLIC
     JUCE_PLUGINHOST_LV2=1         # host LV2 plugins
     JUCE_PLUGINHOST_AU=0
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:Gloopy,JUCE_PRODUCT_NAME>"
-    JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:Gloopy,JUCE_VERSION>")
+    JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:Gloopy,JUCE_VERSION>"
+    GLOOPY_ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/third_party")   # vendored assets (bundled piano)
 
 target_link_libraries(Gloopy PRIVATE
     juce::juce_audio_utils
