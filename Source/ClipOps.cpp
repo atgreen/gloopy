@@ -206,6 +206,49 @@ bool MainComponent::apiCropClip (int trackId, int index, double startBeat, doubl
     });
 }
 
+// Flatten a looped MIDI clip: write out the notes of every repetition as explicit
+// notes at their absolute positions, then un-loop the clip (contentLen = length).
+// This "bakes" what you hear into editable notes so each repetition can diverge.
+// MIDI clips only; a one-shot (non-looped, or content >= length) clip is already
+// flat, so it's a no-op success. Mirrors the render's beat-space tiling (collectClip).
+bool MainComponent::apiConsolidateClip (int trackId, int index)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        pushUndoSnapshot();
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+            Clip& c = t->clips[(size_t) index];
+            if (c.isAudio()) return false;                       // MIDI clips only
+            const double content = c.contentLenBeats > 0.0 ? c.contentLenBeats : c.lengthBeats;
+            if (c.looped && content > 0.0 && content < c.lengthBeats - 1.0e-9)
+            {
+                std::vector<Note> flat;
+                for (double off = 0.0; off < c.lengthBeats - 1.0e-9; off += content)
+                    for (auto& n : c.notes)
+                    {
+                        const double onset = off + n.startBeat;
+                        if (onset >= c.lengthBeats - 1.0e-9) continue;   // starts at/after the clip end
+                        Note nn = n;
+                        nn.startBeat   = onset;
+                        nn.lengthBeats = juce::jmin (n.lengthBeats, c.lengthBeats - onset);   // don't ring past the clip
+                        flat.push_back (nn);
+                    }
+                c.notes = std::move (flat);
+            }
+            c.contentLenBeats = c.lengthBeats;
+            c.looped          = false;
+        }
+        if (t->arp.enabled) applyArpToTrack (*t);
+        emitChange ("clip_changed", trackId);
+        if (arrangeView) arrangeView->repaint();
+        return true;
+    });
+}
+
 // Set an audio clip's playback gain (dB). Audio clips only — MIDI dynamics are per-note
 // velocity. false if the clip isn't found or isn't audio.
 bool MainComponent::apiSetClipGain (int trackId, int index, float gainDb)

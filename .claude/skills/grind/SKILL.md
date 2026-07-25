@@ -346,8 +346,18 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      crops to the transport loop — screenshot-validated on both. smoke proves MIDI
      [0,1,2,3]→crop[1,3) keeps 62@0/64@1 + rejects empty ranges, and that an audio clip
      cropped [2,4) saves as start=2/len=2 with the buffer cut to exactly the 2-beat window.
-     **Not yet:** consolidate, bounce-in-place; split-at-named-marker; fade curve shapes
-     (linear only).
+   - `[x]` **Consolidate landed** (commit): `apiConsolidateClip(trackId,index)` flattens a
+     looped MIDI clip — it writes out every repetition's notes as explicit notes at their
+     absolute positions (mirroring the render's beat-space tiling in `collectClip`;
+     onsets past the clip end dropped, tails truncated to the clip) and un-loops the clip
+     (`contentLen`=`length`, `looped`=false), so each repetition can then diverge. A
+     one-shot clip is already flat (no-op success); MIDI only. ConsolidateClip RPC (ClipRef)
+     + Python. **Desktop UI:** "Consolidate loops" on the arrange-view clip menu, enabled
+     only for MIDI clips that actually tile (looped + content<length) — screenshot-validated.
+     smoke proves a 2-beat content tiled over 4 beats → notes at 0/1/2/3 and the clip saves
+     un-looped (content=len=4).
+     **Not yet:** bounce-in-place; split-at-named-marker; fade curve shapes (linear only);
+     audio-clip consolidate (audio clips are one-shot, no loop-tiling yet).
 
 7. **Buses & sends.** ✦ **L**
    *Ardour #8.* Explicit bus tracks; tracks route to a bus before master; per-send

@@ -318,6 +318,25 @@ assert abs(f1-want) < 0.03*want, 'buffer not cut to the 2-beat window: %d frames
 print('smoke: PASS — audio CropClip -> start=%g len=%g, buffer trimmed to %d frames (2 beats @ %g bpm)'%(st,ln,f1,bpm))
 " || { echo 'smoke: audio CropClip did not trim/move correctly' >&2; exit 1; }
 g -d "{\"id\":$AUT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+# ConsolidateClip: a looped clip (2-beat content, notes at 0/1, tiled over 4 beats)
+# flattens to explicit notes at 0/1/2/3 and un-loops (content becomes length).
+CN=$(g -d '{"name":"contest","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$CN,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":2,\"looped\":true,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":0.5,\"velocity\":0.8},{\"pitch\":62,\"start_beat\":1,\"length_beats\":0.5,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"track_id\":$CN,\"index\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/ConsolidateClip >/dev/null
+g -d "{\"track_id\":$CN,\"index\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "
+import json,sys
+ns=sorted((round(n.get('startBeat',0),3),n['pitch']) for n in json.load(sys.stdin)['notes'])
+assert ns==[(0.0,60),(1.0,62),(2.0,60),(3.0,62)], 'consolidate wrong: %s'%ns
+print('smoke: PASS — ConsolidateClip flattened 2 reps to notes at 0/1/2/3')
+" || { echo 'smoke: ConsolidateClip flattened wrong' >&2; exit 1; }
+g -d "{\"path\":\"$WORK/consol.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+python3 -c "
+import xml.etree.ElementTree as ET
+c=[c for c in ET.parse('$WORK/consol.gloopy').getroot().iter('CLIP') if len(list(c))==4][0]
+assert c.get('looped')=='0' and abs(float(c.get('content'))-4.0)<1e-6, 'not un-looped: looped=%s content=%s'%(c.get('looped'),c.get('content'))
+print('smoke: PASS — consolidated clip is un-looped (content=len=4)')
+" || { echo 'smoke: ConsolidateClip did not un-loop' >&2; exit 1; }
+g -d "{\"id\":$CN}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 # Piano-roll note ops (quantize/transpose) on an off-grid clip, verified via GetClipNotes.
 g -d "{\"track_id\":$CO,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\
 \"notes\":[{\"pitch\":60,\"start_beat\":0.1,\"length_beats\":1,\"velocity\":0.8},\

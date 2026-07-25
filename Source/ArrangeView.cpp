@@ -419,7 +419,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         if (onClipSelected) onClipSelected (track, hit);
         repaint();
 
-        bool isMidi = false, isTake = false, isMutedTake = false;
+        bool isMidi = false, isTake = false, isMutedTake = false, isLoopedMidi = false;
         {
             const juce::ScopedLock sl (engineLock);
             if (juce::isPositiveAndBelow (hit, (int) tracks[(size_t) track]->clips.size()))
@@ -428,6 +428,8 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 isMidi = ! cl.isAudio();
                 isTake = cl.takeId.isNotEmpty();
                 isMutedTake = isTake && cl.muted;
+                isLoopedMidi = isMidi && cl.looped && cl.contentLenBeats > 0.0
+                               && cl.contentLenBeats < cl.lengthBeats - 1.0e-9;   // actually tiles
             }
         }
 
@@ -437,6 +439,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addItem (3, "Reverse");
         m.addItem (4, "Snap to scale", isMidi);
         m.addItem (13, "Crop to loop region", transport.isLoopEnabled());   // MIDI notes or audio buffer
+        m.addItem (14, "Consolidate loops", isLoopedMidi);   // bake looped repetitions into notes
         if (! isMidi)                                   // audio-clip level ops
         {
             m.addItem (10, "Normalize");                // to -1 dBFS
@@ -463,6 +466,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                             : r == 3  ? "reverse"
                             : r == 4  ? "snapscale"
                             : r == 13 ? "croploop"
+                            : r == 14 ? "consolidate"
                             : r == 10 ? "normalize"
                             : r == 5  ? "usetake"
                             : r == 6  ? "promotetake"
