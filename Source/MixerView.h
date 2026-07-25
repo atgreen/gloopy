@@ -36,6 +36,16 @@ public:
     std::function<void (const juce::String&, float, float, int, float)> onSetModulation;   // target, rate, depth, shape, syncBeats
     std::function<void (const juce::String&)>                     onRemoveModulation;
 
+    // Control groups (VCA-lite): the strip name's right-click menu creates/assigns
+    // groups and rides the group fader. Wired by the owner to the apiControlGroup* calls.
+    struct GroupState { juce::String name; float gain; bool mute; };
+    std::function<std::vector<GroupState>()>       onListGroups;   // all groups + their state
+    std::function<juce::String (int)>              onInsertGroup;  // an insert's current group ("" = none)
+    std::function<void (int, const juce::String&)> onAssignGroup;  // assign insert -> group ("" clears; defines if new)
+    std::function<void (const juce::String&, float)> onGroupGain;  // set a group's fader
+    std::function<void (const juce::String&, bool)>  onGroupMute;  // set a group's mute
+    std::function<void (const juce::String&)>        onRemoveGroup;
+
     // Plugin hooks (wired by the owner).
     std::function<void()>                                       ensurePlugins;
     std::function<juce::Array<juce::PluginDescription>()>       getEffectPlugins;
@@ -49,6 +59,8 @@ private:
     void timerCallback() override;
     void showParamMenu (const juce::String& target, const juce::String& label);   // MIDI Learn / LFO
     void promptAddLfo (const juce::String& target);                               // rate/depth/shape prompt
+    void showGroupMenu (int insertIndex);                                         // VCA-lite: assign / gain / mute
+    void promptNewGroup (int insertIndex);                                        // name entry -> assign
     void showFxMenu (int trackIndex);
     void selectEffect (int trackIndex, int effectIndex);
     void rebuildEditor();

@@ -385,6 +385,36 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.SetSendRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.DefineControlGroup = channel.unary_unary(
+                '/gloopy.v1.Gloopy/DefineControlGroup',
+                request_serializer=gloopy__pb2.ControlGroupGain.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.SetControlGroupGain = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetControlGroupGain',
+                request_serializer=gloopy__pb2.ControlGroupGain.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.SetControlGroupMute = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetControlGroupMute',
+                request_serializer=gloopy__pb2.ControlGroupMute.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.AssignInsertToGroup = channel.unary_unary(
+                '/gloopy.v1.Gloopy/AssignInsertToGroup',
+                request_serializer=gloopy__pb2.GroupAssign.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.RemoveControlGroup = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RemoveControlGroup',
+                request_serializer=gloopy__pb2.GroupName.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.ListControlGroups = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ListControlGroups',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.ControlGroupList.FromString,
+                _registered_method=True)
         self.DefineMixerScene = channel.unary_unary(
                 '/gloopy.v1.Gloopy/DefineMixerScene',
                 request_serializer=gloopy__pb2.SceneName.SerializeToString,
@@ -1118,6 +1148,46 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DefineControlGroup(self, request, context):
+        """control groups (VCA-lite) — a group fader that scales its member inserts
+        upsert a group with a gain
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetControlGroupGain(self, request, context):
+        """set an existing group's fader
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetControlGroupMute(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AssignInsertToGroup(self, request, context):
+        """group="" clears membership
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RemoveControlGroup(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListControlGroups(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def DefineMixerScene(self, request, context):
         """mixer scenes — named snapshots of the mixer strip (recall on demand)
         snapshot current mixer (upsert)
@@ -1830,6 +1900,36 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.SetSend,
                     request_deserializer=gloopy__pb2.SetSendRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'DefineControlGroup': grpc.unary_unary_rpc_method_handler(
+                    servicer.DefineControlGroup,
+                    request_deserializer=gloopy__pb2.ControlGroupGain.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetControlGroupGain': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetControlGroupGain,
+                    request_deserializer=gloopy__pb2.ControlGroupGain.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetControlGroupMute': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetControlGroupMute,
+                    request_deserializer=gloopy__pb2.ControlGroupMute.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'AssignInsertToGroup': grpc.unary_unary_rpc_method_handler(
+                    servicer.AssignInsertToGroup,
+                    request_deserializer=gloopy__pb2.GroupAssign.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'RemoveControlGroup': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemoveControlGroup,
+                    request_deserializer=gloopy__pb2.GroupName.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ListControlGroups': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListControlGroups,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.ControlGroupList.SerializeToString,
             ),
             'DefineMixerScene': grpc.unary_unary_rpc_method_handler(
                     servicer.DefineMixerScene,
@@ -3998,6 +4098,168 @@ class Gloopy:
             '/gloopy.v1.Gloopy/SetSend',
             gloopy__pb2.SetSendRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DefineControlGroup(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/DefineControlGroup',
+            gloopy__pb2.ControlGroupGain.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetControlGroupGain(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetControlGroupGain',
+            gloopy__pb2.ControlGroupGain.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetControlGroupMute(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetControlGroupMute',
+            gloopy__pb2.ControlGroupMute.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AssignInsertToGroup(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/AssignInsertToGroup',
+            gloopy__pb2.GroupAssign.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RemoveControlGroup(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RemoveControlGroup',
+            gloopy__pb2.GroupName.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListControlGroups(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ListControlGroups',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.ControlGroupList.FromString,
             options,
             channel_credentials,
             insecure,

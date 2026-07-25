@@ -115,6 +115,14 @@ message ParamList { repeated Param params = 1; }
 message SceneName { string name = 1; }
 message SceneList { repeated string names = 1; }
 
+// ── control groups (VCA-lite) ──────────────────────────────
+message ControlGroupGain { string name = 1; float gain = 2; }        // gain 0..1 (also defines the group)
+message ControlGroupMute { string name = 1; bool mute = 2; }
+message GroupAssign      { int32 insert = 1; string group = 2; }     // group="" clears membership
+message GroupName        { string name = 1; }
+message ControlGroupInfo { string name = 1; float gain = 2; bool mute = 3; int32 members = 4; }
+message ControlGroupList { repeated ControlGroupInfo groups = 1; }
+
 // ── universal parameter model ──────────────────────────────
 // A single flat, stable, string-addressed descriptor for any automatable value.
 // id grammar:
@@ -375,6 +383,14 @@ service Gloopy {
   rpc AddBus  (AddBusRequest)  returns (TrackId);    // TrackId.id = the new bus's insert index
   rpc RemoveBus (TrackId)      returns (Ack);        // TrackId.id = the bus's insert index; re-indexes sends
   rpc SetSend (SetSendRequest) returns (Ack);
+
+  // control groups (VCA-lite) — a group fader that scales its member inserts
+  rpc DefineControlGroup  (ControlGroupGain) returns (Ack);   // upsert a group with a gain
+  rpc SetControlGroupGain (ControlGroupGain) returns (Ack);   // set an existing group's fader
+  rpc SetControlGroupMute (ControlGroupMute) returns (Ack);
+  rpc AssignInsertToGroup (GroupAssign)      returns (Ack);   // group="" clears membership
+  rpc RemoveControlGroup  (GroupName)        returns (Ack);
+  rpc ListControlGroups   (Empty)            returns (ControlGroupList);
 
   // mixer scenes — named snapshots of the mixer strip (recall on demand)
   rpc DefineMixerScene(SceneName) returns (Ack);   // snapshot current mixer (upsert)

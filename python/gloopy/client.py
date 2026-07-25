@@ -338,6 +338,29 @@ class Gloopy:
         """Aux send from an insert to a bus at level (level<=0 removes)."""
         self._ack(self.stub.SetSend(pb.SetSendRequest(insert=insert, bus=bus, level=level)))
 
+    # -- control groups (VCA-lite) ----------------------------------------
+    def define_control_group(self, name: str, gain: float = 1.0) -> None:
+        """Create/update a control group whose fader scales its member inserts."""
+        self._ack(self.stub.DefineControlGroup(pb.ControlGroupGain(name=name, gain=gain)))
+
+    def set_control_group_gain(self, name: str, gain: float) -> None:
+        self._ack(self.stub.SetControlGroupGain(pb.ControlGroupGain(name=name, gain=gain)))
+
+    def set_control_group_mute(self, name: str, mute: bool) -> None:
+        self._ack(self.stub.SetControlGroupMute(pb.ControlGroupMute(name=name, mute=mute)))
+
+    def assign_insert_to_group(self, insert: int, group: str) -> None:
+        """Assign an insert to a control group (group='' clears membership)."""
+        self._ack(self.stub.AssignInsertToGroup(pb.GroupAssign(insert=insert, group=group)))
+
+    def remove_control_group(self, name: str) -> None:
+        self._ack(self.stub.RemoveControlGroup(pb.GroupName(name=name)))
+
+    def list_control_groups(self) -> list:
+        """List control groups as (name, gain, mute, members) tuples."""
+        return [(g.name, g.gain, g.mute, g.members)
+                for g in self.stub.ListControlGroups(pb.Empty()).groups]
+
     # -- mixer scenes (named snapshots) -----------------------------------
     def define_mixer_scene(self, name: str) -> None:
         """Snapshot the current mixer strip (vol/pan/mute/solo + effect bypass)."""

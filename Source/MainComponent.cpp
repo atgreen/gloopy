@@ -365,6 +365,23 @@ MainComponent::MainComponent (bool headless)
     };
     mixerView->onRemoveModulation   = [this] (const juce::String& target) { apiRemoveModulation (target); };
 
+    // Control groups (VCA-lite): the mixer strip name menu drives the apiControlGroup* calls.
+    mixerView->onListGroups  = [this]
+    {
+        std::vector<MixerView::GroupState> out;
+        for (auto& g : apiListControlGroups()) out.push_back ({ g.name, g.gain, g.mute });
+        return out;
+    };
+    mixerView->onInsertGroup = [this] (int insert) -> juce::String
+    {
+        const juce::ScopedLock sl (engineLock);
+        return juce::isPositiveAndBelow (insert, (int) mixerTracks.size()) ? mixerTracks[(size_t) insert]->group : juce::String();
+    };
+    mixerView->onAssignGroup = [this] (int insert, const juce::String& grp) { apiAssignInsertToGroup (insert, grp); };
+    mixerView->onGroupGain   = [this] (const juce::String& grp, float gain) { apiDefineControlGroup (grp, gain); };
+    mixerView->onGroupMute   = [this] (const juce::String& grp, bool mute)  { apiSetControlGroupMute (grp, mute); };
+    mixerView->onRemoveGroup = [this] (const juce::String& grp) { apiRemoveControlGroup (grp); };
+
     // Start with an EMPTY project — no default tracks. Use File -> New from Template
     // (or the browser sidebar) to seed a drum kit / starter beat / lead+bass.
 
@@ -2031,7 +2048,16 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
 
         const bool audible = ! mt.mute.load() && (! anyTrackSolo || mt.solo.load());
         if (! audible) continue;
-        const float v = mt.volume.load();
+        float v = mt.volume.load();
+        // VCA-lite: an insert's control group scales its fader; a muted group silences it.
+        if (mt.group.isNotEmpty())
+        {
+            if (auto* grp = findControlGroup (mt.group))
+            {
+                if (grp->mute.load()) continue;
+                v *= grp->gain.load();
+            }
+        }
         const float pan = mt.pan.load();
         const float theta = (pan + 1.0f) * 0.25f * juce::MathConstants<float>::pi;
         master.buffer.addFrom (0, 0, mt.buffer, 0, 0, num, v * std::cos (theta));
@@ -2759,6 +2785,7 @@ juce::ValueTree MainComponent::toValueTree()
         t.setProperty ("mute", mt->mute.load(), nullptr);
         t.setProperty ("solo", mt->solo.load(), nullptr);
         if (mt->isBus) t.setProperty ("bus", true, nullptr);
+        if (mt->group.isNotEmpty()) t.setProperty ("group", mt->group, nullptr);
         for (auto& sd : mt->sends)
         {
             juce::ValueTree sv ("SEND");
@@ -2797,6 +2824,17 @@ juce::ValueTree MainComponent::toValueTree()
         mx.addChild (t, -1, nullptr);
     }
     root.addChild (mx, -1, nullptr);
+
+    juce::ValueTree grps ("GROUPS");
+    for (auto& g : controlGroups)
+    {
+        juce::ValueTree gv ("GROUP");
+        gv.setProperty ("name", g->name, nullptr);
+        gv.setProperty ("gain", g->gain.load(), nullptr);
+        gv.setProperty ("mute", g->mute.load(), nullptr);
+        grps.addChild (gv, -1, nullptr);
+    }
+    root.addChild (grps, -1, nullptr);
 
     juce::ValueTree au ("AUTOMATION");
     for (auto& lane : automationLanes)
@@ -2981,6 +3019,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     transport.setPlaying (false);
     tracks.clear();
     mixerTracks.clear();
+    controlGroups.clear();
     locations.clear();
     exportProfiles.clear();
     mixerScenes.clear();
@@ -3157,6 +3196,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             mt->mute.store   ((bool) tv.getProperty ("mute", false));
             mt->solo.store   ((bool) tv.getProperty ("solo", false));
             mt->isBus = (bool) tv.getProperty ("bus", false);
+            mt->group = tv.getProperty ("group", juce::String()).toString();
             mt->buffer.setSize (2, juce::jmax (16, currentBlockSize));
             for (int f = 0; f < tv.getNumChildren(); ++f)
             {
@@ -3208,6 +3248,17 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
         mixerTracks.push_back (std::make_unique<MixerTrack> ("Master"));
         for (int i = 1; i <= 8; ++i)
             mixerTracks.push_back (std::make_unique<MixerTrack> ("Ins " + juce::String (i)));
+    }
+
+    auto grps = root.getChildWithName ("GROUPS");
+    for (int i = 0; i < grps.getNumChildren(); ++i)
+    {
+        auto gv = grps.getChild (i);
+        auto g = std::make_unique<ControlGroup>();
+        g->name = gv.getProperty ("name", "Group").toString();
+        g->gain.store ((float) (double) gv.getProperty ("gain", 1.0));
+        g->mute.store ((bool) gv.getProperty ("mute", false));
+        controlGroups.push_back (std::move (g));
     }
 
     auto au = root.getChildWithName ("AUTOMATION");

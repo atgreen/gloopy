@@ -227,6 +227,26 @@ public:
     bool apiRemoveBus (int busIndex);                                // remove a bus + re-index sends
     bool apiSetSend (int insert, int bus, float level);             // upsert an aux send (level<=0 removes)
 
+    // --- control groups / VCA-lite (ControlGroups.cpp) ---
+    // A named group whose fader SCALES its member inserts' volumes (control scaling,
+    // not audio routing). Members carry the group name on their MixerTrack.
+    struct ControlGroup
+    {
+        juce::String       name;
+        std::atomic<float> gain { 1.0f };
+        std::atomic<bool>  mute { false };
+    };
+    std::vector<std::unique_ptr<ControlGroup>> controlGroups;
+    ControlGroup* findControlGroup (const juce::String& name);      // caller holds engineLock; nullptr if none
+
+    bool apiDefineControlGroup (const juce::String& name, float gain);   // upsert a group (gain, mute=false if new)
+    bool apiSetControlGroupGain (const juce::String& name, float gain);  // set group fader (0..1); false if unknown
+    bool apiSetControlGroupMute (const juce::String& name, bool mute);   // group mute; false if unknown
+    bool apiAssignInsertToGroup (int insert, const juce::String& group); // group="" clears; defines the group if new
+    bool apiRemoveControlGroup (const juce::String& name);              // remove group + clear members
+    struct ControlGroupInfo { juce::String name; float gain; bool mute; int members; };
+    std::vector<ControlGroupInfo> apiListControlGroups();
+
     // --- mixer scenes (MixerScenes.cpp) ---
     // Named snapshots of the mixer strip (insert vol/pan/mute/solo + effect bypass),
     // recallable. Automation stays separate. Stored in the composition.

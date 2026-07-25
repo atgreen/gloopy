@@ -289,6 +289,30 @@ namespace
         { const bool ok = main.apiSetSend (q->insert(), q->bus(), q->level());
           r->set_ok (ok); if (! ok) r->set_error ("invalid send (bad insert/bus, or nothing to remove)"); return Status::OK; }
 
+        // ---- control groups (VCA-lite) ----
+        Status DefineControlGroup (ServerContext*, const pb::ControlGroupGain* q, pb::Ack* r) override
+        { const bool ok = main.apiDefineControlGroup (js (q->name()), q->gain());
+          r->set_ok (ok); if (! ok) r->set_error ("invalid group name"); return Status::OK; }
+        Status SetControlGroupGain (ServerContext*, const pb::ControlGroupGain* q, pb::Ack* r) override
+        { const bool ok = main.apiSetControlGroupGain (js (q->name()), q->gain());
+          r->set_ok (ok); if (! ok) r->set_error ("no such control group"); return Status::OK; }
+        Status SetControlGroupMute (ServerContext*, const pb::ControlGroupMute* q, pb::Ack* r) override
+        { const bool ok = main.apiSetControlGroupMute (js (q->name()), q->mute());
+          r->set_ok (ok); if (! ok) r->set_error ("no such control group"); return Status::OK; }
+        Status AssignInsertToGroup (ServerContext*, const pb::GroupAssign* q, pb::Ack* r) override
+        { const bool ok = main.apiAssignInsertToGroup (q->insert(), js (q->group()));
+          r->set_ok (ok); if (! ok) r->set_error ("invalid insert index"); return Status::OK; }
+        Status RemoveControlGroup (ServerContext*, const pb::GroupName* q, pb::Ack* r) override
+        { const bool ok = main.apiRemoveControlGroup (js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("no such control group"); return Status::OK; }
+        Status ListControlGroups (ServerContext*, const pb::Empty*, pb::ControlGroupList* r) override
+        {
+            for (auto& g : main.apiListControlGroups())
+            { auto* o = r->add_groups(); o->set_name (g.name.toStdString());
+              o->set_gain (g.gain); o->set_mute (g.mute); o->set_members (g.members); }
+            return Status::OK;
+        }
+
         // ---- tempo map ----
         Status AddTempoMarker (ServerContext*, const pb::TempoMarker* q, pb::Ack* r) override
         { const bool ok = main.apiAddTempoMarker (q->beat(), q->bpm());

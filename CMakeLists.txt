@@ -51,6 +51,7 @@ target_sources(Gloopy PRIVATE
     Source/Midi.cpp
     Source/ClipOps.cpp
     Source/MixerScenes.cpp
+    Source/ControlGroups.cpp
     Source/Buses.cpp
     Source/Scales.cpp
     Source/Modulation.cpp

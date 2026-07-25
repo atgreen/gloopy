@@ -51,6 +51,8 @@ public:
         // ignore right-clicks for dragging, so forwarding them here is safe.
         fader.addMouseListener (this, false);
         pan.addMouseListener (this, false);
+        // Right-click the strip name -> control-group (VCA-lite) menu. Not for master.
+        name.addMouseListener (this, false);
     }
 
     void updateMeter()
@@ -69,6 +71,13 @@ public:
             const juce::String field  = (e.eventComponent == &pan) ? "pan" : "volume";
             const juce::String target = "insert/" + juce::String (index) + "/" + field;
             owner.showParamMenu (target, track->name + "  " + field);
+            return;
+        }
+
+        // Right-click the strip name -> control-group menu (inserts only, not master).
+        if (e.mods.isPopupMenu() && e.eventComponent == &name && index > 0)
+        {
+            owner.showGroupMenu (index);
             return;
         }
 
@@ -392,6 +401,77 @@ void MixerView::promptAddLfo (const juce::String& target)
             const float sync  = aw->getTextEditorContents ("sync").getFloatValue();
             const int   shape = aw->getComboBoxComponent ("shape")->getSelectedItemIndex();
             if (rate > 0.0f || sync > 0.0f) onSetModulation (target, rate, depth, juce::jmax (0, shape), juce::jmax (0.0f, sync));
+        }
+        delete aw;
+    }), false);
+}
+
+// VCA-lite: right-clicking a strip name opens this. Create/assign a control group,
+// ride its fader (quantised choices keep it a quick menu), mute or delete it.
+void MixerView::showGroupMenu (int insertIndex)
+{
+    if (! onListGroups || ! onAssignGroup) return;
+    const auto groups  = onListGroups();
+    const juce::String cur = onInsertGroup ? onInsertGroup (insertIndex) : juce::String();
+
+    juce::PopupMenu m;
+    m.addSectionHeader (cur.isNotEmpty() ? "Group: " + cur : "No control group");
+    m.addItem (1, "New group...");
+
+    juce::PopupMenu assign;
+    for (int i = 0; i < (int) groups.size(); ++i)
+        assign.addItem (200 + i, groups[(size_t) i].name, true, groups[(size_t) i].name == cur);
+    if (groups.empty()) assign.addItem (999, "(none yet)", false, false);
+    m.addSubMenu ("Assign to", assign);
+
+    if (cur.isNotEmpty())
+    {
+        m.addItem (2, "Remove from group");
+        juce::PopupMenu gain;
+        const int pcts[] = { 0, 25, 50, 75, 100 };
+        for (int i = 0; i < 5; ++i) gain.addItem (300 + i, juce::String (pcts[i]) + "%");
+        m.addSubMenu ("Group gain", gain);
+        bool muted = false;
+        for (auto& gs : groups) if (gs.name == cur) muted = gs.mute;
+        m.addItem (3, "Mute group", true, muted);
+        m.addSeparator();
+        m.addItem (4, "Delete group");
+    }
+
+    m.showMenuAsync (juce::PopupMenu::Options(), [this, insertIndex, cur, groups] (int r)
+    {
+        if (r == 0) return;
+        if (r == 1) { promptNewGroup (insertIndex); return; }
+        if (r == 2) { onAssignGroup (insertIndex, {}); return; }
+        if (r == 3 && onGroupMute)
+        {
+            bool muted = false;
+            for (auto& gs : groups) if (gs.name == cur) muted = gs.mute;
+            onGroupMute (cur, ! muted);
+            return;
+        }
+        if (r == 4 && onRemoveGroup) { onRemoveGroup (cur); return; }
+        if (r >= 200 && r < 300) { onAssignGroup (insertIndex, groups[(size_t) (r - 200)].name); return; }
+        if (r >= 300 && r < 305 && onGroupGain)
+        {
+            const float pct[] = { 0.0f, 0.25f, 0.5f, 0.75f, 1.0f };
+            onGroupGain (cur, pct[r - 300]);
+        }
+    });
+}
+
+void MixerView::promptNewGroup (int insertIndex)
+{
+    auto* aw = new juce::AlertWindow ("New control group", "Group name", juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("name", "VCA", "Name");
+    aw->addButton ("Create", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, insertIndex] (int r)
+    {
+        if (r == 1 && onAssignGroup)
+        {
+            const juce::String nm = aw->getTextEditorContents ("name").trim();
+            if (nm.isNotEmpty()) onAssignGroup (insertIndex, nm);
         }
         delete aw;
     }), false);

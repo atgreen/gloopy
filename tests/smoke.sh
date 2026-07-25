@@ -848,4 +848,40 @@ assert abs(lv-0.5) < 1e-4, 'scene recall did not restore the send level (got %.3
 print('smoke: PASS — mixer scene restores aux-send level (%.2f)'%lv)
 " || { echo "smoke: mixer scene did not restore send level" >&2; exit 1; }
 
+# Control groups (VCA-lite): a group fader SCALES its member insert. Assign a fresh
+# synth track's insert to a group, set gain 0.5 -> its soloed render drops ~6 dB; group
+# mute -> silent; and the group + membership survive a project round-trip.
+CG=$(g -d '{"name":"vcatk","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.8,"release":0.2,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$CG,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":57,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/cgpre.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+CGI=$(python3 -c "
+import xml.etree.ElementTree as ET
+t=[t for t in ET.parse('$WORK/cgpre.gloopy').getroot().iter('TRACK') if t.get('name')=='vcatk'][0]
+print(t.get('mixerTrack'))")   # the track's routed insert index
+cgpk() { g -d "{\"path\":\"$1\",\"tail_seconds\":0.3,\"start_beat\":0,\"end_beat\":4,\"track_id\":$CG}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null; g -d "{\"path\":\"$1\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AnalyzeFile | python3 -c "import json,sys;print(json.load(sys.stdin).get('peakDbfs',-120))"; }
+CGBASE=$(cgpk "$WORK/cg0.wav")
+g -d "{\"insert\":$CGI,\"group\":\"VCA\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AssignInsertToGroup >/dev/null
+g -d '{"name":"VCA","gain":0.5}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetControlGroupGain >/dev/null
+CGHALF=$(cgpk "$WORK/cg1.wav")
+g -d '{"name":"VCA","mute":true}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetControlGroupMute >/dev/null
+CGMUTE=$(cgpk "$WORK/cg2.wav")
+python3 -c "
+base,half,mute=float('$CGBASE'),float('$CGHALF'),float('$CGMUTE')
+assert abs((base-half)-6.02) < 1.0, 'group gain 0.5 should drop ~6 dB, got %.2f dB'%(base-half)
+assert mute < -60, 'muted group should be silent, got %.1f dBFS'%mute
+print('smoke: PASS — VCA group: gain 0.5 drops %.1f dB, mute silences (%.0f dBFS)'%(base-half,mute))
+" || { echo 'smoke: control-group scaling wrong' >&2; exit 1; }
+g -d '{"name":"VCA","mute":false}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetControlGroupMute >/dev/null
+g -d "{\"path\":\"$WORK/cg.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+python3 -c "
+import xml.etree.ElementTree as ET
+r=ET.parse('$WORK/cg.gloopy').getroot()
+grp=[x for x in r.iter('GROUP') if x.get('name')=='VCA']
+assert grp and abs(float(grp[0].get('gain'))-0.5)<1e-6, 'group gain not saved: %s'%[ (x.get('name'),x.get('gain')) for x in r.iter('GROUP')]
+mem=[m for m in r.iter('MTRACK') if m.get('group')=='VCA']
+assert mem, 'no insert saved with group=VCA'
+print('smoke: PASS — control group + membership round-trip (gain 0.5, %d member)'%len(mem))
+" || { echo 'smoke: control group did not round-trip' >&2; exit 1; }
+g -d "{\"id\":$CG}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
 echo "smoke: OK"

@@ -422,7 +422,20 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      `"bus:level|..."` string in the SCENE/INSERT ValueTree and appended as a 6th field to
      the composition's compact insert string (back-compatible: old 5-field rows parse with
      no sends). smoke.sh: set a send, snapshot, change it, recall -> level restored.
-     **Not yet:** control groups (VCA-lite fader scaling).
+   - `[x]` **Control groups (VCA-lite) landed** (`Source/ControlGroups.cpp`, commit): a named
+     group whose fader SCALES its member inserts' volumes (control scaling, not audio
+     routing — the mix multiplies each insert's `v` by its group's gain and silences it if
+     the group is muted). Membership is a `group` name carried ON the insert
+     (`MixerTrack.group`), so it survives insert re-indexing. `apiDefineControlGroup`/
+     `SetControlGroupGain`/`SetControlGroupMute`/`AssignInsertToGroup`(""=clear, defines if
+     new)/`RemoveControlGroup`/`ListControlGroups` + RPCs + Python. Serialised in the
+     ValueTree (`GROUPS/GROUP` + a `group` attr per `MTRACK`). **Desktop UI:** right-click a
+     mixer strip name -> control-group menu (New group.../Assign to/Group gain 0-100%/Mute/
+     Delete) — screenshot-validated. smoke proves gain 0.5 drops a member's soloed render
+     exactly 6 dB, mute silences it, and the group + membership round-trip (SaveProject).
+     **Not yet:** composition (TOML repo-format) persistence — groups survive `.gloopy`
+     SaveProject but not yet SaveComposition (immediate follow-up); group *solo* (VCA solo);
+     a dedicated group fader strip in the mixer (menu-driven gain for now).
 
 ### Wave 4 — Musical model & modulation
 

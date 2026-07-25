@@ -34,4 +34,10 @@ struct MixerTrack
     struct Send { int bus; float level; };
     std::vector<Send> sends;
     bool isBus { false };
+
+    // VCA-lite: the name of the control group this insert belongs to (empty = none).
+    // The group's fader SCALES this insert's volume in the mix; it is not extra audio
+    // routing. Membership travels with the insert, so it survives insert re-indexing.
+    // Guarded by the engine lock.
+    juce::String group;
 };
