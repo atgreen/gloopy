@@ -20,6 +20,9 @@ message Position { double beats = 1; }
 // ── tempo map ──────────────────────────────────────────────
 message TempoMarker  { double beat = 1; double bpm = 2; }
 message TempoMap     { repeated TempoMarker markers = 1; }
+message TimeSignature { int32 numerator = 1; int32 denominator = 2; double beats_per_bar = 3; }
+message BeatPos      { double beat = 1; }
+message BarBeat      { int32 bar = 1; double beat_in_bar = 2; }   // both 1-based ("1.1")
 message SecondsValue { double seconds = 1; }
 message Loop     { bool enabled = 1; double start_beat = 2; double end_beat = 3; }
 message TransportState { bool playing = 1; double bpm = 2; double position_beats = 3; }
@@ -294,6 +297,12 @@ service Gloopy {
   rpc AddTempoMarker    (TempoMarker)  returns (Ack);   // upsert by beat
   rpc RemoveTempoMarker (TempoMarker)  returns (Ack);   // by beat
   rpc ListTempoMarkers  (Empty)        returns (TempoMap);
+
+  // time signature + bars<->beats conversion
+  rpc SetTimeSignature (TimeSignature) returns (Ack);
+  rpc GetTimeSignature (Empty)         returns (TimeSignature);
+  rpc BeatsToBarBeat   (BeatPos)       returns (BarBeat);   // absolute beat -> bar.beat
+  rpc BarBeatToBeats   (BarBeat)       returns (BeatPos);
   rpc BeatsToSeconds    (Position)     returns (SecondsValue);
   rpc SecondsToBeats    (SecondsValue) returns (Position);
   rpc GetTransport(Empty)    returns (TransportState);

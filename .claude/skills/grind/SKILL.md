@@ -443,9 +443,19 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       `GloopyTests` case asserting the exact integration of a mid-song 120→240 change
       (sample positions 50/100/125/150) + `collectNotes` honouring it, and a `smoke.sh`
       assertion that a mid-song speed-up shortens a fixed 0..4-beat render while staying
-      above half (pre-marker beats preserved). Empty-map smoke suite stays green. **#10
-      done.** **Not yet:** genuine time-*signature* changes (bars↔beats API still assumes
-      4/4) — a separate, smaller slice.
+      above half (pre-marker beats preserved). Empty-map smoke suite stays green.
+    - `[x]` **Time signature landed** (commit): a project time signature on the transport
+      (`{num,denom}`, default 4/4) with `beatsPerBar()` in quarter-note beats (4/4→4,
+      3/4→3, 6/8→3, 7/8→3.5). SetTimeSignature/GetTimeSignature + a bars↔beats conversion
+      API (`BeatsToBarBeat`/`BarBeatToBeats`, 1-based "bar.beat") — the roadmap's "bars/
+      beats↔beats helpers." Serialised (root `tsnum`/`tsden` + composition manifest).
+      The `beatsPerBar` constant in ArrangeView/PlaylistView became a member refreshed
+      from the transport (call sites unchanged), and the "1.1.00" position readout is now
+      time-sig-aware. **Desktop UI:** "Time signature..." on the beat-ruler right-click
+      menu (num/denom prompt) — screenshot-validated (a 12-beat clip spans 4 bars at 3/4,
+      not 3 at 4/4). smoke proves the conversions (4/4 beat6=bar2.3 vs 3/4 beat6=bar3.1,
+      inverse round-trips) + save/reload. **Not yet:** time-signature *map* (per-bar
+      changes), and the PianoRoll/StepEditor internal `%4` bar markers.
 
 11. **Scales & microtuning.** **M**
     *Idea #11.* Project-level scale definitions; per-track tuning mode; piano-roll

@@ -59,6 +59,7 @@ int PlaylistView::clipIndexAt (juce::Point<float> p) const
 // ---------------------------------------------------------------------------
 void PlaylistView::paint (juce::Graphics& g)
 {
+    beatsPerBar = transport.beatsPerBar();
     const auto w = (float) getWidth();
     g.fillAll (Palette::inset);
 

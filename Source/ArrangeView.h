@@ -50,6 +50,7 @@ public:
     std::function<std::vector<std::pair<double, double>>()> getTempoMarkers;   // (beat, bpm)
     std::function<void (double, double)> onAddTempoMarker;                     // beat, bpm
     std::function<void (double)>         onRemoveTempoMarker;                  // beat
+    std::function<void (int, int)>       onSetTimeSignature;                   // numerator, denominator
     /** Recording punch region drawn on the ruler + set by Alt-dragging it (like the
         loop region). getPunchRange fills in/out and returns whether it's enabled;
         onSetPunchRange upserts via apiSetPunchRange. */
@@ -74,13 +75,14 @@ private:
     int    clipAt (int track, juce::Point<float> p) const;
     void   drawClip (juce::Graphics&, const Track&, const Clip&, juce::Rectangle<float>, bool selected) const;
     void   promptAddTempoMarker (double beat);   // AlertWindow BPM prompt -> onAddTempoMarker
+    void   promptTimeSignature();                // AlertWindow num/denom prompt -> onSetTimeSignature
     void   promptClipGain (int track, int clip); // AlertWindow dB prompt -> onClipGain
     void   promptClipFades (int track, int clip); // AlertWindow in/out prompt -> onClipFades
 
     static constexpr int headerWidth = 190;
     static constexpr int rulerHeight  = 22;
     static constexpr int trackHeight  = 64;
-    static constexpr double beatsPerBar = 4.0;
+    double beatsPerBar = 4.0;   // refreshed from the transport's time signature on rebuild/resize/paint
 
     std::vector<std::unique_ptr<Track>>& tracks;
     Transport&             transport;

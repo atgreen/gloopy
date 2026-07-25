@@ -25,6 +25,20 @@ public:
 
     double samplesPerBeat() const noexcept     { return sampleRate * 60.0 / bpm.load(); }
 
+    // Time signature. beatsPerBar() is in quarter-note beats (the note model's unit):
+    // 4/4 -> 4, 3/4 -> 3, 6/8 -> 3, 7/8 -> 3.5.
+    void setTimeSignature (int num, int denom) noexcept
+    {
+        timeSigNum.store   (juce::jlimit (1, 32, num));
+        timeSigDenom.store (juce::jlimit (1, 32, denom));
+    }
+    int    getTimeSigNumerator()   const noexcept { return timeSigNum.load(); }
+    int    getTimeSigDenominator() const noexcept { return timeSigDenom.load(); }
+    double beatsPerBar() const noexcept
+    {
+        return (double) timeSigNum.load() * 4.0 / (double) juce::jmax (1, timeSigDenom.load());
+    }
+
     void setLoopBeats (int b) noexcept         { loopBeats = juce::jmax (1, b); }
     int  getLoopBeats() const noexcept         { return loopBeats.load(); }
 
@@ -73,6 +87,8 @@ public:
 private:
     double sampleRate { 44100.0 };
     std::atomic<double>      bpm            { 120.0 };
+    std::atomic<int>         timeSigNum     { 4 };
+    std::atomic<int>         timeSigDenom   { 4 };
     std::atomic<double>      swing          { 0.5 };
     std::atomic<int>         loopBeats      { 16 };
     std::atomic<bool>        playing        { false };

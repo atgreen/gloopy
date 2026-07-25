@@ -439,6 +439,21 @@ class Gloopy:
     def seconds_to_beats(self, seconds: float) -> float:
         return self.stub.SecondsToBeats(pb.SecondsValue(seconds=seconds)).beats
 
+    def set_time_signature(self, numerator: int, denominator: int) -> None:
+        self._ack(self.stub.SetTimeSignature(pb.TimeSignature(numerator=numerator, denominator=denominator)))
+
+    def get_time_signature(self) -> dict:
+        r = self.stub.GetTimeSignature(pb.Empty())
+        return {"numerator": r.numerator, "denominator": r.denominator, "beats_per_bar": r.beats_per_bar}
+
+    def beats_to_bar_beat(self, beat: float) -> tuple[int, float]:
+        """Absolute beat -> (bar, beat_in_bar), both 1-based."""
+        r = self.stub.BeatsToBarBeat(pb.BeatPos(beat=beat))
+        return (r.bar, r.beat_in_bar)
+
+    def bar_beat_to_beats(self, bar: int, beat_in_bar: float = 1.0) -> float:
+        return self.stub.BarBeatToBeats(pb.BarBeat(bar=bar, beat_in_bar=beat_in_bar)).beat
+
     # -- scales -----------------------------------------------------------
     def set_scale(self, root: int = 0, name: str = "", intervals: Iterable[int] = ()) -> None:
         """Set the project scale by built-in name (major/minor/dorian/...) or explicit intervals."""

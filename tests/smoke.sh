@@ -103,6 +103,23 @@ echo "smoke: PASS — tempo map beats<->seconds (8 beats @120->240 = ${TSEC}s)"
 g -d '{"beat":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTempoMarker >/dev/null
 g -d '{"beat":4}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTempoMarker >/dev/null
 
+# Time signature: bars<->beats conversion follows it. Beat 6 is bar 2.3 in 4/4 but bar
+# 3.1 in 3/4; the inverse round-trips; 6/8 gives 3 beats/bar. Reset to 4/4 after.
+bb() { g -d "{\"beat\":$1}" 127.0.0.1:$PORT gloopy.v1.Gloopy/BeatsToBarBeat | python3 -c "import json,sys;d=json.load(sys.stdin);print(d.get('bar'),round(d.get('beatInBar',0),3))"; }
+read -r B4 X4 <<< "$(bb 6)"
+g -d '{"numerator":3,"denominator":4}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTimeSignature >/dev/null
+read -r B3 X3 <<< "$(bb 6)"
+BPB=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetTimeSignature | python3 -c "import json,sys;print(json.load(sys.stdin).get('beatsPerBar'))")
+INV=$(g -d '{"bar":3,"beat_in_bar":1}' 127.0.0.1:$PORT gloopy.v1.Gloopy/BarBeatToBeats | python3 -c "import json,sys;print(json.load(sys.stdin).get('beat'))")
+python3 -c "
+assert ($B4,$X4)==(2,3.0), '4/4 beat6 should be bar2.3, got $B4.$X4'
+assert ($B3,$X3)==(3,1.0), '3/4 beat6 should be bar3.1, got $B3.$X3'
+assert abs(float('$BPB')-3.0)<1e-6, '3/4 beats_per_bar should be 3, got $BPB'
+assert abs(float('$INV')-6.0)<1e-6, 'bar3.1 @3/4 should invert to beat 6, got $INV'
+print('smoke: PASS — time signature bars<->beats (4/4 6=bar2.3, 3/4 6=bar3.1, inverse=$INV)')
+" || { echo "smoke: time signature conversion wrong" >&2; exit 1; }
+g -d '{"numerator":4,"denominator":4}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTimeSignature >/dev/null
+
 # Controller mapping: a source (cc:20) drives a ParamModel target scaled to [lo,hi].
 CT=$(g -d '{"name":"ctltest","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
 g -d "{\"source\":\"cc:20\",\"target\":\"track/$CT/synth/cutoff\",\"lo\":500,\"hi\":5000}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddControllerMap >/dev/null

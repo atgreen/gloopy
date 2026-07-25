@@ -84,6 +84,40 @@ double MainComponent::apiSecondsToBeats (double seconds)
     return m.back().beat;
 }
 
+bool MainComponent::apiSetTimeSignature (int num, int denom)
+{
+    if (num < 1 || num > 32 || denom < 1 || denom > 32) return false;
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        transport.setTimeSignature (num, denom);
+        if (arrangeView) arrangeView->rebuild();     // bar grid + position display follow beatsPerBar
+        emitChange ("time_signature");
+        return true;
+    });
+}
+
+void MainComponent::apiGetTimeSignature (int& num, int& denom)
+{
+    num   = transport.getTimeSigNumerator();
+    denom = transport.getTimeSigDenominator();
+}
+
+// Absolute beat -> (bar, beat-in-bar), both 1-based to match the "1.1.00" readout.
+void MainComponent::apiBeatsToBarBeat (double beat, int& bar, double& beatInBar)
+{
+    const double bpb = juce::jmax (0.001, transport.beatsPerBar());
+    const double b   = juce::jmax (0.0, beat);
+    const int    b0  = (int) std::floor (b / bpb);
+    bar       = b0 + 1;
+    beatInBar = (b - (double) b0 * bpb) + 1.0;
+}
+
+double MainComponent::apiBarBeatToBeats (int bar, double beatInBar)
+{
+    return (double) (bar - 1) * transport.beatsPerBar() + (beatInBar - 1.0);
+}
+
 bool MainComponent::apiAddTempoMarker (double beat, double bpm)
 {
     if (beat < 0.0 || bpm < 20.0 || bpm > 400.0) return false;

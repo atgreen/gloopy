@@ -191,6 +191,11 @@ public:
     double apiBeatsToSeconds (double beat);
     double apiSecondsToBeats (double seconds);
     double tempoAtBeat (double beat);                   // effective bpm (map or transport)
+    // Time signature + bars<->beats conversion (bars/beat-in-bar are 1-based, "1.1").
+    bool apiSetTimeSignature (int num, int denom);
+    void apiGetTimeSignature (int& num, int& denom);
+    void apiBeatsToBarBeat (double beat, int& bar, double& beatInBar);
+    double apiBarBeatToBeats (int bar, double beatInBar);
     // Tempo-aware sample<->beat conversion (the foundation for the render-path
     // integration). Byte-identical to beat*spb / samples/spb when the map is empty.
     // engineLock is recursive, so these are safe to call from renderBlock.

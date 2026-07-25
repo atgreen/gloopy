@@ -80,6 +80,26 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
                 response_deserializer=gloopy__pb2.TempoMap.FromString,
                 _registered_method=True)
+        self.SetTimeSignature = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetTimeSignature',
+                request_serializer=gloopy__pb2.TimeSignature.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GetTimeSignature = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GetTimeSignature',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.TimeSignature.FromString,
+                _registered_method=True)
+        self.BeatsToBarBeat = channel.unary_unary(
+                '/gloopy.v1.Gloopy/BeatsToBarBeat',
+                request_serializer=gloopy__pb2.BeatPos.SerializeToString,
+                response_deserializer=gloopy__pb2.BarBeat.FromString,
+                _registered_method=True)
+        self.BarBeatToBeats = channel.unary_unary(
+                '/gloopy.v1.Gloopy/BarBeatToBeats',
+                request_serializer=gloopy__pb2.BarBeat.SerializeToString,
+                response_deserializer=gloopy__pb2.BeatPos.FromString,
+                _registered_method=True)
         self.BeatsToSeconds = channel.unary_unary(
                 '/gloopy.v1.Gloopy/BeatsToSeconds',
                 request_serializer=gloopy__pb2.Position.SerializeToString,
@@ -679,6 +699,32 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def ListTempoMarkers(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetTimeSignature(self, request, context):
+        """time signature + bars<->beats conversion
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetTimeSignature(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BeatsToBarBeat(self, request, context):
+        """absolute beat -> bar.beat
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BarBeatToBeats(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1431,6 +1477,26 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.ListTempoMarkers,
                     request_deserializer=gloopy__pb2.Empty.FromString,
                     response_serializer=gloopy__pb2.TempoMap.SerializeToString,
+            ),
+            'SetTimeSignature': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetTimeSignature,
+                    request_deserializer=gloopy__pb2.TimeSignature.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GetTimeSignature': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetTimeSignature,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.TimeSignature.SerializeToString,
+            ),
+            'BeatsToBarBeat': grpc.unary_unary_rpc_method_handler(
+                    servicer.BeatsToBarBeat,
+                    request_deserializer=gloopy__pb2.BeatPos.FromString,
+                    response_serializer=gloopy__pb2.BarBeat.SerializeToString,
+            ),
+            'BarBeatToBeats': grpc.unary_unary_rpc_method_handler(
+                    servicer.BarBeatToBeats,
+                    request_deserializer=gloopy__pb2.BarBeat.FromString,
+                    response_serializer=gloopy__pb2.BeatPos.SerializeToString,
             ),
             'BeatsToSeconds': grpc.unary_unary_rpc_method_handler(
                     servicer.BeatsToSeconds,
@@ -2217,6 +2283,114 @@ class Gloopy:
             '/gloopy.v1.Gloopy/ListTempoMarkers',
             gloopy__pb2.Empty.SerializeToString,
             gloopy__pb2.TempoMap.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetTimeSignature(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetTimeSignature',
+            gloopy__pb2.TimeSignature.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetTimeSignature(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GetTimeSignature',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.TimeSignature.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def BeatsToBarBeat(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/BeatsToBarBeat',
+            gloopy__pb2.BeatPos.SerializeToString,
+            gloopy__pb2.BarBeat.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def BarBeatToBeats(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/BarBeatToBeats',
+            gloopy__pb2.BarBeat.SerializeToString,
+            gloopy__pb2.BeatPos.FromString,
             options,
             channel_credentials,
             insecure,

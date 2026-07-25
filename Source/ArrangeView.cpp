@@ -21,6 +21,7 @@ int ArrangeView::preferredHeight() const
 
 void ArrangeView::rebuild()
 {
+    beatsPerBar = transport.beatsPerBar();   // follow the project time signature
     muteButtons.clear();
     soloButtons.clear();
     editButtons.clear();
@@ -95,6 +96,7 @@ void ArrangeView::rebuild()
 
 void ArrangeView::resized()
 {
+    beatsPerBar = transport.beatsPerBar();
     for (int i = 0; i < (int) tracks.size(); ++i)
     {
         const int y = rulerHeight + i * trackHeight;
@@ -208,6 +210,7 @@ void ArrangeView::drawClip (juce::Graphics& g, const Track& t, const Clip& c,
 
 void ArrangeView::paint (juce::Graphics& g)
 {
+    beatsPerBar = transport.beatsPerBar();   // keep the bar grid current with the time signature
     g.fillAll (Palette::inset);
     const int bars = numBars();
     const float bw = barWidth();
@@ -363,10 +366,14 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addSectionHeader ("Bar " + juce::String ((int) (beat / beatsPerBar) + 1));
         m.addItem (1, "Add tempo marker...");
         m.addItem (2, "Remove tempo marker", nearBeat >= 0.0);
+        m.addSeparator();
+        m.addItem (3, "Time signature... (" + juce::String (transport.getTimeSigNumerator())
+                        + "/" + juce::String (transport.getTimeSigDenominator()) + ")");
         m.showMenuAsync (juce::PopupMenu::Options(), [this, beat, nearBeat] (int r)
         {
             if (r == 1) promptAddTempoMarker (beat);
             else if (r == 2 && nearBeat >= 0.0 && onRemoveTempoMarker) onRemoveTempoMarker (nearBeat);
+            else if (r == 3) promptTimeSignature();
         });
         return;
     }
@@ -547,6 +554,25 @@ void ArrangeView::promptClipFades (int track, int clip)
             onClipFades (track, clip,
                          aw->getTextEditorContents ("in").getDoubleValue(),
                          aw->getTextEditorContents ("out").getDoubleValue());
+        delete aw;
+    }), false);
+}
+
+void ArrangeView::promptTimeSignature()
+{
+    auto* aw = new juce::AlertWindow ("Time signature", "Beats per bar / note value:", juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("num", juce::String (transport.getTimeSigNumerator()),   "Numerator");
+    aw->addTextEditor ("den", juce::String (transport.getTimeSigDenominator()), "Denominator");
+    aw->addButton ("Set",    1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw] (int r)
+    {
+        if (r == 1 && onSetTimeSignature)
+        {
+            const int n = aw->getTextEditorContents ("num").getIntValue();
+            const int d = aw->getTextEditorContents ("den").getIntValue();
+            if (n >= 1 && d >= 1) onSetTimeSignature (n, d);
+        }
         delete aw;
     }), false);
 }

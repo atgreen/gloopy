@@ -306,6 +306,17 @@ namespace
         { r->set_seconds (main.apiBeatsToSeconds (q->beats())); return Status::OK; }
         Status SecondsToBeats (ServerContext*, const pb::SecondsValue* q, pb::Position* r) override
         { r->set_beats (main.apiSecondsToBeats (q->seconds())); return Status::OK; }
+        Status SetTimeSignature (ServerContext*, const pb::TimeSignature* q, pb::Ack* r) override
+        { const bool ok = main.apiSetTimeSignature (q->numerator(), q->denominator());
+          r->set_ok (ok); if (! ok) r->set_error ("invalid time signature (1..32 / 1..32)"); return Status::OK; }
+        Status GetTimeSignature (ServerContext*, const pb::Empty*, pb::TimeSignature* r) override
+        { int n = 4, d = 4; main.apiGetTimeSignature (n, d);
+          r->set_numerator (n); r->set_denominator (d); r->set_beats_per_bar ((double) n * 4.0 / (double) d); return Status::OK; }
+        Status BeatsToBarBeat (ServerContext*, const pb::BeatPos* q, pb::BarBeat* r) override
+        { int bar = 1; double bib = 1.0; main.apiBeatsToBarBeat (q->beat(), bar, bib);
+          r->set_bar (bar); r->set_beat_in_bar (bib); return Status::OK; }
+        Status BarBeatToBeats (ServerContext*, const pb::BarBeat* q, pb::BeatPos* r) override
+        { r->set_beat (main.apiBarBeatToBeats (q->bar(), q->beat_in_bar())); return Status::OK; }
 
         // ---- mixer scenes ----
         Status DefineMixerScene (ServerContext*, const pb::SceneName* q, pb::Ack* r) override

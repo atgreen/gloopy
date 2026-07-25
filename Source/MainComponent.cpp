@@ -217,6 +217,7 @@ MainComponent::MainComponent (bool headless)
         apiRemoveTempoMarker (beat);
         if (arrangeView) arrangeView->repaint();
     };
+    arrangeView->onSetTimeSignature = [this] (int num, int denom) { apiSetTimeSignature (num, denom); };
     arrangeView->getPunchRange = [this] (double& in, double& out) -> bool
     {
         in  = punchInBeat.load();
@@ -2326,8 +2327,9 @@ void MainComponent::timerCallback()
     }
 
     const double beats = transport.getPlayheadBeats();
-    const int bar  = (int) (beats / 4.0) + 1;
-    const int beat = (int) std::fmod (beats, 4.0) + 1;
+    const double bpb   = juce::jmax (1.0, transport.beatsPerBar());   // time-signature aware
+    const int bar  = (int) (beats / bpb) + 1;
+    const int beat = (int) std::fmod (beats, bpb) + 1;
     const int tick = (int) (std::fmod (beats, 1.0) * 100.0);
     posLabel.setText (juce::String::formatted ("%d . %d . %02d", bar, beat, tick),
                       juce::dontSendNotification);
@@ -2614,6 +2616,8 @@ juce::ValueTree MainComponent::toValueTree()
     juce::ValueTree root ("GLOOPY");
     root.setProperty ("version", 2, nullptr);
     root.setProperty ("bpm", transport.getBpm(), nullptr);
+    root.setProperty ("tsnum", transport.getTimeSigNumerator(), nullptr);
+    root.setProperty ("tsden", transport.getTimeSigDenominator(), nullptr);
     root.setProperty ("swing", transport.getSwing(), nullptr);
     root.setProperty ("notes", projectNotes, nullptr);
     root.setProperty ("scaleRoot", scaleRoot, nullptr);
@@ -3290,6 +3294,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     }
 
     transport.setBpm ((double) root.getProperty ("bpm", 128.0));
+    transport.setTimeSignature ((int) root.getProperty ("tsnum", 4), (int) root.getProperty ("tsden", 4));
     transport.setSwing ((double) root.getProperty ("swing", 0.5));
 
     projectNotes = root.getProperty ("notes", "").toString();

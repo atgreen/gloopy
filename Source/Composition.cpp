@@ -229,6 +229,8 @@ bool MainComponent::saveComposition (const juce::File& dir)
     man.str ("format", "gloopy-composition").integer ("version", 1)
        .str ("title", title.isEmpty() ? "Untitled" : title)
        .number ("bpm", root.getProperty ("bpm"))
+       .integer ("ts_num", (int) root.getProperty ("tsnum", 4))
+       .integer ("ts_den", (int) root.getProperty ("tsden", 4))
        .number ("swing", root.getProperty ("swing", 0.5));
     man.integer ("scale_root", (int) root.getProperty ("scaleRoot", 0))
        .str ("scale_name", root.getProperty ("scaleName", "chromatic").toString());
@@ -580,6 +582,8 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
     juce::ValueTree root ("GLOOPY");
     root.setProperty ("version", 2, nullptr);
     root.setProperty ("bpm", man.root.getDouble ("bpm", 120.0), nullptr);
+    root.setProperty ("tsnum", man.root.getInt ("ts_num", 4), nullptr);
+    root.setProperty ("tsden", man.root.getInt ("ts_den", 4), nullptr);
     root.setProperty ("swing", man.root.getDouble ("swing", 0.5), nullptr);
     root.setProperty ("notes", dir.getChildFile ("notes.md").loadFileAsString(), nullptr);
     root.setProperty ("scaleRoot", man.root.getInt ("scale_root", 0), nullptr);

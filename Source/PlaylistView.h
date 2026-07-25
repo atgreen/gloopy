@@ -54,7 +54,7 @@ private:
     static constexpr int gutter      = 46;
     static constexpr int rulerHeight = 20;
     static constexpr int trackHeight = 34;
-    static constexpr double beatsPerBar = 4.0;
+    double beatsPerBar = 4.0;   // refreshed from the transport's time signature in paint()
 
     std::vector<PlaylistClip>&             clips;
     std::vector<std::unique_ptr<Pattern>>& patterns;
