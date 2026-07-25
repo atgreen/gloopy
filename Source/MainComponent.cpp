@@ -858,7 +858,7 @@ int MainComponent::apiAddEffect (int insert, int type)
     return callOnMessageThread ([&] () -> int
     {
         pushUndoSnapshot();
-        static const char* names[] = { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Chorus" };
+        static const char* names[] = { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Chorus", "Flanger" };
         if (type < 0 || type >= (int) (sizeof (names) / sizeof (names[0]))) return -1;
         auto fx = makeEffect (names[type]);
         if (fx == nullptr) return -1;

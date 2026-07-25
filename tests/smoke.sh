@@ -371,6 +371,30 @@ print('smoke: PASS — Chorus (Mix=0 passthrough %.1e, Mix=0.8 active %.3f)'%(d0
 PY
 g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
 
+# Flanger: same contract (Mix=0 bit-exact passthrough, Mix>0 active). Proves the
+# FLANGER enum -> factory + Mix/Feedbk params (a resonant swept comb, unlike chorus).
+g -d '{"insert":0,"type":"FLANGER"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetEffectParams | grep -q '"Feedbk"' \
+    || { echo "smoke: Flanger has no Feedbk param" >&2; exit 1; }
+g -d '{"insert":0,"slot":0,"name":"Mix","value":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/fl0.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Mix","value":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/flw.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 - "$WORK/chdry.wav" "$WORK/fl0.wav" "$WORK/flw.wav" <<'PY'
+import sys, wave
+def s(p):
+    w=wave.open(p); f=w.readframes(w.getnframes())
+    return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+dry,f0,fw=map(s,sys.argv[1:4])
+n=min(len(dry),len(f0),len(fw))
+d0=sum(abs(dry[i]-f0[i]) for i in range(n))/n/(1<<23)
+dw=sum(abs(dry[i]-fw[i]) for i in range(n))/n/(1<<23)
+assert d0 < 1e-6, 'flanger Mix=0 is not a passthrough (mean|diff|=%.2e)'%d0
+assert dw > 1e-3, 'flanger Mix=0.8 did not change the signal (mean|diff|=%.2e)'%dw
+print('smoke: PASS — Flanger (Mix=0 passthrough %.1e, Mix=0.8 active %.3f)'%(d0,dw))
+PY
+g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+
 # Timeline locations: add a named range, prove render-by-range is shorter than the
 # full render, and (below) that the location survives the composition round-trip.
 g -d '{"name":"half","kind":"range","start_beat":0,"end_beat":2}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddLocation >/dev/null

@@ -557,8 +557,14 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       synced); auto-listed in the data-driven mixer menu. smoke proves the enum→factory
       →Mix wiring: Mix=0 is a bit-exact passthrough of the dry render, Mix=0.8 audibly
       differs (mean|Δ|=0.08).
-      **Not yet:** flanger, multi-band EQ; analyzers (scope/spectrum/vectorscope) with
-      API snapshots.
+    - `[x]` **Flanger landed** (commit): `FlangerFx`, a very short LFO-swept delay
+      (0.5 ms centre, ≤5 ms depth) **with feedback** — a resonant comb "jet" sweep,
+      unlike the feedback-free chorus. Rate/Depth/Feedbk/Mix params; EffectType
+      FLANGER=11 (four registries synced); auto-listed in the mixer menu. smoke proves
+      the enum→factory + Feedbk/Mix params: Mix=0 bit-exact passthrough, Mix=0.8 active
+      (mean|Δ|=0.10). The chorus/flanger backlog pair is done.
+      **Not yet:** multi-band EQ; analyzers (scope/spectrum/vectorscope) with API
+      snapshots.
 
 ### Wave 6 — Product surface & UI (deferred: harder to verify headless; keep layout simple)
 

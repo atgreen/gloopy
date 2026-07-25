@@ -578,11 +578,90 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+// Flanger — a very short LFO-modulated delay (sub-ms..~5 ms) with feedback, mixed
+// with the dry signal. The short swept delay plus feedback builds the resonant
+// comb-filter "jet" sweep that sets it apart from a chorus. Mix 0 = dry.
+// ---------------------------------------------------------------------------
+class FlangerFx : public Effect
+{
+public:
+    void prepare (double sampleRate, int, int) override
+    {
+        sr = sampleRate;
+        bufLen = (int) (sr * 0.02) + 4;   // 20 ms line is ample for a flanger
+        for (auto& b : buffers) b.assign ((size_t) bufLen, 0.0f);
+        writePos = 0; phase = 0.0f;
+    }
+
+    void reset() override
+    {
+        for (auto& b : buffers) std::fill (b.begin(), b.end(), 0.0f);
+        writePos = 0; phase = 0.0f;
+    }
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        if (bypassed.load() || bufLen <= 4) return;
+        const float rate  = juce::jlimit (0.05f, 8.0f, rateHz.load());
+        const float depth = juce::jlimit (0.0f, 5.0f, depthMs.load());
+        const float fb    = juce::jlimit (0.0f, 0.95f, feedback.load());
+        const float mx    = juce::jlimit (0.0f, 1.0f, mix.load());
+        const float baseMs = 0.5f;                                    // very short centre
+        const float twoPi = juce::MathConstants<float>::twoPi;
+        const float inc   = twoPi * rate / (float) sr;
+
+        auto rd = [this] (std::vector<float>& buf, float pos)
+        {
+            while (pos < 0.0f) pos += (float) bufLen;
+            const int i0 = ((int) pos) % bufLen;
+            const float fr = pos - (float) ((int) pos);
+            const int i1 = (i0 + 1) % bufLen;
+            return buf[(size_t) i0] * (1.0f - fr) + buf[(size_t) i1] * fr;
+        };
+
+        const int nch = juce::jmin (2, b.getNumChannels());
+        for (int i = 0; i < b.getNumSamples(); ++i)
+        {
+            const float sweep = (baseMs + depth * (0.5f + 0.5f * std::sin (phase))) * 0.001f * (float) sr;
+            for (int c = 0; c < nch; ++c)
+            {
+                auto* d = b.getWritePointer (c);
+                const float in  = d[i];
+                const float del = rd (buffers[(size_t) c], (float) writePos - sweep);   // read old, then write
+                buffers[(size_t) c][(size_t) writePos] = in + del * fb;                 // feedback into the line
+                d[i] = in * (1.0f - mx) + del * mx;
+            }
+            writePos = (writePos + 1) % bufLen;
+            phase += inc; if (phase >= twoPi) phase -= twoPi;
+        }
+    }
+
+    juce::String name() const override { return "Flanger"; }
+
+    std::vector<EffectParam> parameters() override
+    {
+        return {
+            { "Rate",   0.05f, 8.0f, 0.5f,  [this] { return rateHz.load(); },   [this] (float v) { rateHz.store (v); } },
+            { "Depth",  0.0f, 5.0f, 2.0f,   [this] { return depthMs.load(); },  [this] (float v) { depthMs.store (v); } },
+            { "Feedbk", 0.0f, 0.95f, 0.5f,  [this] { return feedback.load(); }, [this] (float v) { feedback.store (v); } },
+            { "Mix",    0.0f, 1.0f, 0.5f,   [this] { return mix.load(); },      [this] (float v) { mix.store (v); } }
+        };
+    }
+
+private:
+    double sr { 44100.0 };
+    int    bufLen { 0 }, writePos { 0 };
+    float  phase { 0.0f };
+    std::array<std::vector<float>, 2> buffers;
+    std::atomic<float> rateHz { 0.5f }, depthMs { 2.0f }, feedback { 0.5f }, mix { 0.5f };
+};
+
+// ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 namespace EffectFactory
 {
-    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Chorus" }; }
+    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Chorus", "Flanger" }; }
 
     inline std::unique_ptr<Effect> create (const juce::String& type)
     {
@@ -597,6 +676,7 @@ namespace EffectFactory
         if (type == "Waveshaper") return std::make_unique<WaveshaperFx>();
         if (type == "Stereo Widener") return std::make_unique<StereoWidenerFx>();
         if (type == "Chorus")     return std::make_unique<ChorusFx>();
+        if (type == "Flanger")    return std::make_unique<FlangerFx>();
         return nullptr;
     }
 }
