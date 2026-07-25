@@ -294,14 +294,51 @@ void PianoRoll::paint (juce::Graphics& g)
 }
 
 // ---------------------------------------------------------------------------
+// Note auditioning — play pitches through the edited track's instrument.
+// ---------------------------------------------------------------------------
+void PianoRoll::startAudition (int pitch, float velocity)
+{
+    if (! auditionEnabled) return;
+    if (auditionPitches.size() == 1 && auditionPitches[0] == pitch) return;   // unchanged
+    stopAudition();
+    if (onAuditionOn) onAuditionOn (pitch, velocity);
+    auditionPitches.push_back (pitch);
+}
+
+void PianoRoll::auditionChord (const std::vector<int>& pitches, float velocity)
+{
+    if (! auditionEnabled) return;
+    stopAudition();
+    for (int pitch : pitches)
+    {
+        if (onAuditionOn) onAuditionOn (pitch, velocity);
+        auditionPitches.push_back (pitch);
+    }
+}
+
+void PianoRoll::stopAudition()
+{
+    for (int pitch : auditionPitches)
+        if (onAuditionOff) onAuditionOff (pitch);
+    auditionPitches.clear();
+}
+
+// ---------------------------------------------------------------------------
 // Mouse editing
 // ---------------------------------------------------------------------------
 void PianoRoll::mouseDown (const juce::MouseEvent& e)
 {
-    if (! editable || e.position.x < (float) keyGutter)   // ignore the key gutter
-        return;
+    if (! editable) return;
 
     const auto p = e.position;
+
+    // Key gutter: audition the pitch under the cursor, held while dragging (brush).
+    if (p.x < (float) keyGutter)
+    {
+        gutterAuditioning = true;
+        startAudition (pitchForY (p.y), 0.85f);
+        return;
+    }
 
     // Velocity strip along the bottom: drag a note's bar to set its velocity.
     if (hasVelStrip() && p.y >= gridBottom())
@@ -347,6 +384,7 @@ void PianoRoll::mouseDown (const juce::MouseEvent& e)
             drag = Drag::move;
             dragBeatOffset  = beatForX (p.x) - n.startBeat;
             dragPitchOffset = pitchForY (p.y) - n.pitch;
+            startAudition (n.pitch, n.velocity);   // hear the note you grabbed
         }
     }
     else
@@ -359,9 +397,11 @@ void PianoRoll::mouseDown (const juce::MouseEvent& e)
             // Chord-stamp mode: lay down the whole voicing rooted at the clicked pitch.
             // Same makeChord() the AddChord API uses, so UI and scripts agree.
             auto chord = makeChord (root, chordType, 0, start, 1.0, 0.8f);
-            for (auto& cn : chord) notes.push_back (cn);
+            std::vector<int> pitches;
+            for (auto& cn : chord) { notes.push_back (cn); pitches.push_back (cn.pitch); }
             activeNote = selectedNote = (int) notes.size() - 1;  // top voice, for a length drag
             drag = Drag::resize; // dragging resizes the top voice; other voices keep 1 beat
+            auditionChord (pitches, 0.8f);       // hear the whole voicing
         }
         else
         {
@@ -374,6 +414,7 @@ void PianoRoll::mouseDown (const juce::MouseEvent& e)
             notes.push_back (n);
             activeNote = selectedNote = (int) notes.size() - 1;
             drag = Drag::resize; // let an immediate drag set the length
+            startAudition (root, 0.8f);          // hear the note you drew
         }
     }
 
@@ -383,6 +424,13 @@ void PianoRoll::mouseDown (const juce::MouseEvent& e)
 
 void PianoRoll::mouseDrag (const juce::MouseEvent& e)
 {
+    // Brushing the key gutter: re-trigger as the pitch under the cursor changes.
+    if (gutterAuditioning)
+    {
+        startAudition (juce::jlimit (0, 127, pitchForY (e.position.y)), 0.85f);
+        return;
+    }
+
     if (! editable || activeNote < 0 || activeNote >= (int) notes.size())
         return;
 
@@ -408,6 +456,7 @@ void PianoRoll::mouseDrag (const juce::MouseEvent& e)
                                     snapBeat (beatForX (p.x) - dragBeatOffset));
         n.pitch     = juce::jlimit (pitchLow, pitchHigh,
                                     pitchForY (p.y) - dragPitchOffset);
+        startAudition (n.pitch, n.velocity);   // re-trigger as the note is dragged in pitch
     }
     else if (drag == Drag::resize)
     {
@@ -424,6 +473,8 @@ void PianoRoll::mouseUp (const juce::MouseEvent&)
 {
     drag = Drag::none;
     activeNote = -1;
+    gutterAuditioning = false;
+    stopAudition();
 }
 
 void PianoRoll::timerCallback()

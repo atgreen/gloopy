@@ -58,6 +58,14 @@ public:
 
     std::function<void()> onNotesChanged;
 
+    /** Note auditioning: fired so the owner can play the pitch through the edited
+        track's instrument (via its live-MIDI collector) as you click / drag / brush.
+        onAuditionOn(pitch, velocity) = note-on (held); onAuditionOff(pitch) = note-off. */
+    std::function<void (int, float)> onAuditionOn;
+    std::function<void (int)>        onAuditionOff;
+    void setAuditionEnabled (bool b) { auditionEnabled = b; if (! b) stopAudition(); }
+    bool isAuditionEnabled() const { return auditionEnabled; }
+
     void paint (juce::Graphics&) override;
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
@@ -77,6 +85,9 @@ private:
     int    pitchForY (float y)  const;
     double snapBeat (double b)  const;
     int    noteIndexAt (juce::Point<float> p) const;
+    void   startAudition (int pitch, float velocity);            // replace-held (scrub/move)
+    void   auditionChord (const std::vector<int>& pitches, float velocity);
+    void   stopAudition();
     int    velNoteAt (float x)  const;   // note whose span/start is nearest x
     void   setVelFromY (int noteIdx, float y);
 
@@ -86,6 +97,9 @@ private:
     std::vector<Note> notes;
     std::vector<Note> ghostNotes;         // other tracks' notes (dim, read-only)
     juce::String chordType;               // chord-stamp mode ("" = single notes)
+    bool auditionEnabled { true };        // play notes through the instrument on click/brush
+    bool gutterAuditioning { false };     // a held audition started on the key gutter
+    std::vector<int> auditionPitches;     // currently-sounding audition notes
     std::array<bool, 12> scaleMask { };   // pitch classes in the project scale
     bool  scaleActive { false };          // a non-chromatic scale is highlighted
     bool editable { true };

@@ -233,9 +233,13 @@ MainComponent::MainComponent (bool headless)
     editorPanel.steps.setEnabledEditing (false);
     editorPanel.title.setText ("EDITOR", juce::dontSendNotification);
     editorPanel.roll.onNotesChanged  = [this] { writeBackEditor(); };
+    editorPanel.roll.onAuditionOn    = [this] (int pitch, float vel) { apiAuditionNote (pitch, vel, true); };
+    editorPanel.roll.onAuditionOff   = [this] (int pitch)            { apiAuditionNote (pitch, 0.0f, false); };
     editorPanel.steps.onNotesChanged = [this] { writeBackEditor(); };
     editorPanel.pianoBtn.onClick = [this] { setEditorMode (0); };
     editorPanel.stepBtn.onClick  = [this] { setEditorMode (1); };
+    editorPanel.auditionBtn.onClick = [this]
+    { editorPanel.roll.setAuditionEnabled (editorPanel.auditionBtn.getToggleState()); };
     setEditorMode (editorMode);
 
     verticalLayout.setItemLayout (0, 120.0, -0.85, -0.60);   // arrangement
@@ -445,6 +449,21 @@ void MainComponent::handleIncomingMidiMessage (juce::MidiInput*, const juce::Mid
     if (Track* t = resolveTrack (id))
         if (t->generator != nullptr)
             t->liveMidi.addMessageToQueue (m);
+}
+
+void MainComponent::apiAuditionNote (int pitch, float velocity, bool noteOn)
+{
+    // Route to the edited/selected instrument via its lock-free live-MIDI collector —
+    // the same path incoming MIDI and OSC notes use, so no render-thread work is added.
+    int id = midiInputTarget.load();
+    if (id < 0) id = firstInstrumentId.load();
+    Track* t = resolveTrack (id);
+    if (t == nullptr || t->generator == nullptr) return;
+
+    auto m = noteOn ? juce::MidiMessage::noteOn  (1, juce::jlimit (0, 127, pitch), (juce::uint8) juce::jlimit (1, 127, (int) (velocity * 127.0f)))
+                    : juce::MidiMessage::noteOff (1, juce::jlimit (0, 127, pitch));
+    m.setTimeStamp (juce::Time::getMillisecondCounterHiRes() * 0.001);   // collector wants seconds
+    t->liveMidi.addMessageToQueue (m);
 }
 
 void MainComponent::startRecording()

@@ -167,6 +167,7 @@ public:
     std::vector<CtrlMap> apiListControllerMaps();
     void apiSetController (const juce::String& source, float value01);   // apply mapped params (or capture if learning)
     void apiMidiLearn (const juce::String& target);                      // arm learn for the next controller ("" cancels)
+    void apiAuditionNote (int pitch, float velocity, bool noteOn);        // play a note through the edited instrument (piano-roll preview)
 
     // --- tempo map (Tempo.cpp) ---
     // Model + exact piecewise beat<->seconds conversion. Render-path integration
@@ -266,6 +267,13 @@ private:
             addAndMakeVisible (steps);
             addChildComponent (roll);
 
+            // Note-audition toggle: play notes through the instrument as you click / brush.
+            auditionBtn.setClickingTogglesState (true);
+            auditionBtn.setToggleState (true, juce::dontSendNotification);
+            auditionBtn.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
+            auditionBtn.setTooltip ("Play notes through the instrument as you click or brush");
+            addAndMakeVisible (auditionBtn);
+
             // Chord-stamp selector: pick a type, then click empty grid to stamp the
             // whole voicing. "Note" = ordinary single-note drawing.
             chordCombo.addItem ("Note", 1);
@@ -297,6 +305,7 @@ private:
             pianoBtn.setBounds (h.removeFromRight (58).reduced (2, 0));
             stepBtn .setBounds (h.removeFromRight (58).reduced (2, 0));
             chordCombo.setBounds (h.removeFromRight (74).reduced (2, 0));
+            auditionBtn.setBounds (h.removeFromRight (72).reduced (2, 0));
             title.setBounds (h.withTrimmedLeft (10));
             roll.setBounds (a);
             steps.setBounds (a);
@@ -304,6 +313,7 @@ private:
         juce::Label      title;
         juce::TextButton stepBtn  { "STEPS" };
         juce::TextButton pianoBtn { "PIANO" };
+        juce::TextButton auditionBtn { "AUDITION" };
         juce::ComboBox   chordCombo;
         PianoRoll   roll;
         StepEditor  steps;
