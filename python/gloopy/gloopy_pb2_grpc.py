@@ -340,6 +340,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.AddBusRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.TrackId.FromString,
                 _registered_method=True)
+        self.RemoveBus = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RemoveBus',
+                request_serializer=gloopy__pb2.TrackId.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.SetSend = channel.unary_unary(
                 '/gloopy.v1.Gloopy/SetSend',
                 request_serializer=gloopy__pb2.SetSendRequest.SerializeToString,
@@ -1013,6 +1018,13 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RemoveBus(self, request, context):
+        """TrackId.id = the bus's insert index; re-indexes sends
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SetSend(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1679,6 +1691,11 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.AddBus,
                     request_deserializer=gloopy__pb2.AddBusRequest.FromString,
                     response_serializer=gloopy__pb2.TrackId.SerializeToString,
+            ),
+            'RemoveBus': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemoveBus,
+                    request_deserializer=gloopy__pb2.TrackId.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'SetSend': grpc.unary_unary_rpc_method_handler(
                     servicer.SetSend,
@@ -3604,6 +3621,33 @@ class Gloopy:
             '/gloopy.v1.Gloopy/AddBus',
             gloopy__pb2.AddBusRequest.SerializeToString,
             gloopy__pb2.TrackId.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RemoveBus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RemoveBus',
+            gloopy__pb2.TrackId.SerializeToString,
+            gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,
             insecure,

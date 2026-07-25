@@ -599,6 +599,22 @@ assert rx>1.0, 'offline render not faster than realtime: '+str(rx)
 print('smoke: PASS — diagnostics (%g Hz / %d smp, render %.0fx realtime)'%(sr,bs,rx))
 " || { echo "smoke: diagnostics out of range" >&2; exit 1; }
 
+# RemoveBus re-indexes sends: add two buses, send insert 1 -> the 2nd bus, remove the
+# 1st bus, and confirm the send follows the 2nd bus down to its new (decremented) index
+# and one bus is gone. Then remove the 2nd bus too, so state is clean for the next test.
+RB1=$(g -d '{"name":"RmA"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddBus | python3 -c "import json,sys;print(json.load(sys.stdin).get('id',0))")
+RB2=$(g -d '{"name":"RmB"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddBus | python3 -c "import json,sys;print(json.load(sys.stdin).get('id',0))")
+g -d "{\"insert\":1,\"bus\":$RB2,\"level\":0.6}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSend >/dev/null
+g -d "{\"id\":$RB1}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveBus >/dev/null
+NEWB=$((RB2-1))
+SENDBUS=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListInserts | python3 -c "import json,sys;ins=json.load(sys.stdin)['inserts'];s=[x for x in ins if x.get('index',0)==1][0].get('sends',[]);print(s[0].get('bus',-1) if s else -1)")
+[ "$SENDBUS" = "$NEWB" ] || { echo "smoke: RemoveBus did not re-index the send (got bus $SENDBUS, expected $NEWB)" >&2; exit 1; }
+# The removed bus's index must no longer be a bus (it was RmA); RmB is now at NEWB.
+BADREMOVE=$(g -d '{"id":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveBus | python3 -c "import json,sys;print(json.load(sys.stdin).get('ok',False))")
+[ "$BADREMOVE" = "False" ] || { echo "smoke: RemoveBus accepted a non-bus (master)" >&2; exit 1; }
+g -d "{\"id\":$NEWB}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveBus >/dev/null   # clean up RmB
+echo "smoke: PASS — RemoveBus re-indexes sends (send followed bus $RB2 -> $NEWB) and rejects non-buses"
+
 # Mixer scenes now also capture aux-send levels: add a bus + send, snapshot, change the
 # send, recall, and confirm the send level is restored (last — it adds a bus insert).
 SB=$(g -d '{"name":"SceneBus"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddBus | python3 -c "import json,sys;print(json.load(sys.stdin).get('id',0))")

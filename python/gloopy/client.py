@@ -317,6 +317,10 @@ class Gloopy:
         """Append a bus mixer track (receives sends, sums to master); returns its insert index."""
         return self.stub.AddBus(pb.AddBusRequest(name=name)).id
 
+    def remove_bus(self, index: int) -> None:
+        """Remove a bus mixer track; sends are re-indexed (drops sends to it, shifts higher)."""
+        self._ack(self.stub.RemoveBus(pb.TrackId(id=index)))
+
     def set_send(self, insert: int, bus: int, level: float) -> None:
         """Aux send from an insert to a bus at level (level<=0 removes)."""
         self._ack(self.stub.SetSend(pb.SetSendRequest(insert=insert, bus=bus, level=level)))

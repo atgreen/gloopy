@@ -282,6 +282,9 @@ namespace
         // ---- buses & sends ----
         Status AddBus (ServerContext*, const pb::AddBusRequest* q, pb::TrackId* r) override
         { r->set_id (main.apiAddBus (js (q->name()))); return Status::OK; }
+        Status RemoveBus (ServerContext*, const pb::TrackId* q, pb::Ack* r) override
+        { const bool ok = main.apiRemoveBus (q->id());
+          r->set_ok (ok); if (! ok) r->set_error ("remove bus failed (index is not a bus)"); return Status::OK; }
         Status SetSend (ServerContext*, const pb::SetSendRequest* q, pb::Ack* r) override
         { const bool ok = main.apiSetSend (q->insert(), q->bus(), q->level());
           r->set_ok (ok); if (! ok) r->set_error ("invalid send (bad insert/bus, or nothing to remove)"); return Status::OK; }

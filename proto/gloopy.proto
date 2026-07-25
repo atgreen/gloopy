@@ -358,6 +358,7 @@ service Gloopy {
 
   // buses & sends
   rpc AddBus  (AddBusRequest)  returns (TrackId);    // TrackId.id = the new bus's insert index
+  rpc RemoveBus (TrackId)      returns (Ack);        // TrackId.id = the bus's insert index; re-indexes sends
   rpc SetSend (SetSendRequest) returns (Ack);
 
   // mixer scenes — named snapshots of the mixer strip (recall on demand)

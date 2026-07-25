@@ -352,8 +352,14 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      (`bus` flag + `sends = ["busIdx,level", …]`). RPCs AddBus/SetSend, `Send`/`is_bus`
      on MixerInsert; Python `add_bus`/`set_send`. Verified: reverb bus lifts tail RMS
      0.040→0.189 (4.7×), routing round-trips. smoke.sh asserts the routing.
-     **Not yet:** pre/post-fader send choice, send presets, RemoveBus, send-level in
-     mixer scenes (scene capture doesn't yet include sends), UI.
+   - `[x]` **RemoveBus landed** (commit): `apiRemoveBus` removes a bus mixer track (buses
+     only — not master/regular inserts) and **re-indexes sends** across every insert (drops
+     sends targeting it, decrements sends targeting higher indices, since mixerTracks
+     indices are the send address space). RemoveBus RPC (reuses TrackId as the index) +
+     Python `remove_bus`. smoke.sh proves a send follows its bus down when a lower bus is
+     removed, and a non-bus (master) is rejected. Sends-in-scenes done last tick.
+     **Not yet:** pre/post-fader send choice, send presets, control groups; the mixer
+     bus/send management UI (whole subsystem is API-only today).
 
    **✅ Wave 3 complete** (#6 clip ops, #7 buses/sends, #8 mixer scenes).
 

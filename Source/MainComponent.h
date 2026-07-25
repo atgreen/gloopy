@@ -217,6 +217,7 @@ public:
 
     // --- buses & sends (Buses.cpp) ---
     int  apiAddBus (const juce::String& name);                       // append a bus mixer track; -> its index
+    bool apiRemoveBus (int busIndex);                                // remove a bus + re-index sends
     bool apiSetSend (int insert, int bus, float level);             // upsert an aux send (level<=0 removes)
 
     // --- mixer scenes (MixerScenes.cpp) ---

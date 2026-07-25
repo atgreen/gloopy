@@ -30,6 +30,36 @@ int MainComponent::apiAddBus (const juce::String& name)
     });
 }
 
+// Remove a bus mixer track (and only a bus — not master or a regular insert). Sends are
+// re-indexed: any send targeting the removed bus is dropped, and sends targeting a higher-
+// indexed track shift down by one (mixerTracks indices are the send/insert address space).
+bool MainComponent::apiRemoveBus (int busIndex)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        bool ok = false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (busIndex, (int) mixerTracks.size())) return false;
+            if (! mixerTracks[(size_t) busIndex]->isBus) return false;   // buses only
+            mixerTracks.erase (mixerTracks.begin() + busIndex);
+            for (auto& mt : mixerTracks)
+            {
+                auto& sends = mt->sends;
+                sends.erase (std::remove_if (sends.begin(), sends.end(),
+                                 [&] (const MixerTrack::Send& s) { return s.bus == busIndex; }), sends.end());
+                for (auto& s : sends) if (s.bus > busIndex) --s.bus;
+            }
+            ok = true;
+        }
+        emitChange ("effect_changed", -1, busIndex);
+        if (mixerView) mixerView->rebuild();
+        std::cout << "[bus] removed insert " << busIndex << std::endl;
+        return ok;
+    });
+}
+
 bool MainComponent::apiSetSend (int insert, int bus, float level)
 {
     return callOnMessageThread ([&] () -> bool
