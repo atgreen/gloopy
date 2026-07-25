@@ -366,6 +366,7 @@ private:
     void addTrack (std::unique_ptr<Track> track);
     void buildTemplate (const juce::String& name);          // seed a built-in template into the current project
     juce::StringArray builtinTemplateNames() const;
+    juce::File findPianoSfz() const;                        // installed piano SFZ for the Piano template, if any
     void selectClip (int track, int clip);
     void writeBackEditor();
     void setEditorMode (int mode);

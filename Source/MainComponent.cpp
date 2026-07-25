@@ -1412,6 +1412,22 @@ juce::StringArray MainComponent::builtinTemplateNames() const
     return { "Starter Beat", "Piano + Bass + Drums", "Drum Kit", "Lead + Bass" };
 }
 
+// Locate an installed piano SFZ for the Piano template — prefer Salamander Grand Piano
+// under ~/sfz, else any *piano*.sfz there. Empty File if none (caller falls back to synth).
+juce::File MainComponent::findPianoSfz() const
+{
+    auto dir = juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("sfz");
+    if (! dir.isDirectory()) return {};
+    for (auto* pref : { "SalamanderGrandPianoV3_OggVorbis/SalamanderGrandPianoV3.sfz",
+                        "SalamanderGrandPianoV3_OggVorbis/SalamanderGrandPianoV3Retuned.sfz" })
+    {
+        auto f = dir.getChildFile (pref);
+        if (f.existsAsFile()) return f;
+    }
+    auto hits = dir.findChildFiles (juce::File::findFiles, true, "*iano*.sfz");
+    return hits.isEmpty() ? juce::File() : hits[0];
+}
+
 void MainComponent::buildTemplate (const juce::String& name)
 {
     auto drum = [this] (const juce::String& n, juce::AudioBuffer<float> buf, juce::Colour col)
@@ -1438,16 +1454,33 @@ void MainComponent::buildTemplate (const juce::String& name)
 
     if (name == "Piano + Bass + Drums")
     {
-        // No bundled piano sample — voice the synth as an electric-piano/keys patch:
-        // triangle + a touch of sub, struck (fast attack, long decay, no sustain), with a
-        // bright hammer-like filter attack that mellows.
-        auto piano = std::make_unique<SynthGenerator>();
-        auto& pp = piano->engine.params;
-        pp.waveform.store (3); pp.subLevel.store (0.2f);
-        pp.attack.store (0.002f); pp.decay.store (1.2f); pp.sustain.store (0.0f); pp.release.store (0.35f);
-        pp.cutoff.store (6000.0f); pp.resonance.store (0.7f);
-        pp.filterEnvAmt.store (1.5f); pp.fAttack.store (0.002f); pp.fDecay.store (0.8f); pp.fSustain.store (0.0f);
-        addTrack (std::make_unique<Track> ("Piano", std::move (piano), 60, juce::Colours::whitesmoke));
+        // Prefer a real sampled piano (Salamander Grand / any *piano*.sfz under ~/sfz).
+        // Fall back to a synth voiced as an electric-piano/keys patch if none is installed.
+        auto synthPiano = [this]
+        {
+            auto piano = std::make_unique<SynthGenerator>();
+            auto& pp = piano->engine.params;
+            pp.waveform.store (3); pp.subLevel.store (0.2f);
+            pp.attack.store (0.002f); pp.decay.store (1.2f); pp.sustain.store (0.0f); pp.release.store (0.35f);
+            pp.cutoff.store (6000.0f); pp.resonance.store (0.7f);
+            pp.filterEnvAmt.store (1.5f); pp.fAttack.store (0.002f); pp.fDecay.store (0.8f); pp.fSustain.store (0.0f);
+            addTrack (std::make_unique<Track> ("Piano", std::move (piano), 60, juce::Colours::whitesmoke));
+        };
+        const auto pianoSfz = findPianoSfz();
+        bool loaded = false;
+        if (pianoSfz.existsAsFile())
+        {
+            auto sfz = std::make_unique<SfizzGenerator>();
+            sfz->prepare (currentSampleRate, currentBlockSize);
+            juce::String err;
+            if (sfz->loadSfz (pianoSfz, err))
+            {
+                addTrack (std::make_unique<Track> ("Piano", std::move (sfz), 60, juce::Colours::whitesmoke));
+                loaded = true;
+            }
+            else std::cout << "[template] piano SFZ load failed: " << err << std::endl;
+        }
+        if (! loaded) synthPiano();
 
         synth ("Bass", 1, 0.15f, 36, juce::Colours::skyblue);
         drum ("Kick",  DrumSynth::makeKick(),  juce::Colours::orangered);
@@ -2325,7 +2358,14 @@ void MainComponent::showFileMenu()
             {
                 const auto templates = builtinTemplateNames();
                 if (juce::isPositiveAndBelow (result - 100, templates.size()))
-                    apiNewFromTemplate (templates[result - 100]);
+                {
+                    const auto name = templates[result - 100];
+                    // A template may load a big sampled instrument (piano SFZ) — show the
+                    // busy overlay while it builds so the UI doesn't look frozen.
+                    busyOverlay.show ("Loading " + name + "…");
+                    juce::MessageManager::callAsync ([this, name]
+                        { apiNewFromTemplate (name); busyOverlay.hide(); });
+                }
                 return;
             }
             if (result == 1) newProject();
