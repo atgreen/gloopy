@@ -526,6 +526,12 @@ class Gloopy:
                 "max_callback_us": d.max_callback_us, "dsp_load": d.dsp_load,
                 "dropouts": d.dropouts, "render_speed_x": d.render_speed_x}
 
+    def get_waveform(self, path: str, buckets: int = 256) -> dict:
+        """Cached min/max waveform peaks for an audio file (per-bucket)."""
+        r = self.stub.GetWaveform(pb.WaveformRequest(path=path, buckets=buckets))
+        return {"mins": list(r.mins), "maxs": list(r.maxs),
+                "buckets": r.buckets, "duration_seconds": r.duration_seconds}
+
     def analyze_file(self, path: str) -> dict:
         """Offline loudness of a WAV: peak/true-peak (dBFS/dBTP), RMS (dBFS), integrated LUFS."""
         r = self.stub.AnalyzeFile(pb.FilePath(path=path))

@@ -385,6 +385,16 @@ print('smoke: PASS — loudness analysis (peak %.1f dBFS, true-peak %.1f dBTP, %
 "$BIN" analyze "$WAV" 2>/dev/null | python3 -c "import json,sys;json.load(sys.stdin);print('smoke: PASS — CLI analyze emits JSON')" \
     || { echo "smoke: CLI analyze did not emit JSON" >&2; exit 1; }
 
+# Waveform thumbnail cache: min/max peaks for the render, with the expected bucket count.
+g -d "{\"path\":\"$WAV\",\"buckets\":64}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetWaveform | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+assert d.get('buckets')==64 and len(d.get('mins',[]))==64 and len(d.get('maxs',[]))==64, 'bucket count wrong'
+assert max(d['maxs'])>0.05 and min(d['mins'])<-0.05, 'no waveform energy'
+assert d.get('durationSeconds',0)>0, 'no duration'
+print('smoke: PASS — waveform cache (64 buckets, peak %.2f)'%max(d['maxs']))
+" || { echo "smoke: waveform cache wrong" >&2; exit 1; }
+
 # RT diagnostics: after the offline renders above, the engine reports device settings
 # and a render speed well above realtime.
 g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetDiagnostics | python3 -c "

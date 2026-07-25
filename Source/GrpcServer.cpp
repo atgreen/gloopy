@@ -472,6 +472,16 @@ namespace
                                                   s, e, q->has_track_id(), q->track_id());
             r->set_ok (ok); if (! ok) r->set_error ("render failed"); return Status::OK;
         }
+        Status GetWaveform (ServerContext*, const pb::WaveformRequest* q, pb::WaveformData* r) override
+        {
+            std::vector<float> mins, maxs; double dur = 0.0;
+            if (! main.apiGetWaveform (js (q->path()), q->buckets(), mins, maxs, dur))
+                return Status (grpc::StatusCode::NOT_FOUND, "unreadable audio file");
+            for (float v : mins) r->add_mins (v);
+            for (float v : maxs) r->add_maxs (v);
+            r->set_buckets ((int) mins.size()); r->set_duration_seconds (dur);
+            return Status::OK;
+        }
         Status ExportMidi (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
         { const bool ok = main.apiExportMidi (js (q->path()));
           r->set_ok (ok); if (! ok) r->set_error ("midi export failed"); return Status::OK; }

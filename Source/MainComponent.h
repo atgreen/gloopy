@@ -152,6 +152,12 @@ public:
     void apiSetProjectNotes (const juce::String& text);
     void openNotes();                                   // UI: a notes editor window
 
+    // --- waveform thumbnail cache (Waveform.cpp) ---
+    // Min/max peaks per bucket for an audio file, cached by path+mtime+size. Feeds
+    // audio-clip / sampler display and external visualisers.
+    bool apiGetWaveform (const juce::String& path, int buckets,
+                         std::vector<float>& mins, std::vector<float>& maxs, double& durationSeconds);
+
     // --- controller mapping / MIDI-learn (Controllers.cpp) ---
     // source: "cc:<n>" MIDI CC, "osc:<name>", or any string -> a ParamModel target,
     // scaling the 0..1 input to [lo, hi].
@@ -350,6 +356,8 @@ private:
 
     Transport             transport;
     bool headlessCli { false };   // CLI tools: no OSC/gRPC/audio started
+    struct CachedWave { juce::int64 mtime, size; int buckets; std::vector<float> mins, maxs; double durationSeconds; };
+    std::map<juce::String, CachedWave> waveformCache;   // message thread; keyed by resolved path
     juce::CriticalSection engineLock;
     std::vector<std::unique_ptr<Track>>      tracks;
     std::vector<std::unique_ptr<MixerTrack>> mixerTracks;

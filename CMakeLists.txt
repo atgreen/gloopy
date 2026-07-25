@@ -59,6 +59,7 @@ target_sources(Gloopy PRIVATE
     Source/Tempo.cpp
     Source/Notes.cpp
     Source/Controllers.cpp
+    Source/Waveform.cpp
     Source/ArrangeView.cpp
     Source/PianoRoll.cpp
     Source/MixerView.cpp
