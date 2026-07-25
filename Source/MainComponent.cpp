@@ -87,11 +87,23 @@ MainComponent::MainComponent (bool headless)
             {
                 const auto file = fc.getResult();
                 if (! file.existsAsFile()) return;
-                auto sampler = std::make_unique<Sampler>();
-                sampler->prepare (currentSampleRate, currentBlockSize);
-                if (sampler->loadFile (file, formatManager))
-                    addTrack (std::make_unique<Track> (file.getFileNameWithoutExtension(),
-                                  std::move (sampler), 60, paletteColour ((int) tracks.size())));
+                auto slot = std::make_shared<std::unique_ptr<Sampler>>();
+                auto ok   = std::make_shared<bool> (false);
+                const double sr = currentSampleRate; const int bs = currentBlockSize;
+                runBackground ("Loading " + file.getFileNameWithoutExtension() + "…",
+                    [this, slot, ok, file, sr, bs]
+                    {
+                        auto s = std::make_unique<Sampler>();
+                        s->prepare (sr, bs);
+                        *ok = s->loadFile (file, formatManager);
+                        *slot = std::move (s);
+                    },
+                    [this, slot, ok, file]
+                    {
+                        if (*ok && *slot)
+                            addTrack (std::make_unique<Track> (file.getFileNameWithoutExtension(),
+                                          std::move (*slot), 60, paletteColour ((int) tracks.size())));
+                    });
             });
     };
 
@@ -106,14 +118,28 @@ MainComponent::MainComponent (bool headless)
             {
                 const auto file = fc.getResult();
                 if (! file.existsAsFile()) return;
-                auto sfz = std::make_unique<SfizzGenerator>();
-                sfz->prepare (currentSampleRate, currentBlockSize);
-                juce::String err;
-                if (sfz->loadSfz (file, err))
-                    addTrack (std::make_unique<Track> (sfz->getName(),
-                                  std::move (sfz), 60, paletteColour ((int) tracks.size())));
-                else
-                    std::cout << "[sfz] " << err << std::endl;
+                // sfizz parsing + sample loading can take seconds — do it off the message
+                // thread behind the busy overlay, then swap the ready generator in.
+                auto slot = std::make_shared<std::unique_ptr<SfizzGenerator>>();
+                auto ok   = std::make_shared<bool> (false);
+                auto err  = std::make_shared<juce::String>();
+                const double sr = currentSampleRate; const int bs = currentBlockSize;
+                runBackground ("Loading " + file.getFileNameWithoutExtension() + "…",
+                    [slot, ok, err, file, sr, bs]
+                    {
+                        auto g = std::make_unique<SfizzGenerator>();
+                        g->prepare (sr, bs);
+                        *ok = g->loadSfz (file, *err);
+                        *slot = std::move (g);
+                    },
+                    [this, slot, ok, err]
+                    {
+                        if (*ok && *slot)
+                            addTrack (std::make_unique<Track> ((*slot)->getName(),
+                                          std::move (*slot), 60, paletteColour ((int) tracks.size())));
+                        else
+                            std::cout << "[sfz] " << *err << std::endl;
+                    });
             });
     };
 
@@ -303,6 +329,7 @@ MainComponent::MainComponent (bool headless)
     addAndMakeVisible (arrangeViewport);
 
     // ---- clip editor ----
+    addChildComponent (busyOverlay);   // shown only while a background task runs
     addAndMakeVisible (editorPanel);
     editorPanel.roll.setShowPlayhead (false);
     editorPanel.roll.setEnabledEditing (false);
@@ -1437,6 +1464,21 @@ void MainComponent::buildTemplate (const juce::String& name)
     seed (4, { 0, 3, 6, 8, 11, 14 });
 }
 
+void MainComponent::runBackground (const juce::String& label,
+                                   std::function<void()> heavy, std::function<void()> done)
+{
+    busyOverlay.show (label);
+    bgPool.addJob ([this, heavy = std::move (heavy), done = std::move (done)]
+    {
+        heavy();                                        // pool thread: the slow part
+        juce::MessageManager::callAsync ([this, done]   // back on the message thread
+        {
+            done();                                     // touch the engine safely here
+            busyOverlay.hide();
+        });
+    });
+}
+
 std::vector<juce::String> MainComponent::apiListTemplates()
 {
     std::vector<juce::String> out;
@@ -2215,6 +2257,8 @@ void MainComponent::resized()
     Component* comps[] = { &arrangeViewport, dividerBar.get(), &editorPanel };
     verticalLayout.layOutComponents (comps, 3, area.getX(), area.getY(),
                                      area.getWidth(), area.getHeight(), true, true);
+
+    busyOverlay.setBounds (getLocalBounds());   // covers everything while busy
 
     if (arrangeView)
         arrangeView->setSize (arrangeViewport.getMaximumVisibleWidth(),

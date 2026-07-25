@@ -10,6 +10,7 @@
 #include "Track.h"
 #include "Clip.h"
 #include "ArrangeView.h"
+#include "BusyOverlay.h"
 #include "PianoRoll.h"
 #include "StepEditor.h"
 #include "IconButton.h"
@@ -475,6 +476,15 @@ private:
 
     // Control API.
     int nextTrackId { 1 };   // 1-based: id 0 would be omitted by proto3 (indistinguishable from "unset")
+
+    // Long-task spinner: run heavy work off the message thread with a busy overlay so
+    // the UI stays responsive (sample/SFZ loading, etc.). `heavy` runs on a pool thread;
+    // `done` runs back on the message thread (safe to touch the engine) before the
+    // overlay hides.
+    BusyOverlay busyOverlay;
+    juce::ThreadPool bgPool { 1 };
+    void runBackground (const juce::String& label,
+                        std::function<void()> heavy, std::function<void()> done);
     std::unordered_map<int, Track*> idMap;
     juce::CriticalSection idMapLock;
     std::unique_ptr<OscControl> osc;
