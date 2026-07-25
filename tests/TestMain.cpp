@@ -10,6 +10,7 @@
 #include "Note.h"
 #include "NoteScheduler.h"
 #include "NoteEdits.h"
+#include "FileDrop.h"
 #include "Toml.h"
 
 //==============================================================================
@@ -354,10 +355,44 @@ struct NoteEditTests : juce::UnitTest
 };
 
 //==============================================================================
+// Drag-and-drop routing: the classifier decides which load op a dropped file gets.
+struct FileDropTests : juce::UnitTest
+{
+    FileDropTests() : juce::UnitTest ("FileDrop") {}
+
+    void runTest() override
+    {
+        beginTest ("classifyDroppedFile routes by extension (case-insensitive)");
+        {
+            auto k = [] (const char* name) { return classifyDroppedFile (juce::File ("/x/" + juce::String (name))); };
+            expect (k ("song.gloopy") == DroppedFileKind::Project);
+            expect (k ("song.zip")    == DroppedFileKind::Project);
+            expect (k ("beat.mid")    == DroppedFileKind::Midi);
+            expect (k ("beat.MIDI")   == DroppedFileKind::Midi);
+            expect (k ("vox.wav")     == DroppedFileKind::Audio);
+            expect (k ("vox.AIFF")    == DroppedFileKind::Audio);
+            expect (k ("horn.flac")   == DroppedFileKind::Audio);
+            expect (k ("notes.txt")   == DroppedFileKind::Unsupported);
+            expect (k ("noext")       == DroppedFileKind::Unsupported);   // not an existing dir
+        }
+
+        beginTest ("a composition folder (no extension, is a directory) is a Project");
+        {
+            auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                         .getChildFile ("gloopy-filedrop-test-dir");
+            dir.createDirectory();
+            expect (classifyDroppedFile (dir) == DroppedFileKind::Project);
+            dir.deleteRecursively();
+        }
+    }
+};
+
+//==============================================================================
 static NoteSchedulerTests noteSchedulerTests;
 static TomlTests         tomlTests;
 static SerializationTests serializationTests;
 static NoteEditTests     noteEditTests;
+static FileDropTests     fileDropTests;
 
 int main (int, char**)
 {

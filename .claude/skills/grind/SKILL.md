@@ -543,6 +543,14 @@ desktop control wiring the *same* api* op, screenshot-validated. Status:
   and exposed it as the `ImportAudio` RPC + Python `import_audio`; the button now
   shares it (commit). Headless-proven in smoke.sh (imports a rendered WAV → +1 audio
   track, rejects a non-audio file). Enables `.wav` drag-and-drop as a later slice.
+- `[x]` **Drag-and-drop files onto the window** — `MainComponent` is now a
+  `FileDragAndDropTarget`; a pure `classifyDroppedFile` (`Source/FileDrop.h`) routes
+  each dropped path to the already-tested op: `.gloopy/.zip`/composition-dir →
+  openAny, `.mid/.midi` → apiImportMidi, `.wav/.aif/.aiff/.flac` → apiImportAudio
+  (commit). The classifier is unit-tested (`FileDropTests`, extension + directory
+  cases) so the routing is headless-verified even though the OS drop event isn't
+  scriptable; the load ops themselves are smoke-proven. Closes the MIDI/audio
+  drag-drop fast-follows in one shared dispatcher.
 
 **UI-PARITY BACKLOG COMPLETE — all 11 audited API-only gaps + MIDI-import have desktop UI.**
 Next: Wave 6 Tier-1 piano-roll items (strum, arpeggiate, snap-to-scale-while-drawing),

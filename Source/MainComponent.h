@@ -8,6 +8,7 @@
 #include <memory>
 #include "Transport.h"
 #include "Track.h"
+#include "FileDrop.h"
 #include "Clip.h"
 #include "ArrangeView.h"
 #include "BusyOverlay.h"
@@ -33,6 +34,7 @@
     its clips), a clip editor (piano roll), and the mixer. */
 class MainComponent : public juce::AudioAppComponent,
                       public juce::MidiInputCallback,
+                      public juce::FileDragAndDropTarget,
                       private juce::Timer
 {
 public:
@@ -45,6 +47,12 @@ public:
 
     /** Hardware / virtual MIDI input — routed to the selected instrument track. */
     void handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage&) override;
+
+    /** Drag-and-drop: drop projects (.gloopy/.zip/composition dir), MIDI (.mid/.midi),
+        or audio (.wav/.aif/.flac) onto the window to open/import them. Routes to the
+        same ops as the File menu (openAny / apiImportMidi / apiImportAudio). */
+    bool isInterestedInFileDrag (const juce::StringArray& files) override;
+    void filesDropped (const juce::StringArray& files, int x, int y) override;
 
     /** Mix one block (transport → tracks → inserts → master → @p outBuf) and
         return the song length in samples. Shared by the live callback and the

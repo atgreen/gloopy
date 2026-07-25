@@ -2407,6 +2407,32 @@ void MainComponent::openAny (const juce::File& f)
     else if (f.existsAsFile())                                                 openProject (f);
 }
 
+bool MainComponent::isInterestedInFileDrag (const juce::StringArray& files)
+{
+    for (const auto& p : files)
+        if (classifyDroppedFile (juce::File (p)) != DroppedFileKind::Unsupported)
+            return true;
+    return false;
+}
+
+void MainComponent::filesDropped (const juce::StringArray& files, int, int)
+{
+    // Route each dropped file to the same op the File menu / toolbar uses. Projects
+    // replace the session; MIDI/audio add tracks. Runs on the message thread (JUCE
+    // delivers the drop there), so the api* calls are safe to invoke directly.
+    for (const auto& p : files)
+    {
+        const juce::File f (p);
+        switch (classifyDroppedFile (f))
+        {
+            case DroppedFileKind::Project: openAny (f);                        break;
+            case DroppedFileKind::Midi:    apiImportMidi (f.getFullPathName()); break;
+            case DroppedFileKind::Audio:   apiImportAudio (f.getFullPathName()); break;
+            case DroppedFileKind::Unsupported:                                 break;
+        }
+    }
+}
+
 void MainComponent::showFileMenu()
 {
     juce::PopupMenu menu;
