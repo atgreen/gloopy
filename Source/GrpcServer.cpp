@@ -248,6 +248,19 @@ namespace
             return Status::OK;
         }
 
+        // ---- mixer scenes ----
+        Status DefineMixerScene (ServerContext*, const pb::SceneName* q, pb::Ack* r) override
+        { const bool ok = main.apiDefineMixerScene (js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("invalid scene name"); return Status::OK; }
+        Status ListMixerScenes (ServerContext*, const pb::Empty*, pb::SceneList* r) override
+        { for (auto& n : main.apiListMixerScenes()) r->add_names (n.toStdString()); return Status::OK; }
+        Status RecallMixerScene (ServerContext*, const pb::SceneName* q, pb::Ack* r) override
+        { const bool ok = main.apiRecallMixerScene (js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("scene not found"); return Status::OK; }
+        Status RemoveMixerScene (ServerContext*, const pb::SceneName* q, pb::Ack* r) override
+        { const bool ok = main.apiRemoveMixerScene (js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("scene not found"); return Status::OK; }
+
         // ---- automation ----
         Status SetAutomation (ServerContext*, const pb::Automation* q, pb::Ack* r) override
         {

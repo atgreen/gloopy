@@ -133,6 +133,14 @@ public:
     bool apiExportMidi (const juce::String& path);   // all instrument tracks -> a Type-1 SMF
     int  apiImportMidi (const juce::String& path);   // SMF -> synth tracks + clips; count, or -1
 
+    // --- mixer scenes (MixerScenes.cpp) ---
+    // Named snapshots of the mixer strip (insert vol/pan/mute/solo + effect bypass),
+    // recallable. Automation stays separate. Stored in the composition.
+    bool apiDefineMixerScene (const juce::String& name);   // snapshot current mixer (upsert)
+    std::vector<juce::String> apiListMixerScenes();
+    bool apiRecallMixerScene (const juce::String& name);
+    bool apiRemoveMixerScene (const juce::String& name);
+
     // --- clip / region operations (ClipOps.cpp) ---
     int  apiSplitClip (int trackId, int index, double beat);        // -> new (right) clip index, or -1
     int  apiDuplicateClip (int trackId, int index, double atBeat);  // atBeat<0 => right after; -> new index
@@ -323,6 +331,13 @@ private:
     std::vector<TimelineLocation> locations;     // guarded by engineLock
     struct ExportProfile { juce::String name, target, rangeName, format; int trackId; double tailSeconds; };
     std::vector<ExportProfile> exportProfiles;   // guarded by engineLock
+    struct MixerScene
+    {
+        juce::String name;
+        struct Insert { float volume { 0.8f }, pan { 0.0f }; bool mute { false }, solo { false }; std::vector<char> bypass; };
+        std::vector<Insert> inserts;
+    };
+    std::vector<MixerScene> mixerScenes;         // guarded by engineLock
 
     // MIDI recording: audio thread appends played input, message thread drains to a clip.
     void startRecording();

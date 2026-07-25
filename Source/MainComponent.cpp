@@ -2255,6 +2255,24 @@ juce::ValueTree MainComponent::toValueTree()
         exps.addChild (ev, -1, nullptr);
     }
     root.addChild (exps, -1, nullptr);
+
+    juce::ValueTree scs ("SCENES");
+    for (auto& sc : mixerScenes)
+    {
+        juce::ValueTree sv ("SCENE");
+        sv.setProperty ("name", sc.name, nullptr);
+        for (auto& in : sc.inserts)
+        {
+            juce::ValueTree iv ("INSERT");
+            iv.setProperty ("vol", in.volume, nullptr);  iv.setProperty ("pan", in.pan, nullptr);
+            iv.setProperty ("mute", in.mute, nullptr);   iv.setProperty ("solo", in.solo, nullptr);
+            juce::String bp; for (auto b : in.bypass) bp << (b ? '1' : '0');
+            iv.setProperty ("bypass", bp, nullptr);
+            sv.addChild (iv, -1, nullptr);
+        }
+        scs.addChild (sv, -1, nullptr);
+    }
+    root.addChild (scs, -1, nullptr);
     return root;
 }
 
@@ -2352,6 +2370,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     mixerTracks.clear();
     locations.clear();
     exportProfiles.clear();
+    mixerScenes.clear();
     automationLanes.clear();
     nextTrackId = 0;
 
@@ -2588,6 +2607,27 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
         exportProfiles.push_back ({ e.getProperty ("name").toString(), e.getProperty ("target").toString(),
                                     e.getProperty ("range").toString(), e.getProperty ("format").toString(),
                                     (int) e.getProperty ("track"), (double) e.getProperty ("tail") });
+    }
+
+    auto scs = root.getChildWithName ("SCENES");
+    for (int i = 0; i < scs.getNumChildren(); ++i)
+    {
+        auto sv = scs.getChild (i);
+        MixerScene sc;
+        sc.name = sv.getProperty ("name").toString();
+        for (int j = 0; j < sv.getNumChildren(); ++j)
+        {
+            auto iv = sv.getChild (j);
+            MixerScene::Insert in;
+            in.volume = (float) (double) iv.getProperty ("vol", 0.8);
+            in.pan    = (float) (double) iv.getProperty ("pan", 0.0);
+            in.mute   = (bool) iv.getProperty ("mute", false);
+            in.solo   = (bool) iv.getProperty ("solo", false);
+            const auto bp = iv.getProperty ("bypass").toString();
+            for (int k = 0; k < bp.length(); ++k) in.bypass.push_back (bp[k] == '1' ? 1 : 0);
+            sc.inserts.push_back (std::move (in));
+        }
+        mixerScenes.push_back (std::move (sc));
     }
 
     transport.setBpm ((double) root.getProperty ("bpm", 128.0));

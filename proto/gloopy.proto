@@ -98,6 +98,8 @@ message EffectParamSet   { int32 insert = 1; int32 slot = 2; string name = 3; fl
 message EffectBypassSet  { int32 insert = 1; int32 slot = 2; bool bypassed = 3; }
 message Param     { string name = 1; float value = 2; float min = 3; float max = 4; }
 message ParamList { repeated Param params = 1; }
+message SceneName { string name = 1; }
+message SceneList { repeated string names = 1; }
 
 // ── universal parameter model ──────────────────────────────
 // A single flat, stable, string-addressed descriptor for any automatable value.
@@ -268,6 +270,12 @@ service Gloopy {
   rpc SetEffectParam (EffectParamSet)   returns (Ack);
   rpc SetEffectBypass(EffectBypassSet)  returns (Ack);
   rpc GetEffectParams(EffectRef)        returns (ParamList);
+
+  // mixer scenes — named snapshots of the mixer strip (recall on demand)
+  rpc DefineMixerScene(SceneName) returns (Ack);   // snapshot current mixer (upsert)
+  rpc ListMixerScenes (Empty)     returns (SceneList);
+  rpc RecallMixerScene(SceneName) returns (Ack);
+  rpc RemoveMixerScene(SceneName) returns (Ack);
 
   // presets (instrument sound / effect chain, as composition-friendly TOML)
   rpc ListPresets     (PresetCategory)  returns (PresetList);

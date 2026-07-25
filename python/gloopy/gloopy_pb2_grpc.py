@@ -255,6 +255,26 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.EffectRef.SerializeToString,
                 response_deserializer=gloopy__pb2.ParamList.FromString,
                 _registered_method=True)
+        self.DefineMixerScene = channel.unary_unary(
+                '/gloopy.v1.Gloopy/DefineMixerScene',
+                request_serializer=gloopy__pb2.SceneName.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.ListMixerScenes = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ListMixerScenes',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.SceneList.FromString,
+                _registered_method=True)
+        self.RecallMixerScene = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RecallMixerScene',
+                request_serializer=gloopy__pb2.SceneName.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.RemoveMixerScene = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RemoveMixerScene',
+                request_serializer=gloopy__pb2.SceneName.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.ListPresets = channel.unary_unary(
                 '/gloopy.v1.Gloopy/ListPresets',
                 request_serializer=gloopy__pb2.PresetCategory.SerializeToString,
@@ -694,6 +714,32 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DefineMixerScene(self, request, context):
+        """mixer scenes — named snapshots of the mixer strip (recall on demand)
+        snapshot current mixer (upsert)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListMixerScenes(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RecallMixerScene(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RemoveMixerScene(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ListPresets(self, request, context):
         """presets (instrument sound / effect chain, as composition-friendly TOML)
         """
@@ -1117,6 +1163,26 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.GetEffectParams,
                     request_deserializer=gloopy__pb2.EffectRef.FromString,
                     response_serializer=gloopy__pb2.ParamList.SerializeToString,
+            ),
+            'DefineMixerScene': grpc.unary_unary_rpc_method_handler(
+                    servicer.DefineMixerScene,
+                    request_deserializer=gloopy__pb2.SceneName.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ListMixerScenes': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListMixerScenes,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.SceneList.SerializeToString,
+            ),
+            'RecallMixerScene': grpc.unary_unary_rpc_method_handler(
+                    servicer.RecallMixerScene,
+                    request_deserializer=gloopy__pb2.SceneName.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'RemoveMixerScene': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemoveMixerScene,
+                    request_deserializer=gloopy__pb2.SceneName.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'ListPresets': grpc.unary_unary_rpc_method_handler(
                     servicer.ListPresets,
@@ -2463,6 +2529,114 @@ class Gloopy:
             '/gloopy.v1.Gloopy/GetEffectParams',
             gloopy__pb2.EffectRef.SerializeToString,
             gloopy__pb2.ParamList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DefineMixerScene(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/DefineMixerScene',
+            gloopy__pb2.SceneName.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListMixerScenes(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ListMixerScenes',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.SceneList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RecallMixerScene(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RecallMixerScene',
+            gloopy__pb2.SceneName.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RemoveMixerScene(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RemoveMixerScene',
+            gloopy__pb2.SceneName.SerializeToString,
+            gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,
             insecure,

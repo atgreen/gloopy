@@ -257,6 +257,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
     man.blank().table ("automation").str ("file", "automation/lanes.toml");
     man.blank().table ("locations").str ("file", "locations.toml");
     man.blank().table ("exports").str ("file", "exports.toml");
+    man.blank().table ("scenes").str ("file", "scenes.toml");
     ctx.writeText ("gloopy.toml", man.str());
 
     // --- per-track files ---
@@ -447,6 +448,32 @@ bool MainComponent::saveComposition (const juce::File& dir)
            .number ("tail", e.getProperty ("tail")).blank();
     }
     ctx.writeText ("exports.toml", ew2.str());
+
+    // --- mixer scenes (named snapshots) ---
+    // Each insert encoded as a "vol,pan,mute,solo,bypassbits" string so the flat
+    // TOML writer can hold a variable-length list.
+    toml::Writer sw;
+    auto scenes = root.getChildWithName ("SCENES");
+    for (int i = 0; i < scenes.getNumChildren(); ++i)
+    {
+        auto sv = scenes.getChild (i);
+        if (! sv.hasType ("SCENE")) continue;
+        juce::StringArray insEnc;
+        for (int j = 0; j < sv.getNumChildren(); ++j)
+        {
+            auto iv = sv.getChild (j);
+            juce::String e;
+            e << toml::Writer::num ((double) iv.getProperty ("vol", 0.8)) << ","
+              << toml::Writer::num ((double) iv.getProperty ("pan", 0.0)) << ","
+              << ((bool) iv.getProperty ("mute") ? "1" : "0") << ","
+              << ((bool) iv.getProperty ("solo") ? "1" : "0") << ","
+              << iv.getProperty ("bypass").toString();
+            insEnc.add (e);
+        }
+        sw.arrayItem ("scenes").str ("name", sv.getProperty ("name").toString())
+          .strArray ("inserts", insEnc).blank();
+    }
+    ctx.writeText ("scenes.toml", sw.str());
 
     ctx.writeText (".gitignore", kGitignore);
     ctx.prune();
@@ -689,11 +716,34 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             expTree.addChild (e, -1, nullptr);
         }
 
+    // Mixer scenes.
+    juce::ValueTree sceneTree ("SCENES");
+    if (auto scDoc = toml::parse (dir.getChildFile ("scenes.toml").loadFileAsString());
+        auto* ss = scDoc.array ("scenes"))
+        for (auto& sd : *ss)
+        {
+            juce::ValueTree sv ("SCENE");
+            sv.setProperty ("name", sd.getString ("name"), nullptr);
+            for (auto& enc : sd.getStringArray ("inserts"))
+            {
+                auto p = juce::StringArray::fromTokens (enc, ",", "");
+                juce::ValueTree iv ("INSERT");
+                iv.setProperty ("vol",  p.size() > 0 ? p[0].getDoubleValue() : 0.8, nullptr);
+                iv.setProperty ("pan",  p.size() > 1 ? p[1].getDoubleValue() : 0.0, nullptr);
+                iv.setProperty ("mute", p.size() > 2 && p[2] == "1", nullptr);
+                iv.setProperty ("solo", p.size() > 3 && p[3] == "1", nullptr);
+                iv.setProperty ("bypass", p.size() > 4 ? p[4] : juce::String(), nullptr);
+                sv.addChild (iv, -1, nullptr);
+            }
+            sceneTree.addChild (sv, -1, nullptr);
+        }
+
     root.addChild (tracksTree, -1, nullptr);
     root.addChild (mixerTree, -1, nullptr);
     root.addChild (autoTree, -1, nullptr);
     root.addChild (locTree, -1, nullptr);
     root.addChild (expTree, -1, nullptr);
+    root.addChild (sceneTree, -1, nullptr);
 
     currentProjectFile = manifest;   // so relative sample/SFZ paths resolve against the dir
     undoSuppressed = true;

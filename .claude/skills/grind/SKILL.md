@@ -315,6 +315,16 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
    *scaling*, not extra audio routing.
    *Done when:* snapshot → change faders → recall restores them (assert via
    `GetState`); a group fader scales its members; both round-trip.
+   - `[x]` **Mixer scenes landed** (`Source/MixerScenes.cpp`, commit):
+     `DefineMixerScene`(snapshot, upsert)/`ListMixerScenes`/`RecallMixerScene`/
+     `RemoveMixerScene`. Captures per-insert vol/pan/mute/solo + each effect's bypass;
+     recall tolerates added/removed inserts/effects. Serialised in
+     `toValueTree`/`loadFromTree` (SCENES/SCENE/INSERT) + composition `scenes.toml`
+     (inserts as compact `"vol,pan,mute,solo,bypassbits"` strings via the flat TOML
+     writer). Python client + smoke.sh (snapshot→mangle→recall restores exactly).
+     Verified vol/pan/mute + effect-bypass restore, composition round-trip. **Not
+     yet:** control groups (VCA-lite fader scaling) and send levels (needs Wave 3 #7
+     buses/sends first).
 
 ### Wave 4 — Musical model & modulation
 

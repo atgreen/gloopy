@@ -260,6 +260,20 @@ class Gloopy:
         self._ack(self.stub.SetEffectBypass(pb.EffectBypassSet(
             insert=insert, slot=slot, bypassed=bypassed)))
 
+    # -- mixer scenes (named snapshots) -----------------------------------
+    def define_mixer_scene(self, name: str) -> None:
+        """Snapshot the current mixer strip (vol/pan/mute/solo + effect bypass)."""
+        self._ack(self.stub.DefineMixerScene(pb.SceneName(name=name)))
+
+    def list_mixer_scenes(self) -> list[str]:
+        return list(self.stub.ListMixerScenes(pb.Empty()).names)
+
+    def recall_mixer_scene(self, name: str) -> None:
+        self._ack(self.stub.RecallMixerScene(pb.SceneName(name=name)))
+
+    def remove_mixer_scene(self, name: str) -> None:
+        self._ack(self.stub.RemoveMixerScene(pb.SceneName(name=name)))
+
     # -- presets ----------------------------------------------------------
     def list_presets(self, category: str) -> list[str]:
         """category = 'synth' | 'effects'."""
