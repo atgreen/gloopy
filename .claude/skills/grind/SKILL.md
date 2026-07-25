@@ -206,9 +206,25 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      the existing thread-safe setters. Covers `track/<id>/{volume,pan,mute,solo}`,
      `track/<id>/synth/<name>`, `insert/<i>/{volume,pan,mute,solo}`,
      `effect/<i>/<slot>/<param>`. Proven via smoke.sh (102 params; cutoff set/get) +
-     grpcurl. **Still to do for full done:** plugin-param ids; make automation/OSC
-     *address these same ids* (today they still use the `AutoTarget` tuple / OSC
-     lanes); persist a param snapshot in the composition; log/dB scaling used by UI.
+     grpcurl.
+   - `[x]` **Automation-by-id + stable track ids landed** (commit, focused session): an
+     automation lane can now address a **ParamModel id string** (`AutoLaneSnap.target`),
+     written each block through the same lock-held `applyParamValue` that
+     controllers/modulation use — so *an automation lane and a controller/LFO map address
+     the same id* (the keystone reconciliation). `apiSetAutomationById(target,points)` +
+     `apiAddAutomationPointById` (the keyframe primitive) + `SetAutomation.param_id` /
+     `AddAutomationPoint` RPCs + Python; serialised on LANE + composition `lanes.toml`
+     (`target`). Legacy tuple lanes still work. **Also fixed id stability:** the numeric
+     track id is now serialised (`tid` in `.gloopy` TRACK + composition track TOML) and
+     preserved on load (`refreshTrackIds` keeps loaded ids, bumps `nextTrackId` past
+     them), so `track/<id>/...` param ids survive a composition round-trip. **Desktop UI:**
+     the mixer param right-click menu gains "Automate at playhead" / "Clear automation" —
+     screenshot-validated. smoke proves a cutoff sweep on `track/<id>/synth/cutoff` moves
+     the render, the lane round-trips through SaveComposition/LoadComposition, and the
+     RELOADED project still sweeps (stable id keeps the lane live).
+     **Still to do for full done:** plugin-param ids (VST3/LV2 instrument + effect params
+     in the id grammar); persist a full param snapshot in the composition; log/dB scaling
+     for UI knobs.
 
 2. **Timeline locations — markers / ranges / loop / punch / sections.** ✦ **M**
    *Ardour #3.* A project-level `TimelineLocation { kind: marker|range|loop|punch|

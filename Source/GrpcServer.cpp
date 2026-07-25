@@ -361,10 +361,17 @@ namespace
             std::vector<MainComponent::AutoPointSnap> pts;
             for (int i = 0; i < q->points_size(); ++i)
                 pts.push_back ({ q->points (i).beat(), q->points (i).value() });
-            main.apiSetAutomation ((int) q->target(), q->id(), q->slot(), js (q->param()), pts);
+            if (! q->param_id().empty())   // id-addressed lane (the unified path)
+                main.apiSetAutomationById (js (q->param_id()), pts);
+            else
+                main.apiSetAutomation ((int) q->target(), q->id(), q->slot(), js (q->param()), pts);
             r->set_ok (true);
             return Status::OK;
         }
+
+        Status AddAutomationPoint (ServerContext*, const pb::AddAutoPointRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiAddAutomationPointById (js (q->param_id()), q->beat(), q->value());
+          r->set_ok (ok); if (! ok) r->set_error ("invalid param id"); return Status::OK; }
 
         Status GetAutomation (ServerContext*, const pb::Empty*, pb::AutomationList* r) override
         {
@@ -373,6 +380,7 @@ namespace
                 auto* a = r->add_lanes();
                 a->set_target ((pb::AutoTarget) lane.type); a->set_id (lane.id);
                 a->set_slot (lane.slot); a->set_param (lane.param.toStdString());
+                a->set_param_id (lane.target.toStdString());
                 for (auto& p : lane.points) { auto* pt = a->add_points(); pt->set_beat (p.beat); pt->set_value (p.value); }
             }
             return Status::OK;

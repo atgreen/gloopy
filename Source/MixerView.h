@@ -35,6 +35,10 @@ public:
         value as the LFO centre and calls apiSetModulation (target, rate, depth, shape). */
     std::function<void (const juce::String&, float, float, int, float, float, bool, float)> onSetModulation;   // target, rate, depth, shape, syncBeats, phase, unipolar, slewMs
     std::function<void (const juce::String&)>                     onRemoveModulation;
+    /** "Automate at playhead" / "Clear automation" — id-addressed automation (the same
+        ParamModel id MIDI-learn and the LFO use), authored one keyframe at a time. */
+    std::function<void (const juce::String&)>                     onAutomatePoint;
+    std::function<void (const juce::String&)>                     onClearAutomation;
 
     // Control groups (VCA-lite): the strip name's right-click menu creates/assigns
     // groups and rides the group fader. Wired by the owner to the apiControlGroup* calls.

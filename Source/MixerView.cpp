@@ -371,12 +371,17 @@ void MixerView::showParamMenu (const juce::String& target, const juce::String& l
     m.addItem (1, "MIDI Learn");
     m.addItem (2, "Add LFO...");
     m.addItem (3, "Remove LFO");
+    m.addSeparator();
+    m.addItem (4, "Automate at playhead");   // drop a keyframe (current value @ playhead)
+    m.addItem (5, "Clear automation");
     const juce::String tgt = target;
     m.showMenuAsync (juce::PopupMenu::Options(), [this, tgt] (int r)
     {
         if      (r == 1 && onMidiLearn)        onMidiLearn (tgt);
         else if (r == 2)                       promptAddLfo (tgt);
         else if (r == 3 && onRemoveModulation) onRemoveModulation (tgt);
+        else if (r == 4 && onAutomatePoint)    onAutomatePoint (tgt);
+        else if (r == 5 && onClearAutomation)  onClearAutomation (tgt);
     });
 }
 

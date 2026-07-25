@@ -233,8 +233,11 @@ message Automation {
   int32 slot = 3;               // effect slot (EFFECT_PARAM)
   string param = 4;             // effect param name (EFFECT_PARAM)
   repeated AutoPoint points = 5;   // empty = clear this lane
+  string param_id = 6;          // when set, an id-addressed lane (a ParamModel id) — the unified path
 }
 message AutomationList { repeated Automation lanes = 1; }
+// Append/replace one keyframe on a ParamModel-id-addressed automation lane.
+message AddAutoPointRequest { string param_id = 1; double beat = 2; float value = 3; }
 
 // ── modulation matrix ──────────────────────────────────────
 // An LFO driving a ParamModel target: value = center + depth*osc(rate*t).
@@ -418,6 +421,7 @@ service Gloopy {
 
   // automation
   rpc SetAutomation  (Automation)       returns (Ack);
+  rpc AddAutomationPoint (AddAutoPointRequest) returns (Ack);   // append/replace a keyframe on an id-addressed lane
   rpc GetAutomation  (Empty)            returns (AutomationList);
 
   // modulation matrix (LFO -> ParamModel target)

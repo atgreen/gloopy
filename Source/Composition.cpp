@@ -281,7 +281,8 @@ bool MainComponent::saveComposition (const juce::File& dir)
         auto tr = tracks.getChild (i);
         const auto slug = trackSlug[i];
         toml::Writer w;
-        w.str ("id", slug).str ("name", tr.getProperty ("name").toString())
+        w.str ("id", slug).integer ("tid", (int) tr.getProperty ("tid", -1))   // stable control-API id
+         .str ("name", tr.getProperty ("name").toString())
          .integer ("type", (int) tr.getProperty ("type", 0))
          .integer ("colour", (juce::int64) (int) tr.getProperty ("colour", 0))
          .integer ("default_pitch", (int) tr.getProperty ("pitch", 60))
@@ -435,17 +436,20 @@ bool MainComponent::saveComposition (const juce::File& dir)
     {
         auto lane = autom.getChild (i);
         if (! lane.hasType ("LANE")) continue;
-        auto base = slugify (lane.getProperty ("param").toString(), "lane") + "-"
-                    + juce::String ((int) lane.getProperty ("id", 0));
+        const juce::String tgt = lane.getProperty ("target").toString();
+        auto base = tgt.isNotEmpty() ? slugify (tgt, "lane")
+                                     : slugify (lane.getProperty ("param").toString(), "lane") + "-"
+                                       + juce::String ((int) lane.getProperty ("id", 0));
         const auto lslug = uniqueSlug (base, laneSeen);
         const auto rel = "automation/" + lslug + ".points";
         ctx.writeText (rel, buildPoints (lane));
-        aw.arrayItem ("lanes").str ("id", lslug)
+        auto& row = aw.arrayItem ("lanes").str ("id", lslug)
           .integer ("type", (int) lane.getProperty ("type", 0))
           .integer ("target_id", (int) lane.getProperty ("id", 0))
           .integer ("slot", (int) lane.getProperty ("slot", 0))
-          .str ("param", lane.getProperty ("param").toString())
-          .str ("points", rel).blank();
+          .str ("param", lane.getProperty ("param").toString());
+        if (tgt.isNotEmpty()) row.str ("target", tgt);
+        row.str ("points", rel).blank();
     }
     ctx.writeText ("automation/lanes.toml", aw.str());
 
@@ -688,6 +692,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             const auto td = toml::parse (tf.loadFileAsString());
 
             juce::ValueTree tr ("TRACK");
+            tr.setProperty ("tid", td.root.getInt ("tid", -1), nullptr);   // preserve the stable control-API id
             tr.setProperty ("name", td.root.getString ("name"), nullptr);
             tr.setProperty ("colour", td.root.getInt ("colour", (int) 0xff4a90d9), nullptr);
             tr.setProperty ("pitch", td.root.getInt ("default_pitch", 60), nullptr);
@@ -788,6 +793,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             lane.setProperty ("id", ld.getInt ("target_id", 0), nullptr);
             lane.setProperty ("slot", ld.getInt ("slot", 0), nullptr);
             lane.setProperty ("param", ld.getString ("param"), nullptr);
+            if (ld.getString ("target").isNotEmpty()) lane.setProperty ("target", ld.getString ("target"), nullptr);
             readPoints (dir.getChildFile (ld.getString ("points")), lane);
             autoTree.addChild (lane, -1, nullptr);
         }

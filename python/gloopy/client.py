@@ -575,10 +575,19 @@ class Gloopy:
         self._ack(self.stub.SetAutomation(pb.Automation(
             target=tgt, id=id, slot=slot, param=param, points=pts)))
 
+    def set_automation_by_id(self, param_id: str, points: Iterable[tuple[float, float]]) -> None:
+        """Automate a ParamModel id (the same id a controller/LFO addresses). Empty points clears it."""
+        pts = [pb.AutoPoint(beat=b, value=v) for b, v in points]
+        self._ack(self.stub.SetAutomation(pb.Automation(param_id=param_id, points=pts)))
+
+    def add_automation_point(self, param_id: str, beat: float, value: float) -> None:
+        """Append/replace one keyframe on an id-addressed automation lane."""
+        self._ack(self.stub.AddAutomationPoint(pb.AddAutoPointRequest(param_id=param_id, beat=beat, value=value)))
+
     def get_automation(self) -> list[dict]:
         r = self.stub.GetAutomation(pb.Empty())
         return [{"target": a.target, "id": a.id, "slot": a.slot, "param": a.param,
-                 "points": [(p.beat, p.value) for p in a.points]} for a in r.lanes]
+                 "param_id": a.param_id, "points": [(p.beat, p.value) for p in a.points]} for a in r.lanes]
 
     # -- plugins ----------------------------------------------------------
     def scan_plugins(self, force: bool = False) -> list[dict]:

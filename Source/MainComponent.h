@@ -124,9 +124,14 @@ public:
     // Parameter automation (built-in targets). type: 0=track vol, 1=track pan,
     // 2=insert vol, 3=insert pan, 4=effect param.
     struct AutoPointSnap { double beat; float value; };
-    struct AutoLaneSnap  { int type; int id; int slot; juce::String param; std::vector<AutoPointSnap> points; };
+    // A lane is either id-addressed (target = a ParamModel id, the unified path) or a
+    // legacy tuple (type/id/slot/param). When target is non-empty it wins and the lane
+    // is written through applyParamValue — the same id a controller/LFO addresses.
+    struct AutoLaneSnap  { int type; int id; int slot; juce::String param; std::vector<AutoPointSnap> points; juce::String target; };
     void apiSetAutomation (int type, int id, int slot, const juce::String& param,
                            const std::vector<AutoPointSnap>& points);        // empty points = clear the lane
+    void apiSetAutomationById (const juce::String& target, const std::vector<AutoPointSnap>& points);   // id-addressed lane (upsert; empty = clear)
+    bool apiAddAutomationPointById (const juce::String& target, double beat, float value);              // append/replace one point on a target's lane
     std::vector<AutoLaneSnap> apiGetAutomation();
     void evaluateAutomation (double beat);   // audio thread, under engineLock
     void apiNewProject();

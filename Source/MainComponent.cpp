@@ -372,6 +372,14 @@ MainComponent::MainComponent (bool headless)
         apiSetModulation (target, rate, depth, shape, center, sync, phase, uni, slew);
     };
     mixerView->onRemoveModulation   = [this] (const juce::String& target) { apiRemoveModulation (target); };
+    // Automation authored on the same ParamModel id: drop a keyframe (current value @ playhead) / clear.
+    mixerView->onAutomatePoint      = [this] (const juce::String& target)
+    {
+        ParamDesc d;
+        const float value = apiGetParameter (target, d) ? d.value : 0.0f;
+        apiAddAutomationPointById (target, transport.getPlayheadBeats(), value);
+    };
+    mixerView->onClearAutomation    = [this] (const juce::String& target) { apiSetAutomationById (target, {}); };
 
     // Control groups (VCA-lite): the mixer strip name menu drives the apiControlGroup* calls.
     mixerView->onListGroups  = [this]
@@ -501,6 +509,7 @@ void MainComponent::refreshTrackIds()
         for (auto& t : tracks)
         {
             if (t->id < 0) t->id = nextTrackId++;
+            nextTrackId = juce::jmax (nextTrackId, t->id + 1);   // never reuse a preserved (loaded) id
             idMap[t->id] = t.get();
             if (firstInst < 0 && t->generator != nullptr) firstInst = t->id;
         }
@@ -1046,6 +1055,7 @@ void MainComponent::evaluateAutomation (double beat)
     {
         if (lane.points.empty()) continue;
         const float v = interpAuto (lane.points, beat);
+        if (lane.target.isNotEmpty()) { applyParamValue (lane.target, v); continue; }   // id-addressed (unified path)
         const bool insertOk = juce::isPositiveAndBelow (lane.id, (int) mixerTracks.size());
         switch (lane.type)
         {
@@ -1080,11 +1090,62 @@ void MainComponent::apiSetAutomation (int type, int id, int slot, const juce::St
             automationLanes.end());
         if (! points.empty())
         {
-            AutoLaneSnap lane { type, id, slot, param, points };
+            AutoLaneSnap lane { type, id, slot, param, points, {} };
             std::sort (lane.points.begin(), lane.points.end(),
                        [] (const AutoPointSnap& a, const AutoPointSnap& b) { return a.beat < b.beat; });
             automationLanes.push_back (std::move (lane));
         }
+        return true;
+    });
+}
+
+// Id-addressed automation: the lane targets a ParamModel id (the same string a
+// controller/LFO uses), written each block through applyParamValue. Upsert by target;
+// empty points clears it.
+void MainComponent::apiSetAutomationById (const juce::String& target, const std::vector<AutoPointSnap>& points)
+{
+    if (target.trim().isEmpty()) return;
+    callOnMessageThread ([&]
+    {
+        pushUndoSnapshot();
+        const juce::ScopedLock sl (engineLock);
+        automationLanes.erase (std::remove_if (automationLanes.begin(), automationLanes.end(),
+            [&] (const AutoLaneSnap& l) { return l.target == target; }), automationLanes.end());
+        if (! points.empty())
+        {
+            AutoLaneSnap lane { -1, -1, -1, {}, points, target };
+            std::sort (lane.points.begin(), lane.points.end(),
+                       [] (const AutoPointSnap& a, const AutoPointSnap& b) { return a.beat < b.beat; });
+            automationLanes.push_back (std::move (lane));
+        }
+        return true;
+    });
+}
+
+// Append (or replace, if one already sits at that beat) a single point on a target's
+// id-addressed lane — the primitive the "Automate at playhead" desktop hook uses to
+// build a curve keyframe by keyframe.
+bool MainComponent::apiAddAutomationPointById (const juce::String& target, double beat, float value)
+{
+    if (target.trim().isEmpty()) return false;
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        const juce::ScopedLock sl (engineLock);
+        auto it = std::find_if (automationLanes.begin(), automationLanes.end(),
+                                [&] (const AutoLaneSnap& l) { return l.target == target; });
+        if (it == automationLanes.end())
+        {
+            automationLanes.push_back ({ -1, -1, -1, {}, { { beat, value } }, target });
+            return true;
+        }
+        auto& pts = it->points;
+        auto p = std::find_if (pts.begin(), pts.end(),
+                               [&] (const AutoPointSnap& q) { return std::abs (q.beat - beat) < 1.0e-6; });
+        if (p != pts.end()) p->value = value;            // replace the keyframe at this beat
+        else                pts.push_back ({ beat, value });
+        std::sort (pts.begin(), pts.end(),
+                   [] (const AutoPointSnap& a, const AutoPointSnap& b) { return a.beat < b.beat; });
         return true;
     });
 }
@@ -2667,6 +2728,7 @@ juce::ValueTree MainComponent::toValueTree()
     for (auto& t : tracks)
     {
         juce::ValueTree tr ("TRACK");
+        tr.setProperty ("tid", t->id, nullptr);   // stable control-API id (keeps track/<id>/... param ids stable)
         tr.setProperty ("name", t->name, nullptr);
         tr.setProperty ("colour", (int) t->colour.getARGB(), nullptr);
         tr.setProperty ("pitch", t->defaultPitch, nullptr);
@@ -2851,6 +2913,7 @@ juce::ValueTree MainComponent::toValueTree()
         juce::ValueTree l ("LANE");
         l.setProperty ("type", lane.type, nullptr); l.setProperty ("id", lane.id, nullptr);
         l.setProperty ("slot", lane.slot, nullptr); l.setProperty ("param", lane.param, nullptr);
+        if (lane.target.isNotEmpty()) l.setProperty ("target", lane.target, nullptr);
         for (auto& p : lane.points)
         {
             juce::ValueTree pt ("PT");
@@ -3114,6 +3177,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
                     std::move (gen), (int) tr.getProperty ("pitch", 60),
                     juce::Colour ((juce::uint32) (int) tr.getProperty ("colour", (int) 0xff4a90d9)),
                     (TrackType) ttype);
+        t->id = (int) tr.getProperty ("tid", -1);   // preserve the stable control-API id if saved
         t->volume.store ((float) (double) tr.getProperty ("vol", 0.8));
         t->pan.store    ((float) (double) tr.getProperty ("pan", 0.0));
         t->mute.store   ((bool) tr.getProperty ("mute", false));
@@ -3278,7 +3342,8 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     {
         auto l = au.getChild (i);
         AutoLaneSnap lane { (int) l.getProperty ("type"), (int) l.getProperty ("id"),
-                            (int) l.getProperty ("slot"), l.getProperty ("param").toString(), {} };
+                            (int) l.getProperty ("slot"), l.getProperty ("param").toString(), {},
+                            l.getProperty ("target").toString() };
         for (int j = 0; j < l.getNumChildren(); ++j)
         {
             auto pt = l.getChild (j);

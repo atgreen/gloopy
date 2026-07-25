@@ -235,6 +235,60 @@ print('smoke: PASS — LFO slew softens a square LFO (render diff %.4f), slew_ms
 g -d "{\"target\":\"track/$MT/synth/cutoff\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveModulation >/dev/null
 g -d "{\"id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
+# ParamModel keystone — automation-by-id: an automation lane addresses the SAME ParamModel
+# id a controller/LFO uses (track/<id>/synth/cutoff), written through the shared
+# applyParamValue. A ramp 300->8000 Hz over 0..4 beats brightens the render vs a static
+# cutoff; the lane's param_id + points survive a composition round-trip.
+AM=$(g -d '{"name":"autoid","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.2,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$AM,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":72,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"id\":\"track/$AM/synth/cutoff\",\"value\":300}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null
+g -d "{\"path\":\"$WORK/am_base.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"param_id\":\"track/$AM/synth/cutoff\",\"points\":[{\"beat\":0,\"value\":300},{\"beat\":4,\"value\":8000}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetAutomation >/dev/null
+g -d "{\"path\":\"$WORK/am_auto.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+a=rd('$WORK/am_base.wav');b=rd('$WORK/am_auto.wav');m=min(len(a),len(b))
+d=sum(abs(a[i]-b[i]) for i in range(m))/m/(1<<23)
+assert d>0.003, 'id-addressed automation did not move the render (diff=%.5f)'%d
+print('smoke: PASS — automation-by-id sweeps cutoff on track/$AM/synth/cutoff (render diff %.4f)'%d)
+" || { echo 'smoke: automation-by-id had no effect' >&2; exit 1; }
+# The lane is reported by GetAutomation with its param_id, and the AddAutomationPoint
+# keyframe primitive appends to the same lane.
+g -d "{\"param_id\":\"track/$AM/synth/cutoff\",\"beat\":2,\"value\":1000}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddAutomationPoint >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetAutomation | python3 -c "
+import json,sys
+lanes=[l for l in json.load(sys.stdin)['lanes'] if l.get('paramId')=='track/$AM/synth/cutoff']
+assert lanes, 'no id-addressed lane reported'
+assert len(lanes[0]['points'])==3, 'AddAutomationPoint did not add a keyframe (%d points)'%len(lanes[0]['points'])
+print('smoke: PASS — GetAutomation reports the id-addressed lane (3 keyframes)')
+" || { echo 'smoke: automation-by-id lane not reported' >&2; exit 1; }
+# Composition round-trip: the id-addressed lane survives SaveComposition -> LoadComposition.
+g -d "{\"path\":\"$WORK/amcomp\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+grep -q 'target = "track/'"$AM"'/synth/cutoff"' "$WORK/amcomp/automation/lanes.toml" || { echo "smoke: lanes.toml missing the id-addressed target" >&2; exit 1; }
+g -d "{\"path\":\"$WORK/amcomp\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetAutomation | python3 -c "
+import json,sys
+lanes=[l for l in json.load(sys.stdin)['lanes'] if l.get('paramId')=='track/$AM/synth/cutoff']
+assert lanes and len(lanes[0]['points'])==3, 'id-addressed lane lost on composition reload'
+print('smoke: PASS — automation-by-id lane survives composition round-trip')
+" || { echo 'smoke: automation-by-id did not round-trip' >&2; exit 1; }
+# Functional: the reloaded project must still SWEEP — proves the track id (track/$AM)
+# survived the round-trip so the id-addressed lane is still live (not just the string).
+g -d "{\"path\":\"$WORK/am_reload.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+base=rd('$WORK/am_base.wav');rl=rd('$WORK/am_reload.wav');m=min(len(base),len(rl))
+d=sum(abs(base[i]-rl[i]) for i in range(m))/m/(1<<23)
+assert d>0.003, 'reloaded project did not sweep — track id not preserved (diff=%.5f)'%d
+print('smoke: PASS — reloaded project still sweeps (stable track id keeps the lane live, diff %.4f)'%d)
+" || { echo 'smoke: track id not preserved across composition round-trip' >&2; exit 1; }
+AMID=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print([t['id'] for t in json.load(sys.stdin)['tracks']][-1])")
+g -d "{\"id\":$AMID}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null 2>&1 || true
+
 # Per-track microtuning: a +1200-cent detune raises a sine note one octave, so its
 # zero-crossing rate (~2x fundamental) doubles. Proves the cents->frequency mapping and
 # that detune rides the synth param model (SetParameter/GetParameter).

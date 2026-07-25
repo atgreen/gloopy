@@ -490,6 +490,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.Automation.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.AddAutomationPoint = channel.unary_unary(
+                '/gloopy.v1.Gloopy/AddAutomationPoint',
+                request_serializer=gloopy__pb2.AddAutoPointRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.GetAutomation = channel.unary_unary(
                 '/gloopy.v1.Gloopy/GetAutomation',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -1301,6 +1306,13 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def AddAutomationPoint(self, request, context):
+        """append/replace a keyframe on an id-addressed lane
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetAutomation(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2040,6 +2052,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'SetAutomation': grpc.unary_unary_rpc_method_handler(
                     servicer.SetAutomation,
                     request_deserializer=gloopy__pb2.Automation.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'AddAutomationPoint': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddAutomationPoint,
+                    request_deserializer=gloopy__pb2.AddAutoPointRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'GetAutomation': grpc.unary_unary_rpc_method_handler(
@@ -4715,6 +4732,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/SetAutomation',
             gloopy__pb2.Automation.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AddAutomationPoint(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/AddAutomationPoint',
+            gloopy__pb2.AddAutoPointRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,
