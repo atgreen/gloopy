@@ -517,7 +517,9 @@ desktop control wiring the *same* api* op, screenshot-validated. Status:
   FX param knob → MIDI Learn → apiMidiLearn(target) (commit 8567627). Screenshot +
   headless validated (cc:20 → insert/0/volume). Still open: a full mapping-rack VIEW
   (list/edit/remove existing maps, inversion/smoothing/bypass) — #19.
-- `[ ]` **Tempo markers** (AddTempoMarker/RemoveTempoMarker) — right-click tempo ruler.
+- `[x]` **Tempo markers** (AddTempoMarker/RemoveTempoMarker) — right-click the beat ruler
+  → Add (BPM prompt) / Remove; markers drawn as flags on the ruler (commit 004c19f).
+  Screenshot + headless validated (bar 3 / 150 BPM).
 - `[ ]` **Punch range** (SetPunchRange) — drag on the ruler.
 - `[ ]` **Take management** (PromoteTake/CleanupTakes) — a takes panel.
 
