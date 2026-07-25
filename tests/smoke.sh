@@ -882,6 +882,18 @@ mem=[m for m in r.iter('MTRACK') if m.get('group')=='VCA']
 assert mem, 'no insert saved with group=VCA'
 print('smoke: PASS — control group + membership round-trip (gain 0.5, %d member)'%len(mem))
 " || { echo 'smoke: control group did not round-trip' >&2; exit 1; }
-g -d "{\"id\":$CG}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+# Composition (TOML repo-format) round-trip: the group + membership must survive
+# SaveComposition -> LoadComposition, not just the .gloopy SaveProject above.
+g -d "{\"path\":\"$WORK/cgcomp\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+grep -q 'name = "VCA"' "$WORK/cgcomp/groups.toml" || { echo "smoke: groups.toml missing the VCA group" >&2; exit 1; }
+g -d "{\"path\":\"$WORK/cgcomp\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListControlGroups | python3 -c "
+import json,sys
+gs={g['name']:g for g in json.load(sys.stdin).get('groups',[])}
+assert 'VCA' in gs, 'VCA group lost on composition reload: %s'%list(gs)
+assert abs(gs['VCA'].get('gain',0)-0.5)<1e-6, 'group gain wrong after reload: %s'%gs['VCA']
+assert gs['VCA'].get('members',0)>=1, 'group membership lost after reload: %s'%gs['VCA']
+print('smoke: PASS — control group survived composition round-trip (gain 0.5, %d member)'%gs['VCA']['members'])
+" || { echo 'smoke: control group did not survive composition round-trip' >&2; exit 1; }
 
 echo "smoke: OK"

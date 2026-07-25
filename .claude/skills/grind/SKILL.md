@@ -429,13 +429,14 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      (`MixerTrack.group`), so it survives insert re-indexing. `apiDefineControlGroup`/
      `SetControlGroupGain`/`SetControlGroupMute`/`AssignInsertToGroup`(""=clear, defines if
      new)/`RemoveControlGroup`/`ListControlGroups` + RPCs + Python. Serialised in the
-     ValueTree (`GROUPS/GROUP` + a `group` attr per `MTRACK`). **Desktop UI:** right-click a
+     ValueTree (`GROUPS/GROUP` + a `group` attr per `MTRACK`) AND the composition
+     (`groups.toml` + a `group` field per insert in `mixer/inserts.toml`). **Desktop UI:** right-click a
      mixer strip name -> control-group menu (New group.../Assign to/Group gain 0-100%/Mute/
      Delete) — screenshot-validated. smoke proves gain 0.5 drops a member's soloed render
-     exactly 6 dB, mute silences it, and the group + membership round-trip (SaveProject).
-     **Not yet:** composition (TOML repo-format) persistence — groups survive `.gloopy`
-     SaveProject but not yet SaveComposition (immediate follow-up); group *solo* (VCA solo);
-     a dedicated group fader strip in the mixer (menu-driven gain for now).
+     exactly 6 dB, mute silences it, and the group + membership survive both a `.gloopy`
+     round-trip and a SaveComposition/LoadComposition round-trip.
+     **Not yet:** group *solo* (VCA solo); a dedicated group fader strip in the mixer
+     (menu-driven gain for now).
 
 ### Wave 4 — Musical model & modulation
 

@@ -267,6 +267,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
     man.blank().table ("locations").str ("file", "locations.toml");
     man.blank().table ("exports").str ("file", "exports.toml");
     man.blank().table ("scenes").str ("file", "scenes.toml");
+    man.blank().table ("groups").str ("file", "groups.toml");
     man.blank().table ("mods").str ("file", "mods.toml");
     man.blank().table ("tempo").str ("file", "tempo.toml");
     man.blank().table ("controllers").str ("file", "controllers.toml");
@@ -384,6 +385,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
           .number ("volume", mt.getProperty ("vol", 0.8)).number ("pan", mt.getProperty ("pan", 0.0))
           .boolean ("mute", mt.getProperty ("mute", false)).boolean ("solo", mt.getProperty ("solo", false));
         if ((bool) mt.getProperty ("bus", false)) mw.boolean ("bus", true);
+        if (mt.getProperty ("group").toString().isNotEmpty()) mw.str ("group", mt.getProperty ("group").toString());
         {
             juce::StringArray sendEnc;   // "busIndex,level"
             for (int e = 0; e < mt.getNumChildren(); ++e)
@@ -504,6 +506,20 @@ bool MainComponent::saveComposition (const juce::File& dir)
     }
     ctx.writeText ("scenes.toml", sw.str());
 
+    // --- control groups (VCA-lite) ---
+    // The group defs; membership is the `group` field on each mixer insert above.
+    toml::Writer gw;
+    auto groupsT = root.getChildWithName ("GROUPS");
+    for (int i = 0; i < groupsT.getNumChildren(); ++i)
+    {
+        auto gv = groupsT.getChild (i);
+        if (! gv.hasType ("GROUP")) continue;
+        gw.arrayItem ("groups").str ("name", gv.getProperty ("name").toString())
+          .number ("gain", gv.getProperty ("gain", 1.0)).boolean ("mute", gv.getProperty ("mute", false))
+          .blank();
+    }
+    ctx.writeText ("groups.toml", gw.str());
+
     // --- modulation matrix (LFO -> param) ---
     toml::Writer mdw;
     auto modsT = root.getChildWithName ("MODS");
@@ -608,6 +624,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             mt.setProperty ("mute", in.getBool ("mute"), nullptr);
             mt.setProperty ("solo", in.getBool ("solo"), nullptr);
             if (in.getBool ("bus")) mt.setProperty ("bus", true, nullptr);
+            if (in.getString ("group").isNotEmpty()) mt.setProperty ("group", in.getString ("group"), nullptr);
             for (auto& enc : in.getStringArray ("sends"))
             {
                 auto p = juce::StringArray::fromTokens (enc, ",", "");
@@ -860,6 +877,19 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
         }
 
     root.addChild (sceneTree, -1, nullptr);
+    // Control groups (VCA-lite).
+    juce::ValueTree groupTree ("GROUPS");
+    if (auto gDoc = toml::parse (dir.getChildFile ("groups.toml").loadFileAsString());
+        auto* gs = gDoc.array ("groups"))
+        for (auto& gd : *gs)
+        {
+            juce::ValueTree gv ("GROUP");
+            gv.setProperty ("name", gd.getString ("name"), nullptr);
+            gv.setProperty ("gain", gd.getDouble ("gain", 1.0), nullptr);
+            gv.setProperty ("mute", gd.getBool ("mute"), nullptr);
+            groupTree.addChild (gv, -1, nullptr);
+        }
+    root.addChild (groupTree, -1, nullptr);
     // Controller mappings.
     juce::ValueTree ctlTree ("CONTROLLERS");
     if (auto cDoc = toml::parse (dir.getChildFile ("controllers.toml").loadFileAsString());
