@@ -512,7 +512,10 @@ desktop control wiring the *same* api* op, screenshot-validated. Status:
 - `[x]` **Project scale selector** (SetScale/GetScale) — toolbar root + scale-name combos
   wired to apiSetScale; drives the piano-roll highlight + snap-to-scale; refreshes from
   the model on load (commit). Screenshot-validated (dorian tint + GetScale readback).
-- `[ ]` **Modulation / LFO matrix** (SetModulation/RemoveModulation) — a mod-matrix panel.
+- `[x]` **Modulation / LFO** (SetModulation/RemoveModulation) — Add LFO... / Remove LFO on
+  the mixer param right-click menu (rate/depth/shape prompt; centre = current value)
+  (commit efac838). Screenshot + headless validated. Follow-up: a full mod-matrix VIEW
+  (ListModulations) if managing many routes becomes fiddly.
 - `[x]` **MIDI-learn** (AddControllerMap/MidiLearn) — right-click a mixer fader / pan /
   FX param knob → MIDI Learn → apiMidiLearn(target) (commit 8567627). Screenshot +
   headless validated (cc:20 → insert/0/volume). Still open: a full mapping-rack VIEW
