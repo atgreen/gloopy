@@ -228,6 +228,11 @@ class Gloopy:
         """Set an audio clip's gain so its loudest sample sits at target_dbfs (0 = full scale)."""
         self._ack(self.stub.NormalizeClip(pb.NormalizeClipRequest(track_id=track_id, index=index, target_dbfs=target_dbfs)))
 
+    def set_clip_fades(self, track_id: int, index: int, fade_in_beats: float = 0.0, fade_out_beats: float = 0.0) -> None:
+        """Set an audio clip's linear fade-in / fade-out lengths, in beats."""
+        self._ack(self.stub.SetClipFades(pb.ClipFadesRequest(
+            track_id=track_id, index=index, fade_in_beats=fade_in_beats, fade_out_beats=fade_out_beats)))
+
     def clip_notes(self, track_id: int, index: int) -> list[dict]:
         r = self.stub.GetClipNotes(pb.ClipRef(track_id=track_id, index=index))
         return [{"pitch": n.pitch, "start_beat": n.start_beat,

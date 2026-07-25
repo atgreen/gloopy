@@ -178,6 +178,28 @@ float MainComponent::apiNormalizeClip (int trackId, int index, float targetDbfs)
     });
 }
 
+// Set an audio clip's linear fade-in / fade-out lengths (beats). false if not audio.
+bool MainComponent::apiSetClipFades (int trackId, int index, double fadeInBeats, double fadeOutBeats)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+            Clip& c = t->clips[(size_t) index];
+            if (! c.isAudio()) return false;
+            c.fadeInBeats  = juce::jmax (0.0, fadeInBeats);
+            c.fadeOutBeats = juce::jmax (0.0, fadeOutBeats);
+        }
+        emitChange ("clip_changed", trackId);
+        if (arrangeView) arrangeView->repaint();
+        return true;
+    });
+}
+
 std::vector<Note> MainComponent::apiGetClipNotes (int trackId, int index)
 {
     return callOnMessageThread ([&] () -> std::vector<Note>

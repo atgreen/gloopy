@@ -343,6 +343,8 @@ bool MainComponent::saveComposition (const juce::File& dir)
              .number ("content_length", cl.getProperty ("content", 4.0))
              .boolean ("looped", cl.getProperty ("looped", false));
             if ((bool) cl.getProperty ("muted", false)) w.boolean ("muted", true);
+            if ((double) cl.getProperty ("fadein", 0.0)  > 0.0) w.number ("fade_in",  cl.getProperty ("fadein", 0.0));
+            if ((double) cl.getProperty ("fadeout", 0.0) > 0.0) w.number ("fade_out", cl.getProperty ("fadeout", 0.0));
 
             if (cl.hasProperty ("afile"))    // referenced audio (recorded take / import)
             {
@@ -723,6 +725,8 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                     cl.setProperty ("content", cd.getDouble ("content_length", 4.0), nullptr);
                     cl.setProperty ("looped", cd.getBool ("looped"), nullptr);
                     if (cd.getBool ("muted")) cl.setProperty ("muted", true, nullptr);
+                    if (cd.getDouble ("fade_in", 0.0)  > 0.0) cl.setProperty ("fadein",  cd.getDouble ("fade_in", 0.0), nullptr);
+                    if (cd.getDouble ("fade_out", 0.0) > 0.0) cl.setProperty ("fadeout", cd.getDouble ("fade_out", 0.0), nullptr);
                     if (cd.has ("take"))          // referenced take/asset — keep the reference
                     {
                         cl.setProperty ("afile", cd.getString ("audio_file"), nullptr);

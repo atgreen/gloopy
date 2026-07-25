@@ -533,6 +533,21 @@ assert abs((a-b)-6) < 1.0, 'SetClipGain -6 dB did not drop peak ~6 dB (%.2f -> %
 print('smoke: PASS — SetClipGain -6 dB dropped peak %.1f -> %.1f dBFS'%(a,b))
 " || { echo "smoke: SetClipGain did not drop the level" >&2; exit 1; }
 
+# Clip fades: a fade-in ramps the clip from silence, so the first 0.25 s is much quieter
+# than the same clip with no fade (same audio content, isolating the fade). Reset gain to
+# unity first so the comparison is about the fade alone.
+g -d "{\"track_id\":$AID,\"index\":0,\"gain_db\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipGain >/dev/null
+firstrms() { python3 -c "import wave,sys,math;w=wave.open(sys.argv[1]);n=min(w.getnframes(),int(0.25*w.getframerate()));f=w.readframes(n);v=[int.from_bytes(f[i:i+3],'little',signed=True)/(1<<23) for i in range(0,len(f),3)];r=(sum(x*x for x in v)/max(1,len(v)))**0.5;print(round(20*math.log10(r+1e-12),2))" "$1"; }
+g -d "{\"track_id\":$AID,\"index\":0,\"fade_in_beats\":0,\"fade_out_beats\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipFades >/dev/null
+g -d "{\"path\":\"$WORK/nofade.wav\",\"tail_seconds\":0,\"track_id\":$AID}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$AID,\"index\":0,\"fade_in_beats\":2}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipFades >/dev/null
+g -d "{\"path\":\"$WORK/fadein.wav\",\"tail_seconds\":0,\"track_id\":$AID}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+a,b=float('$(firstrms "$WORK/nofade.wav")'),float('$(firstrms "$WORK/fadein.wav")')
+assert b < a - 6, 'fade-in did not attenuate the clip start (nofade %.1f vs fade %.1f dB)'%(a,b)
+print('smoke: PASS — clip fade-in attenuates the start (%.1f -> %.1f dB, first 0.25 s)'%(a,b))
+" || { echo "smoke: clip fade-in had no effect" >&2; exit 1; }
+
 # Offline loudness: analyze the earlier synth render; sanity-check the metrics and
 # that the headless `analyze` CLI emits the same numbers as the RPC.
 g -d "{\"path\":\"$WAV\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AnalyzeFile | python3 -c "

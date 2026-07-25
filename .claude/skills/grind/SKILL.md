@@ -324,8 +324,15 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      menu (audio clips only; Gain prompts for dB) — screenshot-validated on Xvfb.
      smoke.sh proves it via deltas (insert loss cancels): normalize -6 vs -18 renders
      12 dB apart; SetClipGain -6 dB drops the peak 6 dB.
-     **Not yet:** per-clip fades, crop-to-range, consolidate, bounce-in-place;
-     split-at-named-marker convenience.
+   - `[x]` **Per-clip fades landed** (commit): `Clip.fadeInBeats`/`fadeOutBeats` + linear
+     fade edges applied in `renderAudioClip` (tempo-aware lengths, silent at the very
+     start/end). `apiSetClipFades` + SetClipFades RPC + Python; serialised in the
+     ValueTree (`fadein`/`fadeout`) and the composition (`fade_in`/`fade_out`), so they
+     round-trip. **Desktop UI:** `Fades...` on the audio-clip menu (in/out beats prompt)
+     — screenshot-validated. smoke.sh proves a 2-beat fade-in drops the first 0.25 s by
+     ~16 dB vs no fade.
+     **Not yet:** crop-to-range, consolidate, bounce-in-place; split-at-named-marker
+     convenience; fade curve shapes (linear only).
 
 7. **Buses & sends.** ✦ **L**
    *Ardour #8.* Explicit bus tracks; tracks route to a bus before master; per-send

@@ -233,6 +233,7 @@ public:
     bool apiReverseClip (int trackId, int index);                   // reverse notes (MIDI) or audio buffer
     bool  apiSetClipGain (int trackId, int index, float gainDb);    // audio clip gain (dB); false if not audio
     float apiNormalizeClip (int trackId, int index, float targetDbfs); // gain so peak=target; applied gain or -1
+    bool  apiSetClipFades (int trackId, int index, double fadeInBeats, double fadeOutBeats); // audio clip edges
     std::vector<Note> apiGetClipNotes (int trackId, int index);     // read-back for tooling/verification
     bool apiQuantizeClip (int trackId, int index, double grid);     // snap starts to a beat grid
     bool apiTransposeClip (int trackId, int index, int semitones);

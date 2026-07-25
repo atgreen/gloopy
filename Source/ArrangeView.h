@@ -44,6 +44,7 @@ public:
         "duplicate", "reverse", "snapscale", "delete". Owner routes to the api* ops. */
     std::function<void (int, int, const juce::String&)> onClipCommand;
     std::function<void (int, int, float)> onClipGain;   // track, clip, gain dB (audio clips)
+    std::function<void (int, int, double, double)> onClipFades;   // track, clip, fadeIn, fadeOut (beats)
     /** Tempo markers drawn on the ruler + edited by right-clicking it. Owner wires
         these to apiListTempoMarkers/apiAddTempoMarker/apiRemoveTempoMarker. */
     std::function<std::vector<std::pair<double, double>>()> getTempoMarkers;   // (beat, bpm)
@@ -74,6 +75,7 @@ private:
     void   drawClip (juce::Graphics&, const Track&, const Clip&, juce::Rectangle<float>, bool selected) const;
     void   promptAddTempoMarker (double beat);   // AlertWindow BPM prompt -> onAddTempoMarker
     void   promptClipGain (int track, int clip); // AlertWindow dB prompt -> onClipGain
+    void   promptClipFades (int track, int clip); // AlertWindow in/out prompt -> onClipFades
 
     static constexpr int headerWidth = 190;
     static constexpr int rulerHeight  = 22;

@@ -627,6 +627,9 @@ namespace
         Status NormalizeClip (ServerContext*, const pb::NormalizeClipRequest* q, pb::Ack* r) override
         { const bool ok = main.apiNormalizeClip (q->track_id(), q->index(), q->target_dbfs()) >= 0.0f;
           r->set_ok (ok); if (! ok) r->set_error ("normalize failed (clip not found, not audio, or silent)"); return Status::OK; }
+        Status SetClipFades (ServerContext*, const pb::ClipFadesRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiSetClipFades (q->track_id(), q->index(), q->fade_in_beats(), q->fade_out_beats());
+          r->set_ok (ok); if (! ok) r->set_error ("set clip fades failed (clip not found or not audio)"); return Status::OK; }
         Status GetClipNotes (ServerContext*, const pb::ClipRef* q, pb::NoteList* r) override
         {
             for (auto& n : main.apiGetClipNotes (q->track_id(), q->index()))

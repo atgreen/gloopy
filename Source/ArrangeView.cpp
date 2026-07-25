@@ -433,6 +433,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         {
             m.addItem (10, "Normalize");                // to -1 dBFS
             m.addItem (11, "Gain...");
+            m.addItem (12, "Fades...");
         }
         if (isTake)
         {
@@ -448,6 +449,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         {
             if (r == 0) return;
             if (r == 11) { promptClipGain (t, c); return; }        // "Gain..." -> dB prompt
+            if (r == 12) { promptClipFades (t, c); return; }       // "Fades..." -> in/out prompt
             const char* cmd = r == 1  ? "split"
                             : r == 2  ? "duplicate"
                             : r == 3  ? "reverse"
@@ -528,6 +530,23 @@ void ArrangeView::promptClipGain (int track, int clip)
     {
         if (r == 1 && onClipGain)
             onClipGain (track, clip, aw->getTextEditorContents ("db").getFloatValue());
+        delete aw;
+    }), false);
+}
+
+void ArrangeView::promptClipFades (int track, int clip)
+{
+    auto* aw = new juce::AlertWindow ("Clip fades", "Fade in / out (beats):", juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("in",  "0.0", "Fade in");
+    aw->addTextEditor ("out", "0.0", "Fade out");
+    aw->addButton ("Set",    1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, track, clip] (int r)
+    {
+        if (r == 1 && onClipFades)
+            onClipFades (track, clip,
+                         aw->getTextEditorContents ("in").getDoubleValue(),
+                         aw->getTextEditorContents ("out").getDoubleValue());
         delete aw;
     }), false);
 }

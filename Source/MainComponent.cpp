@@ -311,6 +311,12 @@ MainComponent::MainComponent (bool headless)
         if (juce::isPositiveAndBelow (trackIdx, (int) tracks.size()))
             apiSetClipGain (tracks[(size_t) trackIdx]->id, clip, db);
     };
+
+    arrangeView->onClipFades = [this] (int trackIdx, int clip, double fin, double fout)
+    {
+        if (juce::isPositiveAndBelow (trackIdx, (int) tracks.size()))
+            apiSetClipFades (tracks[(size_t) trackIdx]->id, clip, fin, fout);
+    };
     arrangeViewport.setViewedComponent (arrangeView.get(), false);
     arrangeViewport.setScrollBarsShown (true, false);
     addAndMakeVisible (arrangeViewport);
@@ -1891,6 +1897,10 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         // Audio plays at natural speed; only its start/end anchors follow the tempo map.
         const juce::int64 clipStart = tc.beatToSample (clip.startBeat);
         const juce::int64 clipEnd   = tc.beatToSample (clip.endBeat());
+        const juce::int64 clipLen   = clipEnd - clipStart;
+        // Linear fade edges (tempo-aware lengths). Silent at the very start/end.
+        const juce::int64 fadeInS  = clip.fadeInBeats  > 0.0 ? tc.beatToSample (clip.startBeat + clip.fadeInBeats) - clipStart : 0;
+        const juce::int64 fadeOutS = clip.fadeOutBeats > 0.0 ? clipEnd - tc.beatToSample (clip.endBeat() - clip.fadeOutBeats) : 0;
 
         for (int i = 0; i < chunk; ++i)
         {
@@ -1899,13 +1909,19 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
             const double readPos = (double) (songPos - clipStart) * ratio;
             if (readPos >= frames - 1) continue;
 
+            const juce::int64 pos = songPos - clipStart;
+            float fade = 1.0f;
+            if (fadeInS  > 0 && pos < fadeInS)              fade  = (float) pos / (float) fadeInS;
+            if (fadeOutS > 0 && pos > clipLen - fadeOutS)   fade *= (float) (clipLen - pos) / (float) fadeOutS;
+            const float g = clip.audioGain * fade;
+
             const int r0 = (int) readPos;
             const float fr = (float) (readPos - r0);
             const float l = ab.getSample (0, r0) * (1.0f - fr) + ab.getSample (0, r0 + 1) * fr;
             const float r = nchSrc > 1
                 ? ab.getSample (1, r0) * (1.0f - fr) + ab.getSample (1, r0 + 1) * fr : l;
-            buffer.addSample (0, tsOffset + i, l * clip.audioGain);
-            buffer.addSample (1, tsOffset + i, r * clip.audioGain);
+            buffer.addSample (0, tsOffset + i, l * g);
+            buffer.addSample (1, tsOffset + i, r * g);
         }
     };
 
@@ -2682,6 +2698,8 @@ juce::ValueTree MainComponent::toValueTree()
             cl.setProperty ("content", c.contentLenBeats, nullptr);
             cl.setProperty ("looped", c.looped, nullptr);
             if (c.muted) cl.setProperty ("muted", true, nullptr);
+            if (c.fadeInBeats  > 0.0) cl.setProperty ("fadein",  c.fadeInBeats,  nullptr);
+            if (c.fadeOutBeats > 0.0) cl.setProperty ("fadeout", c.fadeOutBeats, nullptr);
             if (c.isAudio() && c.audioFile.isNotEmpty())
             {
                 // Referenced audio (recorded take / import) — store the path, not the blob.
@@ -3056,6 +3074,8 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             c.contentLenBeats = (double) cl.getProperty ("content", 4.0);
             c.looped = (bool) cl.getProperty ("looped", true);
             c.muted  = (bool) cl.getProperty ("muted", false);
+            c.fadeInBeats  = (double) cl.getProperty ("fadein", 0.0);
+            c.fadeOutBeats = (double) cl.getProperty ("fadeout", 0.0);
 
             if (c.isAudio() && cl.hasProperty ("afile"))
             {

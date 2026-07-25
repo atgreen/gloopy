@@ -183,6 +183,7 @@ message SplitClipRequest     { int32 track_id = 1; int32 index = 2; double beat 
 message DuplicateClipRequest { int32 track_id = 1; int32 index = 2; double at_beat = 3; }   // at_beat<0 => right after
 message ClipGainRequest      { int32 track_id = 1; int32 index = 2; float gain_db = 3; }     // audio clip gain (dB)
 message NormalizeClipRequest { int32 track_id = 1; int32 index = 2; float target_dbfs = 3; } // gain so peak=target (0=full scale)
+message ClipFadesRequest     { int32 track_id = 1; int32 index = 2; double fade_in_beats = 3; double fade_out_beats = 4; }
 message NoteList             { repeated Note notes = 1; }
 // piano-roll note-edit ops
 message QuantizeRequest  { int32 track_id = 1; int32 index = 2; double grid = 3; }        // grid in beats
@@ -329,6 +330,7 @@ service Gloopy {
   rpc ReverseClip     (ClipRef)                returns (Ack);
   rpc SetClipGain     (ClipGainRequest)        returns (Ack);      // audio clip gain (dB)
   rpc NormalizeClip   (NormalizeClipRequest)   returns (Ack);      // gain so the clip peaks at target dBFS
+  rpc SetClipFades    (ClipFadesRequest)       returns (Ack);      // audio clip fade-in / fade-out (beats)
   rpc GetClipNotes    (ClipRef)                returns (NoteList);
   rpc QuantizeClip    (QuantizeRequest)        returns (Ack);
   rpc TransposeClip   (TransposeRequest)       returns (Ack);
