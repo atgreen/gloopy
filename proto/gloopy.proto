@@ -206,6 +206,7 @@ message ModTarget { string target = 1; }
 
 // ── project / state ────────────────────────────────────────
 message FilePath { string path = 1; }
+message TextValue { string text = 1; }   // project notes (markdown)
 // Offline loudness report (ITU-R BS.1770 / EBU R128).
 message LoudnessReport { float peak_dbfs = 1; float true_peak_dbtp = 2; float rms_dbfs = 3; float lufs = 4; }
 // Engine health snapshot.
@@ -370,6 +371,8 @@ service Gloopy {
   // project & state
   rpc GetState      (Empty) returns (ProjectState);
   rpc GetDiagnostics(Empty) returns (Diagnostics);   // engine health / RT metrics
+  rpc SetProjectNotes(TextValue) returns (Ack);      // free-form markdown, saved with the song
+  rpc GetProjectNotes(Empty)     returns (TextValue);
   rpc NewProject (Empty)    returns (Ack);
   rpc Undo       (Empty)    returns (Ack);
   rpc Redo       (Empty)    returns (Ack);

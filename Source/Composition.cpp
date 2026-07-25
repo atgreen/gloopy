@@ -267,7 +267,9 @@ bool MainComponent::saveComposition (const juce::File& dir)
     man.blank().table ("scenes").str ("file", "scenes.toml");
     man.blank().table ("mods").str ("file", "mods.toml");
     man.blank().table ("tempo").str ("file", "tempo.toml");
+    man.blank().table ("notes").str ("file", "notes.md");
     ctx.writeText ("gloopy.toml", man.str());
+    ctx.writeText ("notes.md", root.getProperty ("notes", "").toString());   // free-form markdown
 
     // --- per-track files ---
     for (int i = 0; i < tracks.getNumChildren(); ++i)
@@ -561,6 +563,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
     root.setProperty ("version", 2, nullptr);
     root.setProperty ("bpm", man.root.getDouble ("bpm", 120.0), nullptr);
     root.setProperty ("swing", man.root.getDouble ("swing", 0.5), nullptr);
+    root.setProperty ("notes", dir.getChildFile ("notes.md").loadFileAsString(), nullptr);
     root.setProperty ("scaleRoot", man.root.getInt ("scale_root", 0), nullptr);
     root.setProperty ("scaleName", man.root.getString ("scale_name", "chromatic"), nullptr);
     root.setProperty ("scaleIntervals", man.root.getStringArray ("scale_intervals").joinIntoString (","), nullptr);

@@ -278,6 +278,7 @@ MainComponent::~MainComponent()
     osc.reset();                 // stop OSC before tracks/mixer are destroyed
     pluginWindows.clear();       // delete plugin editors before their processors
     mixerWindow = nullptr;
+    notesWindow = nullptr;
     juce::Desktop::getInstance().setDefaultLookAndFeel (nullptr);
     setLookAndFeel (nullptr);
     shutdownAudio();
@@ -1724,6 +1725,30 @@ void MainComponent::openMixer()
     mixerWindow->toFront (true);
 }
 
+void MainComponent::openNotes()
+{
+    if (notesWindow == nullptr)
+    {
+        notesEditor.setMultiLine (true);
+        notesEditor.setReturnKeyStartsNewLine (true);
+        notesEditor.setScrollbarsShown (true);
+        notesEditor.setFont (juce::Font (juce::FontOptions (14.0f)));
+        notesEditor.setText (projectNotes, juce::dontSendNotification);
+        notesEditor.onTextChange = [this] { projectNotes = notesEditor.getText(); };
+
+        auto w = std::make_unique<HideOnCloseWindow>();
+        w->setName ("Project Notes");
+        w->setContentNonOwned (&notesEditor, false);
+        w->setResizable (true, false);
+        w->setSize (520, 460);
+        w->centreWithSize (520, 460);
+        notesWindow = std::move (w);
+    }
+    notesEditor.setText (projectNotes, juce::dontSendNotification);
+    notesWindow->setVisible (true);
+    notesWindow->toFront (true);
+}
+
 void MainComponent::beginRenderMode (const juce::File& out)
 {
     renderFile = out;
@@ -1997,10 +2022,12 @@ void MainComponent::showFileMenu()
     menu.addItem (4, "Save As .gloopy...");
     menu.addItem (7, "Save As Composition...");
     menu.addSeparator();
+    menu.addItem (8, "Project Notes...");
     menu.addItem (5, "Rescan Plugins");
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
         [this, isComposition] (int result)
         {
+            if (result == 8) { openNotes(); return; }
             if (result == 1) newProject();
             else if (result == 2)
             {
@@ -2047,6 +2074,8 @@ void MainComponent::newProject()
         tracks.clear();
     }
     nextTrackId = 0;
+    projectNotes.clear();
+    if (notesWindow != nullptr) notesEditor.setText ({}, juce::dontSendNotification);
     setupMixer();
     undoSuppressed = true;
     setupDefaultProject();
@@ -2100,6 +2129,7 @@ juce::ValueTree MainComponent::toValueTree()
     root.setProperty ("version", 2, nullptr);
     root.setProperty ("bpm", transport.getBpm(), nullptr);
     root.setProperty ("swing", transport.getSwing(), nullptr);
+    root.setProperty ("notes", projectNotes, nullptr);
     root.setProperty ("scaleRoot", scaleRoot, nullptr);
     root.setProperty ("scaleName", scaleName, nullptr);
     { juce::StringArray iv; for (int i : scaleIntervals) iv.add (juce::String (i));
@@ -2724,6 +2754,8 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     transport.setBpm ((double) root.getProperty ("bpm", 128.0));
     transport.setSwing ((double) root.getProperty ("swing", 0.5));
 
+    projectNotes = root.getProperty ("notes", "").toString();
+    if (notesWindow != nullptr) notesEditor.setText (projectNotes, juce::dontSendNotification);
     scaleRoot = (int) root.getProperty ("scaleRoot", 0);
     scaleName = root.getProperty ("scaleName", "chromatic").toString();
     if (root.hasProperty ("scaleIntervals"))

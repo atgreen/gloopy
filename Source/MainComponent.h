@@ -145,6 +145,13 @@ public:
     bool apiExportMidi (const juce::String& path);   // all instrument tracks -> a Type-1 SMF
     int  apiImportMidi (const juce::String& path);   // SMF -> synth tracks + clips; count, or -1
 
+    // --- project notes (Notes.cpp) ---
+    // Free-form markdown (arrangement notes, lyrics, TODOs, credits, licenses).
+    // Stored in the composition as notes.md; travels with the song.
+    juce::String apiGetProjectNotes();
+    void apiSetProjectNotes (const juce::String& text);
+    void openNotes();                                   // UI: a notes editor window
+
     // --- tempo map (Tempo.cpp) ---
     // Model + exact piecewise beat<->seconds conversion. Render-path integration
     // (variable samplesPerBeat across the map) is a checkpointed follow-up.
@@ -524,6 +531,9 @@ private:
 
     std::unique_ptr<MixerView>            mixerView;
     std::unique_ptr<juce::DocumentWindow> mixerWindow;
+    juce::String projectNotes;                          // free-form markdown (message thread)
+    std::unique_ptr<juce::DocumentWindow> notesWindow;
+    juce::TextEditor notesEditor;
 
     juce::StretchableLayoutManager verticalLayout;
     std::unique_ptr<juce::StretchableLayoutResizerBar> dividerBar;

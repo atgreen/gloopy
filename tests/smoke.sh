@@ -103,6 +103,19 @@ echo "smoke: PASS — tempo map beats<->seconds (8 beats @120->240 = ${TSEC}s)"
 g -d '{"beat":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTempoMarker >/dev/null
 g -d '{"beat":4}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTempoMarker >/dev/null
 
+# Project notes: set markdown, save+reload a composition, confirm notes.md carries it
+# (NewProject in between must clear notes, so a stale value can't pass).
+g -d '{"text":"# smoke notes\nTODO-XYZZY"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetProjectNotes >/dev/null
+NCOMP="$WORK/notescomp"
+g -d "{\"path\":\"$NCOMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+grep -q XYZZY "$NCOMP/notes.md" || { echo "smoke: notes.md missing content" >&2; exit 1; }
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+CLEARED=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetProjectNotes | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('text','')))")
+[ "$CLEARED" = 0 ] || { echo "smoke: NewProject did not clear project notes" >&2; exit 1; }
+g -d "{\"path\":\"$NCOMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetProjectNotes | python3 -c "import json,sys;assert 'XYZZY' in json.load(sys.stdin).get('text',''),'notes lost on reload';print('smoke: PASS — project notes survive composition round-trip')" \
+    || { echo "smoke: project notes did not round-trip" >&2; exit 1; }
+
 # Modulation matrix: an LFO on a synth cutoff must change the render vs a static
 # cutoff. Dedicated track + two renders, then cleaned up.
 MT=$(g -d '{"name":"modtest","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.2,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)

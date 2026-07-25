@@ -491,6 +491,13 @@ class Gloopy:
         """Load a standard MIDI file as synth tracks + clips."""
         self._ack(self.stub.ImportMidi(pb.FilePath(path=path)))
 
+    def set_project_notes(self, text: str) -> None:
+        """Free-form markdown notes saved with the song (composition notes.md)."""
+        self._ack(self.stub.SetProjectNotes(pb.TextValue(text=text)))
+
+    def get_project_notes(self) -> str:
+        return self.stub.GetProjectNotes(pb.Empty()).text
+
     def diagnostics(self) -> dict:
         """Engine health: device settings, callback timing, DSP load, dropouts, render speed."""
         d = self.stub.GetDiagnostics(pb.Empty())

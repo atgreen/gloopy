@@ -524,6 +524,14 @@ effect-chain presets) as part of #16.
     (Ardour #5); a **script browser** exposing composition-local + built-in scripts as
     installable actions that run against the gRPC API — not an embedded VM (Ardour #4).
     **L**, each independent.
+    - `[~]` **Project notes landed** (`Source/Notes.cpp`, commit): free-form markdown
+      (`projectNotes`) with `SetProjectNotes`/`GetProjectNotes` RPCs + Python client;
+      serialised on the root ValueTree + composition `notes.md` (readable markdown,
+      manifest-referenced). UI: File → "Project Notes..." opens a `TextEditor` window
+      synced to the model. NewProject clears it. Verified headless: set → save →
+      NewProject clears → reload restores. **UI needs visual eval.** **Not yet:** web
+      surface, MCP surface, script browser (each still independent L slices);
+      notes/ subdir for multiple docs (lyrics/credits split).
 
 ## Explicitly NOT doing (the guardrails, made concrete)
 

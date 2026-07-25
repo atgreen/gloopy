@@ -396,6 +396,11 @@ namespace
             return Status::OK;
         }
 
+        Status SetProjectNotes (ServerContext*, const pb::TextValue* q, pb::Ack* r) override
+        { main.apiSetProjectNotes (js (q->text())); r->set_ok (true); return Status::OK; }
+        Status GetProjectNotes (ServerContext*, const pb::Empty*, pb::TextValue* r) override
+        { r->set_text (main.apiGetProjectNotes().toStdString()); return Status::OK; }
+
         // ---- project / state ----
         Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override
         {
