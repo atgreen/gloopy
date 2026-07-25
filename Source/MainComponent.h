@@ -195,7 +195,9 @@ public:
     int  apiAddAudioClip (int trackId, double startBeat, const juce::String& path, float gain);  // clip index, or -1
 
     // plugins
-    struct PluginSnap { juce::String name; juce::String format; bool isInstrument; juce::String identifier; };
+    struct PluginSnap { juce::String name; juce::String format; bool isInstrument; juce::String identifier;
+                        juce::String vendor; juce::String category; juce::String version;
+                        int numInputs; int numOutputs; };
     std::vector<PluginSnap> apiScanPlugins (bool force);
     std::vector<PluginSnap> apiListPlugins();
     int  apiAddPluginEffect (int insert, const juce::String& identifier);   // slot, or -1

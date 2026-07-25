@@ -169,7 +169,10 @@ message NoteList             { repeated Note notes = 1; }
 
 // ── plugins ────────────────────────────────────────────────
 message ScanPluginsRequest { bool force = 1; }
-message PluginInfo { string name = 1; string format = 2; bool is_instrument = 3; string identifier = 4; }
+message PluginInfo {
+  string name = 1; string format = 2; bool is_instrument = 3; string identifier = 4;
+  string vendor = 5; string category = 6; string version = 7; int32 num_inputs = 8; int32 num_outputs = 9;
+}
 message PluginList  { repeated PluginInfo plugins = 1; }
 message AddPluginEffectRequest { int32 insert = 1; string identifier = 2; }
 

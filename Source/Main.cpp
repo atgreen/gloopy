@@ -157,6 +157,31 @@ public:
 
         // Headless composition utilities: gloopy <inspect|validate|pack> <project> [out]
         // Reuse the GUI/gRPC load paths; emit stable JSON on stdout; no control ports.
+        // Headless plugin scan/list: gloopy scan [--force] -> JSON array of plugins
+        if (args.size() >= 1 && args[0] == "scan")
+        {
+            const bool force = args.contains ("--force");
+            std::unique_ptr<MainComponent> comp;
+            std::vector<MainComponent::PluginSnap> plugs;
+            { CoutSilencer s; comp = std::make_unique<MainComponent> (true);
+              plugs = force ? comp->apiScanPlugins (true) : comp->apiListPlugins(); }
+            juce::Array<juce::var> arr;
+            for (auto& p : plugs)
+            {
+                juce::DynamicObject::Ptr o = new juce::DynamicObject();
+                o->setProperty ("name", p.name);           o->setProperty ("format", p.format);
+                o->setProperty ("is_instrument", p.isInstrument);
+                o->setProperty ("identifier", p.identifier); o->setProperty ("vendor", p.vendor);
+                o->setProperty ("category", p.category);   o->setProperty ("version", p.version);
+                o->setProperty ("num_inputs", p.numInputs); o->setProperty ("num_outputs", p.numOutputs);
+                arr.add (juce::var (o.get()));
+            }
+            std::cout << juce::JSON::toString (juce::var (arr)) << std::endl;
+            setApplicationReturnValue (0);
+            quit();
+            return;
+        }
+
         // Headless loudness analysis: gloopy analyze <file.wav> -> JSON
         if (args.size() >= 2 && args[0] == "analyze")
         {

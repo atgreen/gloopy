@@ -410,6 +410,15 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
     `gloopy scan`.
     *Done when:* a scan writes a cache, a moved-path plugin still resolves on load, and
     `gloopy scan` runs headless.
+    - `[x]` **Landed** (commit): enriched `PluginInfo`/`PluginSnap` with vendor,
+      category, version, and input/output channel counts (from the cached
+      `PluginDescription`); `ListPlugins`/`ScanPlugins` return them; a headless
+      `gloopy scan [--force]` CLI prints the cached list as JSON (valid empty array
+      with zero plugins). The scan already persists to `~/.config/Gloopy/plugins.xml`
+      and load re-resolves by identifier (stable across path moves). Verified: 68
+      cached plugins with vendor/category/channels; smoke asserts valid JSON.
+      **Not yet:** per-plugin parameter summary (needs instantiation), failed-scan
+      status records, blocklist.
 
 14. **Real-time safety diagnostics.** **S/M**
     *Ardour #16.* A small diagnostics surface: audio-callback time, DSP load,

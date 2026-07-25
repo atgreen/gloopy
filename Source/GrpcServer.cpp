@@ -46,6 +46,11 @@ namespace
         pi->set_format (s.format.toStdString());
         pi->set_is_instrument (s.isInstrument);
         pi->set_identifier (s.identifier.toStdString());
+        pi->set_vendor (s.vendor.toStdString());
+        pi->set_category (s.category.toStdString());
+        pi->set_version (s.version.toStdString());
+        pi->set_num_inputs (s.numInputs);
+        pi->set_num_outputs (s.numOutputs);
     }
 
     class ServiceImpl final : public pb::Gloopy::Service

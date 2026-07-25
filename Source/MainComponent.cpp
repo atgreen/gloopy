@@ -1092,7 +1092,8 @@ std::vector<MainComponent::PluginSnap> MainComponent::apiListPlugins()
         scanPlugins();   // load cache on first use so a bare ListPlugins returns entries
         std::vector<PluginSnap> out;
         for (const auto& d : pluginHost.knownList.getTypes())
-            out.push_back ({ d.name, d.pluginFormatName, d.isInstrument, d.createIdentifierString() });
+            out.push_back ({ d.name, d.pluginFormatName, d.isInstrument, d.createIdentifierString(),
+                             d.manufacturerName, d.category, d.version, d.numInputChannels, d.numOutputChannels });
         return out;
     });
 }

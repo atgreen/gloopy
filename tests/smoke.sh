@@ -297,6 +297,15 @@ fi
 g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
 packok=$(g -d "{\"path\":\"$WORK/packed.zip\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition | grep -o 'true\|false' | head -1)
 [ "$packok" = "true" ] && echo "smoke: PASS — CLI pack zip loads" || { echo "smoke: CLI pack zip did not load" >&2; exit 1; }
+# Plugin scan cache: `gloopy scan` emits a valid JSON array (empty is fine) with
+# enriched metadata fields on each entry.
+"$BIN" scan 2>/dev/null | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+assert isinstance(d,list), 'scan did not emit a JSON array'
+for p in d: assert 'vendor' in p and 'category' in p and 'num_outputs' in p, 'missing enriched fields'
+print('smoke: PASS — CLI scan emitted %d cached plugins as JSON'%len(d))
+" || { echo "smoke: CLI scan did not emit a valid JSON array" >&2; exit 1; }
 
 # MIDI file export/import round-trip (last — import resets the project). Export the
 # loaded project to an SMF, reimport into a fresh project, and confirm notes survive

@@ -513,7 +513,9 @@ class Gloopy:
     @staticmethod
     def _plugins(r) -> list[dict]:
         return [{"name": p.name, "format": p.format, "is_instrument": p.is_instrument,
-                 "identifier": p.identifier} for p in r.plugins]
+                 "identifier": p.identifier, "vendor": p.vendor, "category": p.category,
+                 "version": p.version, "num_inputs": p.num_inputs, "num_outputs": p.num_outputs}
+                for p in r.plugins]
 
 
 @contextmanager
