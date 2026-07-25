@@ -118,3 +118,16 @@ std::vector<MainComponent::TempoMarker> MainComponent::apiListTempoMarkers()
 {
     return callOnMessageThread ([&] { const juce::ScopedLock sl (engineLock); return tempoMap; });
 }
+
+// Tempo-aware conversions built on the (already-tested) beat<->seconds integration.
+// With an empty map these reduce to beat*spb / samples/spb exactly, so wiring them
+// into the render path is a no-op until a tempo map is set.
+juce::int64 MainComponent::beatToSamples (double beat)
+{
+    return (juce::int64) std::llround (apiBeatsToSeconds (beat) * currentSampleRate);
+}
+
+double MainComponent::samplesToBeats (juce::int64 samples)
+{
+    return currentSampleRate > 0.0 ? apiSecondsToBeats ((double) samples / currentSampleRate) : 0.0;
+}
