@@ -222,6 +222,8 @@ public:
     bool apiQuantizeClip (int trackId, int index, double grid);     // snap starts to a beat grid
     bool apiTransposeClip (int trackId, int index, int semitones);
     bool apiHumanizeClip (int trackId, int index, double timing, double velocity);
+    bool apiAddChord (int trackId, int index, int root, const juce::String& type,
+                      double startBeat, double lengthBeats, float velocity, int inversion);   // stamp a chord
 
     // track & clip management
     bool apiRemoveTrack (int id);

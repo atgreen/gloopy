@@ -191,6 +191,16 @@ got=sorted((n['pitch'],round(n.get('startBeat',0.0),3)) for n in d)
 assert got==[(72,0.0),(76,0.5)], 'quantize/transpose wrong: '+str(got)
 print('smoke: PASS — quantize+transpose note ops (%s)'%got)
 " || { echo "smoke: piano-roll note ops wrong" >&2; exit 1; }
+# Chord stamp: an empty clip + AddChord (Cmin7) yields the right 4-note voicing.
+g -d "{\"track_id\":$CO,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":false,\"notes\":[]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+CC=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t.get('name')=='clipops')-1)")
+g -d "{\"track_id\":$CO,\"index\":$CC,\"root\":60,\"type\":\"min7\",\"start_beat\":0,\"length_beats\":1,\"velocity\":0.8}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddChord >/dev/null
+g -d "{\"track_id\":$CO,\"index\":$CC}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "
+import json,sys
+p=sorted(n['pitch'] for n in json.load(sys.stdin)['notes'])
+assert p==[60,63,67,70], 'Cmin7 voicing wrong: '+str(p)
+print('smoke: PASS — AddChord Cmin7 voicing [60,63,67,70]')
+" || { echo "smoke: chord stamp wrong" >&2; exit 1; }
 g -d "{\"id\":$CO}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   # isolate: drop the scratch track
 
 g -d "{\"path\":\"$WAV\",\"tail_seconds\":1.0,\"start_beat\":0,\"end_beat\":4}" \

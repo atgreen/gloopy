@@ -236,6 +236,14 @@ class Gloopy:
         self._ack(self.stub.HumanizeClip(pb.HumanizeRequest(
             track_id=track_id, index=index, timing=timing, velocity=velocity)))
 
+    def add_chord(self, track_id: int, index: int, root: int, type: str = "maj",
+                  start_beat: float = 0.0, length_beats: float = 1.0,
+                  velocity: float = 0.8, inversion: int = 0) -> None:
+        """Stamp a chord (maj/min/7/maj7/min7/sus4/... ) into a clip at a beat position."""
+        self._ack(self.stub.AddChord(pb.ChordRequest(
+            track_id=track_id, index=index, root=root, type=type, start_beat=start_beat,
+            length_beats=length_beats, velocity=velocity, inversion=inversion)))
+
     # -- mixer / effects --------------------------------------------------
     def list_inserts(self) -> list[dict]:
         r = self.stub.ListInserts(pb.Empty())

@@ -167,4 +167,9 @@ bool MainComponent::apiTransposeClip (int trackId, int index, int semitones)
 bool MainComponent::apiHumanizeClip (int trackId, int index, double timing, double velocity)
 { juce::Random rng; GLOOPY_EDIT_CLIP_NOTES (humanizeNotes (notes, timing, velocity, rng)) }
 
+bool MainComponent::apiAddChord (int trackId, int index, int root, const juce::String& type,
+                                 double startBeat, double lengthBeats, float velocity, int inversion)
+{ GLOOPY_EDIT_CLIP_NOTES ( { auto ch = makeChord (root, type, inversion, startBeat, lengthBeats, velocity);
+                             for (auto& n : ch) notes.push_back (n); } ) }
+
 #undef GLOOPY_EDIT_CLIP_NOTES
