@@ -1409,7 +1409,7 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
 // source of truth for apiListTemplates().
 juce::StringArray MainComponent::builtinTemplateNames() const
 {
-    return { "Starter Beat", "Drum Kit", "Lead + Bass" };
+    return { "Starter Beat", "Piano + Bass + Drums", "Drum Kit", "Lead + Bass" };
 }
 
 void MainComponent::buildTemplate (const juce::String& name)
@@ -1433,6 +1433,27 @@ void MainComponent::buildTemplate (const juce::String& name)
     {
         synth ("Lead", 0, 0.25f, 60, juce::Colours::aquamarine);
         synth ("Bass", 1, 0.15f, 36, juce::Colours::skyblue);
+        return;
+    }
+
+    if (name == "Piano + Bass + Drums")
+    {
+        // No bundled piano sample — voice the synth as an electric-piano/keys patch:
+        // triangle + a touch of sub, struck (fast attack, long decay, no sustain), with a
+        // bright hammer-like filter attack that mellows.
+        auto piano = std::make_unique<SynthGenerator>();
+        auto& pp = piano->engine.params;
+        pp.waveform.store (3); pp.subLevel.store (0.2f);
+        pp.attack.store (0.002f); pp.decay.store (1.2f); pp.sustain.store (0.0f); pp.release.store (0.35f);
+        pp.cutoff.store (6000.0f); pp.resonance.store (0.7f);
+        pp.filterEnvAmt.store (1.5f); pp.fAttack.store (0.002f); pp.fDecay.store (0.8f); pp.fSustain.store (0.0f);
+        addTrack (std::make_unique<Track> ("Piano", std::move (piano), 60, juce::Colours::whitesmoke));
+
+        synth ("Bass", 1, 0.15f, 36, juce::Colours::skyblue);
+        drum ("Kick",  DrumSynth::makeKick(),  juce::Colours::orangered);
+        drum ("Snare", DrumSynth::makeSnare(), juce::Colours::gold);
+        drum ("Hat",   DrumSynth::makeHat(),   juce::Colours::aquamarine);
+        drum ("Clap",  DrumSynth::makeClap(),  juce::Colours::violet);
         return;
     }
 
