@@ -342,6 +342,7 @@ service Gloopy {
   rpc ReverseClip     (ClipRef)                returns (Ack);
   rpc CropClip        (CropClipRequest)        returns (Ack);      // trim a MIDI clip to a beat range
   rpc ConsolidateClip (ClipRef)                returns (Ack);      // flatten a looped MIDI clip's repetitions into notes
+  rpc BounceClip      (ClipRef)                returns (TrackId);  // freeze a clip to audio on a new track (id, or 0 = -1/failed)
   rpc SetClipGain     (ClipGainRequest)        returns (Ack);      // audio clip gain (dB)
   rpc NormalizeClip   (NormalizeClipRequest)   returns (Ack);      // gain so the clip peaks at target dBFS
   rpc SetClipFades    (ClipFadesRequest)       returns (Ack);      // audio clip fade-in / fade-out (beats)

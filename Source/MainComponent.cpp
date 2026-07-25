@@ -281,6 +281,7 @@ MainComponent::MainComponent (bool headless)
         else if (cmd == "normalize") apiNormalizeClip (id, clip, -1.0f);   // audio clip -> -1 dBFS
         else if (cmd == "croploop")  apiCropClip (id, clip, transport.getLoopStartBeats(), transport.getLoopEndBeats());
         else if (cmd == "consolidate") apiConsolidateClip (id, clip);
+        else if (cmd == "bounce")    apiBounceClip (id, clip);
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")

@@ -356,8 +356,21 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      only for MIDI clips that actually tile (looped + content<length) — screenshot-validated.
      smoke proves a 2-beat content tiled over 4 beats → notes at 0/1/2/3 and the clip saves
      un-looped (content=len=4).
-     **Not yet:** bounce-in-place; split-at-named-marker; fade curve shapes (linear only);
-     audio-clip consolidate (audio clips are one-shot, no loop-tiling yet).
+   - `[x]` **Bounce-in-place landed** (commit): `apiBounceClip(trackId,index)` freezes a
+     clip to audio — it renders just that track over the clip's [start,end) region offline
+     and soloed (reusing `apiRenderToFile`), then re-imports the WAV as an embedded audio
+     clip on a fresh "<name> (bounce)" audio track. **Non-destructive** (source untouched);
+     works for MIDI (prints the instrument) and audio (prints the insert chain). BounceClip
+     RPC (ClipRef→TrackId) + Python. **Desktop UI:** "Bounce to audio" on the clip menu —
+     screenshot-validated. smoke proves the bounce makes a 1-clip audio track that renders
+     non-silent while the source MIDI clip stays intact. **Known limitation:** the bounce
+     is *not* level-matched — the soloed render already bakes in the track's insert/pan/
+     master, and the new audio track re-applies its own insert/pan/master, so the frozen
+     level differs (verified identical to a manual audio round-trip, so it's a mixer-hop
+     cost, not a bounce bug). A level-exact freeze needs a pre-master / pre-pan capture
+     path — follow-up.
+     **Not yet:** level-matched freeze (pre-master capture); split-at-named-marker; fade
+     curve shapes (linear only); audio-clip consolidate (audio clips are one-shot).
 
 7. **Buses & sends.** ✦ **L**
    *Ardour #8.* Explicit bus tracks; tracks route to a bus before master; per-send

@@ -337,6 +337,27 @@ assert c.get('looped')=='0' and abs(float(c.get('content'))-4.0)<1e-6, 'not un-l
 print('smoke: PASS — consolidated clip is un-looped (content=len=4)')
 " || { echo 'smoke: ConsolidateClip did not un-loop' >&2; exit 1; }
 g -d "{\"id\":$CN}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+# BounceClip: freeze a MIDI clip to audio on a new "(bounce)" track (non-destructive).
+# The new track is audio with one non-silent clip; the source track keeps its MIDI clip.
+BT=$(g -d '{"name":"lead","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.8,"release":0.2,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$BT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":0.9},{\"pitch\":64,\"start_beat\":2,\"length_beats\":1,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+NT=$(g -d "{\"track_id\":$BT,\"index\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/BounceClip | grep -o '[0-9]\+' | head -1)
+[ "${NT:-0}" -gt 0 ] || { echo "smoke: BounceClip returned no track id" >&2; exit 1; }
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "
+import json,sys
+ts={t['id']:t for t in json.load(sys.stdin)['tracks']}
+src,bnc=ts[$BT],ts[$NT]
+assert src['type']=='instrument' and src.get('clips')==1, 'source track changed (non-destructive violated): %s'%src
+assert bnc['type']=='audio' and bnc.get('clips')==1, 'bounce track not a 1-clip audio track: %s'%bnc
+assert '(bounce)' in bnc.get('name',''), 'bounce track misnamed: %s'%bnc.get('name')
+print('smoke: PASS — BounceClip made audio track \"%s\" (source MIDI clip intact)'%bnc['name'])
+" || { echo 'smoke: BounceClip state wrong' >&2; exit 1; }
+g -d "{\"path\":\"$WORK/bounce.wav\",\"tail_seconds\":0.5,\"start_beat\":0,\"end_beat\":4,\"track_id\":$NT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+BPK=$(g -d "{\"path\":\"$WORK/bounce.wav\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AnalyzeFile | python3 -c "import json,sys;print(json.load(sys.stdin).get('peakDbfs',-120))")
+python3 -c "assert float('$BPK')>-40, 'bounced audio is silent (%.1f dBFS)'%float('$BPK'); print('smoke: PASS — bounced audio track renders non-silent (%.1f dBFS)'%float('$BPK'))" \
+    || { echo 'smoke: bounced audio was silent' >&2; exit 1; }
+g -d "{\"id\":$NT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+g -d "{\"id\":$BT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 # Piano-roll note ops (quantize/transpose) on an off-grid clip, verified via GetClipNotes.
 g -d "{\"track_id\":$CO,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\
 \"notes\":[{\"pitch\":60,\"start_beat\":0.1,\"length_beats\":1,\"velocity\":0.8},\

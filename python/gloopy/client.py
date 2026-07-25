@@ -229,6 +229,10 @@ class Gloopy:
         """Flatten a looped MIDI clip's repetitions into explicit notes and un-loop it."""
         self._ack(self.stub.ConsolidateClip(pb.ClipRef(track_id=track_id, index=index)))
 
+    def bounce_clip(self, track_id: int, index: int) -> int:
+        """Freeze a clip to audio on a new track; returns the new track id (-1 on failure)."""
+        return self.stub.BounceClip(pb.ClipRef(track_id=track_id, index=index)).id
+
     def set_clip_gain(self, track_id: int, index: int, gain_db: float) -> None:
         """Set an audio clip's playback gain in dB."""
         self._ack(self.stub.SetClipGain(pb.ClipGainRequest(track_id=track_id, index=index, gain_db=gain_db)))

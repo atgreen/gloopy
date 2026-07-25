@@ -646,6 +646,8 @@ namespace
         Status ConsolidateClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
         { const bool ok = main.apiConsolidateClip (q->track_id(), q->index());
           r->set_ok (ok); if (! ok) r->set_error ("consolidate failed (clip not found or not MIDI)"); return Status::OK; }
+        Status BounceClip (ServerContext*, const pb::ClipRef* q, pb::TrackId* r) override
+        { r->set_id (main.apiBounceClip (q->track_id(), q->index())); return Status::OK; }
         Status SetClipGain (ServerContext*, const pb::ClipGainRequest* q, pb::Ack* r) override
         { const bool ok = main.apiSetClipGain (q->track_id(), q->index(), q->gain_db());
           r->set_ok (ok); if (! ok) r->set_error ("set clip gain failed (clip not found or not audio)"); return Status::OK; }

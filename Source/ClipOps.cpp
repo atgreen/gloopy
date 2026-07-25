@@ -249,6 +249,53 @@ bool MainComponent::apiConsolidateClip (int trackId, int index)
     });
 }
 
+// Bounce (freeze) a clip to audio: render just this track over the clip's [start,end)
+// region — offline and soloed, so only its instrument + inserts print — then load the
+// result back as an embedded audio clip on a fresh "(bounce)" track. Non-destructive:
+// the source clip/track are left untouched. Returns the new track id, or -1. Works for
+// MIDI clips (prints the synth/sampler) and audio clips (prints the insert chain).
+int MainComponent::apiBounceClip (int trackId, int index)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        double startBeat = 0.0, endBeat = 0.0;
+        juce::String srcName;
+        {
+            const juce::ScopedLock sl (engineLock);
+            Track* t = resolveTrack (trackId);
+            if (t == nullptr || ! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
+            const Clip& c = t->clips[(size_t) index];
+            startBeat = c.startBeat;
+            endBeat   = c.startBeat + c.lengthBeats;
+            srcName   = t->name;
+        }
+        if (endBeat <= startBeat) return -1;
+
+        // Offline soloed bounce of the region to a temp WAV, then re-import it (the clip
+        // embeds its buffer, so the temp file is safe to delete afterwards). A short tail
+        // captures instrument release / insert tails without much overhang.
+        juce::File tmp = juce::File::createTempFile (".wav");
+        if (! apiRenderToFile (tmp.getFullPathName(), 0.5, startBeat, endBeat, true, trackId))
+        { tmp.deleteFile(); return -1; }
+
+        const int newTrack = apiAddAudioTrack (srcName + " (bounce)");
+        if (newTrack < 0) { tmp.deleteFile(); return -1; }
+        const int clipIdx = apiAddAudioClip (newTrack, startBeat, tmp.getFullPathName(), 1.0f);
+        tmp.deleteFile();
+        if (clipIdx < 0) { apiRemoveTrack (newTrack); return -1; }
+
+        {
+            const juce::ScopedLock sl (engineLock);
+            Track* nt = resolveTrack (newTrack);
+            if (nt != nullptr && juce::isPositiveAndBelow (clipIdx, (int) nt->clips.size()))
+                nt->clips[(size_t) clipIdx].name = srcName + " (bounce)";
+        }
+        emitChange ("track_added", newTrack);
+        if (arrangeView) arrangeView->rebuild();
+        return newTrack;
+    });
+}
+
 // Set an audio clip's playback gain (dB). Audio clips only — MIDI dynamics are per-note
 // velocity. false if the clip isn't found or isn't audio.
 bool MainComponent::apiSetClipGain (int trackId, int index, float gainDb)
