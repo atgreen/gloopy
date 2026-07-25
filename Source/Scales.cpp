@@ -56,6 +56,7 @@ bool MainComponent::apiSetScale (int root, const juce::String& name, const std::
         scaleName = nm;
         scaleIntervals.assign (s.begin(), s.end());
         editorPanel.roll.setScale (scaleRoot, scaleIntervals);   // piano-roll highlight
+        refreshScaleToolbar();                                    // keep the toolbar combos in sync (API/script too)
         std::cout << "[scale] " << scaleName << " root=" << scaleRoot
                   << " (" << scaleIntervals.size() << " degrees)" << std::endl;
         return true;

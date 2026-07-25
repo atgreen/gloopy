@@ -68,6 +68,11 @@ public:
     void setAuditionEnabled (bool b) { auditionEnabled = b; if (! b) stopAudition(); }
     bool isAuditionEnabled() const { return auditionEnabled; }
 
+    /** When on (and a non-chromatic scale is active), drawn/moved note pitches snap to
+        the nearest in-scale pitch. */
+    void setSnapToScale (bool b) { snapToScale = b; }
+    bool isSnapToScale() const { return snapToScale; }
+
     /** Fan out chord voices (notes sharing a start beat). Uses the same strumNotes
         transform as apiStrumClip, then fires onNotesChanged. */
     void strumRollNotes (double stepBeats, bool down);
@@ -96,6 +101,7 @@ private:
     double beatForX (float x)   const;
     float  yForPitch (int p)    const;
     int    pitchForY (float y)  const;
+    int    snapPitchToScaleRoll (int pitch) const;   // nearest in-scale pitch (if snap on)
     double snapBeat (double b)  const;
     int    noteIndexAt (juce::Point<float> p) const;
     void   transformSelectionOrAll (const std::function<void (std::vector<Note>&)>& fn);  // ops apply to the selection if any
@@ -112,6 +118,7 @@ private:
     std::vector<Note> ghostNotes;         // other tracks' notes (dim, read-only)
     juce::String chordType;               // chord-stamp mode ("" = single notes)
     bool auditionEnabled { true };        // play notes through the instrument on click/brush
+    bool snapToScale { false };           // snap drawn/moved pitches to the project scale
     bool gutterAuditioning { false };     // a held audition started on the key gutter
     std::vector<int> auditionPitches;     // currently-sounding audition notes
     std::array<bool, 12> scaleMask { };   // pitch classes in the project scale

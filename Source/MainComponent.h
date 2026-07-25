@@ -281,6 +281,13 @@ private:
             strumBtn.onClick = [this] { roll.strumRollNotes (0.05, ! juce::ModifierKeys::getCurrentModifiers().isShiftDown()); };
             addAndMakeVisible (strumBtn);
 
+            // Snap-to-scale: constrain drawn/moved pitches to the project scale.
+            scaleLockBtn.setClickingTogglesState (true);
+            scaleLockBtn.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
+            scaleLockBtn.setTooltip ("Snap drawn/moved notes to the project scale");
+            scaleLockBtn.onClick = [this] { roll.setSnapToScale (scaleLockBtn.getToggleState()); };
+            addAndMakeVisible (scaleLockBtn);
+
             // Arpeggiate: chords -> sequences. Button opens an Up/Down/Up-Down menu.
             arpBtn.setTooltip ("Arpeggiate chords into a sequence");
             arpBtn.onClick = [this]
@@ -327,6 +334,7 @@ private:
             chordCombo.setBounds (h.removeFromRight (74).reduced (2, 0));
             strumBtn.setBounds (h.removeFromRight (52).reduced (2, 0));
             arpBtn.setBounds (h.removeFromRight (46).reduced (2, 0));
+            scaleLockBtn.setBounds (h.removeFromRight (52).reduced (2, 0));
             auditionBtn.setBounds (h.removeFromRight (72).reduced (2, 0));
             title.setBounds (h.withTrimmedLeft (10));
             roll.setBounds (a);
@@ -338,6 +346,7 @@ private:
         juce::TextButton auditionBtn { "AUDITION" };
         juce::TextButton strumBtn { "STRUM" };
         juce::TextButton arpBtn { "ARP" };
+        juce::TextButton scaleLockBtn { "SCALE" };
         juce::ComboBox   chordCombo;
         PianoRoll   roll;
         StepEditor  steps;

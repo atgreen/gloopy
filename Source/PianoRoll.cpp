@@ -159,6 +159,18 @@ double PianoRoll::snapBeat (double b) const
     return std::round (b / gridSnap) * gridSnap;
 }
 
+int PianoRoll::snapPitchToScaleRoll (int pitch) const
+{
+    if (! snapToScale || ! scaleActive) return pitch;    // off / chromatic → no change
+    const int pc = ((pitch % 12) + 12) % 12;
+    for (int d = 0; d <= 6; ++d)                          // search outward, +d before -d
+    {
+        if (scaleMask[(size_t) ((pc + d) % 12)])                    return juce::jlimit (pitchLow, pitchHigh, pitch + d);
+        if (d > 0 && scaleMask[(size_t) (((pc - d) % 12 + 12) % 12)]) return juce::jlimit (pitchLow, pitchHigh, pitch - d);
+    }
+    return pitch;
+}
+
 bool PianoRoll::isBlackKey (int pitch)
 {
     switch (pitch % 12)
@@ -503,16 +515,16 @@ void PianoRoll::mouseDown (const juce::MouseEvent& e)
         }
         else
         {
-            // Create a single new note.
+            // Create a single new note (snapped to the scale if that's on).
             Note n;
-            n.pitch       = root;
+            n.pitch       = snapPitchToScaleRoll (root);
             n.startBeat   = start;
             n.lengthBeats = 1.0;
             n.velocity    = 0.8f;
             notes.push_back (n);
             activeNote = selectedNote = (int) notes.size() - 1;
             drag = Drag::resize; // let an immediate drag set the length
-            startAudition (root, 0.8f);          // hear the note you drew
+            startAudition (n.pitch, 0.8f);       // hear the note you drew
         }
     }
 
@@ -565,7 +577,8 @@ void PianoRoll::mouseDrag (const juce::MouseEvent& e)
 
         const double newStart = juce::jlimit (0.0, (double) loopBeats - n.lengthBeats,
                                               snapBeat (beatForX (p.x) - dragBeatOffset));
-        const int    newPitch = juce::jlimit (pitchLow, pitchHigh, pitchForY (p.y) - dragPitchOffset);
+        const int    newPitch = snapPitchToScaleRoll (juce::jlimit (pitchLow, pitchHigh,
+                                                                    pitchForY (p.y) - dragPitchOffset));
         const double dBeat = newStart - origActiveStart;
         const int    dPitch = newPitch - origActivePitch;
 
