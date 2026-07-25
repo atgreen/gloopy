@@ -572,6 +572,9 @@ each shipping with desktop UI + screenshot validation.
       more note-orders (converge/diverge/as-played), triplet/dotted rates.
     - `[x]` **Snap-to-scale-while-drawing landed** (commit 9be97f6): SCALE header toggle snaps
       drawn/moved pitches to the project scale (roll scaleMask). Wave 6 Tier-1 batch COMPLETE.
+    - `[x]` **Velocity ramp tool landed** (commit 55d7a19): shift-drag the velocity strip draws
+      a linear crescendo/decrescendo across the spanned notes; plain drag still scrubs one.
+      Screenshot + functional validated. **Not yet:** knife/split tool, step recording.
     - `[x]` **Vertical zoom + scroll landed** (commit 5daac0e, user request): dynamic pitch
       window (viewRows/viewTop over A0..C8); wheel scrolls, Ctrl/Cmd+wheel zooms (cursor-
       anchored); default ~2.5x more zoomed + auto-frames the clip's notes on load.
