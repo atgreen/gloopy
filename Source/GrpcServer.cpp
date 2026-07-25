@@ -350,6 +350,12 @@ namespace
                                                   s, e, q->has_track_id(), q->track_id());
             r->set_ok (ok); if (! ok) r->set_error ("render failed"); return Status::OK;
         }
+        Status ExportMidi (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        { const bool ok = main.apiExportMidi (js (q->path()));
+          r->set_ok (ok); if (! ok) r->set_error ("midi export failed"); return Status::OK; }
+        Status ImportMidi (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        { const int n = main.apiImportMidi (js (q->path()));
+          r->set_ok (n >= 0); if (n < 0) r->set_error ("midi import failed (unreadable or not a MIDI file)"); return Status::OK; }
 
         // ---- timeline locations ----
         Status AddLocation (ServerContext*, const pb::TimelineLocation* q, pb::Ack* r) override

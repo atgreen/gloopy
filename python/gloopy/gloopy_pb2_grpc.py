@@ -375,6 +375,16 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.RenderRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.ExportMidi = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ExportMidi',
+                request_serializer=gloopy__pb2.FilePath.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.ImportMidi = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ImportMidi',
+                request_serializer=gloopy__pb2.FilePath.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.Subscribe = channel.unary_stream(
                 '/gloopy.v1.Gloopy/Subscribe',
                 request_serializer=gloopy__pb2.SubscribeRequest.SerializeToString,
@@ -819,6 +829,20 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ExportMidi(self, request, context):
+        """all instrument tracks -> Type-1 SMF
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ImportMidi(self, request, context):
+        """SMF -> synth tracks + clips
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Subscribe(self, request, context):
         """events (playhead, meters) — closed-loop control
         """
@@ -1167,6 +1191,16 @@ def add_GloopyServicer_to_server(servicer, server):
             'RenderToFile': grpc.unary_unary_rpc_method_handler(
                     servicer.RenderToFile,
                     request_deserializer=gloopy__pb2.RenderRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ExportMidi': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExportMidi,
+                    request_deserializer=gloopy__pb2.FilePath.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ImportMidi': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImportMidi,
+                    request_deserializer=gloopy__pb2.FilePath.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'Subscribe': grpc.unary_stream_rpc_method_handler(
@@ -3011,6 +3045,60 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/RenderToFile',
             gloopy__pb2.RenderRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ExportMidi(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ExportMidi',
+            gloopy__pb2.FilePath.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ImportMidi(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ImportMidi',
+            gloopy__pb2.FilePath.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

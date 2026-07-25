@@ -129,6 +129,10 @@ public:
     juce::String apiInspectJson();               // structural summary as JSON
     juce::String apiValidateJson (bool& ok);     // problems as JSON; ok=false if any errors
 
+    // --- MIDI file import/export (Midi.cpp) ---
+    bool apiExportMidi (const juce::String& path);   // all instrument tracks -> a Type-1 SMF
+    int  apiImportMidi (const juce::String& path);   // SMF -> synth tracks + clips; count, or -1
+
     // track & clip management
     bool apiRemoveTrack (int id);
     int  apiAddAudioTrack (const juce::String& name);

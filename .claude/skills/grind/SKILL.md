@@ -270,6 +270,16 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
    folders).
    *Done when:* import a `.mid` → render; export a clip → re-import → note lists match;
    JSON note import builds a clip via the API.
+   - `[x]` **MIDI file I/O landed** (`Source/Midi.cpp`, commit): `apiExportMidi` writes
+     a Type-1 SMF (tempo track + one track per instrument track, beats→ticks @960 PPQ);
+     `apiImportMidi` reads a SMF (`juce::MidiFile`, matched note pairs, ticks→beats,
+     tempo meta → transport bpm) into one synth track + clip per MIDI track, reusing
+     `apiAddSynthTrack`/`apiAddClip`. RPCs `ExportMidi`/`ImportMidi` (FilePath) +
+     Python `export_midi`/`import_midi`. Verified export→import→re-export round-trip
+     (bpm + notes survive, renders); smoke.sh asserts SMF magic + reimport→clips→
+     non-silent. **Not yet:** bulk `ImportNotesJSON`/`ExportNotesJSON` (generative
+     helper — `AddClip` already takes structured notes), loop-expansion on export,
+     multi-channel/CC import, per-clip (not per-track) granularity.
 
 ### Wave 3 — Editing + routing depth (still API-first)
 

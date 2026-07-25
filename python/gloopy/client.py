@@ -385,6 +385,15 @@ class Gloopy:
         """Load a composition directory (or its gloopy.toml)."""
         self._ack(self.stub.LoadComposition(pb.FilePath(path=path)))
 
+    # -- MIDI file import/export ------------------------------------------
+    def export_midi(self, path: str) -> None:
+        """Write all instrument tracks to a Type-1 standard MIDI file."""
+        self._ack(self.stub.ExportMidi(pb.FilePath(path=path)))
+
+    def import_midi(self, path: str) -> None:
+        """Load a standard MIDI file as synth tracks + clips."""
+        self._ack(self.stub.ImportMidi(pb.FilePath(path=path)))
+
     def render(self, path: str, tail_seconds: float = 0.0, start_beat: float = 0.0,
                end_beat: float = 0.0, track_id: Optional[int] = None,
                range_name: str = "") -> None:

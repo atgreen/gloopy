@@ -300,6 +300,8 @@ service Gloopy {
   rpc SaveComposition(FilePath) returns (Ack);   // directory "composition as repo" format
   rpc LoadComposition(FilePath) returns (Ack);
   rpc RenderToFile(RenderRequest) returns (Ack);   // offline bounce to WAV
+  rpc ExportMidi (FilePath) returns (Ack);         // all instrument tracks -> Type-1 SMF
+  rpc ImportMidi (FilePath) returns (Ack);         // SMF -> synth tracks + clips
 
   // events (playhead, meters) — closed-loop control
   rpc Subscribe  (SubscribeRequest) returns (stream Event);
