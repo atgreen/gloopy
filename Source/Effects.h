@@ -371,11 +371,105 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+// Parametric EQ (single peaking band, RBJ biquad)
+// ---------------------------------------------------------------------------
+class EqFx : public Effect
+{
+public:
+    void prepare (double sampleRate, int, int) override { sr = sampleRate; reset(); }
+    void reset() override { for (auto& s : st) s = {}; }
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        if (bypassed.load()) return;
+        // Recompute the peaking coefficients from the current params (per block).
+        const double A  = std::pow (10.0, juce::jlimit (-24.0f, 24.0f, gainDb.load()) / 40.0);
+        const double w0 = 2.0 * juce::MathConstants<double>::pi * juce::jlimit (20.0f, 18000.0f, freq.load()) / sr;
+        const double cw = std::cos (w0), sw = std::sin (w0);
+        const double alpha = sw / (2.0 * juce::jmax (0.1f, q.load()));
+        const double a0 = 1.0 + alpha / A;
+        const double b0 = (1.0 + alpha * A) / a0, b1 = (-2.0 * cw) / a0, b2 = (1.0 - alpha * A) / a0;
+        const double a1 = (-2.0 * cw) / a0,       a2 = (1.0 - alpha / A) / a0;
+        const int n = b.getNumSamples(), ch = juce::jmin (2, b.getNumChannels());
+        for (int c = 0; c < ch; ++c)
+        {
+            auto& s = st[(size_t) c]; auto* d = b.getWritePointer (c);
+            for (int i = 0; i < n; ++i)
+            {
+                const double in = d[i];
+                const double out = b0 * in + s.z1;                 // transposed direct form II
+                s.z1 = b1 * in - a1 * out + s.z2;
+                s.z2 = b2 * in - a2 * out;
+                d[i] = (float) out;
+            }
+        }
+    }
+
+    juce::String name() const override { return "EQ"; }
+
+    std::vector<EffectParam> parameters() override
+    {
+        return {
+            { "Freq",    20.0f, 18000.0f, 1000.0f, [this] { return freq.load(); },   [this] (float v) { freq.store (v); } },
+            { "Gain dB", -24.0f, 24.0f, 0.0f,      [this] { return gainDb.load(); }, [this] (float v) { gainDb.store (v); } },
+            { "Q",       0.1f, 10.0f, 1.0f,        [this] { return q.load(); },      [this] (float v) { q.store (v); } }
+        };
+    }
+
+private:
+    struct St { double z1 { 0 }, z2 { 0 }; };
+    std::atomic<float> freq { 1000.0f }, gainDb { 0.0f }, q { 1.0f };
+    std::array<St, 2> st;
+    double sr { 44100.0 };
+};
+
+// ---------------------------------------------------------------------------
+// Waveshaper (tanh soft-clip drive, wet/dry)
+// ---------------------------------------------------------------------------
+class WaveshaperFx : public Effect
+{
+public:
+    void prepare (double, int, int) override {}
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        if (bypassed.load()) return;
+        const float drive = juce::jmax (1.0f, driveParam.load());
+        const float mix   = juce::jlimit (0.0f, 1.0f, wet.load());
+        const float norm  = std::tanh (drive);                     // keep full-scale near unity
+        const int n = b.getNumSamples(), ch = juce::jmin (2, b.getNumChannels());
+        for (int c = 0; c < ch; ++c)
+        {
+            auto* d = b.getWritePointer (c);
+            for (int i = 0; i < n; ++i)
+            {
+                const float x = d[i];
+                const float shaped = std::tanh (drive * x) / norm;
+                d[i] = x + mix * (shaped - x);
+            }
+        }
+    }
+
+    juce::String name() const override { return "Waveshaper"; }
+
+    std::vector<EffectParam> parameters() override
+    {
+        return {
+            { "Drive", 1.0f, 50.0f, 1.0f, [this] { return driveParam.load(); }, [this] (float v) { driveParam.store (v); } },
+            { "Mix",   0.0f, 1.0f, 1.0f,  [this] { return wet.load(); },        [this] (float v) { wet.store (v); } }
+        };
+    }
+
+private:
+    std::atomic<float> driveParam { 1.0f }, wet { 1.0f };
+};
+
+// ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 namespace EffectFactory
 {
-    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor" }; }
+    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper" }; }
 
     inline std::unique_ptr<Effect> create (const juce::String& type)
     {
@@ -386,6 +480,8 @@ namespace EffectFactory
         if (type == "Limiter")    return std::make_unique<LimiterFx>();
         if (type == "Bitcrusher") return std::make_unique<BitcrusherFx>();
         if (type == "Compressor") return std::make_unique<CompressorFx>();
+        if (type == "EQ")         return std::make_unique<EqFx>();
+        if (type == "Waveshaper") return std::make_unique<WaveshaperFx>();
         return nullptr;
     }
 }

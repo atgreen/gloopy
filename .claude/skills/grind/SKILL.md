@@ -444,9 +444,14 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       interface so GetEffectParams / effect presets / ParamModel / automation /
       modulation all work for free. Verified via render: bitcrusher quantizes to ~5
       distinct sample values; compressor is level-dependent (loud note ducked 10 dB vs
-      quiet 6 dB — dynamic range squeezed). smoke covers both. **Not yet:** parametric
-      EQ, chorus/flanger, widener, waveshaper; analyzers (scope/spectrum/vectorscope)
-      with API snapshots.
+      quiet 6 dB — dynamic range squeezed). smoke covers both.
+    - `[x]` **Parametric EQ + Waveshaper landed** (commit): `EqFx` (single peaking
+      band, RBJ biquad, Freq/Gain/Q) and `WaveshaperFx` (tanh soft-clip Drive + Mix),
+      as EffectType EQ=7 / WAVESHAPER=8 (all four registries kept in sync). Verified via
+      render: EQ ±18 dB @ 500 Hz shifts band RMS ~17 dB (boost vs cut); waveshaper drive
+      25 raises RMS ~17 dB (saturation). smoke covers both.
+      **Not yet:** chorus/flanger, stereo widener, multi-band EQ; analyzers
+      (scope/spectrum/vectorscope) with API snapshots.
 
 ### Wave 6 — Product surface & UI (deferred: harder to verify headless; keep layout simple)
 

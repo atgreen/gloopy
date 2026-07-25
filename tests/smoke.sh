@@ -192,6 +192,31 @@ python3 -c "assert float('$COMP_PEAK') < float('$BASE_PEAK')-3.0, 'compressor di
     || { echo "smoke: compressor did not reduce peak" >&2; exit 1; }
 echo "smoke: PASS — compressor ducked peak ($BASE_PEAK -> $COMP_PEAK dBFS)"
 g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+arms() { g -d "{\"path\":\"$1\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AnalyzeFile | python3 -c "import json,sys;print(json.load(sys.stdin).get('rmsDbfs',-99.0))"; }
+# EQ: a wide boost vs cut at a band shifts RMS.
+g -d '{"insert":0,"type":"EQ"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Freq","value":500}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Q","value":0.7}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Gain dB","value":18}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/eqb.wav\",\"tail_seconds\":0.5,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+EQB=$(arms "$WORK/eqb.wav")
+g -d '{"insert":0,"slot":0,"name":"Gain dB","value":-18}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/eqc.wav\",\"tail_seconds\":0.5,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+EQC=$(arms "$WORK/eqc.wav")
+python3 -c "assert float('$EQB') > float('$EQC')+3, 'EQ boost/cut did not shift RMS (%s vs %s)'%('$EQB','$EQC')" \
+    || { echo "smoke: EQ did not shift band energy" >&2; exit 1; }
+echo "smoke: PASS — EQ boost vs cut shifted RMS ($EQB vs $EQC dBFS)"
+g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+# Waveshaper: drive raises RMS (soft-clip saturation).
+BASE_RMS=$(arms "$WAV")
+g -d '{"insert":0,"type":"WAVESHAPER"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Drive","value":25}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/ws.wav\",\"tail_seconds\":0.5,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+WS=$(arms "$WORK/ws.wav")
+python3 -c "assert float('$WS') > float('$BASE_RMS')+2, 'waveshaper drive did not raise RMS (%s -> %s)'%('$BASE_RMS','$WS')" \
+    || { echo "smoke: waveshaper had no effect" >&2; exit 1; }
+echo "smoke: PASS — waveshaper drive raised RMS ($BASE_RMS -> $WS dBFS)"
+g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
 
 # Timeline locations: add a named range, prove render-by-range is shorter than the
 # full render, and (below) that the location survives the composition round-trip.
