@@ -254,6 +254,32 @@ struct NoteEditTests : juce::UnitTest
             expect (a[0].pitch == 60 && a[1].pitch == 64 && a[2].pitch == 72 && a[3].pitch == 76);
         }
 
+        beginTest ("expandArp repeats a single sustained note (like a real arp)");
+        {
+            std::vector<Note> one { {60,0,1,0.8f} };            // 1-beat note, 1/4 rate = 4 repeats
+            auto a = expandArp (one, 0.25, 1, 1.0f, 0);
+            expect ((int) a.size() == 4);
+            for (auto& n : a) expect (n.pitch == 60);
+            expectWithinAbsoluteError (a[3].startBeat, 0.75, 1e-9);
+        }
+
+        beginTest ("expandArp cycles octaves on a single note");
+        {
+            std::vector<Note> one { {60,0,1,0.8f} };
+            auto a = expandArp (one, 0.25, 2, 1.0f, 0);         // pattern [60,72] over 4 steps
+            expect ((int) a.size() == 4);
+            expect (a[0].pitch == 60 && a[1].pitch == 72 && a[2].pitch == 60 && a[3].pitch == 72);
+        }
+
+        beginTest ("expandArp arpeggiates only notes held at each step");
+        {
+            // C for beats 0-1, then E for 1-2 (no overlap) -> each repeats while held.
+            std::vector<Note> mel { {60,0,1,0.8f}, {64,1,1,0.8f} };
+            auto a = expandArp (mel, 0.5, 1, 1.0f, 0);          // 4 steps: 0,0.5 hold C ; 1,1.5 hold E
+            expect ((int) a.size() == 4);
+            expect (a[0].pitch == 60 && a[1].pitch == 60 && a[2].pitch == 64 && a[3].pitch == 64);
+        }
+
         beginTest ("expandArp is deterministic for random mode");
         {
             std::vector<Note> chord { {60,0,2,0.8f}, {64,0,2,0.8f}, {67,0,2,0.8f} };
