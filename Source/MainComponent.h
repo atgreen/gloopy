@@ -265,6 +265,23 @@ private:
             addAndMakeVisible (pianoBtn);
             addAndMakeVisible (steps);
             addChildComponent (roll);
+
+            // Chord-stamp selector: pick a type, then click empty grid to stamp the
+            // whole voicing. "Note" = ordinary single-note drawing.
+            chordCombo.addItem ("Note", 1);
+            const char* types[] = { "maj", "min", "7", "maj7", "min7",
+                                    "sus2", "sus4", "dim", "aug", "add9", "6", "9" };
+            for (int i = 0; i < (int) (sizeof (types) / sizeof (types[0])); ++i)
+                chordCombo.addItem (types[i], i + 2);
+            chordCombo.setSelectedId (1, juce::dontSendNotification);
+            chordCombo.setTooltip ("Chord stamp: click the grid to lay down this chord");
+            chordCombo.onChange = [this]
+            {
+                const int id = chordCombo.getSelectedId();
+                roll.setChordType (id <= 1 ? juce::String()
+                                           : chordCombo.getItemText (chordCombo.getSelectedItemIndex()));
+            };
+            addAndMakeVisible (chordCombo);
         }
         void paint (juce::Graphics& g) override
         {
@@ -279,6 +296,7 @@ private:
             auto h = a.removeFromTop (26).reduced (0, 3);
             pianoBtn.setBounds (h.removeFromRight (58).reduced (2, 0));
             stepBtn .setBounds (h.removeFromRight (58).reduced (2, 0));
+            chordCombo.setBounds (h.removeFromRight (74).reduced (2, 0));
             title.setBounds (h.withTrimmedLeft (10));
             roll.setBounds (a);
             steps.setBounds (a);
@@ -286,6 +304,7 @@ private:
         juce::Label      title;
         juce::TextButton stepBtn  { "STEPS" };
         juce::TextButton pianoBtn { "PIANO" };
+        juce::ComboBox   chordCombo;
         PianoRoll   roll;
         StepEditor  steps;
     };

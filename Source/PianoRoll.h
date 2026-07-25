@@ -45,6 +45,13 @@ public:
     /** Reference notes from other tracks in this time range, drawn dim (read-only). */
     void setGhostNotes (std::vector<Note> g) { ghostNotes = std::move (g); repaint(); }
 
+    /** Chord-stamp mode: when set to a chord type ("maj", "min7", ...), clicking an
+        empty grid cell stamps that whole chord rooted at the clicked pitch instead of
+        a single note. Empty string / "off" restores single-note drawing. Uses the same
+        makeChord() transform as the AddChord API, so the UI and scripts agree. */
+    void setChordType (const juce::String& t) { chordType = (t == "off" ? juce::String() : t); }
+    juce::String getChordType() const { return chordType; }
+
     /** The visible/editable length in beats (a clip's content length). */
     void setLength (double beats) { editLength = juce::jmax (0.25, beats); repaint(); }
     void setShowPlayhead (bool s) { showPlayhead = s; }
@@ -78,6 +85,7 @@ private:
     Transport& transport;
     std::vector<Note> notes;
     std::vector<Note> ghostNotes;         // other tracks' notes (dim, read-only)
+    juce::String chordType;               // chord-stamp mode ("" = single notes)
     std::array<bool, 12> scaleMask { };   // pitch classes in the project scale
     bool  scaleActive { false };          // a non-chromatic scale is highlighted
     bool editable { true };

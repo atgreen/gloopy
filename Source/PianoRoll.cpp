@@ -351,16 +351,30 @@ void PianoRoll::mouseDown (const juce::MouseEvent& e)
     }
     else
     {
-        // Create a new note.
-        Note n;
-        n.pitch       = juce::jlimit (pitchLow, pitchHigh, pitchForY (p.y));
-        n.startBeat   = juce::jlimit (0.0, (double) transport.getLoopBeats() - gridSnap,
-                                      snapBeat (beatForX (p.x)));
-        n.lengthBeats = 1.0;
-        n.velocity    = 0.8f;
-        notes.push_back (n);
-        activeNote = selectedNote = (int) notes.size() - 1;
-        drag = Drag::resize; // let an immediate drag set the length
+        const int    root  = juce::jlimit (pitchLow, pitchHigh, pitchForY (p.y));
+        const double start = juce::jlimit (0.0, (double) transport.getLoopBeats() - gridSnap,
+                                           snapBeat (beatForX (p.x)));
+        if (chordType.isNotEmpty())
+        {
+            // Chord-stamp mode: lay down the whole voicing rooted at the clicked pitch.
+            // Same makeChord() the AddChord API uses, so UI and scripts agree.
+            auto chord = makeChord (root, chordType, 0, start, 1.0, 0.8f);
+            for (auto& cn : chord) notes.push_back (cn);
+            activeNote = selectedNote = (int) notes.size() - 1;  // top voice, for a length drag
+            drag = Drag::resize; // dragging resizes the top voice; other voices keep 1 beat
+        }
+        else
+        {
+            // Create a single new note.
+            Note n;
+            n.pitch       = root;
+            n.startBeat   = start;
+            n.lengthBeats = 1.0;
+            n.velocity    = 0.8f;
+            notes.push_back (n);
+            activeNote = selectedNote = (int) notes.size() - 1;
+            drag = Drag::resize; // let an immediate drag set the length
+        }
     }
 
     if (onNotesChanged) onNotesChanged();
