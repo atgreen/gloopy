@@ -6,6 +6,8 @@
 #include <JuceHeader.h>
 #include <vector>
 #include <array>
+#include <set>
+#include <tuple>
 #include <functional>
 #include "Note.h"
 #include "NoteEdits.h"
@@ -32,7 +34,7 @@ public:
 
     /** Load notes for display/editing WITHOUT firing onNotesChanged (used when
         switching which channel/pattern the roll is showing). */
-    void loadNotes (std::vector<Note> newNotes) { notes = std::move (newNotes); centerViewOnNotes(); repaint(); }
+    void loadNotes (std::vector<Note> newNotes) { notes = std::move (newNotes); selection.clear(); centerViewOnNotes(); repaint(); }
 
     const std::vector<Note>& getNotes() const noexcept { return notes; }
 
@@ -92,6 +94,7 @@ private:
     int    pitchForY (float y)  const;
     double snapBeat (double b)  const;
     int    noteIndexAt (juce::Point<float> p) const;
+    void   transformSelectionOrAll (const std::function<void (std::vector<Note>&)>& fn);  // ops apply to the selection if any
     void   startAudition (int pitch, float velocity);            // replace-held (scrub/move)
     void   auditionChord (const std::vector<int>& pitches, float velocity);
     void   stopAudition();
@@ -130,6 +133,13 @@ private:
     int   selectedNote { -1 };
     double dragBeatOffset  { 0.0 };
     int    dragPitchOffset { 0 };
+
+    // Region (marquee) selection: shift-drag to select every note in a rectangle.
+    std::set<int> selection;                               // selected note indices
+    bool marqueeing { false };
+    juce::Point<float> marqueeStart;
+    juce::Rectangle<float> marqueeRect;
+    std::vector<std::tuple<int, double, int>> dragOrigins; // (index, startBeat, pitch) for group move
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PianoRoll)
 };

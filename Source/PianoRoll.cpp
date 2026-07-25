@@ -25,19 +25,42 @@ bool PianoRoll::keyPressed (const juce::KeyPress& key)
     const bool shift = key.getModifiers().isShiftDown();
     bool changed = false;
 
+    // Note transforms act on the region selection if there is one, else all notes.
     if (key.getTextCharacter() == 'q' || key.getTextCharacter() == 'Q')
-    { quantizeNotes (notes, shift ? 0.5 : 0.25); changed = true; }        // Q = 1/16, Shift+Q = 1/8
+    { transformSelectionOrAll ([&] (std::vector<Note>& v) { quantizeNotes (v, shift ? 0.5 : 0.25); }); changed = true; }
     else if (key.getTextCharacter() == 'h' || key.getTextCharacter() == 'H')
-    { juce::Random rng; humanizeNotes (notes, 0.02, 0.1, rng); changed = true; }
+    { transformSelectionOrAll ([&] (std::vector<Note>& v) { juce::Random rng; humanizeNotes (v, 0.02, 0.1, rng); }); changed = true; }
     else if (key.getTextCharacter() == 's' || key.getTextCharacter() == 'S')
-    { strumNotes (notes, 0.05, ! shift); changed = true; }                // S = down-strum, Shift+S = up
+    { transformSelectionOrAll ([&] (std::vector<Note>& v) { strumNotes (v, 0.05, ! shift); }); changed = true; }
     else if (key == juce::KeyPress::upKey)
-    { transposeNotes (notes, shift ? 12 : 1); changed = true; }           // arrows transpose all
+    { transformSelectionOrAll ([&] (std::vector<Note>& v) { transposeNotes (v, shift ? 12 : 1); }); changed = true; }
     else if (key == juce::KeyPress::downKey)
-    { transposeNotes (notes, shift ? -12 : -1); changed = true; }
+    { transformSelectionOrAll ([&] (std::vector<Note>& v) { transposeNotes (v, shift ? -12 : -1); }); changed = true; }
+    else if (key == juce::KeyPress::deleteKey || key == juce::KeyPress::backspaceKey)
+    {
+        if (! selection.empty())
+        {
+            std::vector<int> idxs (selection.begin(), selection.end());
+            std::sort (idxs.rbegin(), idxs.rend());                       // erase high indices first
+            for (int i : idxs) if (i >= 0 && i < (int) notes.size()) notes.erase (notes.begin() + i);
+            selection.clear(); selectedNote = -1; changed = true;
+        }
+    }
 
     if (changed) { if (onNotesChanged) onNotesChanged(); repaint(); }
     return changed;
+}
+
+// Apply a NoteEdits transform to just the selected notes (if any), else to all.
+void PianoRoll::transformSelectionOrAll (const std::function<void (std::vector<Note>&)>& fn)
+{
+    if (selection.empty()) { fn (notes); return; }
+    std::vector<int> idxs (selection.begin(), selection.end());
+    std::vector<Note> sub;
+    for (int i : idxs) if (i >= 0 && i < (int) notes.size()) sub.push_back (notes[(size_t) i]);
+    fn (sub);   // NoteEdits transforms preserve size and order, so write back by position
+    for (size_t k = 0; k < idxs.size() && k < sub.size(); ++k)
+        if (idxs[k] >= 0 && idxs[k] < (int) notes.size()) notes[(size_t) idxs[k]] = sub[k];
 }
 
 void PianoRoll::strumRollNotes (double stepBeats, bool down)
@@ -56,6 +79,7 @@ PianoRoll::~PianoRoll()
 void PianoRoll::setNotes (std::vector<Note> newNotes)
 {
     notes = std::move (newNotes);
+    selection.clear();
     centerViewOnNotes();
     if (onNotesChanged) onNotesChanged();
     repaint();
@@ -239,12 +263,23 @@ void PianoRoll::paint (juce::Graphics& g)
                                   rh);
         r = r.reduced (0.5f);
 
-        g.setColour (i == selectedNote ? Palette::accent.brighter (0.25f) : Palette::accent);
+        const bool sel = selection.count (i) > 0;
+        g.setColour (sel ? juce::Colour (0xfff2c14e)       // gold — clearly distinct from the cyan accent
+                         : (i == selectedNote ? Palette::accent.brighter (0.25f) : Palette::accent));
         g.fillRoundedRectangle (r, 2.0f);
         g.setColour (juce::Colours::white.withAlpha (0.20f));
         g.fillRoundedRectangle (r.withTrimmedBottom (r.getHeight() * 0.55f), 2.0f);
-        g.setColour (Palette::inset);
-        g.drawRoundedRectangle (r, 2.0f, 1.0f);
+        g.setColour (sel ? juce::Colours::white : Palette::inset);        // selected notes get a bright outline
+        g.drawRoundedRectangle (r, 2.0f, sel ? 1.5f : 1.0f);
+    }
+
+    // Region marquee rectangle (while shift-dragging).
+    if (marqueeing)
+    {
+        g.setColour (Palette::accent.withAlpha (0.15f));
+        g.fillRect (marqueeRect);
+        g.setColour (Palette::accent);
+        g.drawRect (marqueeRect, 1.0f);
     }
 
     // Velocity strip along the bottom: one bar per note, drag to shape dynamics.
@@ -356,6 +391,7 @@ void PianoRoll::stopAudition()
 void PianoRoll::mouseDown (const juce::MouseEvent& e)
 {
     if (! editable) return;
+    grabKeyboardFocus();   // so Q/H/S/arrows/Delete reach keyPressed after interacting
 
     const auto p = e.position;
 
@@ -384,10 +420,29 @@ void PianoRoll::mouseDown (const juce::MouseEvent& e)
 
     const int hit = noteIndexAt (p);
 
+    // Shift: extend/region-select rather than create or replace.
+    if (e.mods.isShiftDown() && ! e.mods.isPopupMenu())
+    {
+        if (hit >= 0)                                   // shift-click a note toggles it
+        {
+            if (selection.count (hit)) selection.erase (hit); else selection.insert (hit);
+            selectedNote = hit;
+        }
+        else                                            // shift-drag on empty space = marquee
+        {
+            marqueeing = true;
+            marqueeStart = p;
+            marqueeRect = juce::Rectangle<float> (p, p);
+        }
+        repaint();
+        return;
+    }
+
     // Delete on right-click / double-click.
     if (hit >= 0 && (e.mods.isPopupMenu() || e.getNumberOfClicks() >= 2))
     {
         notes.erase (notes.begin() + hit);
+        selection.clear();
         selectedNote = -1;
         activeNote = -1;
         drag = Drag::none;
@@ -404,6 +459,7 @@ void PianoRoll::mouseDown (const juce::MouseEvent& e)
 
         if (std::abs (p.x - rightX) <= 5.0f)
         {
+            selection.clear();                          // resize acts on one note
             drag = Drag::resize;
         }
         else
@@ -411,11 +467,17 @@ void PianoRoll::mouseDown (const juce::MouseEvent& e)
             drag = Drag::move;
             dragBeatOffset  = beatForX (p.x) - n.startBeat;
             dragPitchOffset = pitchForY (p.y) - n.pitch;
+            if (! selection.count (hit)) { selection.clear(); selection.insert (hit); }  // clicked outside selection → select just this
+            dragOrigins.clear();                        // snapshot the group for a rigid move
+            for (int idx : selection)
+                if (idx >= 0 && idx < (int) notes.size())
+                    dragOrigins.emplace_back (idx, notes[(size_t) idx].startBeat, notes[(size_t) idx].pitch);
             startAudition (n.pitch, n.velocity);   // hear the note you grabbed
         }
     }
     else
     {
+        selection.clear();                              // drawing a note drops any region selection
         const int    root  = juce::jlimit (pitchLow, pitchHigh, pitchForY (p.y));
         const double start = juce::jlimit (0.0, (double) transport.getLoopBeats() - gridSnap,
                                            snapBeat (beatForX (p.x)));
@@ -458,6 +520,14 @@ void PianoRoll::mouseDrag (const juce::MouseEvent& e)
         return;
     }
 
+    // Region marquee: grow the selection rectangle.
+    if (marqueeing)
+    {
+        marqueeRect = juce::Rectangle<float> (marqueeStart, e.position);
+        repaint();
+        return;
+    }
+
     if (! editable || activeNote < 0 || activeNote >= (int) notes.size())
         return;
 
@@ -479,10 +549,29 @@ void PianoRoll::mouseDrag (const juce::MouseEvent& e)
 
     if (drag == Drag::move)
     {
-        n.startBeat = juce::jlimit (0.0, (double) loopBeats - n.lengthBeats,
-                                    snapBeat (beatForX (p.x) - dragBeatOffset));
-        n.pitch     = juce::jlimit (pitchLow, pitchHigh,
-                                    pitchForY (p.y) - dragPitchOffset);
+        // Compute the active note's snapped delta, then move the whole selected group rigidly.
+        double origActiveStart = n.startBeat; int origActivePitch = n.pitch;
+        for (auto& o : dragOrigins) if (std::get<0> (o) == activeNote)
+            { origActiveStart = std::get<1> (o); origActivePitch = std::get<2> (o); }
+
+        const double newStart = juce::jlimit (0.0, (double) loopBeats - n.lengthBeats,
+                                              snapBeat (beatForX (p.x) - dragBeatOffset));
+        const int    newPitch = juce::jlimit (pitchLow, pitchHigh, pitchForY (p.y) - dragPitchOffset);
+        const double dBeat = newStart - origActiveStart;
+        const int    dPitch = newPitch - origActivePitch;
+
+        if (dragOrigins.empty())                        // single note (no snapshot)
+        {
+            n.startBeat = newStart; n.pitch = newPitch;
+        }
+        else for (auto& o : dragOrigins)                // rigid group move
+        {
+            const int idx = std::get<0> (o);
+            if (idx < 0 || idx >= (int) notes.size()) continue;
+            auto& m = notes[(size_t) idx];
+            m.startBeat = juce::jlimit (0.0, (double) loopBeats - m.lengthBeats, std::get<1> (o) + dBeat);
+            m.pitch     = juce::jlimit (pitchLow, pitchHigh, std::get<2> (o) + dPitch);
+        }
         startAudition (n.pitch, n.velocity);   // re-trigger as the note is dragged in pitch
     }
     else if (drag == Drag::resize)
@@ -498,8 +587,24 @@ void PianoRoll::mouseDrag (const juce::MouseEvent& e)
 
 void PianoRoll::mouseUp (const juce::MouseEvent&)
 {
+    if (marqueeing)
+    {
+        // Select every note whose rectangle intersects the marquee.
+        const float rh = (float) rowHeight();
+        for (int i = 0; i < (int) notes.size(); ++i)
+        {
+            const auto& n = notes[(size_t) i];
+            juce::Rectangle<float> r (xForBeat (n.startBeat), yForPitch (n.pitch),
+                                      xForBeat (n.startBeat + n.lengthBeats) - xForBeat (n.startBeat), rh);
+            if (marqueeRect.intersects (r)) selection.insert (i);
+        }
+        marqueeing = false;
+        selectedNote = selection.empty() ? -1 : *selection.begin();
+        repaint();
+    }
     drag = Drag::none;
     activeNote = -1;
+    dragOrigins.clear();
     gutterAuditioning = false;
     stopAudition();
 }
