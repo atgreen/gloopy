@@ -536,6 +536,13 @@ desktop control wiring the *same* api* op, screenshot-validated. Status:
   without a desktop path). Screenshot-validated (menu item present on Xvfb); the
   import op itself is smoke-proven. Fast-follow: drag-and-drop a `.mid` onto the
   arrange view (needs a FileDragAndDropTarget + drop-position → track/time mapping).
+- `[x]` **Audio file import API** (ImportAudio) — the *reverse* parity gap: audio
+  import was **GUI-only** (the `+ Audio` button), unlike MIDI which had an RPC.
+  Extracted the button's inline decode into `apiImportAudio(path)` (wav/aiff/flac →
+  a new audio track + clip at bar 1; decode off-thread, insert on the message thread)
+  and exposed it as the `ImportAudio` RPC + Python `import_audio`; the button now
+  shares it (commit). Headless-proven in smoke.sh (imports a rendered WAV → +1 audio
+  track, rejects a non-audio file). Enables `.wav` drag-and-drop as a later slice.
 
 **UI-PARITY BACKLOG COMPLETE — all 11 audited API-only gaps + MIDI-import have desktop UI.**
 Next: Wave 6 Tier-1 piano-roll items (strum, arpeggiate, snap-to-scale-while-drawing),

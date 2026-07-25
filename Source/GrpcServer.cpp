@@ -495,6 +495,9 @@ namespace
         Status ImportMidi (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
         { const int n = main.apiImportMidi (js (q->path()));
           r->set_ok (n >= 0); if (n < 0) r->set_error ("midi import failed (unreadable or not a MIDI file)"); return Status::OK; }
+        Status ImportAudio (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        { const int n = main.apiImportAudio (js (q->path()));
+          r->set_ok (n >= 0); if (n < 0) r->set_error ("audio import failed (unreadable or unsupported audio file)"); return Status::OK; }
         Status AnalyzeFile (ServerContext*, const pb::FilePath* q, pb::LoudnessReport* r) override
         {
             MainComponent::LoudnessReport rep;

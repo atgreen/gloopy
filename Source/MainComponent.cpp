@@ -153,28 +153,8 @@ MainComponent::MainComponent (bool headless)
             [this] (const juce::FileChooser& fc)
             {
                 const auto file = fc.getResult();
-                if (! file.existsAsFile()) return;
-                std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (file));
-                if (reader == nullptr || reader->lengthInSamples <= 0) return;
-
-                auto buf = std::make_shared<juce::AudioBuffer<float>> (
-                    (int) reader->numChannels, (int) reader->lengthInSamples);
-                reader->read (buf.get(), 0, (int) reader->lengthInSamples, 0, true, true);
-
-                const double durationSec = (double) reader->lengthInSamples / reader->sampleRate;
-                Clip c;
-                c.type = ClipType::Audio;
-                c.name = file.getFileNameWithoutExtension();
-                c.startBeat = 0.0;
-                c.lengthBeats = juce::jmax (0.25, durationSec * transport.getBpm() / 60.0);
-                c.audio = buf;
-                c.audioSourceRate = reader->sampleRate;
-                c.peaks = std::make_shared<std::vector<float>> (buildPeaks (*buf));
-
-                auto track = std::make_unique<Track> (c.name, nullptr, 60,
-                                 paletteColour ((int) tracks.size()), TrackType::Audio);
-                track->clips.push_back (std::move (c));
-                addTrack (std::move (track));
+                if (file.existsAsFile())
+                    apiImportAudio (file.getFullPathName());   // shared with the ImportAudio RPC
             });
     };
 
@@ -672,6 +652,50 @@ int MainComponent::apiAddSynthTrack (const juce::String& name, int wave, float a
                                           std::move (sg), 60, paletteColour ((int) tracks.size()));
         Track* raw = t.get();
         addTrack (std::move (t));
+        return raw->id;
+    });
+}
+
+// Import an audio file (wav/aiff/flac) as a new audio track carrying one clip at bar 1,
+// its length derived from the file duration at the current tempo. Shared by the
+// "+ Audio" toolbar button and the ImportAudio RPC. Returns the new track id, or -1 on
+// an unreadable/empty file. The decode + peak build happen off the message thread; only
+// the track insertion is marshalled onto it (callOnMessageThread), mirroring apiImportMidi.
+int MainComponent::apiImportAudio (const juce::String& path)
+{
+    const juce::File file = juce::File::isAbsolutePath (path)
+                              ? juce::File (path)
+                              : juce::File::getCurrentWorkingDirectory().getChildFile (path);
+    if (! file.existsAsFile()) return -1;
+
+    std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (file));
+    if (reader == nullptr || reader->lengthInSamples <= 0) return -1;
+
+    auto buf = std::make_shared<juce::AudioBuffer<float>> (
+        (int) reader->numChannels, (int) reader->lengthInSamples);
+    reader->read (buf.get(), 0, (int) reader->lengthInSamples, 0, true, true);
+
+    const double srcRate     = reader->sampleRate;
+    const double durationSec = (double) reader->lengthInSamples / juce::jmax (1.0, srcRate);
+    const juce::String name  = file.getFileNameWithoutExtension();
+    auto peaks = std::make_shared<std::vector<float>> (buildPeaks (*buf));
+
+    return callOnMessageThread ([&] () -> int
+    {
+        Clip c;
+        c.type            = ClipType::Audio;
+        c.name            = name;
+        c.startBeat       = 0.0;
+        c.lengthBeats     = juce::jmax (0.25, durationSec * transport.getBpm() / 60.0);
+        c.audio           = buf;
+        c.audioSourceRate = srcRate;
+        c.peaks           = peaks;
+
+        auto track = std::make_unique<Track> (name, nullptr, 60,
+                         paletteColour ((int) tracks.size()), TrackType::Audio);
+        Track* raw = track.get();
+        track->clips.push_back (std::move (c));
+        addTrack (std::move (track));
         return raw->id;
     });
 }

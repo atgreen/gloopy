@@ -245,6 +245,26 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ChordRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.StrumClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/StrumClip',
+                request_serializer=gloopy__pb2.StrumRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.ArpeggiateClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ArpeggiateClip',
+                request_serializer=gloopy__pb2.ArpeggiateRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.SetTrackArp = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetTrackArp',
+                request_serializer=gloopy__pb2.ArpSpec.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GetTrackArp = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GetTrackArp',
+                request_serializer=gloopy__pb2.TrackRef2.SerializeToString,
+                response_deserializer=gloopy__pb2.ArpSpec.FromString,
+                _registered_method=True)
         self.ScanPlugins = channel.unary_unary(
                 '/gloopy.v1.Gloopy/ScanPlugins',
                 request_serializer=gloopy__pb2.ScanPluginsRequest.SerializeToString,
@@ -505,6 +525,16 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.ListTemplates = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ListTemplates',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.TemplateList.FromString,
+                _registered_method=True)
+        self.NewFromTemplate = channel.unary_unary(
+                '/gloopy.v1.Gloopy/NewFromTemplate',
+                request_serializer=gloopy__pb2.TemplateRef.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.Undo = channel.unary_unary(
                 '/gloopy.v1.Gloopy/Undo',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -547,6 +577,11 @@ class GloopyStub:
                 _registered_method=True)
         self.ImportMidi = channel.unary_unary(
                 '/gloopy.v1.Gloopy/ImportMidi',
+                request_serializer=gloopy__pb2.FilePath.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.ImportAudio = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ImportAudio',
                 request_serializer=gloopy__pb2.FilePath.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
@@ -835,6 +870,33 @@ class GloopyServicer:
     def AddChord(self, request, context):
         """stamp a chord into a clip
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StrumClip(self, request, context):
+        """fan out a chord's voices
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ArpeggiateClip(self, request, context):
+        """chord -> arpeggio (destructive)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetTrackArp(self, request, context):
+        """live per-track arpeggiator
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetTrackArp(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -1174,6 +1236,20 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListTemplates(self, request, context):
+        """built-in project templates
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def NewFromTemplate(self, request, context):
+        """empty + seed a template
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Undo(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1227,6 +1303,13 @@ class GloopyServicer:
 
     def ImportMidi(self, request, context):
         """SMF -> synth tracks + clips
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ImportAudio(self, request, context):
+        """wav/aiff/flac -> a new audio track
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1465,6 +1548,26 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.AddChord,
                     request_deserializer=gloopy__pb2.ChordRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'StrumClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.StrumClip,
+                    request_deserializer=gloopy__pb2.StrumRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ArpeggiateClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.ArpeggiateClip,
+                    request_deserializer=gloopy__pb2.ArpeggiateRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetTrackArp': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetTrackArp,
+                    request_deserializer=gloopy__pb2.ArpSpec.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GetTrackArp': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetTrackArp,
+                    request_deserializer=gloopy__pb2.TrackRef2.FromString,
+                    response_serializer=gloopy__pb2.ArpSpec.SerializeToString,
             ),
             'ScanPlugins': grpc.unary_unary_rpc_method_handler(
                     servicer.ScanPlugins,
@@ -1726,6 +1829,16 @@ def add_GloopyServicer_to_server(servicer, server):
                     request_deserializer=gloopy__pb2.Empty.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
+            'ListTemplates': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListTemplates,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.TemplateList.SerializeToString,
+            ),
+            'NewFromTemplate': grpc.unary_unary_rpc_method_handler(
+                    servicer.NewFromTemplate,
+                    request_deserializer=gloopy__pb2.TemplateRef.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
             'Undo': grpc.unary_unary_rpc_method_handler(
                     servicer.Undo,
                     request_deserializer=gloopy__pb2.Empty.FromString,
@@ -1768,6 +1881,11 @@ def add_GloopyServicer_to_server(servicer, server):
             ),
             'ImportMidi': grpc.unary_unary_rpc_method_handler(
                     servicer.ImportMidi,
+                    request_deserializer=gloopy__pb2.FilePath.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ImportAudio': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImportAudio,
                     request_deserializer=gloopy__pb2.FilePath.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
@@ -2922,6 +3040,114 @@ class Gloopy:
             '/gloopy.v1.Gloopy/AddChord',
             gloopy__pb2.ChordRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StrumClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/StrumClip',
+            gloopy__pb2.StrumRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ArpeggiateClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ArpeggiateClip',
+            gloopy__pb2.ArpeggiateRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetTrackArp(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetTrackArp',
+            gloopy__pb2.ArpSpec.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetTrackArp(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GetTrackArp',
+            gloopy__pb2.TrackRef2.SerializeToString,
+            gloopy__pb2.ArpSpec.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4337,6 +4563,60 @@ class Gloopy:
             _registered_method=True)
 
     @staticmethod
+    def ListTemplates(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ListTemplates',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.TemplateList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def NewFromTemplate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/NewFromTemplate',
+            gloopy__pb2.TemplateRef.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def Undo(request,
             target,
             options=(),
@@ -4567,6 +4847,33 @@ class Gloopy:
             request,
             target,
             '/gloopy.v1.Gloopy/ImportMidi',
+            gloopy__pb2.FilePath.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ImportAudio(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ImportAudio',
             gloopy__pb2.FilePath.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,

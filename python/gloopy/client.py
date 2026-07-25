@@ -546,6 +546,10 @@ class Gloopy:
         """Load a standard MIDI file as synth tracks + clips."""
         self._ack(self.stub.ImportMidi(pb.FilePath(path=path)))
 
+    def import_audio(self, path: str) -> None:
+        """Load an audio file (wav/aiff/flac) as a new audio track."""
+        self._ack(self.stub.ImportAudio(pb.FilePath(path=path)))
+
     def set_project_notes(self, text: str) -> None:
         """Free-form markdown notes saved with the song (composition notes.md)."""
         self._ack(self.stub.SetProjectNotes(pb.TextValue(text=text)))

@@ -147,6 +147,7 @@ public:
     // --- MIDI file import/export (Midi.cpp) ---
     bool apiExportMidi (const juce::String& path);   // all instrument tracks -> a Type-1 SMF
     int  apiImportMidi (const juce::String& path);   // SMF -> synth tracks + clips; count, or -1
+    int  apiImportAudio (const juce::String& path);  // wav/aiff/flac -> a new audio track; track id, or -1
 
     // --- project notes (Notes.cpp) ---
     // Free-form markdown (arrangement notes, lyrics, TODOs, credits, licenses).

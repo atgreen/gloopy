@@ -419,6 +419,7 @@ service Gloopy {
   rpc RenderToFile(RenderRequest) returns (Ack);   // offline bounce to WAV
   rpc ExportMidi (FilePath) returns (Ack);         // all instrument tracks -> Type-1 SMF
   rpc ImportMidi (FilePath) returns (Ack);         // SMF -> synth tracks + clips
+  rpc ImportAudio (FilePath) returns (Ack);        // wav/aiff/flac -> a new audio track
   rpc AnalyzeFile(FilePath) returns (LoudnessReport);   // offline peak/true-peak/RMS/LUFS
   rpc GetWaveform(WaveformRequest) returns (WaveformData);   // cached min/max thumbnail peaks
 

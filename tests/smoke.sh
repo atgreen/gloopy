@@ -440,6 +440,17 @@ g -d "{\"path\":\"$WORK/rt2.wav\",\"tail_seconds\":0.5}" 127.0.0.1:$PORT gloopy.
 python3 -c "import wave;w=wave.open('$WORK/rt2.wav');n=w.getnframes();f=w.readframes(n);pk=max(abs(int.from_bytes(f[i:i+3],'little',signed=True))/(1<<23) for i in range(0,len(f),3));assert pk>0.02,'imported MIDI renders silent'"
 echo "smoke: PASS — MIDI import round-trip (clips=$CLIPS, renders non-silent)"
 
+# Audio import (ImportAudio): load the WAV just rendered as a new audio track. Audio
+# import was GUI-only before; this exercises the RPC that the + Audio button now shares.
+TB=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(len(json.load(sys.stdin)['tracks']))")
+g -d "{\"path\":\"$WORK/rt2.wav\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/ImportAudio >/dev/null
+read -r NA TYPE <<< "$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;ts=json.load(sys.stdin)['tracks'];print(len(ts), ts[-1].get('type'))")"
+{ [ "$NA" -eq "$((TB+1))" ] && [ "$TYPE" = "audio" ]; } || { echo "smoke: ImportAudio did not add an audio track (before=$TB after=$NA type=$TYPE)" >&2; exit 1; }
+# A non-audio file must be rejected cleanly (Ack.ok=false), not add a track.
+BAD=$(g -d "{\"path\":\"$WORK/rt.mid\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/ImportAudio | python3 -c "import json,sys;print(json.load(sys.stdin).get('ok', False))")
+[ "$BAD" = "False" ] || { echo "smoke: ImportAudio accepted a non-audio file" >&2; exit 1; }
+echo "smoke: PASS — ImportAudio added an audio track ($TB -> $NA), rejected a non-audio file"
+
 # Offline loudness: analyze the earlier synth render; sanity-check the metrics and
 # that the headless `analyze` CLI emits the same numbers as the RPC.
 g -d "{\"path\":\"$WAV\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AnalyzeFile | python3 -c "
