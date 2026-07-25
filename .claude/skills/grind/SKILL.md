@@ -426,6 +426,18 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
     `EffectType` proto enum, and works in effect-chain presets.
     *Done when:* each effect renders its expected transform; an analyzer snapshot is
     retrievable over the API.
+    - `[x]` **Bitcrusher + Compressor landed** (`Source/Effects.h`, commit): two
+      Effect subclasses. Bitcrusher = bit-depth reduction + sample-rate decimation +
+      wet/dry (Bits/Downsample/Mix); Compressor = peak-detected soft-knee with
+      Thresh/Ratio/Attack/Release/Makeup. Registered in `EffectFactory::create` +
+      `types()`, the proto `EffectType` enum (BITCRUSHER=5, COMPRESSOR=6), and
+      `apiAddEffect`'s names[]; params flow through the existing `EffectParam`
+      interface so GetEffectParams / effect presets / ParamModel / automation /
+      modulation all work for free. Verified via render: bitcrusher quantizes to ~5
+      distinct sample values; compressor is level-dependent (loud note ducked 10 dB vs
+      quiet 6 dB — dynamic range squeezed). smoke covers both. **Not yet:** parametric
+      EQ, chorus/flanger, widener, waveshaper; analyzers (scope/spectrum/vectorscope)
+      with API snapshots.
 
 ### Wave 6 — Product surface & UI (deferred: harder to verify headless; keep layout simple)
 

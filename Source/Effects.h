@@ -275,19 +275,117 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+// Bitcrusher (bit-depth reduction + sample-rate decimation, wet/dry)
+// ---------------------------------------------------------------------------
+class BitcrusherFx : public Effect
+{
+public:
+    void prepare (double, int, int) override { reset(); }
+    void reset() override { for (auto& h : hold) h = 0.0f; counter = 0; }
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        if (bypassed.load()) return;
+        const int   bits = juce::jlimit (1, 16, (int) std::lround (bitsParam.load()));
+        const float step = 1.0f / (float) (1 << (bits - 1));        // 2^bits levels over [-1,1]
+        const int   ds   = juce::jmax (1, (int) std::lround (downsample.load()));
+        const float mix  = juce::jlimit (0.0f, 1.0f, wet.load());
+        const int   n = b.getNumSamples(), ch = juce::jmin (2, b.getNumChannels());
+        for (int i = 0; i < n; ++i)
+        {
+            const bool sampleNow = (counter % ds) == 0;
+            for (int c = 0; c < ch; ++c)
+            {
+                auto* d = b.getWritePointer (c);
+                if (sampleNow) hold[(size_t) c] = std::round (d[i] / step) * step;   // S&H + quantise
+                d[i] = d[i] + mix * (hold[(size_t) c] - d[i]);                       // dry + wet
+            }
+            ++counter;
+        }
+    }
+
+    juce::String name() const override { return "Bitcrusher"; }
+
+    std::vector<EffectParam> parameters() override
+    {
+        return {
+            { "Bits",       1.0f, 16.0f, 8.0f,  [this] { return bitsParam.load(); }, [this] (float v) { bitsParam.store (v); } },
+            { "Downsample", 1.0f, 50.0f, 1.0f,  [this] { return downsample.load(); }, [this] (float v) { downsample.store (v); } },
+            { "Mix",        0.0f, 1.0f, 1.0f,   [this] { return wet.load(); },        [this] (float v) { wet.store (v); } }
+        };
+    }
+
+private:
+    std::atomic<float> bitsParam { 8.0f }, downsample { 1.0f }, wet { 1.0f };
+    std::array<float, 2> hold { { 0.0f, 0.0f } };
+    int counter { 0 };
+};
+
+// ---------------------------------------------------------------------------
+// Compressor (peak-detected, soft envelope, makeup gain)
+// ---------------------------------------------------------------------------
+class CompressorFx : public Effect
+{
+public:
+    void prepare (double sampleRate, int, int) override { sr = (float) sampleRate; reset(); }
+    void reset() override { env = 0.0f; }
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        if (bypassed.load()) return;
+        const float thr   = threshDb.load();
+        const float ratio = juce::jmax (1.0f, ratioParam.load());
+        const float atCoef = std::exp (-1.0f / (juce::jmax (0.1f, attackMs.load())  * 0.001f * sr));
+        const float rlCoef = std::exp (-1.0f / (juce::jmax (1.0f, releaseMs.load()) * 0.001f * sr));
+        const float makeup = juce::Decibels::decibelsToGain (makeupDb.load());
+        const int n = b.getNumSamples(), ch = juce::jmin (2, b.getNumChannels());
+        for (int i = 0; i < n; ++i)
+        {
+            float peak = 0.0f;
+            for (int c = 0; c < ch; ++c) peak = juce::jmax (peak, std::abs (b.getSample (c, i)));
+            env = peak > env ? atCoef * (env - peak) + peak : rlCoef * (env - peak) + peak;   // detector
+            const float envDb = juce::Decibels::gainToDecibels (juce::jmax (1.0e-6f, env));
+            const float overDb = envDb - thr;
+            const float grDb = overDb > 0.0f ? overDb * (1.0f - 1.0f / ratio) : 0.0f;         // reduction (dB)
+            const float g = makeup * juce::Decibels::decibelsToGain (-grDb);
+            for (int c = 0; c < ch; ++c) b.getWritePointer (c)[i] *= g;
+        }
+    }
+
+    juce::String name() const override { return "Compressor"; }
+
+    std::vector<EffectParam> parameters() override
+    {
+        return {
+            { "Thresh dB",  -48.0f, 0.0f, -18.0f, [this] { return threshDb.load(); },   [this] (float v) { threshDb.store (v); } },
+            { "Ratio",      1.0f, 20.0f, 4.0f,    [this] { return ratioParam.load(); }, [this] (float v) { ratioParam.store (v); } },
+            { "Attack ms",  0.1f, 100.0f, 10.0f,  [this] { return attackMs.load(); },   [this] (float v) { attackMs.store (v); } },
+            { "Release ms", 10.0f, 1000.0f, 120.0f, [this] { return releaseMs.load(); }, [this] (float v) { releaseMs.store (v); } },
+            { "Makeup dB",  0.0f, 24.0f, 0.0f,    [this] { return makeupDb.load(); },   [this] (float v) { makeupDb.store (v); } }
+        };
+    }
+
+private:
+    std::atomic<float> threshDb { -18.0f }, ratioParam { 4.0f }, attackMs { 10.0f }, releaseMs { 120.0f }, makeupDb { 0.0f };
+    float env { 0.0f }, sr { 44100.0f };
+};
+
+// ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 namespace EffectFactory
 {
-    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter" }; }
+    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor" }; }
 
     inline std::unique_ptr<Effect> create (const juce::String& type)
     {
-        if (type == "Gain")    return std::make_unique<GainFx>();
-        if (type == "Filter")  return std::make_unique<FilterFx>();
-        if (type == "Delay")   return std::make_unique<DelayFx>();
-        if (type == "Reverb")  return std::make_unique<ReverbFx>();
-        if (type == "Limiter") return std::make_unique<LimiterFx>();
+        if (type == "Gain")       return std::make_unique<GainFx>();
+        if (type == "Filter")     return std::make_unique<FilterFx>();
+        if (type == "Delay")      return std::make_unique<DelayFx>();
+        if (type == "Reverb")     return std::make_unique<ReverbFx>();
+        if (type == "Limiter")    return std::make_unique<LimiterFx>();
+        if (type == "Bitcrusher") return std::make_unique<BitcrusherFx>();
+        if (type == "Compressor") return std::make_unique<CompressorFx>();
         return nullptr;
     }
 }

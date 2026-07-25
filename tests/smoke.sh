@@ -168,6 +168,31 @@ assert peak > 0.02, f"render is essentially silent (peak={peak:.4f})"
 print("smoke: PASS — render is non-silent")
 PY
 
+# Built-in effects (on master, removed after): bitcrusher quantizes the signal to a
+# handful of distinct sample values; compressor with makeup 0 ducks over-threshold peaks.
+distinct() { python3 -c "import wave,sys;w=wave.open(sys.argv[1]);f=w.readframes(w.getnframes());print(len(set(f[i:i+3] for i in range(0,len(f),3))))" "$1"; }
+apeak() { g -d "{\"path\":\"$1\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AnalyzeFile | python3 -c "import json,sys;print(json.load(sys.stdin).get('peakDbfs',0.0))"; }
+BASE_DISTINCT=$(distinct "$WAV")
+g -d '{"insert":0,"type":"BITCRUSHER"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Bits","value":3}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Mix","value":1.0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/bc.wav\",\"tail_seconds\":1.0,\"start_beat\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+BC_DISTINCT=$(distinct "$WORK/bc.wav")
+[ "$BC_DISTINCT" -lt $((BASE_DISTINCT / 10)) ] || { echo "smoke: bitcrusher did not quantize ($BC_DISTINCT vs $BASE_DISTINCT)" >&2; exit 1; }
+echo "smoke: PASS — bitcrusher quantized signal ($BC_DISTINCT distinct vs $BASE_DISTINCT)"
+g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+BASE_PEAK=$(apeak "$WAV")
+g -d '{"insert":0,"type":"COMPRESSOR"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Thresh dB","value":-30}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Ratio","value":10}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Attack ms","value":0.1}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/comp.wav\",\"tail_seconds\":1.0,\"start_beat\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+COMP_PEAK=$(apeak "$WORK/comp.wav")
+python3 -c "assert float('$COMP_PEAK') < float('$BASE_PEAK')-3.0, 'compressor did not duck peak (%s -> %s)'%('$BASE_PEAK','$COMP_PEAK')" \
+    || { echo "smoke: compressor did not reduce peak" >&2; exit 1; }
+echo "smoke: PASS — compressor ducked peak ($BASE_PEAK -> $COMP_PEAK dBFS)"
+g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+
 # Timeline locations: add a named range, prove render-by-range is shorter than the
 # full render, and (below) that the location survives the composition round-trip.
 g -d '{"name":"half","kind":"range","start_beat":0,"end_beat":2}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddLocation >/dev/null
