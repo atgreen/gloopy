@@ -242,9 +242,15 @@ class Gloopy:
             track_id=track_id, index=index, step_beats=step_beats, down=down)))
 
     def arpeggiate_clip(self, track_id: int, index: int, step_beats: float = 0.25, mode: int = 0) -> None:
-        """Turn each chord into an arpeggio; mode 0=up, 1=down, 2=up-down."""
+        """Turn each chord into an arpeggio (destructive); mode 0=up, 1=down, 2=up-down."""
         self._ack(self.stub.ArpeggiateClip(pb.ArpeggiateRequest(
             track_id=track_id, index=index, step_beats=step_beats, mode=mode)))
+
+    def set_track_arp(self, track_id: int, enabled: bool = True, rate: float = 0.25,
+                      octaves: int = 1, gate: float = 0.5, mode: int = 0) -> None:
+        """Live (non-destructive) per-track arpeggiator; mode 0=up 1=down 2=updown 3=random."""
+        self._ack(self.stub.SetTrackArp(pb.ArpSpec(
+            track_id=track_id, enabled=enabled, rate=rate, octaves=octaves, gate=gate, mode=mode)))
 
     def add_chord(self, track_id: int, index: int, root: int, type: str = "maj",
                   start_beat: float = 0.0, length_beats: float = 1.0,

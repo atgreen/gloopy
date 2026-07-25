@@ -147,6 +147,27 @@ print('smoke: PASS — cutoff LFO changes the render (mean abs diff %.4f)'%d)
 g -d "{\"target\":\"track/$MT/synth/cutoff\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveModulation >/dev/null
 g -d "{\"id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
+# Live arpeggiator: a held chord renders differently with the arp on, and GetTrackArp
+# round-trips. Dedicated track, two renders (chord vs arp), cleaned up.
+AT=$(g -d '{"name":"arptest","wave":"SAW","attack":0.005,"decay":0.05,"sustain":0.9,"release":0.05,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$AT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.9},{\"pitch\":64,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.9},{\"pitch\":67,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/arp_chord.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$AT,\"enabled\":true,\"rate\":0.25,\"octaves\":1,\"gate\":0.5,\"mode\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTrackArp >/dev/null
+ARPON=$(g -d "{\"track_id\":$AT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetTrackArp | python3 -c "import json,sys;print(json.load(sys.stdin).get('enabled',False))")
+g -d "{\"path\":\"$WORK/arp_on.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes())
+    return [int.from_bytes(f[i:i+3],'little',signed=True)/(1<<23) for i in range(0,len(f),3)]
+assert '$ARPON'=='True','GetTrackArp did not report enabled'
+a=rd('$WORK/arp_chord.wav');b=rd('$WORK/arp_on.wav');m=min(len(a),len(b))
+d=sum(abs(a[i]-b[i]) for i in range(m))/max(1,m)
+assert d>0.003,'live arp did not change the render (diff=%.5f)'%d
+print('smoke: PASS — live arpeggiator changes the render (mean abs diff %.4f)'%d)
+" || { echo "smoke: live arp had no audible effect" >&2; exit 1; }
+g -d "{\"id\":$AT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
 g -d "{\"track_id\":$TID,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\
 \"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":0.9},\
 {\"pitch\":64,\"start_beat\":1,\"length_beats\":1,\"velocity\":0.9},\

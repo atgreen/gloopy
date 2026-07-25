@@ -22,6 +22,7 @@ struct Clip
 
     // MIDI content.
     std::vector<Note> notes;
+    std::vector<Note> arpNotes;    // transient: live-arp expansion of `notes`, played when the track's arp is on
     double contentLenBeats { 4.0 };
     bool   looped          { true };
 

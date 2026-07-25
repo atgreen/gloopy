@@ -173,6 +173,52 @@ bool MainComponent::apiStrumClip (int trackId, int index, double stepBeats, bool
 bool MainComponent::apiArpeggiateClip (int trackId, int index, double stepBeats, int mode)
 { GLOOPY_EDIT_CLIP_NOTES (arpeggiateNotes (notes, stepBeats, mode)) }
 
+// Recompute a track's live-arp expansion for all its MIDI clips. Caller holds engineLock.
+void MainComponent::applyArpToTrack (Track& t)
+{
+    for (auto& c : t.clips)
+    {
+        if (t.arp.enabled && c.type == ClipType::Midi)
+            c.arpNotes = expandArp (c.notes, t.arp.rate, t.arp.octaves, t.arp.gate, t.arp.mode);
+        else
+            c.arpNotes.clear();
+    }
+}
+
+bool MainComponent::apiSetTrackArp (int trackId, bool enabled, double rate, int octaves, float gate, int mode)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        pushUndoSnapshot();
+        {
+            const juce::ScopedLock sl (engineLock);
+            t->arp.enabled = enabled;
+            t->arp.rate    = juce::jmax (0.03125, rate);
+            t->arp.octaves = juce::jlimit (1, 6, octaves);
+            t->arp.gate    = juce::jlimit (0.05f, 1.0f, gate);
+            t->arp.mode    = juce::jlimit (0, 3, mode);
+            applyArpToTrack (*t);
+        }
+        emitChange ("track_arp", trackId);
+        return true;
+    });
+}
+
+bool MainComponent::apiGetTrackArp (int trackId, bool& enabled, double& rate, int& octaves, float& gate, int& mode)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        const juce::ScopedLock sl (engineLock);
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        enabled = t->arp.enabled; rate = t->arp.rate; octaves = t->arp.octaves;
+        gate = t->arp.gate; mode = t->arp.mode;
+        return true;
+    });
+}
+
 bool MainComponent::apiAddChord (int trackId, int index, int root, const juce::String& type,
                                  double startBeat, double lengthBeats, float velocity, int inversion)
 { GLOOPY_EDIT_CLIP_NOTES ( { auto ch = makeChord (root, type, inversion, startBeat, lengthBeats, velocity);

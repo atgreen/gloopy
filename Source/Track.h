@@ -44,5 +44,17 @@ struct Track
     std::atomic<int>  recordChannels{ 2 };   // 1 = mono, 2 = stereo
     std::atomic<bool> recordMonitor { false };
 
+    // Live arpeggiator (non-destructive): when enabled, each clip's chords are played as
+    // a stepped pattern (Clip::arpNotes, recomputed off-thread). Edited under the engine lock.
+    struct ArpSpec
+    {
+        bool   enabled { false };
+        double rate    { 0.25 };   // step length in beats
+        int    octaves { 1 };
+        float  gate    { 0.5f };   // fraction of the step the note sounds
+        int    mode    { 0 };      // 0 up, 1 down, 2 up-down, 3 random
+    };
+    ArpSpec arp;
+
     std::vector<Clip> clips;   // guarded by the engine lock
 };

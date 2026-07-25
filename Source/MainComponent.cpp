@@ -1467,7 +1467,11 @@ void MainComponent::writeBackEditor()
         {
             auto& c = tracks[(size_t) selTrack]->clips[(size_t) selClip];
             if (! c.isAudio())
+            {
                 c.notes = notes;
+                if (tracks[(size_t) selTrack]->arp.enabled)
+                    applyArpToTrack (*tracks[(size_t) selTrack]);   // keep the live-arp expansion current
+            }
         }
     }
     if (arrangeView) arrangeView->repaint();
@@ -1577,9 +1581,11 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     // Collect a MIDI clip's notes over a song-sample window (content loops to fill).
     const double swing = transport.getSwing();
     auto collectClip = [spb, swing] (juce::MidiBuffer& midi, const Clip& clip,
-                              juce::int64 songStart, int chunk, int tsOffset)
+                              juce::int64 songStart, int chunk, int tsOffset, bool useArp)
     {
         if (clip.type != ClipType::Midi) return;
+        // Live arp: play the precomputed expansion instead of the raw chord (both under the lock).
+        const std::vector<Note>& src = (useArp && ! clip.arpNotes.empty()) ? clip.arpNotes : clip.notes;
         const juce::int64 songEnd  = songStart + chunk;
         const juce::int64 clipStart = (juce::int64) std::llround (clip.startBeat * spb);
         const juce::int64 clipEnd   = (juce::int64) std::llround (clip.endBeat() * spb);
@@ -1598,7 +1604,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
             const juce::int64 winLo = juce::jmax (lo, repStart);
             const juce::int64 winHi = juce::jmin (hi, repStart + repUnit);
             if (winLo < winHi)
-                collectNotes (clip.notes, midi, winLo - repStart, (int) (winHi - winLo),
+                collectNotes (src, midi, winLo - repStart, (int) (winHi - winLo),
                               tsOffset + (int) (winLo - songStart), spb, swing);
         }
     };
@@ -1659,7 +1665,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
                 {
                     for (auto& c : t->clips)
                         collectClip (midi, c, segs[(size_t) s].loopStart,
-                                     segs[(size_t) s].chunk, segs[(size_t) s].tsOffset);
+                                     segs[(size_t) s].chunk, segs[(size_t) s].tsOffset, t->arp.enabled);
                     if (segs[(size_t) s].wrap)
                         midi.addEvent (juce::MidiMessage::allNotesOff (1),
                                        segs[(size_t) s].tsOffset + segs[(size_t) s].chunk);
@@ -2282,6 +2288,14 @@ juce::ValueTree MainComponent::toValueTree()
         tr.setProperty ("mixerTrack", t->mixerTrack.load(), nullptr);
         tr.setProperty ("type", (int) t->type, nullptr);
         if (t->generator) tr.setProperty ("gen", t->generator->typeName(), nullptr);
+        if (t->arp.enabled)   // live arpeggiator (only stored when on, to keep files clean)
+        {
+            tr.setProperty ("arpOn", true, nullptr);
+            tr.setProperty ("arpRate", t->arp.rate, nullptr);
+            tr.setProperty ("arpOct", t->arp.octaves, nullptr);
+            tr.setProperty ("arpGate", t->arp.gate, nullptr);
+            tr.setProperty ("arpMode", t->arp.mode, nullptr);
+        }
 
         if (auto* sg = dynamic_cast<SynthGenerator*> (t->generator.get()))
         {
@@ -2692,6 +2706,11 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
         t->mute.store   ((bool) tr.getProperty ("mute", false));
         t->solo.store   ((bool) tr.getProperty ("solo", false));
         t->mixerTrack.store ((int) tr.getProperty ("mixerTrack", 0));
+        t->arp.enabled = (bool) tr.getProperty ("arpOn", false);
+        t->arp.rate    = (double) tr.getProperty ("arpRate", 0.25);
+        t->arp.octaves = (int)  tr.getProperty ("arpOct", 1);
+        t->arp.gate    = (float) (double) tr.getProperty ("arpGate", 0.5);
+        t->arp.mode    = (int)  tr.getProperty ("arpMode", 0);
 
         for (int ci = 0; ci < tr.getNumChildren(); ++ci)
         {
@@ -2922,6 +2941,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
 void MainComponent::refreshUiAfterLoad()
 {
     for (auto& t : tracks) t->liveMidi.reset (currentSampleRate);
+    { const juce::ScopedLock sl (engineLock); for (auto& t : tracks) applyArpToTrack (*t); }   // rebuild live-arp expansions
     refreshTrackIds();
 
     selTrack = selClip = -1;

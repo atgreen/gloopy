@@ -225,6 +225,10 @@ public:
     bool apiHumanizeClip (int trackId, int index, double timing, double velocity);
     bool apiStrumClip (int trackId, int index, double stepBeats, bool down);   // fan out chord voices
     bool apiArpeggiateClip (int trackId, int index, double stepBeats, int mode);   // chord -> arp (0 up/1 down/2 updown)
+    // Live (non-destructive) arpeggiator per track. mode 0 up/1 down/2 updown/3 random.
+    bool apiSetTrackArp (int trackId, bool enabled, double rate, int octaves, float gate, int mode);
+    bool apiGetTrackArp (int trackId, bool& enabled, double& rate, int& octaves, float& gate, int& mode);
+    void applyArpToTrack (Track& t);   // recompute clip.arpNotes from raw notes (message thread, engineLock held)
     bool apiAddChord (int trackId, int index, int root, const juce::String& type,
                       double startBeat, double lengthBeats, float velocity, int inversion);   // stamp a chord
 

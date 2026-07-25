@@ -186,6 +186,9 @@ message TransposeRequest { int32 track_id = 1; int32 index = 2; int32 semitones 
 message HumanizeRequest  { int32 track_id = 1; int32 index = 2; double timing = 3; double velocity = 4; }
 message StrumRequest     { int32 track_id = 1; int32 index = 2; double step_beats = 3; bool down = 4; }   // fan out chord voices
 message ArpeggiateRequest{ int32 track_id = 1; int32 index = 2; double step_beats = 3; int32 mode = 4; } // mode 0=up 1=down 2=updown
+// Live (non-destructive) per-track arpeggiator. mode 0=up 1=down 2=updown 3=random.
+message ArpSpec          { int32 track_id = 1; bool enabled = 2; double rate = 3; int32 octaves = 4; float gate = 5; int32 mode = 6; }
+message TrackRef2        { int32 track_id = 1; }
 // Stamp a chord. type: maj/min/dim/aug/sus2/sus4/6/min6/7/maj7/min7/m7b5/dim7/add9/maj9/min9/5.
 message ChordRequest     { int32 track_id = 1; int32 index = 2; int32 root = 3; string type = 4;
                            double start_beat = 5; double length_beats = 6; float velocity = 7; int32 inversion = 8; }
@@ -321,7 +324,9 @@ service Gloopy {
   rpc HumanizeClip    (HumanizeRequest)        returns (Ack);
   rpc AddChord        (ChordRequest)           returns (Ack);   // stamp a chord into a clip
   rpc StrumClip       (StrumRequest)           returns (Ack);   // fan out a chord's voices
-  rpc ArpeggiateClip  (ArpeggiateRequest)      returns (Ack);   // chord -> arpeggio
+  rpc ArpeggiateClip  (ArpeggiateRequest)      returns (Ack);   // chord -> arpeggio (destructive)
+  rpc SetTrackArp     (ArpSpec)                returns (Ack);   // live per-track arpeggiator
+  rpc GetTrackArp     (TrackRef2)              returns (ArpSpec);
 
   // plugins
   rpc ScanPlugins     (ScanPluginsRequest)     returns (PluginList);
