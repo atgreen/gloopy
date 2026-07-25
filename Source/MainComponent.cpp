@@ -775,6 +775,7 @@ bool MainComponent::applySynthParam (Track* t, const juce::String& name, float v
         else if (n == "lfotarget")  p.lfoTarget.store (juce::jlimit (0, 2, (int) value));
         else if (n == "lforate")    p.lfoRate.store  (juce::jlimit (0.01f, 40.0f, value));
         else if (n == "lfodepth")   p.lfoDepth.store (juce::jlimit (0.0f, 1.0f, value));
+        else if (n == "detune")     p.detune.store   (juce::jlimit (-2400.0f, 2400.0f, value));   // ±2 octaves (cents)
         else return false;
         return true;
     }

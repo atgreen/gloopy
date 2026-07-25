@@ -47,6 +47,9 @@ struct SynthParams
     std::atomic<float> lfoRate      { 5.0f };    // Hz
     std::atomic<float> lfoDepth     { 0.0f };    // 0..1, 0 = neutral
 
+    // Whole-voice tuning offset (per-track microtuning), applied to every oscillator.
+    std::atomic<float> detune       { 0.0f };    // cents
+
     // Output
     std::atomic<float> gain         { 0.25f };
 };
@@ -77,6 +80,7 @@ inline void writeSynthParams (juce::ValueTree& s, const SynthParams& p)
     s.setProperty ("lfotarget",  p.lfoTarget.load(), nullptr);
     s.setProperty ("lforate",    p.lfoRate.load(), nullptr);
     s.setProperty ("lfodepth",   p.lfoDepth.load(), nullptr);
+    s.setProperty ("detune",     p.detune.load(), nullptr);
 }
 
 inline void readSynthParams (const juce::ValueTree& s, SynthParams& p)
@@ -102,6 +106,7 @@ inline void readSynthParams (const juce::ValueTree& s, SynthParams& p)
     p.lfoTarget.store    ((int)   s.getProperty ("lfotarget", 0));
     p.lfoRate.store      ((float) (double) s.getProperty ("lforate", 5.0));
     p.lfoDepth.store     ((float) (double) s.getProperty ("lfodepth", 0.0));
+    p.detune.store       ((float) (double) s.getProperty ("detune", 0.0));
 }
 
 /** Marker sound: our single voice type plays every note on every channel. */
@@ -129,7 +134,8 @@ public:
     {
         phase1 = phase2 = phaseSub = 0.0;
         level  = velocity;
-        baseFreq = juce::MidiMessage::getMidiNoteInHertz (midiNoteNumber);
+        baseFreq = juce::MidiMessage::getMidiNoteInHertz (midiNoteNumber)
+                     * std::pow (2.0, (double) params.detune.load() / 1200.0);   // per-track cents offset
 
         adsr.setSampleRate (getSampleRate());
         fenv.setSampleRate (getSampleRate());

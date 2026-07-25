@@ -461,8 +461,14 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       Serialised on the root ValueTree + composition manifest (`scale_root`/
       `scale_name`/`scale_intervals`). RPCs SetScale/GetScale/SnapClipToScale; Python
       set/get_scale + snap_clip_to_scale. Verified chromatic→C-major snap (correct
-      tie-ups) + round-trip. **Not yet:** per-track microtuning (cents offset applied
-      at render), piano-roll highlight UI, Scala/`.kbm` import.
+      tie-ups) + round-trip.
+    - `[x]` **Per-track detune (microtuning) landed** (commit): a whole-voice `detune`
+      (cents, ±2 octaves) on the built-in synth — `baseFreq *= 2^(cents/1200)` at note-on.
+      Rides the universal param model as `track/<id>/synth/detune` (SetParameter/GetParameter
+      /modulation/automation all free) and serialises with the other synth params.
+      smoke proves the cents→frequency mapping exactly: +1200 cents doubles a sine's
+      zero-crossing rate (ratio 1.999) and the value round-trips. **Not yet:** SFZ/plugin
+      microtuning, per-note (scale) tuning tables, Scala/`.kbm` import, piano-roll UI.
 
 ### Wave 5 — Analysis, plugins, diagnostics (offline / headless-friendly)
 

@@ -162,6 +162,31 @@ print('smoke: PASS — tempo-synced LFO modulates render (diff %.4f), sync_beats
 g -d "{\"target\":\"track/$MT/synth/cutoff\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveModulation >/dev/null
 g -d "{\"id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
+# Per-track microtuning: a +1200-cent detune raises a sine note one octave, so its
+# zero-crossing rate (~2x fundamental) doubles. Proves the cents->frequency mapping and
+# that detune rides the synth param model (SetParameter/GetParameter).
+DT=$(g -d '{"name":"detune","wave":"SINE","attack":0.005,"decay":0.05,"sustain":0.95,"release":0.05,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$DT,\"start_beat\":0,\"length_beats\":4,\"notes\":[{\"pitch\":69,\"start_beat\":0,\"length_beats\":3.5,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+zcr() { python3 -c "
+import wave,sys
+w=wave.open(sys.argv[1]);f=w.readframes(w.getnframes())
+v=[int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)][0::2]
+s=v[len(v)//4:len(v)*3//4]
+print(sum(1 for i in range(1,len(s)) if (s[i-1]<0)!=(s[i]<0)))" "$1"; }
+g -d "{\"id\":\"track/$DT/synth/detune\",\"value\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null
+g -d "{\"path\":\"$WORK/det0.wav\",\"tail_seconds\":0,\"end_beat\":3.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"id\":\"track/$DT/synth/detune\",\"value\":1200}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null
+g -d "{\"path\":\"$WORK/det12.wav\",\"tail_seconds\":0,\"end_beat\":3.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+DV=$(g -d "{\"id\":\"track/$DT/synth/detune\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetParameter | python3 -c "import json,sys;print(json.load(sys.stdin).get('value',0))")
+python3 -c "
+z0=$(zcr "$WORK/det0.wav"); z12=$(zcr "$WORK/det12.wav")
+r=z12/max(1,z0)
+assert 1.8 < r < 2.2, 'detune +1200 cents should double the frequency (ZCR ratio %.3f)'%r
+assert abs(float('$DV')-1200)<1e-3, 'GetParameter detune not 1200 (got $DV)'
+print('smoke: PASS — per-track detune +1200c doubles pitch (ZCR ratio %.3f), param round-trips'%r)
+" || { echo "smoke: per-track detune did not shift pitch" >&2; exit 1; }
+g -d "{\"id\":$DT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
 # Live arpeggiator: a held chord renders differently with the arp on, and GetTrackArp
 # round-trips. Dedicated track, two renders (chord vs arp), cleaned up.
 AT=$(g -d '{"name":"arptest","wave":"SAW","attack":0.005,"decay":0.05,"sustain":0.9,"release":0.05,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)

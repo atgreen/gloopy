@@ -42,6 +42,7 @@ SynthRange synthRange (const juce::String& n)
     if (n == "lfotarget")                 return { 0.f, 3.f, 0.f, "", "enum" };
     if (n == "lforate")                   return { 0.f, 20.f, 1.f, "Hz", "linear" };
     if (n == "lfodepth")                  return { 0.f, 1.f, 0.f, "", "linear" };
+    if (n == "detune")                    return { -2400.f, 2400.f, 0.f, "cents", "linear" };
     return { 0.f, 1.f, 0.f, "", "linear" };
 }
 
