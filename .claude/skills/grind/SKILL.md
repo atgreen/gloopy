@@ -513,8 +513,10 @@ desktop control wiring the *same* api* op, screenshot-validated. Status:
   wired to apiSetScale; drives the piano-roll highlight + snap-to-scale; refreshes from
   the model on load (commit). Screenshot-validated (dorian tint + GetScale readback).
 - `[ ]` **Modulation / LFO matrix** (SetModulation/RemoveModulation) — a mod-matrix panel.
-- `[ ]` **MIDI-learn / controller rack** (AddControllerMap/MidiLearn) — right-click a
-  param → Learn (see #19 below; backend done, UI flagged).
+- `[x]` **MIDI-learn** (AddControllerMap/MidiLearn) — right-click a mixer fader / pan /
+  FX param knob → MIDI Learn → apiMidiLearn(target) (commit 8567627). Screenshot +
+  headless validated (cc:20 → insert/0/volume). Still open: a full mapping-rack VIEW
+  (list/edit/remove existing maps, inversion/smoothing/bypass) — #19.
 - `[ ]` **Tempo markers** (AddTempoMarker/RemoveTempoMarker) — right-click tempo ruler.
 - `[ ]` **Punch range** (SetPunchRange) — drag on the ruler.
 - `[ ]` **Take management** (PromoteTake/CleanupTakes) — a takes panel.
