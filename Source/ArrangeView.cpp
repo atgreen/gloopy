@@ -297,6 +297,25 @@ void ArrangeView::paint (juce::Graphics& g)
         }
     }
 
+    // Punch region (Alt-drag the ruler) — where recording punches in/out.
+    if (getPunchRange)
+    {
+        double pin = 0.0, pout = 0.0;
+        if (getPunchRange (pin, pout))
+        {
+            const double viewEnd = (double) bars * beatsPerBar;
+            const float x0 = juce::jmax ((float) headerWidth, xForBeat (pin));
+            const float x1 = juce::jmax ((float) headerWidth, xForBeat (juce::jmin (pout, viewEnd)));
+            if (x1 > x0)
+            {
+                g.setColour (Palette::red.withAlpha (0.12f));
+                g.fillRect (x0, (float) rulerHeight, x1 - x0, h - rulerHeight);
+                g.setColour (Palette::red);
+                g.fillRect (x0, 4.0f, x1 - x0, 4.0f);       // punch brace, below the loop brace
+            }
+        }
+    }
+
     // Header divider + playhead (with a grab handle in the ruler).
     g.setColour (Palette::line);
     g.drawVerticalLine (headerWidth, 0.0f, h);
@@ -340,20 +359,21 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         return;
     }
 
-    // --- ruler: seek / loop region ---
+    // --- ruler: seek / loop region (Alt = punch region) ---
     if (p.y < rulerHeight && p.x >= headerWidth)
     {
-        if (e.getNumberOfClicks() >= 2)   // double-click clears the loop
+        rulerAlt = e.mods.isAltDown();
+        if (e.getNumberOfClicks() >= 2)   // double-click clears the loop (or punch, with Alt)
         {
-            transport.setLoopEnabled (false);
-            if (onLoopChanged) onLoopChanged();
+            if (rulerAlt) { if (onSetPunchRange) onSetPunchRange (false, 0.0, 0.0); }
+            else          { transport.setLoopEnabled (false); if (onLoopChanged) onLoopChanged(); }
             repaint();
             return;
         }
         rulerDrag = true;
         loopDragged = false;
         rulerStartBeat = juce::jmax (0.0, beatForX (p.x));
-        transport.requestSeek (rulerStartBeat);
+        if (! rulerAlt) transport.requestSeek (rulerStartBeat);   // Alt-drag sets punch, doesn't scrub
         repaint();
         return;
     }
@@ -488,17 +508,24 @@ void ArrangeView::mouseDrag (const juce::MouseEvent& e)
     if (rulerDrag)
     {
         const double b = juce::jmax (0.0, beatForX (e.position.x));
-        if (std::abs (b - rulerStartBeat) > 0.5)   // became a range → loop region
+        if (std::abs (b - rulerStartBeat) > 0.5)   // became a range
         {
-            loopDragged = true;
             double s = snapToBar (juce::jmin (rulerStartBeat, b));
             double f = snapToBar (juce::jmax (rulerStartBeat, b));
             if (f - s < beatsPerBar) f = s + beatsPerBar;
-            transport.setLoopRegion (s, f);
-            transport.setLoopEnabled (true);
-            if (onLoopChanged) onLoopChanged();
+            if (rulerAlt)                          // Alt → punch region
+            {
+                if (onSetPunchRange) onSetPunchRange (true, s, f);
+            }
+            else                                   // plain → loop region
+            {
+                loopDragged = true;
+                transport.setLoopRegion (s, f);
+                transport.setLoopEnabled (true);
+                if (onLoopChanged) onLoopChanged();
+            }
         }
-        else
+        else if (! rulerAlt)
         {
             transport.requestSeek (b);   // still just scrubbing
         }
@@ -529,6 +556,7 @@ void ArrangeView::mouseUp (const juce::MouseEvent&)
     drag = Drag::none;
     dragTrack = dragClip = -1;
     rulerDrag = false;
+    rulerAlt = false;
 }
 
 void ArrangeView::timerCallback()

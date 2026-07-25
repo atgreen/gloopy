@@ -211,6 +211,17 @@ MainComponent::MainComponent (bool headless)
         apiRemoveTempoMarker (beat);
         if (arrangeView) arrangeView->repaint();
     };
+    arrangeView->getPunchRange = [this] (double& in, double& out) -> bool
+    {
+        in  = punchInBeat.load();
+        out = punchOutBeat.load();
+        return punchEnabled.load();
+    };
+    arrangeView->onSetPunchRange = [this] (bool en, double in, double out)
+    {
+        apiSetPunchRange (en, in, out, countInBeats.load());
+        if (arrangeView) arrangeView->repaint();
+    };
     arrangeView->onClipCommand = [this] (int trackIdx, int clip, const juce::String& cmd)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;

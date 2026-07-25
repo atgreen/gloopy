@@ -45,6 +45,11 @@ public:
     std::function<std::vector<std::pair<double, double>>()> getTempoMarkers;   // (beat, bpm)
     std::function<void (double, double)> onAddTempoMarker;                     // beat, bpm
     std::function<void (double)>         onRemoveTempoMarker;                  // beat
+    /** Recording punch region drawn on the ruler + set by Alt-dragging it (like the
+        loop region). getPunchRange fills in/out and returns whether it's enabled;
+        onSetPunchRange upserts via apiSetPunchRange. */
+    std::function<bool (double&, double&)> getPunchRange;                      // -> enabled, fills in/out
+    std::function<void (bool, double, double)> onSetPunchRange;                // enabled, in, out
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -87,8 +92,8 @@ private:
     int    dragTrack { -1 }, dragClip { -1 };
     double dragBeatOffset { 0.0 };
 
-    // Ruler drag (seek / loop region).
-    bool   rulerDrag { false }, loopDragged { false };
+    // Ruler drag (seek / loop region; Alt = punch region).
+    bool   rulerDrag { false }, loopDragged { false }, rulerAlt { false };
     double rulerStartBeat { 0.0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ArrangeView)
