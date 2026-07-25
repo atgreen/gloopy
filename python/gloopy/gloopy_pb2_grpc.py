@@ -400,6 +400,31 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ParameterSet.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.AddControllerMap = channel.unary_unary(
+                '/gloopy.v1.Gloopy/AddControllerMap',
+                request_serializer=gloopy__pb2.ControllerMap.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.RemoveControllerMap = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RemoveControllerMap',
+                request_serializer=gloopy__pb2.ControllerSource.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.ListControllerMaps = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ListControllerMaps',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.ControllerList.FromString,
+                _registered_method=True)
+        self.SetController = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetController',
+                request_serializer=gloopy__pb2.ControllerValue.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.MidiLearn = channel.unary_unary(
+                '/gloopy.v1.Gloopy/MidiLearn',
+                request_serializer=gloopy__pb2.LearnRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.SetScale = channel.unary_unary(
                 '/gloopy.v1.Gloopy/SetScale',
                 request_serializer=gloopy__pb2.Scale.SerializeToString,
@@ -1002,6 +1027,38 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def AddControllerMap(self, request, context):
+        """controller mapping / MIDI-learn (source -> ParamModel target)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RemoveControllerMap(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListControllerMaps(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetController(self, request, context):
+        """feed a source (0..1); MIDI CC / OSC feed the same path
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MidiLearn(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SetScale(self, request, context):
         """scales — project scale + snap-to-scale
         """
@@ -1538,6 +1595,31 @@ def add_GloopyServicer_to_server(servicer, server):
             'SetParameter': grpc.unary_unary_rpc_method_handler(
                     servicer.SetParameter,
                     request_deserializer=gloopy__pb2.ParameterSet.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'AddControllerMap': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddControllerMap,
+                    request_deserializer=gloopy__pb2.ControllerMap.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'RemoveControllerMap': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemoveControllerMap,
+                    request_deserializer=gloopy__pb2.ControllerSource.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ListControllerMaps': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListControllerMaps,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.ControllerList.SerializeToString,
+            ),
+            'SetController': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetController,
+                    request_deserializer=gloopy__pb2.ControllerValue.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'MidiLearn': grpc.unary_unary_rpc_method_handler(
+                    servicer.MidiLearn,
+                    request_deserializer=gloopy__pb2.LearnRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'SetScale': grpc.unary_unary_rpc_method_handler(
@@ -3642,6 +3724,141 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/SetParameter',
             gloopy__pb2.ParameterSet.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AddControllerMap(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/AddControllerMap',
+            gloopy__pb2.ControllerMap.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RemoveControllerMap(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RemoveControllerMap',
+            gloopy__pb2.ControllerSource.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListControllerMaps(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ListControllerMaps',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.ControllerList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetController(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetController',
+            gloopy__pb2.ControllerValue.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def MidiLearn(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/MidiLearn',
+            gloopy__pb2.LearnRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

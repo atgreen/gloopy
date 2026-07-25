@@ -342,6 +342,26 @@ class Gloopy:
     def set_parameter(self, id: str, value: float) -> None:
         self._ack(self.stub.SetParameter(pb.ParameterSet(id=id, value=value)))
 
+    # -- controller mapping / MIDI-learn ----------------------------------
+    def add_controller_map(self, source: str, target: str, lo: float = 0.0, hi: float = 1.0) -> None:
+        """Map a source (cc:<n> / osc:<name> / any string) to a ParamModel target, scaled to [lo,hi]."""
+        self._ack(self.stub.AddControllerMap(pb.ControllerMap(source=source, target=target, lo=lo, hi=hi)))
+
+    def remove_controller_map(self, source: str) -> None:
+        self._ack(self.stub.RemoveControllerMap(pb.ControllerSource(source=source)))
+
+    def list_controller_maps(self) -> list[dict]:
+        r = self.stub.ListControllerMaps(pb.Empty())
+        return [{"source": m.source, "target": m.target, "lo": m.lo, "hi": m.hi} for m in r.maps]
+
+    def set_controller(self, source: str, value: float) -> None:
+        """Feed a controller source a 0..1 value (MIDI CC and OSC feed the same path)."""
+        self._ack(self.stub.SetController(pb.ControllerValue(source=source, value=value)))
+
+    def midi_learn(self, target: str) -> None:
+        """Arm learn: the next controller fed binds to this ParamModel target ('' cancels)."""
+        self._ack(self.stub.MidiLearn(pb.LearnRequest(target=target)))
+
     # -- modulation matrix (LFO -> parameter) -----------------------------
     def set_modulation(self, target: str, rate: float, depth: float,
                        shape: int = 0, center: float = 0.0) -> None:

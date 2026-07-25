@@ -516,6 +516,18 @@ effect-chain presets) as part of #16.
     mappable controllers; per-mapping scaling/inversion/smoothing/range/bypass;
     data-driven device maps for common controllers; persisted in composition files
     *(Idea #4 + Ardour #6; rides on Wave 1 #1)*. **L**
+    - `[~]` **Controller mapping + MIDI-learn backend landed** (`Source/Controllers.cpp`,
+      commit): `CtrlMap{source,target,lo,hi}` binds a source (`cc:<n>` MIDI CC,
+      `osc:<name>`, or any string) to a ParamModel id, scaling 0..1 → [lo,hi].
+      `apiSetController` (the single feed) is called by the MIDI CC callback
+      (`handleIncomingMidiMessage`) and the SetController RPC; `apiMidiLearn(target)`
+      arms capture of the next controller (auto-ranged to the param's min/max). Uses
+      the lock-held `applyParamValue` writer. Add/List/Remove/Set/Learn RPCs + Python.
+      Serialised (CONTROLLERS + composition `controllers.toml`). Verified headless:
+      cc:1→cutoff scales exactly, learn captures cc:7→reso, round-trips; smoke asserts
+      it. **UI FLAGGED — no mapping-view / learn-button UI yet** (the mapping is usable
+      now via hardware CC knobs + API, but the visual rack is a follow-up). **Not yet:**
+      OSC-lane wiring, inversion/smoothing/bypass per map, device-map files.
 20. **Product-surface tier** — in-app markdown **project notes** under `notes/`
     (Idea #10); a static-file **localhost web control surface** for transport/mixer/
     markers/live notes, doubling as an API test client (Ardour #7); an **MCP tool

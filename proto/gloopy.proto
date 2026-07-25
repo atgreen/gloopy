@@ -129,6 +129,15 @@ message ParameterList { repeated ParameterInfo params = 1; }
 message ParameterId   { string id = 1; }
 message ParameterSet  { string id = 1; float value = 2; }
 
+// ── controller mapping / MIDI-learn ────────────────────────
+// source: "cc:<n>" (MIDI CC), "osc:<name>", or any string; drives `target` (a
+// ParameterInfo.id), scaling the 0..1 input to [lo, hi].
+message ControllerMap    { string source = 1; string target = 2; float lo = 3; float hi = 4; }
+message ControllerList   { repeated ControllerMap maps = 1; }
+message ControllerSource { string source = 1; }
+message ControllerValue  { string source = 1; float value = 2; }   // value 0..1
+message LearnRequest     { string target = 1; }                    // arm learn for the next controller
+
 // ── scales ─────────────────────────────────────────────────
 // root: 0=C .. 11=B. Set by intervals, or by a built-in `name` (major, minor,
 // dorian, pentatonic-minor, blues, whole-tone, chromatic, ...).
@@ -351,6 +360,13 @@ service Gloopy {
   rpc ListParameters (Empty)         returns (ParameterList);
   rpc GetParameter   (ParameterId)   returns (ParameterInfo);
   rpc SetParameter   (ParameterSet)  returns (Ack);
+
+  // controller mapping / MIDI-learn (source -> ParamModel target)
+  rpc AddControllerMap    (ControllerMap)   returns (Ack);
+  rpc RemoveControllerMap (ControllerSource) returns (Ack);
+  rpc ListControllerMaps  (Empty)           returns (ControllerList);
+  rpc SetController       (ControllerValue) returns (Ack);   // feed a source (0..1); MIDI CC / OSC feed the same path
+  rpc MidiLearn           (LearnRequest)    returns (Ack);
 
   // scales — project scale + snap-to-scale
   rpc SetScale        (Scale)   returns (Ack);

@@ -152,6 +152,16 @@ public:
     void apiSetProjectNotes (const juce::String& text);
     void openNotes();                                   // UI: a notes editor window
 
+    // --- controller mapping / MIDI-learn (Controllers.cpp) ---
+    // source: "cc:<n>" MIDI CC, "osc:<name>", or any string -> a ParamModel target,
+    // scaling the 0..1 input to [lo, hi].
+    struct CtrlMap { juce::String source, target; float lo, hi; };
+    bool apiAddControllerMap (const juce::String& source, const juce::String& target, float lo, float hi);
+    bool apiRemoveControllerMap (const juce::String& source);
+    std::vector<CtrlMap> apiListControllerMaps();
+    void apiSetController (const juce::String& source, float value01);   // apply mapped params (or capture if learning)
+    void apiMidiLearn (const juce::String& target);                      // arm learn for the next controller ("" cancels)
+
     // --- tempo map (Tempo.cpp) ---
     // Model + exact piecewise beat<->seconds conversion. Render-path integration
     // (variable samplesPerBeat across the map) is a checkpointed follow-up.
@@ -420,6 +430,9 @@ private:
     // NOT yet vary tempo across the map (see the checkpoint in the grind skill).
     // (TempoMarker struct is declared with its api methods, above.)
     std::vector<TempoMarker> tempoMap;            // guarded by engineLock, sorted by beat
+    // Controller mappings (CtrlMap declared with its api methods, above).
+    std::vector<CtrlMap> controllerMaps;          // guarded by engineLock
+    juce::String learnTarget;                     // non-empty => next controller binds to it
 
     // MIDI recording: audio thread appends played input, message thread drains to a clip.
     void startRecording();

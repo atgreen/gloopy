@@ -103,6 +103,16 @@ echo "smoke: PASS — tempo map beats<->seconds (8 beats @120->240 = ${TSEC}s)"
 g -d '{"beat":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTempoMarker >/dev/null
 g -d '{"beat":4}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTempoMarker >/dev/null
 
+# Controller mapping: a source (cc:20) drives a ParamModel target scaled to [lo,hi].
+CT=$(g -d '{"name":"ctltest","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"source\":\"cc:20\",\"target\":\"track/$CT/synth/cutoff\",\"lo\":500,\"hi\":5000}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddControllerMap >/dev/null
+g -d '{"source":"cc:20","value":1.0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetController >/dev/null
+CVAL=$(g -d "{\"id\":\"track/$CT/synth/cutoff\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetParameter | python3 -c "import json,sys;print(json.load(sys.stdin).get('value',0))")
+python3 -c "assert abs(float('$CVAL')-5000)<1, 'controller did not drive param (got %s)'%'$CVAL'" \
+    || { echo "smoke: controller mapping did not drive the parameter" >&2; exit 1; }
+echo "smoke: PASS — controller map cc:20 -> cutoff (=$CVAL at full)"
+g -d "{\"id\":$CT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
 # Project notes: set markdown, save+reload a composition, confirm notes.md carries it
 # (NewProject in between must clear notes, so a stale value can't pass).
 g -d '{"text":"# smoke notes\nTODO-XYZZY"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetProjectNotes >/dev/null

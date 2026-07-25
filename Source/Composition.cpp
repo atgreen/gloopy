@@ -267,6 +267,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
     man.blank().table ("scenes").str ("file", "scenes.toml");
     man.blank().table ("mods").str ("file", "mods.toml");
     man.blank().table ("tempo").str ("file", "tempo.toml");
+    man.blank().table ("controllers").str ("file", "controllers.toml");
     man.blank().table ("notes").str ("file", "notes.md");
     ctx.writeText ("gloopy.toml", man.str());
     ctx.writeText ("notes.md", root.getProperty ("notes", "").toString());   // free-form markdown
@@ -523,6 +524,19 @@ bool MainComponent::saveComposition (const juce::File& dir)
           .number ("bpm", v.getProperty ("bpm", 120.0)).blank();
     }
     ctx.writeText ("tempo.toml", tw.str());
+
+    // --- controller mappings (source -> ParamModel target) ---
+    toml::Writer cw;
+    auto ctls = root.getChildWithName ("CONTROLLERS");
+    for (int i = 0; i < ctls.getNumChildren(); ++i)
+    {
+        auto v = ctls.getChild (i);
+        if (! v.hasType ("CTRL")) continue;
+        cw.arrayItem ("controllers").str ("source", v.getProperty ("source").toString())
+          .str ("target", v.getProperty ("target").toString())
+          .number ("lo", v.getProperty ("lo", 0.0)).number ("hi", v.getProperty ("hi", 1.0)).blank();
+    }
+    ctx.writeText ("controllers.toml", cw.str());
 
     ctx.writeText (".gitignore", kGitignore);
     ctx.prune();
@@ -833,8 +847,23 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
         }
 
     root.addChild (sceneTree, -1, nullptr);
+    // Controller mappings.
+    juce::ValueTree ctlTree ("CONTROLLERS");
+    if (auto cDoc = toml::parse (dir.getChildFile ("controllers.toml").loadFileAsString());
+        auto* cs = cDoc.array ("controllers"))
+        for (auto& cd : *cs)
+        {
+            juce::ValueTree v ("CTRL");
+            v.setProperty ("source", cd.getString ("source"), nullptr);
+            v.setProperty ("target", cd.getString ("target"), nullptr);
+            v.setProperty ("lo", cd.getDouble ("lo", 0.0), nullptr);
+            v.setProperty ("hi", cd.getDouble ("hi", 1.0), nullptr);
+            ctlTree.addChild (v, -1, nullptr);
+        }
+
     root.addChild (modTree, -1, nullptr);
     root.addChild (tempoTree, -1, nullptr);
+    root.addChild (ctlTree, -1, nullptr);
 
     currentProjectFile = manifest;   // so relative sample/SFZ paths resolve against the dir
     undoSuppressed = true;

@@ -358,6 +358,25 @@ namespace
             return Status::OK;
         }
 
+        // ---- controller mapping / MIDI-learn ----
+        Status AddControllerMap (ServerContext*, const pb::ControllerMap* q, pb::Ack* r) override
+        { const bool ok = main.apiAddControllerMap (js (q->source()), js (q->target()), q->lo(), q->hi());
+          r->set_ok (ok); if (! ok) r->set_error ("invalid controller map"); return Status::OK; }
+        Status RemoveControllerMap (ServerContext*, const pb::ControllerSource* q, pb::Ack* r) override
+        { const bool ok = main.apiRemoveControllerMap (js (q->source()));
+          r->set_ok (ok); if (! ok) r->set_error ("no map for that source"); return Status::OK; }
+        Status ListControllerMaps (ServerContext*, const pb::Empty*, pb::ControllerList* r) override
+        {
+            for (auto& m : main.apiListControllerMaps())
+            { auto* o = r->add_maps(); o->set_source (m.source.toStdString()); o->set_target (m.target.toStdString());
+              o->set_lo (m.lo); o->set_hi (m.hi); }
+            return Status::OK;
+        }
+        Status SetController (ServerContext*, const pb::ControllerValue* q, pb::Ack* r) override
+        { main.apiSetController (js (q->source()), q->value()); r->set_ok (true); return Status::OK; }
+        Status MidiLearn (ServerContext*, const pb::LearnRequest* q, pb::Ack* r) override
+        { main.apiMidiLearn (js (q->target())); r->set_ok (true); return Status::OK; }
+
         // ---- universal parameter model ----
         static void fillParam (pb::ParameterInfo* pi, const MainComponent::ParamDesc& d)
         {

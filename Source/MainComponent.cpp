@@ -381,6 +381,10 @@ void MainComponent::teardownMidiInputs()
 
 void MainComponent::handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage& m)
 {
+    // Continuous controllers drive mapped parameters (controller mapping / MIDI-learn).
+    if (m.isController())
+        apiSetController ("cc:" + juce::String (m.getControllerNumber()), m.getControllerValue() / 127.0f);
+
     // Route to the selected instrument track (or the first instrument if none is
     // selected) via its lock-free collector — the same path the OSC live lane uses.
     int id = midiInputTarget.load();
@@ -2367,6 +2371,16 @@ juce::ValueTree MainComponent::toValueTree()
         tm.addChild (v, -1, nullptr);
     }
     root.addChild (tm, -1, nullptr);
+
+    juce::ValueTree ctl ("CONTROLLERS");
+    for (auto& m : controllerMaps)
+    {
+        juce::ValueTree v ("CTRL");
+        v.setProperty ("source", m.source, nullptr); v.setProperty ("target", m.target, nullptr);
+        v.setProperty ("lo", m.lo, nullptr);         v.setProperty ("hi", m.hi, nullptr);
+        ctl.addChild (v, -1, nullptr);
+    }
+    root.addChild (ctl, -1, nullptr);
     return root;
 }
 
@@ -2467,6 +2481,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     mixerScenes.clear();
     modulations.clear();
     tempoMap.clear();
+    controllerMaps.clear();
     automationLanes.clear();
     nextTrackId = 0;
 
@@ -2749,6 +2764,14 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     {
         auto v = tm.getChild (i);
         tempoMap.push_back ({ (double) v.getProperty ("beat", 0.0), (double) v.getProperty ("bpm", 120.0) });
+    }
+
+    auto ctl = root.getChildWithName ("CONTROLLERS");
+    for (int i = 0; i < ctl.getNumChildren(); ++i)
+    {
+        auto v = ctl.getChild (i);
+        controllerMaps.push_back ({ v.getProperty ("source").toString(), v.getProperty ("target").toString(),
+                                    (float) (double) v.getProperty ("lo", 0.0), (float) (double) v.getProperty ("hi", 1.0) });
     }
 
     transport.setBpm ((double) root.getProperty ("bpm", 128.0));
