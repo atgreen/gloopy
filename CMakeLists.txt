@@ -143,6 +143,17 @@ target_include_directories(Gloopy PRIVATE third_party/sfizz/src)
 # (NoteScheduler / swing, ValueTree serialisation). Built with -DGLOOPY_TESTS=ON.
 # Kept out of the default build so it doesn't slow the app iteration loop.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Install rules. The exe-adjacent asset fallback in findPianoSfz() looks for
+# <exeDir>/assets/SalamanderGrandPiano/..., so lay the samples down there. The
+# GUI app artefact lands in bin/, and the vendored piano beside it in bin/assets.
+# ---------------------------------------------------------------------------
+install(TARGETS Gloopy
+    RUNTIME DESTINATION bin
+    BUNDLE  DESTINATION .)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/SalamanderGrandPiano
+    DESTINATION bin/assets)
+
 option(GLOOPY_TESTS "Build the Gloopy unit-test target" OFF)
 if(GLOOPY_TESTS)
     enable_testing()
