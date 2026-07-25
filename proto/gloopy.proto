@@ -14,6 +14,7 @@ message Ack { bool ok = 1; string error = 2; }
 message Tempo    { double bpm = 1; }
 message Swing    { double amount = 1; }   // 0.5 = straight, up to ~0.75 = triplet feel
 message Position { double beats = 1; }
+message Loop     { bool enabled = 1; double start_beat = 2; double end_beat = 3; }
 message TransportState { bool playing = 1; double bpm = 2; double position_beats = 3; }
 
 // ── notes / clips ──────────────────────────────────────────
@@ -41,6 +42,9 @@ message TrackId { int32 id = 1; }
 message AudioInputs { repeated string names = 1; }
 message ArmRequest  { int32 track_id = 1; bool armed = 2; int32 input = 3; int32 channels = 4; bool monitor = 5; }
 message PunchRange  { bool enabled = 1; double in_beat = 2; double out_beat = 3; double count_in_beats = 4; }
+message RecordSettings { int32 format = 1; double latency_offset_seconds = 2; }   // format: 0 WAV, 1 FLAC
+message TakeRef        { string take_id = 1; }
+message TakeCount      { int32 count = 1; }
 
 // Live tweak of the built-in synth engine on a track. `name` is one of:
 // wave osc2wave osc2detune oscmix sub attack decay sustain release gain
@@ -166,12 +170,17 @@ service Gloopy {
   rpc SetTempo    (Tempo)    returns (Ack);
   rpc SetSwing    (Swing)    returns (Ack);
   rpc Seek        (Position) returns (Ack);
+  rpc SetLoop     (Loop)     returns (Ack);
   rpc GetTransport(Empty)    returns (TransportState);
   rpc StartRecording(Empty)  returns (Ack);   // record armed MIDI + armed audio tracks
   rpc StopRecording (Empty)  returns (Ack);
   rpc ListAudioInputs(Empty) returns (AudioInputs);   // audio recording
   rpc ArmTrack       (ArmRequest) returns (Ack);
   rpc SetPunchRange  (PunchRange) returns (Ack);
+  rpc SetRecordSettings(RecordSettings) returns (Ack);   // format + latency offset
+  rpc PromoteTake    (TakeRef)   returns (Ack);          // raw/ -> recordings/
+  rpc CleanupTakes   (Empty)     returns (TakeCount);    // delete unreferenced takes
+  rpc RecoverTakes   (Empty)     returns (TakeCount);    // clip-ify orphan takes
 
   // tracks
   rpc AddSynthTrack (AddSynthTrackRequest) returns (TrackId);

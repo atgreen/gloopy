@@ -36,6 +36,7 @@ struct Clip
     juce::String audioFile;
     juce::String takeId;
 
+    bool   muted { false };      // take-lane: inactive alternate takes are muted
     double endBeat() const noexcept { return startBeat + lengthBeats; }
     bool   isAudio() const noexcept { return type == ClipType::Audio; }
 };

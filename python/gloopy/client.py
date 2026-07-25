@@ -110,6 +110,26 @@ class Gloopy:
         self._ack(self.stub.SetPunchRange(pb.PunchRange(
             enabled=enabled, in_beat=in_beat, out_beat=out_beat, count_in_beats=count_in_beats)))
 
+    def set_loop(self, enabled: bool = True, start_beat: float = 0.0, end_beat: float = 4.0) -> None:
+        self._ack(self.stub.SetLoop(pb.Loop(enabled=enabled, start_beat=start_beat, end_beat=end_beat)))
+
+    def set_record_settings(self, format: int = 0, latency_offset_seconds: float = 0.0) -> None:
+        """Take format (0=WAV, 1=FLAC) and manual latency offset (added to device latency)."""
+        self._ack(self.stub.SetRecordSettings(pb.RecordSettings(
+            format=format, latency_offset_seconds=latency_offset_seconds)))
+
+    def promote_take(self, take_id: str) -> None:
+        """Move a scratch take from raw/ into the recordings dir and repoint its clips."""
+        self._ack(self.stub.PromoteTake(pb.TakeRef(take_id=take_id)))
+
+    def cleanup_takes(self) -> int:
+        """Delete take files no clip references; returns the count removed."""
+        return self.stub.CleanupTakes(pb.Empty()).count
+
+    def recover_takes(self) -> int:
+        """Create clips for orphan take files (crash recovery); returns the count."""
+        return self.stub.RecoverTakes(pb.Empty()).count
+
     # -- tracks -----------------------------------------------------------
     def add_synth_track(self, name: str = "", wave="SINE", attack=0.01,
                         decay=0.1, sustain=0.8, release=0.2, gain=0.8) -> int:

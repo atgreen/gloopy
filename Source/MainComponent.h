@@ -78,6 +78,7 @@ public:
     bool apiSetSynthParam (int trackId, const juce::String& name, float value);
     bool applySynthParam (Track* t, const juce::String& name, float value);   // atomic, thread-agnostic
     void apiSeek (double beats);
+    void apiSetLoop (bool enabled, double startBeat, double endBeat);
     TransportSnap apiGetTransport();
     int  apiAddSynthTrack (const juce::String& name, int wave, float a, float d, float s, float r, float g);
     bool apiSetTrackParams (int id, bool hasVol, float vol, bool hasPan, float pan,
@@ -327,7 +328,7 @@ private:
     void stopAudioRecording();
     void captureRecordingInput (const juce::AudioSourceChannelInfo&);   // audio thread
     void addMonitoring (const juce::AudioSourceChannelInfo&);           // audio thread
-    void finalizeTake (const TakeRecorder&);
+    void finalizeTake (int trackId, const juce::File& take, double startBeat, bool muted = false);
     juce::File recordingsDir() const;
     juce::TimeSliceThread recordThread { "gloopy-record" };
     juce::CriticalSection takeWriterLock;
@@ -342,10 +343,22 @@ private:
     std::atomic<double> punchInBeat  { 0.0 };
     std::atomic<double> punchOutBeat { 1.0e12 };
     std::atomic<double> countInBeats { 0.0 };
+    // Phase 3: format, latency, loop recording
+    std::atomic<int>    recordFormat        { 0 };   // 0 = WAV, 1 = FLAC
+    std::atomic<double> recordLatencyOffset { 0.0 }; // manual, seconds (added to device latency)
+    std::atomic<bool>   loopRecRotate       { false };// audio thread -> message thread: loop wrapped
+    double lastRecPlayheadBeat { -1.0 };
+    juce::File rawTakesDir() const;
+    double recordLatencySeconds() const;
+    void   rotateLoopTakes();
   public:
     std::vector<juce::String> apiListAudioInputs();
     bool apiArmTrack (int trackId, bool armed, int input, int channels, bool monitor);
     bool apiSetPunchRange (bool enabled, double inBeat, double outBeat, double countIn);
+    bool apiSetRecordSettings (int format, double latencyOffsetSeconds);
+    bool apiPromoteTake (const juce::String& takeId);
+    int  apiCleanupTakes();
+    int  apiRecoverTakes();
     void apiSetRecordTestTone (double hz) { recordTestToneHz.store (hz); }
   private:
     juce::StringArray openMidiInputs;

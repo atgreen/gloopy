@@ -60,6 +60,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.Position.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SetLoop = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetLoop',
+                request_serializer=gloopy__pb2.Loop.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.GetTransport = channel.unary_unary(
                 '/gloopy.v1.Gloopy/GetTransport',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -89,6 +94,26 @@ class GloopyStub:
                 '/gloopy.v1.Gloopy/SetPunchRange',
                 request_serializer=gloopy__pb2.PunchRange.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.SetRecordSettings = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetRecordSettings',
+                request_serializer=gloopy__pb2.RecordSettings.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.PromoteTake = channel.unary_unary(
+                '/gloopy.v1.Gloopy/PromoteTake',
+                request_serializer=gloopy__pb2.TakeRef.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.CleanupTakes = channel.unary_unary(
+                '/gloopy.v1.Gloopy/CleanupTakes',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.TakeCount.FromString,
+                _registered_method=True)
+        self.RecoverTakes = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RecoverTakes',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.TakeCount.FromString,
                 _registered_method=True)
         self.AddSynthTrack = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AddSynthTrack',
@@ -307,6 +332,12 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetLoop(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetTransport(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -341,6 +372,34 @@ class GloopyServicer:
 
     def SetPunchRange(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetRecordSettings(self, request, context):
+        """format + latency offset
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def PromoteTake(self, request, context):
+        """raw/ -> recordings/
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CleanupTakes(self, request, context):
+        """delete unreferenced takes
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RecoverTakes(self, request, context):
+        """clip-ify orphan takes
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -600,6 +659,11 @@ def add_GloopyServicer_to_server(servicer, server):
                     request_deserializer=gloopy__pb2.Position.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
+            'SetLoop': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetLoop,
+                    request_deserializer=gloopy__pb2.Loop.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
             'GetTransport': grpc.unary_unary_rpc_method_handler(
                     servicer.GetTransport,
                     request_deserializer=gloopy__pb2.Empty.FromString,
@@ -629,6 +693,26 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.SetPunchRange,
                     request_deserializer=gloopy__pb2.PunchRange.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetRecordSettings': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetRecordSettings,
+                    request_deserializer=gloopy__pb2.RecordSettings.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'PromoteTake': grpc.unary_unary_rpc_method_handler(
+                    servicer.PromoteTake,
+                    request_deserializer=gloopy__pb2.TakeRef.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'CleanupTakes': grpc.unary_unary_rpc_method_handler(
+                    servicer.CleanupTakes,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.TakeCount.SerializeToString,
+            ),
+            'RecoverTakes': grpc.unary_unary_rpc_method_handler(
+                    servicer.RecoverTakes,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.TakeCount.SerializeToString,
             ),
             'AddSynthTrack': grpc.unary_unary_rpc_method_handler(
                     servicer.AddSynthTrack,
@@ -958,6 +1042,33 @@ class Gloopy:
             _registered_method=True)
 
     @staticmethod
+    def SetLoop(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetLoop',
+            gloopy__pb2.Loop.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetTransport(request,
             target,
             options=(),
@@ -1109,6 +1220,114 @@ class Gloopy:
             '/gloopy.v1.Gloopy/SetPunchRange',
             gloopy__pb2.PunchRange.SerializeToString,
             gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetRecordSettings(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetRecordSettings',
+            gloopy__pb2.RecordSettings.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PromoteTake(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/PromoteTake',
+            gloopy__pb2.TakeRef.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CleanupTakes(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/CleanupTakes',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.TakeCount.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RecoverTakes(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RecoverTakes',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.TakeCount.FromString,
             options,
             channel_credentials,
             insecure,

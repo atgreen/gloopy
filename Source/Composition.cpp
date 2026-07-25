@@ -207,7 +207,7 @@ void readPoints (const juce::File& f, juce::ValueTree& lane)
     }
 }
 
-const char* kGitignore = ".gloopy-cache/\nexports/\n*.wav.tmp\nplugins/scans/\n";
+const char* kGitignore = ".gloopy-cache/\nexports/\nassets/recordings/raw/\n*.wav.tmp\nplugins/scans/\n";
 } // namespace
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -327,6 +327,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
              .number ("length", cl.getProperty ("len", 4.0))
              .number ("content_length", cl.getProperty ("content", 4.0))
              .boolean ("looped", cl.getProperty ("looped", false));
+            if ((bool) cl.getProperty ("muted", false)) w.boolean ("muted", true);
 
             if (cl.hasProperty ("afile"))    // referenced audio (recorded take / import)
             {
@@ -585,6 +586,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                     cl.setProperty ("len", cd.getDouble ("length", 4.0), nullptr);
                     cl.setProperty ("content", cd.getDouble ("content_length", 4.0), nullptr);
                     cl.setProperty ("looped", cd.getBool ("looped"), nullptr);
+                    if (cd.getBool ("muted")) cl.setProperty ("muted", true, nullptr);
                     if (cd.has ("take"))          // referenced take/asset — keep the reference
                     {
                         cl.setProperty ("afile", cd.getString ("audio_file"), nullptr);

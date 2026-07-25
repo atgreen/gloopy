@@ -453,6 +453,13 @@ void MainComponent::apiStopRecording()  { callOnMessageThread ([&] { finalizeRec
 void MainComponent::apiSetTempo (double bpm) { transport.setBpm (juce::jlimit (20.0, 400.0, bpm)); }
 void MainComponent::apiSetSwing (double s)   { transport.setSwing (s); }
 void MainComponent::apiSeek (double beats)   { transport.requestSeek (juce::jmax (0.0, beats)); }
+void MainComponent::apiSetLoop (bool enabled, double startBeat, double endBeat)
+{
+    transport.setLoopRegion (juce::jmax (0.0, startBeat), juce::jmax (startBeat + 0.25, endBeat));
+    transport.setLoopEnabled (enabled);
+    if (loopButton.getToggleState() != enabled)
+        juce::MessageManager::callAsync ([this, enabled] { loopButton.setToggleState (enabled, juce::dontSendNotification); });
+}
 
 MainComponent::TransportSnap MainComponent::apiGetTransport()
 {
@@ -1447,7 +1454,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     auto renderAudioClip = [spb, deviceRate] (juce::AudioBuffer<float>& buffer, const Clip& clip,
                                               juce::int64 songStart, int chunk, int tsOffset)
     {
-        if (! clip.isAudio() || clip.audio == nullptr) return;
+        if (! clip.isAudio() || clip.audio == nullptr || clip.muted) return;   // muted = inactive take
         const auto& ab = *clip.audio;
         const int frames = ab.getNumSamples();
         if (frames <= 0) return;
@@ -1814,6 +1821,9 @@ void MainComponent::closeAllPluginWindows()
 // ---------------------------------------------------------------------------
 void MainComponent::timerCallback()
 {
+    if (audioRecActive.load() && loopRecRotate.exchange (false))
+        rotateLoopTakes();   // loop recording: finalize the pass, start a new take
+
     if (renderFinished.load())
     {
         renderFinished = false;
@@ -2140,6 +2150,7 @@ juce::ValueTree MainComponent::toValueTree()
             cl.setProperty ("len", c.lengthBeats, nullptr);
             cl.setProperty ("content", c.contentLenBeats, nullptr);
             cl.setProperty ("looped", c.looped, nullptr);
+            if (c.muted) cl.setProperty ("muted", true, nullptr);
             if (c.isAudio() && c.audioFile.isNotEmpty())
             {
                 // Referenced audio (recorded take / import) — store the path, not the blob.
@@ -2448,6 +2459,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             c.lengthBeats = (double) cl.getProperty ("len", 4.0);
             c.contentLenBeats = (double) cl.getProperty ("content", 4.0);
             c.looped = (bool) cl.getProperty ("looped", true);
+            c.muted  = (bool) cl.getProperty ("muted", false);
 
             if (c.isAudio() && cl.hasProperty ("afile"))
             {

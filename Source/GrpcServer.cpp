@@ -80,6 +80,22 @@ namespace
         { r->set_ok (main.apiSetPunchRange (q->enabled(), q->in_beat(), q->out_beat(), q->count_in_beats()));
           return Status::OK; }
 
+        Status SetLoop (ServerContext*, const pb::Loop* q, pb::Ack* r) override
+        { main.apiSetLoop (q->enabled(), q->start_beat(), q->end_beat()); r->set_ok (true); return Status::OK; }
+
+        Status SetRecordSettings (ServerContext*, const pb::RecordSettings* q, pb::Ack* r) override
+        { r->set_ok (main.apiSetRecordSettings (q->format(), q->latency_offset_seconds())); return Status::OK; }
+
+        Status PromoteTake (ServerContext*, const pb::TakeRef* q, pb::Ack* r) override
+        { const bool ok = main.apiPromoteTake (js (q->take_id()));
+          r->set_ok (ok); if (! ok) r->set_error ("take not found in raw/"); return Status::OK; }
+
+        Status CleanupTakes (ServerContext*, const pb::Empty*, pb::TakeCount* r) override
+        { r->set_count (main.apiCleanupTakes()); return Status::OK; }
+
+        Status RecoverTakes (ServerContext*, const pb::Empty*, pb::TakeCount* r) override
+        { r->set_count (main.apiRecoverTakes()); return Status::OK; }
+
         Status GetTransport (ServerContext*, const pb::Empty*, pb::TransportState* r) override
         {
             auto s = main.apiGetTransport();

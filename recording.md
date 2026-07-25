@@ -1,6 +1,6 @@
 # Recording Plan
 
-> **Status: Phases 1–2 implemented.** `Source/Recording.cpp` captures audio input to a
+> **Status: Phases 1–3 implemented.** `Source/Recording.cpp` captures audio input to a
 > WAV take and drops a *referencing* audio clip (no embedded blob). The audio
 > device now opens inputs (`setAudioChannels(2, 2)`); the audio thread copies input
 > into a JUCE `ThreadedWriter` (bounded FIFO + background writer thread), and the
@@ -28,9 +28,21 @@
 > Verified with the tone seam: N armed tracks yield N takes/clips/events; a
 > punch `[2,4)` with count-in 1 records exactly 2 beats anchored at beat 2.
 >
-> Deferred to Phase 3: latency-compensation UI, failed/partial take recovery,
-> take promotion/cleanup, FLAC, loop recording and take lanes. Monitoring routes
-> dry input only (insert effects not printed).
+> **Phase 3** adds: takes recorded into `assets/recordings/raw/` (git-ignored) with
+> **PromoteTake** (raw/ → recordings/, repoints clips), **CleanupTakes** (delete
+> unreferenced takes), **RecoverTakes** (clip-ify orphan takes after a crash);
+> **latency compensation** (device input latency + manual offset via
+> `SetRecordSettings`, applied to the clip start and stored in take metadata);
+> optional **FLAC** takes (`SetRecordSettings` format=1); and **loop recording**
+> — each loop pass rotates to a new take and stacks a clip (**take lanes**), all
+> but the latest `muted` (a new `Clip.muted`, serialised, skipped in playback).
+> A small `SetLoop` RPC was added for headless loop control. Verified with the
+> tone seam: promote/cleanup/recover file ops, latency 0.05 s + device recorded
+> in metadata, a FLAC take, and a looped record producing 4 takes/clips (3 muted).
+>
+> Loop-take boundaries are timer-detected (~one UI tick), not sample-accurate;
+> monitoring stays dry (insert effects not printed); full swipe-comping UI is
+> future work.
 
 ## Goal
 
