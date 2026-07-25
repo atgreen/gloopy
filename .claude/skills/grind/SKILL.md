@@ -497,8 +497,16 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       as EffectType EQ=7 / WAVESHAPER=8 (all four registries kept in sync). Verified via
       render: EQ ±18 dB @ 500 Hz shifts band RMS ~17 dB (boost vs cut); waveshaper drive
       25 raises RMS ~17 dB (saturation). smoke covers both.
-      **Not yet:** chorus/flanger, stereo widener, multi-band EQ; analyzers
-      (scope/spectrum/vectorscope) with API snapshots.
+    - `[x]` **Stereo Widener landed** (commit): `StereoWidenerFx`, mid/side, one Width
+      param (0 mono / 1 unchanged / 2 double-wide), as EffectType STEREO_WIDENER=9 (all
+      four registries synced). The pure transform lives in `Source/StereoWiden.h`
+      (`widenSample`) so it's unit-tested without the audio-processor dep — `GloopyTests::
+      StereoWidener` proves width 0/1/2 side scaling, mono-sum invariance, and that a
+      mono signal is untouched; smoke proves the enum→factory→Width-param wiring. The
+      mixer add-effect menu is data-driven from `EffectFactory::types()`, so the desktop
+      affordance is automatic.
+      **Not yet:** chorus/flanger, multi-band EQ; analyzers (scope/spectrum/vectorscope)
+      with API snapshots.
 
 ### Wave 6 — Product surface & UI (deferred: harder to verify headless; keep layout simple)
 

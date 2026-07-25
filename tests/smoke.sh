@@ -320,6 +320,19 @@ python3 -c "assert float('$WS') > float('$BASE_RMS')+2, 'waveshaper drive did no
 echo "smoke: PASS — waveshaper drive raised RMS ($BASE_RMS -> $WS dBFS)"
 g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
 
+# Stereo Widener: prove the STEREO_WIDENER enum -> factory -> params wiring and a clean
+# render (the mid/side DSP itself is unit-tested in GloopyTests::StereoWidener).
+g -d '{"insert":0,"type":"STEREO_WIDENER"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetEffectParams | grep -q '"Width"' \
+    || { echo "smoke: Stereo Widener has no Width param" >&2; exit 1; }
+g -d '{"insert":0,"slot":0,"name":"Width","value":2}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/wide.wav\",\"tail_seconds\":0.5,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+WIDE=$(arms "$WORK/wide.wav")
+python3 -c "assert float('$WIDE') > -60, 'stereo widener render is silent (%s dBFS)'%'$WIDE'" \
+    || { echo "smoke: stereo widener produced silence" >&2; exit 1; }
+echo "smoke: PASS — Stereo Widener wired (Width param, renders $WIDE dBFS)"
+g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+
 # Timeline locations: add a named range, prove render-by-range is shorter than the
 # full render, and (below) that the location survives the composition round-trip.
 g -d '{"name":"half","kind":"range","start_beat":0,"end_beat":2}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddLocation >/dev/null

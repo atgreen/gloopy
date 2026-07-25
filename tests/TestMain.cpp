@@ -11,6 +11,7 @@
 #include "NoteScheduler.h"
 #include "NoteEdits.h"
 #include "FileDrop.h"
+#include "StereoWiden.h"
 #include "Toml.h"
 
 //==============================================================================
@@ -388,7 +389,49 @@ struct FileDropTests : juce::UnitTest
 };
 
 //==============================================================================
+// Stereo widener (mid/side): width scales the side signal (L-R) while the mono
+// sum (L+R) is invariant. Verified directly on a buffer with a known L/R split.
+struct StereoWidenerTests : juce::UnitTest
+{
+    StereoWidenerTests() : juce::UnitTest ("StereoWidener") {}
+
+    void runTest() override
+    {
+        beginTest ("width 1 is identity");
+        {
+            float l = 0.8f, r = 0.2f;                  // mid 0.5, side 0.3
+            widenSample (l, r, 1.0f);
+            expectWithinAbsoluteError (l, 0.8f, 1.0e-6f);
+            expectWithinAbsoluteError (r, 0.2f, 1.0e-6f);
+        }
+
+        beginTest ("width 0 collapses to mono; width 2 doubles the side; mono sum invariant");
+        {
+            for (float w : { 0.0f, 2.0f })
+            {
+                float l = 0.8f, r = 0.2f;
+                widenSample (l, r, w);
+                expectWithinAbsoluteError (l - r, 0.6f * w, 1.0e-6f);   // (L-R) = 2*side = 0.6*w
+                expectWithinAbsoluteError (l + r, 1.0f,     1.0e-6f);   // 2*mid, width-invariant
+            }
+        }
+
+        beginTest ("an already-mono signal is untouched at any width");
+        {
+            for (float w : { 0.0f, 1.0f, 2.0f })
+            {
+                float l = 0.4f, r = 0.4f;
+                widenSample (l, r, w);
+                expectWithinAbsoluteError (l, 0.4f, 1.0e-6f);
+                expectWithinAbsoluteError (r, 0.4f, 1.0e-6f);
+            }
+        }
+    }
+};
+
+//==============================================================================
 static NoteSchedulerTests noteSchedulerTests;
+static StereoWidenerTests stereoWidenerTests;
 static TomlTests         tomlTests;
 static SerializationTests serializationTests;
 static NoteEditTests     noteEditTests;

@@ -8,6 +8,7 @@
 #include <vector>
 #include <cmath>
 #include "Effect.h"
+#include "StereoWiden.h"
 
 // ---------------------------------------------------------------------------
 // Gain
@@ -465,11 +466,45 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+// Stereo widener (mid/side). Width 0 = mono, 1 = unchanged, 2 = double-wide.
+// mid = (L+R)/2 keeps the centre; the side (L-R)/2 is scaled by Width, so the
+// effect is a no-op on a mono/centred signal and cannot shift the mono sum.
+// ---------------------------------------------------------------------------
+class StereoWidenerFx : public Effect
+{
+public:
+    void prepare (double, int, int) override {}
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        if (bypassed.load() || b.getNumChannels() < 2) return;   // nothing to widen in mono
+        const float w = juce::jlimit (0.0f, 2.0f, width.load());
+        const int n = b.getNumSamples();
+        auto* L = b.getWritePointer (0);
+        auto* R = b.getWritePointer (1);
+        for (int i = 0; i < n; ++i)
+            widenSample (L[i], R[i], w);
+    }
+
+    juce::String name() const override { return "Stereo Widener"; }
+
+    std::vector<EffectParam> parameters() override
+    {
+        return { { "Width", 0.0f, 2.0f, 1.0f,
+                   [this] { return width.load(); },
+                   [this] (float v) { width.store (v); } } };
+    }
+
+private:
+    std::atomic<float> width { 1.0f };
+};
+
+// ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 namespace EffectFactory
 {
-    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper" }; }
+    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener" }; }
 
     inline std::unique_ptr<Effect> create (const juce::String& type)
     {
@@ -482,6 +517,7 @@ namespace EffectFactory
         if (type == "Compressor") return std::make_unique<CompressorFx>();
         if (type == "EQ")         return std::make_unique<EqFx>();
         if (type == "Waveshaper") return std::make_unique<WaveshaperFx>();
+        if (type == "Stereo Widener") return std::make_unique<StereoWidenerFx>();
         return nullptr;
     }
 }
