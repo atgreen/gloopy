@@ -223,6 +223,7 @@ public:
     bool apiQuantizeClip (int trackId, int index, double grid);     // snap starts to a beat grid
     bool apiTransposeClip (int trackId, int index, int semitones);
     bool apiHumanizeClip (int trackId, int index, double timing, double velocity);
+    bool apiStrumClip (int trackId, int index, double stepBeats, bool down);   // fan out chord voices
     bool apiAddChord (int trackId, int index, int root, const juce::String& type,
                       double startBeat, double lengthBeats, float velocity, int inversion);   // stamp a chord
 
@@ -274,6 +275,11 @@ private:
             auditionBtn.setTooltip ("Play notes through the instrument as you click or brush");
             addAndMakeVisible (auditionBtn);
 
+            // Strum: fan out chord voices (Shift-click = up-strum). Keyboard: S / Shift+S.
+            strumBtn.setTooltip ("Strum chord voices (down); Shift-click for up-strum");
+            strumBtn.onClick = [this] { roll.strumRollNotes (0.05, ! juce::ModifierKeys::getCurrentModifiers().isShiftDown()); };
+            addAndMakeVisible (strumBtn);
+
             // Chord-stamp selector: pick a type, then click empty grid to stamp the
             // whole voicing. "Note" = ordinary single-note drawing.
             chordCombo.addItem ("Note", 1);
@@ -305,6 +311,7 @@ private:
             pianoBtn.setBounds (h.removeFromRight (58).reduced (2, 0));
             stepBtn .setBounds (h.removeFromRight (58).reduced (2, 0));
             chordCombo.setBounds (h.removeFromRight (74).reduced (2, 0));
+            strumBtn.setBounds (h.removeFromRight (56).reduced (2, 0));
             auditionBtn.setBounds (h.removeFromRight (72).reduced (2, 0));
             title.setBounds (h.withTrimmedLeft (10));
             roll.setBounds (a);
@@ -314,6 +321,7 @@ private:
         juce::TextButton stepBtn  { "STEPS" };
         juce::TextButton pianoBtn { "PIANO" };
         juce::TextButton auditionBtn { "AUDITION" };
+        juce::TextButton strumBtn { "STRUM" };
         juce::ComboBox   chordCombo;
         PianoRoll   roll;
         StepEditor  steps;

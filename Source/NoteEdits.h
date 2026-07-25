@@ -5,6 +5,9 @@
 
 #include <JuceHeader.h>
 #include <vector>
+#include <map>
+#include <algorithm>
+#include <cmath>
 #include "Note.h"
 
 // Pure piano-roll note transforms, shared by the control API (apiQuantizeClip etc.,
@@ -32,6 +35,31 @@ inline void humanizeNotes (std::vector<Note>& notes, double timing, double veloc
     {
         if (timing > 0.0)   n.startBeat = juce::jmax (0.0, n.startBeat + (rng.nextDouble() * 2.0 - 1.0) * timing);
         if (velocity > 0.0) n.velocity  = juce::jlimit (0.0f, 1.0f, n.velocity + (float) ((rng.nextDouble() * 2.0 - 1.0) * velocity));
+    }
+}
+
+/** Strum: within each cluster of notes that share a start beat (a chord), stagger the
+    starts so the voices fan out like a guitar strum. `stepBeats` is the delay between
+    consecutive voices; `down` fans high→low (downstroke), else low→high (upstroke). */
+inline void strumNotes (std::vector<Note>& notes, double stepBeats, bool down)
+{
+    if (stepBeats <= 0.0 || notes.size() < 2) return;
+    std::map<long long, std::vector<int>> clusters;           // key = start beat (ms-quantised)
+    for (int i = 0; i < (int) notes.size(); ++i)
+        clusters[(long long) std::llround (notes[(size_t) i].startBeat * 1000.0)].push_back (i);
+
+    for (auto& cl : clusters)
+    {
+        auto& idx = cl.second;
+        if (idx.size() < 2) continue;                         // single note: nothing to strum
+        std::sort (idx.begin(), idx.end(), [&] (int a, int b)
+        {
+            return down ? notes[(size_t) a].pitch > notes[(size_t) b].pitch
+                        : notes[(size_t) a].pitch < notes[(size_t) b].pitch;
+        });
+        const double base = notes[(size_t) idx[0]].startBeat;
+        for (int k = 0; k < (int) idx.size(); ++k)
+            notes[(size_t) idx[k]].startBeat = juce::jmax (0.0, base + k * stepBeats);
     }
 }
 

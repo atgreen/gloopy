@@ -66,6 +66,10 @@ public:
     void setAuditionEnabled (bool b) { auditionEnabled = b; if (! b) stopAudition(); }
     bool isAuditionEnabled() const { return auditionEnabled; }
 
+    /** Fan out chord voices (notes sharing a start beat). Uses the same strumNotes
+        transform as apiStrumClip, then fires onNotesChanged. */
+    void strumRollNotes (double stepBeats, bool down);
+
     void paint (juce::Graphics&) override;
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;

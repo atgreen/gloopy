@@ -236,6 +236,11 @@ class Gloopy:
         self._ack(self.stub.HumanizeClip(pb.HumanizeRequest(
             track_id=track_id, index=index, timing=timing, velocity=velocity)))
 
+    def strum_clip(self, track_id: int, index: int, step_beats: float = 0.05, down: bool = True) -> None:
+        """Fan out chord voices (notes sharing a start beat) by step_beats each; down = high->low."""
+        self._ack(self.stub.StrumClip(pb.StrumRequest(
+            track_id=track_id, index=index, step_beats=step_beats, down=down)))
+
     def add_chord(self, track_id: int, index: int, root: int, type: str = "maj",
                   start_beat: float = 0.0, length_beats: float = 1.0,
                   velocity: float = 0.8, inversion: int = 0) -> None:

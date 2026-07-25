@@ -618,6 +618,9 @@ namespace
         { const bool ok = main.apiAddChord (q->track_id(), q->index(), q->root(), js (q->type()),
                                             q->start_beat(), q->length_beats(), q->velocity(), q->inversion());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
+        Status StrumClip (ServerContext*, const pb::StrumRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiStrumClip (q->track_id(), q->index(), q->step_beats(), q->down());
+          r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
 
         // ---- plugins ----
         Status ScanPlugins (ServerContext*, const pb::ScanPluginsRequest* q, pb::PluginList* r) override

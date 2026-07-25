@@ -201,6 +201,15 @@ p=sorted(n['pitch'] for n in json.load(sys.stdin)['notes'])
 assert p==[60,63,67,70], 'Cmin7 voicing wrong: '+str(p)
 print('smoke: PASS — AddChord Cmin7 voicing [60,63,67,70]')
 " || { echo "smoke: chord stamp wrong" >&2; exit 1; }
+# Strum: fan out the Cmin7 voicing — down-strum staggers starts high->low by step.
+g -d "{\"track_id\":$CO,\"index\":$CC,\"step_beats\":0.1,\"down\":true}" 127.0.0.1:$PORT gloopy.v1.Gloopy/StrumClip >/dev/null
+g -d "{\"track_id\":$CO,\"index\":$CC}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "
+import json,sys
+ns=sorted(json.load(sys.stdin)['notes'], key=lambda n:-n['pitch'])   # high->low
+starts=[round(n.get('startBeat',0),3) for n in ns]
+assert starts==[0.0,0.1,0.2,0.3], 'strum starts wrong: '+str(starts)
+print('smoke: PASS — StrumClip fanned Cmin7 starts to '+str(starts))
+" || { echo "smoke: strum wrong" >&2; exit 1; }
 g -d "{\"id\":$CO}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   # isolate: drop the scratch track
 
 g -d "{\"path\":\"$WAV\",\"tail_seconds\":1.0,\"start_beat\":0,\"end_beat\":4}" \

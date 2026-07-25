@@ -29,6 +29,8 @@ bool PianoRoll::keyPressed (const juce::KeyPress& key)
     { quantizeNotes (notes, shift ? 0.5 : 0.25); changed = true; }        // Q = 1/16, Shift+Q = 1/8
     else if (key.getTextCharacter() == 'h' || key.getTextCharacter() == 'H')
     { juce::Random rng; humanizeNotes (notes, 0.02, 0.1, rng); changed = true; }
+    else if (key.getTextCharacter() == 's' || key.getTextCharacter() == 'S')
+    { strumNotes (notes, 0.05, ! shift); changed = true; }                // S = down-strum, Shift+S = up
     else if (key == juce::KeyPress::upKey)
     { transposeNotes (notes, shift ? 12 : 1); changed = true; }           // arrows transpose all
     else if (key == juce::KeyPress::downKey)
@@ -36,6 +38,14 @@ bool PianoRoll::keyPressed (const juce::KeyPress& key)
 
     if (changed) { if (onNotesChanged) onNotesChanged(); repaint(); }
     return changed;
+}
+
+void PianoRoll::strumRollNotes (double stepBeats, bool down)
+{
+    if (! editable || notes.empty()) return;
+    strumNotes (notes, stepBeats, down);
+    if (onNotesChanged) onNotesChanged();
+    repaint();
 }
 
 PianoRoll::~PianoRoll()
