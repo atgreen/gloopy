@@ -236,6 +236,7 @@ MainComponent::MainComponent (bool headless)
     mixerView->makePluginEffect     = [this] (const juce::PluginDescription& d) { return makePluginEffect (d); };
     mixerView->onOpenPluginEditor   = [this] (juce::AudioProcessor* p, const juce::String& n) { openPluginEditor (p, n); };
     mixerView->onBeforeStructuralChange = [this] { closeAllPluginWindows(); };
+    mixerView->onMidiLearn          = [this] (const juce::String& target) { apiMidiLearn (target); };
 
     setupDefaultProject();
 

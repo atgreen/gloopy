@@ -46,6 +46,11 @@ public:
 
         fx.onClick = [this] { owner.showFxMenu (index); };
         addAndMakeVisible (fx);
+
+        // Right-click the fader/pan to MIDI-learn that ParamModel target. The sliders
+        // ignore right-clicks for dragging, so forwarding them here is safe.
+        fader.addMouseListener (this, false);
+        pan.addMouseListener (this, false);
     }
 
     void updateMeter()
@@ -58,7 +63,24 @@ public:
 
     void mouseDown (const juce::MouseEvent& e) override
     {
-        if (clipLedArea.contains (e.getPosition())) { track->clipped.store (false); repaint (clipLedArea); }
+        // Right-click on the fader or pan -> MIDI Learn for that target.
+        if (e.mods.isPopupMenu() && (e.eventComponent == &fader || e.eventComponent == &pan))
+        {
+            const juce::String field  = (e.eventComponent == &pan) ? "pan" : "volume";
+            const juce::String target = "insert/" + juce::String (index) + "/" + field;
+            juce::PopupMenu m;
+            m.addSectionHeader (track->name + "  " + field);
+            m.addItem (1, "MIDI Learn");
+            const auto tgt = target;
+            m.showMenuAsync (juce::PopupMenu::Options(), [this, tgt] (int r)
+            {
+                if (r == 1 && owner.onMidiLearn) owner.onMidiLearn (tgt);
+            });
+            return;
+        }
+
+        if (e.eventComponent == this && clipLedArea.contains (e.getPosition()))
+        { track->clipped.store (false); repaint (clipLedArea); }
     }
 
     void paint (juce::Graphics& g) override
@@ -275,6 +297,7 @@ void MixerView::rebuildEditor()
 {
     paramSliders.clear();
     paramLabels.clear();
+    paramTargets.clear();
 
     Effect* fx = nullptr;
     if (juce::isPositiveAndBelow (selectedTrack, (int) tracks.size()))
@@ -317,10 +340,34 @@ void MixerView::rebuildEditor()
         s->setValue (p.get(), juce::dontSendNotification);
         auto setter = p.set;
         s->onValueChange = [sl = s.get(), setter] { setter ((float) sl->getValue()); };
+        s->addMouseListener (this, false);   // right-click -> MIDI Learn (see mouseDown)
         addAndMakeVisible (*s);
         paramSliders.push_back (std::move (s));
+        paramTargets.push_back ("effect/" + juce::String (selectedTrack) + "/"
+                                + juce::String (selectedEffect) + "/" + p.name);
     }
     resized();
+}
+
+void MixerView::mouseDown (const juce::MouseEvent& e)
+{
+    if (! e.mods.isPopupMenu()) return;
+    // Right-click an FX param knob -> MIDI Learn for that effect/<t>/<slot>/<param> id.
+    for (size_t i = 0; i < paramSliders.size(); ++i)
+    {
+        if (e.eventComponent == paramSliders[i].get() && i < paramTargets.size())
+        {
+            const juce::String tgt = paramTargets[i];
+            juce::PopupMenu m;
+            m.addSectionHeader (paramLabels[i]->getText());
+            m.addItem (1, "MIDI Learn");
+            m.showMenuAsync (juce::PopupMenu::Options(), [this, tgt] (int r)
+            {
+                if (r == 1 && onMidiLearn) onMidiLearn (tgt);
+            });
+            return;
+        }
+    }
 }
 
 void MixerView::paint (juce::Graphics& g)

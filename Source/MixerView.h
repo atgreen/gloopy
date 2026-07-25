@@ -25,6 +25,12 @@ public:
     void rebuild();
     void paint (juce::Graphics&) override;
     void resized() override;
+    void mouseDown (const juce::MouseEvent&) override;   // right-click FX param -> MIDI Learn
+
+    /** Right-click "MIDI Learn" on a fader/pan/FX-param -> arm learn for that ParamModel
+        target id (e.g. "insert/0/volume", "effect/1/0/Cutoff"). Wired by the owner to
+        apiMidiLearn so the desktop and the API arm the same learn. */
+    std::function<void (const juce::String&)> onMidiLearn;
 
     // Plugin hooks (wired by the owner).
     std::function<void()>                                       ensurePlugins;
@@ -59,6 +65,7 @@ private:
     juce::TextButton openEditorButton { "Plugin UI" };
     std::vector<std::unique_ptr<juce::Slider>> paramSliders;
     std::vector<std::unique_ptr<juce::Label>>  paramLabels;
+    std::vector<juce::String>                  paramTargets;   // ParamModel id per slider (for MIDI Learn)
 
     int selectedTrack  { -1 };
     int selectedEffect { -1 };
