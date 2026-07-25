@@ -516,8 +516,14 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       mono signal is untouched; smoke proves the enum→factory→Width-param wiring. The
       mixer add-effect menu is data-driven from `EffectFactory::types()`, so the desktop
       affordance is automatic.
-      **Not yet:** chorus/flanger, multi-band EQ; analyzers (scope/spectrum/vectorscope)
-      with API snapshots.
+    - `[x]` **Chorus landed** (commit): `ChorusFx`, a short LFO-modulated delay (base
+      12 ms, sweep depth ms) with no feedback, dry/wet Mix, and a quarter-cycle L/R LFO
+      offset for width. Rate/Depth/Mix params; EffectType CHORUS=10 (four registries
+      synced); auto-listed in the data-driven mixer menu. smoke proves the enum→factory
+      →Mix wiring: Mix=0 is a bit-exact passthrough of the dry render, Mix=0.8 audibly
+      differs (mean|Δ|=0.08).
+      **Not yet:** flanger, multi-band EQ; analyzers (scope/spectrum/vectorscope) with
+      API snapshots.
 
 ### Wave 6 — Product surface & UI (deferred: harder to verify headless; keep layout simple)
 
