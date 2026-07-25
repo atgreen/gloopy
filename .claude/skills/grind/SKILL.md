@@ -501,6 +501,23 @@ the API surface the earlier waves harden, so they stay thin clients. Finish the
 deferred preset work (sampler + plugin instrument presets, plugin effects in
 effect-chain presets) as part of #16.
 
+**UI-PARITY BACKLOG (per the "desktop UI for every feature" rule — 2026-07 audit).**
+An audit of all ~106 RPCs found features that shipped API-only. Close each with a
+desktop control wiring the *same* api* op, screenshot-validated. Status:
+- `[x]` **Chord tool** — chord-type combo in the editor header; click grid to stamp
+  (commit d024a52).
+- `[x]` **Clip ops split/duplicate/reverse/snap-to-scale** — right-click arrange-view
+  clip context menu → routes to apiSplitClip/apiDuplicateClip/apiReverseClip/
+  apiSnapClipToScale (commit 9f33668).
+- `[ ]` **Project scale selector** (SetScale/GetScale) — toolbar dropdown (root + name);
+  also drives the piano-roll scale highlight. NEXT.
+- `[ ]` **Modulation / LFO matrix** (SetModulation/RemoveModulation) — a mod-matrix panel.
+- `[ ]` **MIDI-learn / controller rack** (AddControllerMap/MidiLearn) — right-click a
+  param → Learn (see #19 below; backend done, UI flagged).
+- `[ ]` **Tempo markers** (AddTempoMarker/RemoveTempoMarker) — right-click tempo ruler.
+- `[ ]` **Punch range** (SetPunchRange) — drag on the ruler.
+- `[ ]` **Take management** (PromoteTake/CleanupTakes) — a takes panel.
+
 16. **Browser sidebar + demo/template browser + `File → New From Template`** *(Idea
     #1/#2; absorbs remaining preset UI/work).* **L**
 17. **Stronger piano-roll editing modes** — knife/split, strum, duplicate, transpose,
