@@ -220,6 +220,14 @@ class Gloopy:
     def reverse_clip(self, track_id: int, index: int) -> None:
         self._ack(self.stub.ReverseClip(pb.ClipRef(track_id=track_id, index=index)))
 
+    def set_clip_gain(self, track_id: int, index: int, gain_db: float) -> None:
+        """Set an audio clip's playback gain in dB."""
+        self._ack(self.stub.SetClipGain(pb.ClipGainRequest(track_id=track_id, index=index, gain_db=gain_db)))
+
+    def normalize_clip(self, track_id: int, index: int, target_dbfs: float = 0.0) -> None:
+        """Set an audio clip's gain so its loudest sample sits at target_dbfs (0 = full scale)."""
+        self._ack(self.stub.NormalizeClip(pb.NormalizeClipRequest(track_id=track_id, index=index, target_dbfs=target_dbfs)))
+
     def clip_notes(self, track_id: int, index: int) -> list[dict]:
         r = self.stub.GetClipNotes(pb.ClipRef(track_id=track_id, index=index))
         return [{"pitch": n.pitch, "start_beat": n.start_beat,

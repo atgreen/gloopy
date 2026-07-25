@@ -621,6 +621,12 @@ namespace
         Status ReverseClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
         { const bool ok = main.apiReverseClip (q->track_id(), q->index());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
+        Status SetClipGain (ServerContext*, const pb::ClipGainRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiSetClipGain (q->track_id(), q->index(), q->gain_db());
+          r->set_ok (ok); if (! ok) r->set_error ("set clip gain failed (clip not found or not audio)"); return Status::OK; }
+        Status NormalizeClip (ServerContext*, const pb::NormalizeClipRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiNormalizeClip (q->track_id(), q->index(), q->target_dbfs()) >= 0.0f;
+          r->set_ok (ok); if (! ok) r->set_error ("normalize failed (clip not found, not audio, or silent)"); return Status::OK; }
         Status GetClipNotes (ServerContext*, const pb::ClipRef* q, pb::NoteList* r) override
         {
             for (auto& n : main.apiGetClipNotes (q->track_id(), q->index()))

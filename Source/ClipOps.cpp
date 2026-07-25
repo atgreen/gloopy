@@ -128,6 +128,56 @@ bool MainComponent::apiReverseClip (int trackId, int index)
     });
 }
 
+// Set an audio clip's playback gain (dB). Audio clips only — MIDI dynamics are per-note
+// velocity. false if the clip isn't found or isn't audio.
+bool MainComponent::apiSetClipGain (int trackId, int index, float gainDb)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+            Clip& c = t->clips[(size_t) index];
+            if (! c.isAudio()) return false;
+            c.audioGain = juce::Decibels::decibelsToGain (gainDb);
+        }
+        emitChange ("clip_changed", trackId);
+        if (arrangeView) arrangeView->repaint();
+        return true;
+    });
+}
+
+// Normalize an audio clip: set its gain so the loudest sample sits at targetDbfs.
+// Returns the applied linear gain, or -1 on error (not audio / silent clip).
+float MainComponent::apiNormalizeClip (int trackId, int index, float targetDbfs)
+{
+    return callOnMessageThread ([&] () -> float
+    {
+        pushUndoSnapshot();
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return -1.0f;
+        float applied = -1.0f;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1.0f;
+            Clip& c = t->clips[(size_t) index];
+            if (! c.isAudio() || c.audio == nullptr) return -1.0f;
+            float peak = 0.0f;
+            for (int ch = 0; ch < c.audio->getNumChannels(); ++ch)
+                peak = juce::jmax (peak, c.audio->getMagnitude (ch, 0, c.audio->getNumSamples()));
+            if (peak <= 0.0f) return -1.0f;                     // silent clip — nothing to normalize
+            applied = juce::Decibels::decibelsToGain (targetDbfs) / peak;
+            c.audioGain = applied;
+        }
+        emitChange ("clip_changed", trackId);
+        if (arrangeView) arrangeView->repaint();
+        return applied;
+    });
+}
+
 std::vector<Note> MainComponent::apiGetClipNotes (int trackId, int index)
 {
     return callOnMessageThread ([&] () -> std::vector<Note>

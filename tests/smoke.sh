@@ -509,6 +509,30 @@ BAD=$(g -d "{\"path\":\"$WORK/rt.mid\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/Import
 [ "$BAD" = "False" ] || { echo "smoke: ImportAudio accepted a non-audio file" >&2; exit 1; }
 echo "smoke: PASS — ImportAudio added an audio track ($TB -> $NA), rejected a non-audio file"
 
+# Clip gain + normalize (audio clips): normalize sets clip gain so the clip's own peak
+# hits the target; the render goes through the mixer insert (a constant attenuation), so
+# we assert on level *deltas* (insert loss cancels): two normalize targets 12 dB apart
+# must yield rendered peaks 12 dB apart, and a -6 dB SetClipGain must drop the peak 6 dB.
+AID=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;ts=json.load(sys.stdin)['tracks'];print([t.get('id',0) for t in ts if t.get('type')=='audio'][-1])")
+g -d "{\"track_id\":$AID,\"index\":0,\"target_dbfs\":-6}" 127.0.0.1:$PORT gloopy.v1.Gloopy/NormalizeClip >/dev/null
+g -d "{\"path\":\"$WORK/nrm6.wav\",\"tail_seconds\":0,\"track_id\":$AID}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$AID,\"index\":0,\"target_dbfs\":-18}" 127.0.0.1:$PORT gloopy.v1.Gloopy/NormalizeClip >/dev/null
+g -d "{\"path\":\"$WORK/nrm18.wav\",\"tail_seconds\":0,\"track_id\":$AID}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+p6,p18=float('$(apeak "$WORK/nrm6.wav")'),float('$(apeak "$WORK/nrm18.wav")')
+assert abs((p6-p18)-12) < 1.0, 'normalize -6 vs -18 delta not ~12 dB (%.2f vs %.2f)'%(p6,p18)
+print('smoke: PASS — NormalizeClip scales to target (-6 vs -18 -> %.1f dB apart)'%(p6-p18))
+" || { echo "smoke: NormalizeClip did not scale to target" >&2; exit 1; }
+g -d "{\"track_id\":$AID,\"index\":0,\"gain_db\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipGain >/dev/null
+g -d "{\"path\":\"$WORK/g0.wav\",\"tail_seconds\":0,\"track_id\":$AID}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$AID,\"index\":0,\"gain_db\":-6}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipGain >/dev/null
+g -d "{\"path\":\"$WORK/gm6.wav\",\"tail_seconds\":0,\"track_id\":$AID}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+a,b=float('$(apeak "$WORK/g0.wav")'),float('$(apeak "$WORK/gm6.wav")')
+assert abs((a-b)-6) < 1.0, 'SetClipGain -6 dB did not drop peak ~6 dB (%.2f -> %.2f)'%(a,b)
+print('smoke: PASS — SetClipGain -6 dB dropped peak %.1f -> %.1f dBFS'%(a,b))
+" || { echo "smoke: SetClipGain did not drop the level" >&2; exit 1; }
+
 # Offline loudness: analyze the earlier synth render; sanity-check the metrics and
 # that the headless `analyze` CLI emits the same numbers as the RPC.
 g -d "{\"path\":\"$WAV\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AnalyzeFile | python3 -c "

@@ -220,6 +220,16 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ClipRef.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SetClipGain = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetClipGain',
+                request_serializer=gloopy__pb2.ClipGainRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.NormalizeClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/NormalizeClip',
+                request_serializer=gloopy__pb2.NormalizeClipRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.GetClipNotes = channel.unary_unary(
                 '/gloopy.v1.Gloopy/GetClipNotes',
                 request_serializer=gloopy__pb2.ClipRef.SerializeToString,
@@ -839,6 +849,20 @@ class GloopyServicer:
 
     def ReverseClip(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetClipGain(self, request, context):
+        """audio clip gain (dB)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def NormalizeClip(self, request, context):
+        """gain so the clip peaks at target dBFS
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -1522,6 +1546,16 @@ def add_GloopyServicer_to_server(servicer, server):
             'ReverseClip': grpc.unary_unary_rpc_method_handler(
                     servicer.ReverseClip,
                     request_deserializer=gloopy__pb2.ClipRef.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetClipGain': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetClipGain,
+                    request_deserializer=gloopy__pb2.ClipGainRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'NormalizeClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.NormalizeClip,
+                    request_deserializer=gloopy__pb2.NormalizeClipRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'GetClipNotes': grpc.unary_unary_rpc_method_handler(
@@ -2904,6 +2938,60 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/ReverseClip',
             gloopy__pb2.ClipRef.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetClipGain(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetClipGain',
+            gloopy__pb2.ClipGainRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def NormalizeClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/NormalizeClip',
+            gloopy__pb2.NormalizeClipRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

@@ -277,6 +277,7 @@ MainComponent::MainComponent (bool headless)
         else if (cmd == "duplicate") apiDuplicateClip (id, clip, -1.0);
         else if (cmd == "reverse")   apiReverseClip (id, clip);
         else if (cmd == "snapscale") apiSnapClipToScale (id, clip);
+        else if (cmd == "normalize") apiNormalizeClip (id, clip, -1.0f);   // audio clip -> -1 dBFS
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")
@@ -303,6 +304,12 @@ MainComponent::MainComponent (bool headless)
             emitChange ("clip_changed", id);
         }
         if (arrangeView) arrangeView->repaint();
+    };
+
+    arrangeView->onClipGain = [this] (int trackIdx, int clip, float db)
+    {
+        if (juce::isPositiveAndBelow (trackIdx, (int) tracks.size()))
+            apiSetClipGain (tracks[(size_t) trackIdx]->id, clip, db);
     };
     arrangeViewport.setViewedComponent (arrangeView.get(), false);
     arrangeViewport.setScrollBarsShown (true, false);

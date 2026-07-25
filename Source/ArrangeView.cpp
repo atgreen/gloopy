@@ -429,6 +429,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addItem (2, "Duplicate");
         m.addItem (3, "Reverse");
         m.addItem (4, "Snap to scale", isMidi);
+        if (! isMidi)                                   // audio-clip level ops
+        {
+            m.addItem (10, "Normalize");                // to -1 dBFS
+            m.addItem (11, "Gain...");
+        }
         if (isTake)
         {
             m.addSeparator();
@@ -442,14 +447,16 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.showMenuAsync (juce::PopupMenu::Options(), [this, t, c] (int r)
         {
             if (r == 0) return;
-            const char* cmd = r == 1 ? "split"
-                            : r == 2 ? "duplicate"
-                            : r == 3 ? "reverse"
-                            : r == 4 ? "snapscale"
-                            : r == 5 ? "usetake"
-                            : r == 6 ? "promotetake"
-                            : r == 7 ? "cleanuptakes"
-                            :          "delete";
+            if (r == 11) { promptClipGain (t, c); return; }        // "Gain..." -> dB prompt
+            const char* cmd = r == 1  ? "split"
+                            : r == 2  ? "duplicate"
+                            : r == 3  ? "reverse"
+                            : r == 4  ? "snapscale"
+                            : r == 10 ? "normalize"
+                            : r == 5  ? "usetake"
+                            : r == 6  ? "promotetake"
+                            : r == 7  ? "cleanuptakes"
+                            :           "delete";
             if (onClipCommand) onClipCommand (t, c, cmd);
         });
         return;
@@ -509,6 +516,20 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
     if (onClipSelected) onClipSelected (selTrack, selClip);
     if (onChanged) onChanged();
     repaint();
+}
+
+void ArrangeView::promptClipGain (int track, int clip)
+{
+    auto* aw = new juce::AlertWindow ("Clip gain", "Gain in dB:", juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("db", "0.0");
+    aw->addButton ("Set",    1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, track, clip] (int r)
+    {
+        if (r == 1 && onClipGain)
+            onClipGain (track, clip, aw->getTextEditorContents ("db").getFloatValue());
+        delete aw;
+    }), false);
 }
 
 void ArrangeView::promptAddTempoMarker (double beat)

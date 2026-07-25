@@ -231,6 +231,8 @@ public:
     int  apiSplitClip (int trackId, int index, double beat);        // -> new (right) clip index, or -1
     int  apiDuplicateClip (int trackId, int index, double atBeat);  // atBeat<0 => right after; -> new index
     bool apiReverseClip (int trackId, int index);                   // reverse notes (MIDI) or audio buffer
+    bool  apiSetClipGain (int trackId, int index, float gainDb);    // audio clip gain (dB); false if not audio
+    float apiNormalizeClip (int trackId, int index, float targetDbfs); // gain so peak=target; applied gain or -1
     std::vector<Note> apiGetClipNotes (int trackId, int index);     // read-back for tooling/verification
     bool apiQuantizeClip (int trackId, int index, double grid);     // snap starts to a beat grid
     bool apiTransposeClip (int trackId, int index, int semitones);

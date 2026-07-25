@@ -315,8 +315,17 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      SplitClip/DuplicateClip/ReverseClip/GetClipNotes + Python client. Clips already
      serialise, so no new persistence. Verified precisely via GetClipNotes (split
      8→4+4 with correct offsets; reverse 60→beat3/63→beat0; duplicate→3 clips) +
-     smoke.sh. **Not yet:** clip gain/normalize, per-clip fades, crop-to-range,
-     consolidate, bounce-in-place; split-at-named-marker convenience.
+     smoke.sh.
+   - `[x]` **Clip gain + normalize landed** (commit): `apiSetClipGain` (audio clip gain
+     in dB) and `apiNormalizeClip` (scan the clip buffer's peak, set gain so it hits a
+     target dBFS; returns the applied gain). Audio clips only (MIDI dynamics = velocity);
+     both under engineLock via the reverse-clip pattern. SetClipGain/NormalizeClip RPCs +
+     Python. **Desktop UI:** `Normalize` + `Gain...` on the arrange-view clip right-click
+     menu (audio clips only; Gain prompts for dB) — screenshot-validated on Xvfb.
+     smoke.sh proves it via deltas (insert loss cancels): normalize -6 vs -18 renders
+     12 dB apart; SetClipGain -6 dB drops the peak 6 dB.
+     **Not yet:** per-clip fades, crop-to-range, consolidate, bounce-in-place;
+     split-at-named-marker convenience.
 
 7. **Buses & sends.** ✦ **L**
    *Ardour #8.* Explicit bus tracks; tracks route to a bus before master; per-send
