@@ -278,8 +278,13 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      `loudness` object + level warnings (true-peak > -1 dBTP → clip risk; > -8 LUFS →
      very hot; near-silent). The render/analyze chatter is wrapped in `CoutSilencer` so
      stdout stays pure JSON. smoke.sh proves it renders non-silent and reports LUFS.
-     **Not yet:** `render`/`export-stems` subcommands (available as `--render` / gRPC
-     `RunExport`).
+   - `[x]` **`render` + `export-stems` subcommands landed** (commit): `gloopy render
+     <project> [out.wav]` (headless offline bounce — prepareToPlay preps the generators,
+     apiRenderToFile writes the mix, prints the path) and `gloopy export-stems <project>
+     [outdir]` (one WAV per instrument track via a soloed render, emits a JSON stem list).
+     Both reuse the headless-CLI MainComponent + CoutSilencer for clean stdout. smoke.sh
+     proves both bounce non-silent audio. The `gloopy` CLI surface (inspect/validate/pack
+     /scan/analyze/render/export-stems) is now complete.
 
 5. **MIDI import/export + bulk JSON note I/O.** **M**
    *Idea #9/#14 + Ardour #5.* Standard `.mid` file in/out (map to/from the beat-based

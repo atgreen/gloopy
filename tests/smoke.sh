@@ -573,6 +573,20 @@ print('smoke: PASS — CLI validate --loudness (%.1f LUFS, tp %.1f dBTP)'%(l['lu
 g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
 packok=$(g -d "{\"path\":\"$WORK/packed.zip\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition | grep -o 'true\|false' | head -1)
 [ "$packok" = "true" ] && echo "smoke: PASS — CLI pack zip loads" || { echo "smoke: CLI pack zip did not load" >&2; exit 1; }
+# CLI render + export-stems: headless bounce of the composition (prints the wav path) and
+# one stem per instrument track (JSON list). Both must produce non-silent audio.
+"$BIN" render "$COMP" "$WORK/cli_mix.wav" >/dev/null 2>&1
+python3 -c "import wave;w=wave.open('$WORK/cli_mix.wav');f=w.readframes(w.getnframes());pk=max((abs(int.from_bytes(f[i:i+3],'little',signed=True)) for i in range(0,len(f),3)),default=0)/(1<<23);assert pk>0.02,'CLI render silent (%.3f)'%pk;print('smoke: PASS — CLI render bounced the mix (peak %.2f)'%pk)" \
+    || { echo "smoke: CLI render produced no/silent audio" >&2; exit 1; }
+"$BIN" export-stems "$COMP" "$WORK/cli_stems" 2>/dev/null | python3 -c "
+import json,sys,wave
+d=json.load(sys.stdin); stems=d.get('stems',[])
+assert len(stems)>=1, 'export-stems emitted no stems'
+for p in stems:
+    f=wave.open(p).readframes(10**7); pk=max((abs(int.from_bytes(f[i:i+3],'little',signed=True)) for i in range(0,len(f),3)),default=0)/(1<<23)
+    assert pk>0.02, 'stem %s is silent'%p
+print('smoke: PASS — CLI export-stems wrote %d non-silent stem(s)'%len(stems))
+" || { echo "smoke: CLI export-stems failed" >&2; exit 1; }
 # Plugin scan cache: `gloopy scan` emits a valid JSON array (empty is fine) with
 # enriched metadata fields on each entry.
 "$BIN" scan 2>/dev/null | python3 -c "

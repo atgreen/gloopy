@@ -201,7 +201,8 @@ public:
             return;
         }
 
-        if (args.size() >= 2 && (args[0] == "inspect" || args[0] == "validate" || args[0] == "pack"))
+        if (args.size() >= 2 && (args[0] == "inspect" || args[0] == "validate" || args[0] == "pack"
+                                 || args[0] == "render" || args[0] == "export-stems"))
         {
             std::unique_ptr<MainComponent> comp;
             { CoutSilencer s; comp = std::make_unique<MainComponent> (true);   // headless CLI mode
@@ -218,6 +219,37 @@ public:
                 juce::String out; { CoutSilencer s; out = comp->apiValidateJson (ok, loud); }
                 std::cout << out << std::endl;
                 rc = ok ? 0 : 1;
+            }
+            else if (args[0] == "render")   // render <project> [out.wav]: offline bounce of the mix
+            {
+                const auto in  = resolve (args[1]);
+                const auto out = args.size() >= 3 ? resolve (args[2])
+                                   : in.getParentDirectory().getChildFile (in.getFileNameWithoutExtension() + ".wav");
+                bool ok; { CoutSilencer s; comp->prepareToPlay (512, 44100.0);   // headless: prep the generators
+                           ok = comp->apiRenderToFile (out.getFullPathName(), 2.0, 0.0, 0.0, false, 0); }
+                if (ok) std::cout << out.getFullPathName() << std::endl;
+                else    std::cerr << "render: failed to write " << out.getFullPathName() << "\n";
+                rc = ok ? 0 : 1;
+            }
+            else if (args[0] == "export-stems")   // export-stems <project> [outdir]: one WAV per instrument track
+            {
+                auto dir = args.size() >= 3 ? resolve (args[2])
+                             : resolve (args[1]).getParentDirectory().getChildFile ("stems");
+                dir.createDirectory();
+                juce::Array<juce::var> files;
+                { CoutSilencer s; comp->prepareToPlay (512, 44100.0);
+                  for (auto& t : comp->apiListTracks())
+                      if (t.type == "instrument")
+                      {
+                          auto slug = t.name.toLowerCase().retainCharacters ("abcdefghijklmnopqrstuvwxyz0123456789-");
+                          auto f = dir.getChildFile (juce::String (t.id) + "-" + (slug.isEmpty() ? "track" : slug) + ".wav");
+                          if (comp->apiRenderToFile (f.getFullPathName(), 2.0, 0.0, 0.0, true, t.id))
+                              files.add (f.getFullPathName());
+                          else rc = 1;
+                      } }
+                juce::DynamicObject::Ptr o = new juce::DynamicObject();
+                o->setProperty ("stems", juce::var (files));
+                std::cout << juce::JSON::toString (juce::var (o.get())) << std::endl;
             }
             else   // pack <project> <out.zip>: normalise to a composition, then zip it
             {
