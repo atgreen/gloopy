@@ -63,19 +63,12 @@ public:
 
     void mouseDown (const juce::MouseEvent& e) override
     {
-        // Right-click on the fader or pan -> MIDI Learn for that target.
+        // Right-click on the fader or pan -> param menu (MIDI Learn / LFO) for that target.
         if (e.mods.isPopupMenu() && (e.eventComponent == &fader || e.eventComponent == &pan))
         {
             const juce::String field  = (e.eventComponent == &pan) ? "pan" : "volume";
             const juce::String target = "insert/" + juce::String (index) + "/" + field;
-            juce::PopupMenu m;
-            m.addSectionHeader (track->name + "  " + field);
-            m.addItem (1, "MIDI Learn");
-            const auto tgt = target;
-            m.showMenuAsync (juce::PopupMenu::Options(), [this, tgt] (int r)
-            {
-                if (r == 1 && owner.onMidiLearn) owner.onMidiLearn (tgt);
-            });
+            owner.showParamMenu (target, track->name + "  " + field);
             return;
         }
 
@@ -352,22 +345,54 @@ void MixerView::rebuildEditor()
 void MixerView::mouseDown (const juce::MouseEvent& e)
 {
     if (! e.mods.isPopupMenu()) return;
-    // Right-click an FX param knob -> MIDI Learn for that effect/<t>/<slot>/<param> id.
+    // Right-click an FX param knob -> param menu for that effect/<t>/<slot>/<param> id.
     for (size_t i = 0; i < paramSliders.size(); ++i)
-    {
         if (e.eventComponent == paramSliders[i].get() && i < paramTargets.size())
         {
-            const juce::String tgt = paramTargets[i];
-            juce::PopupMenu m;
-            m.addSectionHeader (paramLabels[i]->getText());
-            m.addItem (1, "MIDI Learn");
-            m.showMenuAsync (juce::PopupMenu::Options(), [this, tgt] (int r)
-            {
-                if (r == 1 && onMidiLearn) onMidiLearn (tgt);
-            });
+            showParamMenu (paramTargets[i], paramLabels[i]->getText());
             return;
         }
-    }
+}
+
+// Shared right-click menu for any ParamModel target: MIDI Learn, add/remove an LFO.
+void MixerView::showParamMenu (const juce::String& target, const juce::String& label)
+{
+    juce::PopupMenu m;
+    m.addSectionHeader (label);
+    m.addItem (1, "MIDI Learn");
+    m.addItem (2, "Add LFO...");
+    m.addItem (3, "Remove LFO");
+    const juce::String tgt = target;
+    m.showMenuAsync (juce::PopupMenu::Options(), [this, tgt] (int r)
+    {
+        if      (r == 1 && onMidiLearn)        onMidiLearn (tgt);
+        else if (r == 2)                       promptAddLfo (tgt);
+        else if (r == 3 && onRemoveModulation) onRemoveModulation (tgt);
+    });
+}
+
+// LFO prompt: rate (Hz), depth (param units), shape. Centre is resolved by the owner
+// from the target's current value. Calls onSetModulation with the same shape as the API.
+void MixerView::promptAddLfo (const juce::String& target)
+{
+    auto* aw = new juce::AlertWindow ("Add LFO", target, juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("rate",  "2.0",  "Rate (Hz)");
+    aw->addTextEditor ("depth", "0.25", "Depth");
+    juce::StringArray shapes { "Sine", "Triangle", "Saw", "Square" };
+    aw->addComboBox ("shape", shapes, "Shape");
+    aw->addButton ("Add",    1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, target] (int r)
+    {
+        if (r == 1 && onSetModulation)
+        {
+            const float rate  = aw->getTextEditorContents ("rate").getFloatValue();
+            const float depth = aw->getTextEditorContents ("depth").getFloatValue();
+            const int   shape = aw->getComboBoxComponent ("shape")->getSelectedItemIndex();
+            if (rate > 0.0f) onSetModulation (target, rate, depth, juce::jmax (0, shape));
+        }
+        delete aw;
+    }), false);
 }
 
 void MixerView::paint (juce::Graphics& g)

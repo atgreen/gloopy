@@ -253,6 +253,13 @@ MainComponent::MainComponent (bool headless)
     mixerView->onOpenPluginEditor   = [this] (juce::AudioProcessor* p, const juce::String& n) { openPluginEditor (p, n); };
     mixerView->onBeforeStructuralChange = [this] { closeAllPluginWindows(); };
     mixerView->onMidiLearn          = [this] (const juce::String& target) { apiMidiLearn (target); };
+    mixerView->onSetModulation      = [this] (const juce::String& target, float rate, float depth, int shape)
+    {
+        ParamDesc d;
+        const float center = apiGetParameter (target, d) ? d.value : 0.0f;   // LFO centres on the current value
+        apiSetModulation (target, rate, depth, shape, center);
+    };
+    mixerView->onRemoveModulation   = [this] (const juce::String& target) { apiRemoveModulation (target); };
 
     setupDefaultProject();
 
