@@ -284,7 +284,12 @@ public:
             setContentOwned (c, true);
             setResizable (true, true);
             setResizeLimits (720, 480, 4000, 3000);
-            centreWithSize (getWidth(), getHeight());
+            // centreWithSize dereferences the display list, which is empty on a bare
+            // X server (e.g. Xvfb) — guard it so the app doesn't segfault at startup.
+            if (juce::Desktop::getInstance().getDisplays().displays.isEmpty())
+                setTopLeftPosition (40, 40);
+            else
+                centreWithSize (getWidth(), getHeight());
             setVisible (true);
         }
 
