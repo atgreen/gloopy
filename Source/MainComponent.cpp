@@ -595,8 +595,11 @@ void MainComponent::finalizeRecording()
     Track* t = resolveTrack (recordTrackId.load());
     if (count == 0 || t == nullptr) return;
 
-    const double spb = juce::jmax (1.0, transport.samplesPerBeat());
-    const auto toBeat = [&] (juce::int64 s) { return juce::jmax (0.0, (double) (s - recordStartSample) / spb); };
+    // Tempo-aware: recorded positions are absolute song samples; map them through the
+    // tempo map to beats (identical to /spb when the map is empty). Notes are stored
+    // clip-relative, so subtract the clip's own absolute start beat.
+    const double startBeatAbs = samplesToBeats (recordStartSample);
+    const auto toBeat = [&] (juce::int64 s) { return juce::jmax (0.0, samplesToBeats (s) - startBeatAbs); };
 
     struct Pending { bool on = false; double startBeat = 0.0; float vel = 0.8f; };
     std::array<Pending, 128> pend;
@@ -625,7 +628,7 @@ void MainComponent::finalizeRecording()
     for (auto& n : notes) maxEnd = juce::jmax (maxEnd, n.startBeat + n.lengthBeats);
     Clip c;
     c.name = "Recording";
-    c.startBeat = (double) recordStartSample / spb;
+    c.startBeat = startBeatAbs;
     c.lengthBeats = juce::jmax (1.0, maxEnd);
     c.contentLenBeats = c.lengthBeats;
     c.looped = false;
@@ -1352,8 +1355,9 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
     // into synchronous-load mode so they don't drop to silence past their preload.
     for (auto& t : tracks) if (t->generator) t->generator->setFreewheeling (true);
 
-    const double spb = juce::jmax (1.0, transport.samplesPerBeat());
-    const juce::int64 startSample = (juce::int64) (juce::jmax (0.0, startBeat) * spb);
+    // Tempo-aware range: a named/explicit range is in beats; map it through the tempo
+    // map (identical to beat*spb when the map is empty).
+    const juce::int64 startSample = beatToSamples (juce::jmax (0.0, startBeat));
 
     // Start at the range beginning, playing, ignoring any live seek/reset or loop region.
     double dummy; transport.consumeSeek (dummy); transport.consumeReset();
@@ -1382,7 +1386,7 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
         const juce::int64 songLen = renderBlock (buf, 0, block, /*ignoreLoopWindow*/ true);
         if (target == 0)   // known after the first block
         {
-            const juce::int64 endSample = endBeat > startBeat ? (juce::int64) (endBeat * spb) : songLen;
+            const juce::int64 endSample = endBeat > startBeat ? beatToSamples (endBeat) : songLen;
             bodyLen = juce::jmax ((juce::int64) 1, endSample - startSample);
             target  = bodyLen + tailSamples;
         }
@@ -1716,8 +1720,25 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     const double      spb     = transport.samplesPerBeat();
     const juce::int64 blockStartPlayhead = transport.getPlayheadSamples();   // for MIDI capture
 
+    // Snapshot the tempo map once per block (allocation-free) so the scheduler can
+    // convert beats<->samples on the audio thread without locking or heap traffic.
+    // Empty map -> constant path (llround(beat*spb)), identical to the pre-map engine.
+    // renderBlock always runs under engineLock (audio: try-lock; offline: scoped), so
+    // reading tempoMap here is safe. tempoMap is kept beat-ascending on edit/load.
+    TempoConv tc;
+    {
+        const int nm = juce::jmin ((int) tempoMap.size(), TempoConv::kMaxMarkers);
+        if (nm <= 0) tc.setMarkers (nullptr, nullptr, 0, currentSampleRate, spb);
+        else
+        {
+            double beats[TempoConv::kMaxMarkers], bpms[TempoConv::kMaxMarkers];
+            for (int i = 0; i < nm; ++i) { beats[i] = tempoMap[(size_t) i].beat; bpms[i] = tempoMap[(size_t) i].bpm; }
+            tc.setMarkers (beats, bpms, nm, currentSampleRate, spb);
+        }
+    }
+
     if (playing && ! automationLanes.empty())
-        evaluateAutomation ((double) blockStartPlayhead / juce::jmax (1.0, spb));
+        evaluateAutomation (tc.sampleToBeat (blockStartPlayhead));
 
     // LFO modulation is driven off the playhead time so a render is deterministic.
     if (! modulations.empty())
@@ -1727,7 +1748,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     double seekBeats = 0.0;
     if (transport.consumeSeek (seekBeats))
     {
-        transport.setPlayheadSamples (juce::jmax ((juce::int64) 0, (juce::int64) std::llround (seekBeats * spb)));
+        transport.setPlayheadSamples (juce::jmax ((juce::int64) 0, tc.beatToSample (seekBeats)));
         for (auto& t : tracks) if (t->generator) t->generator->allNotesOff();
     }
 
@@ -1736,16 +1757,15 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     for (auto& t : tracks)
         for (auto& c : t->clips)
             songBeats = juce::jmax (songBeats, c.endBeat());
-    juce::int64 loopLen = (juce::int64) std::llround (songBeats * spb);
+    juce::int64 loopLen = tc.beatToSample (songBeats);
     if (loopLen < 1) loopLen = 1;
 
     // Playback window: the loop region if enabled, else the whole song.
     juce::int64 winStart = 0, winEnd = loopLen;
     if (transport.isLoopEnabled() && ! ignoreLoopWindow)
     {
-        winStart = juce::jlimit ((juce::int64) 0, loopLen,
-                                 (juce::int64) std::llround (transport.getLoopStartBeats() * spb));
-        winEnd   = (juce::int64) std::llround (transport.getLoopEndBeats() * spb);
+        winStart = juce::jlimit ((juce::int64) 0, loopLen, tc.beatToSample (transport.getLoopStartBeats()));
+        winEnd   = tc.beatToSample (transport.getLoopEndBeats());
         if (winEnd - winStart < 1) winEnd = winStart + 1;
     }
 
@@ -1780,37 +1800,49 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
 
     // Collect a MIDI clip's notes over a song-sample window (content loops to fill).
     const double swing = transport.getSwing();
-    auto collectClip = [spb, swing] (juce::MidiBuffer& midi, const Clip& clip,
+    auto collectClip = [&tc, swing] (juce::MidiBuffer& midi, const Clip& clip,
                               juce::int64 songStart, int chunk, int tsOffset, bool useArp)
     {
         if (clip.type != ClipType::Midi) return;
         // Live arp: play the precomputed expansion instead of the raw chord (both under the lock).
         const std::vector<Note>& src = (useArp && ! clip.arpNotes.empty()) ? clip.arpNotes : clip.notes;
-        const juce::int64 songEnd  = songStart + chunk;
-        const juce::int64 clipStart = (juce::int64) std::llround (clip.startBeat * spb);
-        const juce::int64 clipEnd   = (juce::int64) std::llround (clip.endBeat() * spb);
-        const double repBeats = clip.looped ? clip.contentLenBeats : clip.lengthBeats;
-        juce::int64 repUnit = (juce::int64) std::llround (repBeats * spb);
-        if (repUnit < 1) repUnit = clipEnd - clipStart;
-        if (repUnit < 1) return;
+        const juce::int64 songEnd   = songStart + chunk;
+        const juce::int64 clipStart = tc.beatToSample (clip.startBeat);
+        const juce::int64 clipEnd   = tc.beatToSample (clip.endBeat());
 
         const juce::int64 lo = juce::jmax (songStart, clipStart);
         const juce::int64 hi = juce::jmin (songEnd, clipEnd);
         if (lo >= hi) return;
 
-        juce::int64 repStart = clipStart + ((lo - clipStart) / repUnit) * repUnit;
-        for (; repStart < hi; repStart += repUnit)
+        // Repetitions tile the clip in BEAT space from clip.startBeat, so each rep's
+        // sample stride follows the tempo map (it's constant only when the map is).
+        const double repBeats = clip.looped ? clip.contentLenBeats : clip.lengthBeats;
+        const bool   tiled    = repBeats > 0.0
+                                && tc.beatToSample (clip.startBeat + repBeats) - clipStart >= 1;
+        if (! tiled)   // single pass over the whole clip window (degenerate/one-shot)
         {
-            const juce::int64 winLo = juce::jmax (lo, repStart);
-            const juce::int64 winHi = juce::jmin (hi, repStart + repUnit);
+            collectNotes (src, midi, tc, clip.startBeat, songStart, tsOffset, lo, hi, swing);
+            return;
+        }
+
+        // First repetition whose beat span can reach 'lo'; walk forward until past 'hi'.
+        int repK = (int) std::floor ((tc.sampleToBeat (lo) - clip.startBeat) / repBeats);
+        if (repK < 0) repK = 0;
+        for (;; ++repK)
+        {
+            const double     repStartBeat = clip.startBeat + repK * repBeats;
+            const juce::int64 repStart = tc.beatToSample (repStartBeat);
+            if (repStart >= hi) break;
+            const juce::int64 repEnd = tc.beatToSample (repStartBeat + repBeats);
+            const juce::int64 winLo  = juce::jmax (lo, repStart);
+            const juce::int64 winHi  = juce::jmin (hi, repEnd);
             if (winLo < winHi)
-                collectNotes (src, midi, winLo - repStart, (int) (winHi - winLo),
-                              tsOffset + (int) (winLo - songStart), spb, swing);
+                collectNotes (src, midi, tc, repStartBeat, songStart, tsOffset, winLo, winHi, swing);
         }
     };
 
     // Render an audio clip's samples over a song-sample window (natural speed).
-    auto renderAudioClip = [spb, deviceRate] (juce::AudioBuffer<float>& buffer, const Clip& clip,
+    auto renderAudioClip = [&tc, deviceRate] (juce::AudioBuffer<float>& buffer, const Clip& clip,
                                               juce::int64 songStart, int chunk, int tsOffset)
     {
         if (! clip.isAudio() || clip.audio == nullptr || clip.muted) return;   // muted = inactive take
@@ -1820,8 +1852,9 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
 
         const int nchSrc = ab.getNumChannels();
         const double ratio = clip.audioSourceRate / deviceRate;
-        const juce::int64 clipStart = (juce::int64) std::llround (clip.startBeat * spb);
-        const juce::int64 clipEnd   = (juce::int64) std::llround (clip.endBeat() * spb);
+        // Audio plays at natural speed; only its start/end anchors follow the tempo map.
+        const juce::int64 clipStart = tc.beatToSample (clip.startBeat);
+        const juce::int64 clipEnd   = tc.beatToSample (clip.endBeat());
 
         for (int i = 0; i < chunk; ++i)
         {
@@ -3134,6 +3167,9 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
         auto v = tm.getChild (i);
         tempoMap.push_back ({ (double) v.getProperty ("beat", 0.0), (double) v.getProperty ("bpm", 120.0) });
     }
+    // The render snapshot integrates the tempo map assuming beat-ascending order; a
+    // hand-edited project may not be, so enforce the invariant here.
+    std::sort (tempoMap.begin(), tempoMap.end(), [] (auto& a, auto& b) { return a.beat < b.beat; });
 
     auto ctl = root.getChildWithName ("CONTROLLERS");
     for (int i = 0; i < ctl.getNumChildren(); ++i)

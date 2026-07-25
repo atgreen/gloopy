@@ -334,6 +334,23 @@ HALFF=$(python3 -c "import wave;print(wave.open('$WORK/half.wav').getnframes())"
 [ "$HALFF" -lt "$FULLF" ] || { echo "smoke: render-by-range not shorter (half=$HALFF full=$FULLF)" >&2; exit 1; }
 echo "smoke: PASS — render-by-range 'half' shorter than full ($HALFF < $FULLF frames)"
 
+# Tempo map: a mid-song speed-up (120->240 bpm at beat 2) must shorten a fixed 0..4
+# beat render, because beat->sample now integrates the tempo map. Anchor 120 at beat 0
+# so beats 0..2 stay slow — a lone late marker would (by the before-first-marker rule)
+# speed up the whole song. full0.wav above is the constant-tempo baseline.
+g -d '{"beat":0,"bpm":120}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddTempoMarker >/dev/null
+g -d '{"beat":2,"bpm":240}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddTempoMarker >/dev/null
+g -d "{\"path\":\"$WORK/tvary.wav\",\"tail_seconds\":0,\"start_beat\":0,\"end_beat\":4}" \
+    127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+TVARYF=$(python3 -c "import wave;print(wave.open('$WORK/tvary.wav').getnframes())")
+HALFFULL=$(( FULLF / 2 ))
+[ "$TVARYF" -lt "$FULLF" ] || { echo "smoke: mid-song tempo change did not shorten render (vary=$TVARYF const=$FULLF)" >&2; exit 1; }
+[ "$TVARYF" -gt "$HALFFULL" ] || { echo "smoke: tempo change over-shortened; pre-marker beats not preserved (vary=$TVARYF half=$HALFFULL)" >&2; exit 1; }
+echo "smoke: PASS — mid-song tempo speed-up shortened render ($HALFFULL < $TVARYF < $FULLF frames)"
+# Restore the empty-map default so downstream composition assertions are unaffected.
+g -d '{"beat":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTempoMarker >/dev/null
+g -d '{"beat":2}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTempoMarker >/dev/null
+
 # Export profiles: a named 'master' mix target renders a deterministic file, and the
 # profile survives the composition round-trip (checked after the reload below).
 g -d '{"name":"master","target":"mix","format":"wav"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/DefineExportProfile >/dev/null

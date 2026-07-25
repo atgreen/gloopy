@@ -379,26 +379,26 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       Add/List/Remove marker (upsert by beat). Serialised (TEMPOMAP + composition
       `tempo.toml`). RPCs + Python. Verified: 8 beats across 120→240 = 3.0s (not 4.0),
       round-trips.
-    - `[~]` **Conversion foundation landed** (commit): `beatToSamples`/`samplesToBeats`
+    - `[x]` **Conversion foundation landed** (commit): `beatToSamples`/`samplesToBeats`
       (tempo-aware, byte-identical to `beat*spb` / `samples/spb` when the map is empty;
-      engineLock is recursive so they're callable from `renderBlock`). Not yet wired
-      into the scheduler.
-    - `[ ]` **NEXT — the scheduler rewrite (genuine multi-session slice; do NOT rush).**
-      Confirmed blocker: `collectNotes` (NoteScheduler.h) and the `collectClip` lambda
-      schedule in **rep-relative sample space with a constant `spb`** — placing each
-      note at `note.startBeat*spb` inside a repeat window whose stride `repUnit` is a
-      *fixed sample count*. That representation cannot express per-repetition tempo
-      variation, so both must be rewritten to **beat-space**: `collectClip` iterates
-      repetitions by beat (repK → `beatToSamples(clip.startBeat + k*repBeats)`), and
-      `collectNotes` takes an absolute `repStartBeat` + a `beatToSamples` functor
-      (instead of `spb`) and places each note at
-      `beatToSamples(repStartBeat + swingBeat(n.startBeat))`, filtered to the block's
-      song-sample window. Also make tempo-aware: `loopLen`, the loop window
-      (`winStart/winEnd`), `apiRenderToFile` range endpoints, and MIDI-record `toBeat`.
-      Keep the empty-map path byte-identical (the new helpers already are). Safety net:
-      the full smoke suite runs with an empty map, so it regression-guards the rewrite;
-      add a variable-tempo proof (mid-song tempo change ⇒ shorter WAV). This wants a
-      focused session, not a 5-minute loop tick — the audio thread is sacred.
+      engineLock is recursive so they're callable from `renderBlock`).
+    - `[x]` **Scheduler rewrite landed** (commit): renderBlock snapshots the markers
+      once per block into an **allocation-free `TempoConv`** (NoteScheduler.h) — the
+      empty-map case is the constant `llround(beat*spb)` path (byte-identical), a
+      non-empty map integrates the tempo piecewise over a fixed-size marker snapshot, so
+      the audio thread never locks or allocates to convert (principle 4). `collectClip`
+      now tiles repetitions in **beat space** (`beatToSample(startBeat + k*repBeats)`),
+      and `collectNotes` takes an absolute `repStartBeat` + the `TempoConv` and places
+      each note at its absolute song-sample position, filtered to the block window. Also
+      routed through the map: `loopLen`, the loop window, the seek target, the automation
+      beat, audio-clip anchors, `apiRenderToFile` range endpoints, and MIDI-record beats;
+      `loadFromTree` sorts the map (the snapshot needs beat-ascending). Proven: a
+      `GloopyTests` case asserting the exact integration of a mid-song 120→240 change
+      (sample positions 50/100/125/150) + `collectNotes` honouring it, and a `smoke.sh`
+      assertion that a mid-song speed-up shortens a fixed 0..4-beat render while staying
+      above half (pre-marker beats preserved). Empty-map smoke suite stays green. **#10
+      done.** **Not yet:** genuine time-*signature* changes (bars↔beats API still assumes
+      4/4) — a separate, smaller slice.
 
 11. **Scales & microtuning.** **M**
     *Idea #11.* Project-level scale definitions; per-track tuning mode; piano-roll

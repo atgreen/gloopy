@@ -6,10 +6,11 @@
 // seconds segment-by-segment. Before the first marker the tempo equals the first
 // marker's bpm. An empty map means constant transport.bpm (unchanged behaviour).
 //
-// NOTE: this slice is the model + conversion helpers + serialisation only. The render
-// path still schedules at a single samplesPerBeat; making renderBlock/collectClip
-// follow the map (variable samplesPerBeat, non-constant loop repUnit) is a
-// checkpointed follow-up — see the grind skill Wave 4 #10.
+// The render path follows this map: renderBlock snapshots the markers into an
+// allocation-free TempoConv (NoteScheduler.h) once per block and converts beats<->
+// samples through it, so collectClip/collectNotes, the loop window, song length, the
+// offline render range, and MIDI-record beats all honour mid-song tempo changes. With
+// an empty map every conversion reduces to beat*spb, byte-identical to before.
 
 #include "MainComponent.h"
 #include <algorithm>

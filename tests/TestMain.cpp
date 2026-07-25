@@ -52,14 +52,17 @@ struct NoteSchedulerTests : juce::UnitTest
             }
         }
 
+        // Constant-tempo converter: an empty tempo map -> the byte-identical spb path.
+        auto constConv = [] (double spb) { TempoConv c; c.setMarkers (nullptr, nullptr, 0, 44100.0, spb); return c; };
+
         beginTest ("collectNotes places note-on/off in the right block");
         {
-            const double spb = 100.0;                     // 100 samples per beat
+            const TempoConv tc = constConv (100.0);       // 100 samples per beat
             std::vector<Note> notes { { 60, 1.0, 2.0, 0.8f } };  // on@beat1 off@beat3
 
             juce::MidiBuffer midi;
             // Block covering samples [0, 400): should contain both on(100) and off(300).
-            collectNotes (notes, midi, 0, 400, 0, spb);
+            collectNotes (notes, midi, tc, 0.0, 0, 0, 0, 400);
 
             int ons = 0, offs = 0, onPos = -1, offPos = -1;
             for (const auto meta : midi)
@@ -76,12 +79,12 @@ struct NoteSchedulerTests : juce::UnitTest
 
         beginTest ("collectNotes windowing excludes out-of-range events");
         {
-            const double spb = 100.0;
+            const TempoConv tc = constConv (100.0);
             std::vector<Note> notes { { 60, 1.0, 2.0, 0.8f } };  // on@100 off@300
 
             juce::MidiBuffer midi;
             // Block [0,200): should have the note-on only.
-            collectNotes (notes, midi, 0, 200, 0, spb);
+            collectNotes (notes, midi, tc, 0.0, 0, 0, 0, 200);
             int ons = 0, offs = 0;
             for (const auto meta : midi)
             {
@@ -94,12 +97,12 @@ struct NoteSchedulerTests : juce::UnitTest
 
         beginTest ("collectNotes swing delays the off-beat note-on");
         {
-            const double spb = 100.0;
+            const TempoConv tc = constConv (100.0);
             std::vector<Note> notes { { 60, 0.5, 0.5, 0.8f } };  // off-eighth note
 
             juce::MidiBuffer straight, swung;
-            collectNotes (notes, straight, 0, 400, 0, spb, 0.5);
-            collectNotes (notes, swung,    0, 400, 0, spb, 0.66);
+            collectNotes (notes, straight, tc, 0.0, 0, 0, 0, 400, 0.5);
+            collectNotes (notes, swung,    tc, 0.0, 0, 0, 0, 400, 0.66);
 
             auto firstOn = [] (juce::MidiBuffer& b) {
                 for (const auto meta : b)
@@ -111,6 +114,42 @@ struct NoteSchedulerTests : juce::UnitTest
             expectEquals (sPos, 50);                     // 0.5 beat * 100 spb
             expect (wPos > sPos, "swing should push the off-eighth later");
             expectEquals (wPos, 66);
+        }
+
+        beginTest ("TempoConv integrates a mid-song tempo change");
+        {
+            // 120 bpm from beat 0, doubling to 240 bpm at beat 2. At sampleRate 100:
+            // spb=50 below beat 2, spb=25 above -> beat N maps to fewer samples after 2.
+            const double beats[] = { 0.0, 2.0 };
+            const double bpms[]  = { 120.0, 240.0 };
+            TempoConv tc; tc.setMarkers (beats, bpms, 2, /*rate*/ 100.0, /*fallback*/ 0.0);
+
+            expectEquals (tc.beatToSample (1.0), (juce::int64) 50);    // 1 beat @120 = 0.5s
+            expectEquals (tc.beatToSample (2.0), (juce::int64) 100);   // 2 beats @120 = 1.0s
+            expectEquals (tc.beatToSample (3.0), (juce::int64) 125);   // +1 beat @240 = +0.25s
+            expectEquals (tc.beatToSample (4.0), (juce::int64) 150);   // +2 beats @240 = +0.5s
+
+            // The speed-up shortens the render: 4 beats span 150 samples, not the 200
+            // a constant 120 bpm (spb 50) would give.
+            expect (tc.beatToSample (4.0) < (juce::int64) 200, "tempo speed-up shortens the render");
+
+            // Inverse round-trips at the boundary and past it.
+            expectWithinAbsoluteError (tc.sampleToBeat (100), 2.0, 1e-9);
+            expectWithinAbsoluteError (tc.sampleToBeat (125), 3.0, 1e-9);
+
+            // collectNotes honours it: a note on@beat2 lands at 100, off@beat3 at 125.
+            std::vector<Note> vnotes { { 67, 2.0, 1.0, 0.7f } };
+            juce::MidiBuffer vm;
+            collectNotes (vnotes, vm, tc, 0.0, 0, 0, 0, 400);
+            int vonPos = -1, voffPos = -1;
+            for (const auto meta : vm)
+            {
+                const auto m = meta.getMessage();
+                if (m.isNoteOn())  vonPos  = meta.samplePosition;
+                if (m.isNoteOff()) voffPos = meta.samplePosition;
+            }
+            expectEquals (vonPos, 100);
+            expectEquals (voffPos, 125);
         }
     }
 };
