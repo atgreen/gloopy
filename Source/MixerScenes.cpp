@@ -24,6 +24,7 @@ bool MainComponent::apiDefineMixerScene (const juce::String& name)
             in.volume = mt->volume.load(); in.pan = mt->pan.load();
             in.mute = mt->mute.load();     in.solo = mt->solo.load();
             for (auto& fx : mt->effects) in.bypass.push_back (fx->bypassed.load() ? 1 : 0);
+            for (auto& s : mt->sends)    in.sends.push_back ({ s.bus, s.level });
             sc.inserts.push_back (std::move (in));
         }
         auto it = std::find_if (mixerScenes.begin(), mixerScenes.end(),
@@ -68,6 +69,11 @@ bool MainComponent::apiRecallMixerScene (const juce::String& name)
                 mt.mute.store (in.mute);     mt.solo.store (in.solo);
                 for (size_t s = 0; s < in.bypass.size() && s < mt.effects.size(); ++s)
                     mt.effects[s]->bypassed.store (in.bypass[s] != 0);
+                // Restore the level of each captured send that still exists (matched by
+                // target bus); added/removed sends are tolerated, like inserts/effects.
+                for (auto& cs : in.sends)
+                    for (auto& s : mt.sends)
+                        if (s.bus == cs.first) { s.level = cs.second; break; }
             }
         }
         emitChange ("effect_changed");   // nudge subscribers / UI to refresh the mixer

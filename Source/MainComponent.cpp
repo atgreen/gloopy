@@ -2837,6 +2837,8 @@ juce::ValueTree MainComponent::toValueTree()
             iv.setProperty ("mute", in.mute, nullptr);   iv.setProperty ("solo", in.solo, nullptr);
             juce::String bp; for (auto b : in.bypass) bp << (b ? '1' : '0');
             iv.setProperty ("bypass", bp, nullptr);
+            juce::String se; for (auto& s : in.sends) { if (se.isNotEmpty()) se << "|"; se << s.first << ":" << s.second; }
+            if (se.isNotEmpty()) iv.setProperty ("sends", se, nullptr);
             sv.addChild (iv, -1, nullptr);
         }
         scs.addChild (sv, -1, nullptr);
@@ -3243,6 +3245,11 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             in.solo   = (bool) iv.getProperty ("solo", false);
             const auto bp = iv.getProperty ("bypass").toString();
             for (int k = 0; k < bp.length(); ++k) in.bypass.push_back (bp[k] == '1' ? 1 : 0);
+            const auto se = iv.getProperty ("sends").toString();
+            for (auto& tok : juce::StringArray::fromTokens (se, "|", ""))
+                if (tok.contains (":"))
+                    in.sends.push_back ({ tok.upToFirstOccurrenceOf (":", false, false).getIntValue(),
+                                          (float) tok.fromFirstOccurrenceOf (":", false, false).getDoubleValue() });
             sc.inserts.push_back (std::move (in));
         }
         mixerScenes.push_back (std::move (sc));

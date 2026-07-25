@@ -493,7 +493,8 @@ bool MainComponent::saveComposition (const juce::File& dir)
               << toml::Writer::num ((double) iv.getProperty ("pan", 0.0)) << ","
               << ((bool) iv.getProperty ("mute") ? "1" : "0") << ","
               << ((bool) iv.getProperty ("solo") ? "1" : "0") << ","
-              << iv.getProperty ("bypass").toString();
+              << iv.getProperty ("bypass").toString() << ","
+              << iv.getProperty ("sends").toString();   // "bus:level|bus:level" (may be empty)
             insEnc.add (e);
         }
         sw.arrayItem ("scenes").str ("name", sv.getProperty ("name").toString())
@@ -813,6 +814,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                 iv.setProperty ("mute", p.size() > 2 && p[2] == "1", nullptr);
                 iv.setProperty ("solo", p.size() > 3 && p[3] == "1", nullptr);
                 iv.setProperty ("bypass", p.size() > 4 ? p[4] : juce::String(), nullptr);
+                if (p.size() > 5 && p[5].isNotEmpty()) iv.setProperty ("sends", p[5], nullptr);
                 sv.addChild (iv, -1, nullptr);
             }
             sceneTree.addChild (sv, -1, nullptr);

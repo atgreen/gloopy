@@ -599,4 +599,18 @@ assert rx>1.0, 'offline render not faster than realtime: '+str(rx)
 print('smoke: PASS — diagnostics (%g Hz / %d smp, render %.0fx realtime)'%(sr,bs,rx))
 " || { echo "smoke: diagnostics out of range" >&2; exit 1; }
 
+# Mixer scenes now also capture aux-send levels: add a bus + send, snapshot, change the
+# send, recall, and confirm the send level is restored (last — it adds a bus insert).
+SB=$(g -d '{"name":"SceneBus"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddBus | python3 -c "import json,sys;print(json.load(sys.stdin).get('id',0))")
+sendlvl() { g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListInserts | python3 -c "import json,sys;ins=json.load(sys.stdin)['inserts'];s=[x for x in ins if x.get('index',0)==0][0].get('sends',[]);print(([e.get('level',0) for e in s if e.get('bus',0)==$SB] or [0])[0])"; }
+g -d "{\"insert\":0,\"bus\":$SB,\"level\":0.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSend >/dev/null
+g -d '{"name":"sendscene"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/DefineMixerScene >/dev/null
+g -d "{\"insert\":0,\"bus\":$SB,\"level\":0.9}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSend >/dev/null
+g -d '{"name":"sendscene"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RecallMixerScene >/dev/null
+python3 -c "
+lv=float('$(sendlvl)')
+assert abs(lv-0.5) < 1e-4, 'scene recall did not restore the send level (got %.3f, expected 0.5)'%lv
+print('smoke: PASS — mixer scene restores aux-send level (%.2f)'%lv)
+" || { echo "smoke: mixer scene did not restore send level" >&2; exit 1; }
+
 echo "smoke: OK"

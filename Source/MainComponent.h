@@ -520,7 +520,8 @@ private:
     struct MixerScene
     {
         juce::String name;
-        struct Insert { float volume { 0.8f }, pan { 0.0f }; bool mute { false }, solo { false }; std::vector<char> bypass; };
+        struct Insert { float volume { 0.8f }, pan { 0.0f }; bool mute { false }, solo { false };
+                        std::vector<char> bypass; std::vector<std::pair<int, float>> sends; };   // sends: (bus, level)
         std::vector<Insert> inserts;
     };
     std::vector<MixerScene> mixerScenes;         // guarded by engineLock

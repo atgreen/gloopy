@@ -371,9 +371,14 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      `toValueTree`/`loadFromTree` (SCENES/SCENE/INSERT) + composition `scenes.toml`
      (inserts as compact `"vol,pan,mute,solo,bypassbits"` strings via the flat TOML
      writer). Python client + smoke.sh (snapshot→mangle→recall restores exactly).
-     Verified vol/pan/mute + effect-bypass restore, composition round-trip. **Not
-     yet:** control groups (VCA-lite fader scaling) and send levels (needs Wave 3 #7
-     buses/sends first).
+     Verified vol/pan/mute + effect-bypass restore, composition round-trip.
+   - `[x]` **Aux-send levels now captured** (commit): scenes also snapshot each insert's
+     `sends` (bus,level); recall restores the level of every still-existing send (matched
+     by bus, tolerating added/removed sends like inserts/effects). Encoded as a
+     `"bus:level|..."` string in the SCENE/INSERT ValueTree and appended as a 6th field to
+     the composition's compact insert string (back-compatible: old 5-field rows parse with
+     no sends). smoke.sh: set a send, snapshot, change it, recall -> level restored.
+     **Not yet:** control groups (VCA-lite fader scaling).
 
 ### Wave 4 — Musical model & modulation
 
