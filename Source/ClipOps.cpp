@@ -179,13 +179,18 @@ void MainComponent::applyArpToTrack (Track& t)
     for (auto& c : t.clips)
     {
         if (t.arp.enabled && c.type == ClipType::Midi)
-            c.arpNotes = expandArp (c.notes, t.arp.rate, t.arp.octaves, t.arp.gate, t.arp.mode);
+        {
+            const double len = c.contentLenBeats > 0.0 ? c.contentLenBeats : c.lengthBeats;
+            c.arpNotes = expandArp (c.notes, t.arp.rate, t.arp.octaves, t.arp.gate, t.arp.mode,
+                                    t.arp.swing, t.arp.hold, len);
+        }
         else
             c.arpNotes.clear();
     }
 }
 
-bool MainComponent::apiSetTrackArp (int trackId, bool enabled, double rate, int octaves, float gate, int mode)
+bool MainComponent::apiSetTrackArp (int trackId, bool enabled, double rate, int octaves, float gate, int mode,
+                                   float swing, bool hold)
 {
     return callOnMessageThread ([&] () -> bool
     {
@@ -199,6 +204,8 @@ bool MainComponent::apiSetTrackArp (int trackId, bool enabled, double rate, int 
             t->arp.octaves = juce::jlimit (1, 6, octaves);
             t->arp.gate    = juce::jlimit (0.05f, 1.0f, gate);
             t->arp.mode    = juce::jlimit (0, 3, mode);
+            t->arp.swing   = juce::jlimit (0.0f, 0.9f, swing);
+            t->arp.hold    = hold;
             applyArpToTrack (*t);
         }
         emitChange ("track_arp", trackId);
@@ -206,7 +213,8 @@ bool MainComponent::apiSetTrackArp (int trackId, bool enabled, double rate, int 
     });
 }
 
-bool MainComponent::apiGetTrackArp (int trackId, bool& enabled, double& rate, int& octaves, float& gate, int& mode)
+bool MainComponent::apiGetTrackArp (int trackId, bool& enabled, double& rate, int& octaves, float& gate, int& mode,
+                                   float& swing, bool& hold)
 {
     return callOnMessageThread ([&] () -> bool
     {
@@ -214,7 +222,7 @@ bool MainComponent::apiGetTrackArp (int trackId, bool& enabled, double& rate, in
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
         enabled = t->arp.enabled; rate = t->arp.rate; octaves = t->arp.octaves;
-        gate = t->arp.gate; mode = t->arp.mode;
+        gate = t->arp.gate; mode = t->arp.mode; swing = t->arp.swing; hold = t->arp.hold;
         return true;
     });
 }

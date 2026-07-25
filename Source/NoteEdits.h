@@ -108,14 +108,19 @@ inline void arpeggiateNotes (std::vector<Note>& notes, double stepBeats, int mod
     held* (sounding) at that step. So a held chord arpeggiates, a single sustained note
     repeats, and overlapping notes are picked up too — matching Ableton/Logic/hardware.
     `octaves` spans the pattern upward (1 = as-is), `gate` (0..1) is note length as a
-    fraction of the step, mode: 0 up, 1 down, 2 up-down, 3 random. Pure + deterministic
-    (seeded), so it unit-tests and renders stably. */
+    fraction of the step, mode: 0 up, 1 down, 2 up-down, 3 random. `swing` (0 = straight,
+    up to ~0.9) delays every other grid step for a shuffle feel. `hold` latches the last
+    sounding set across rests and, together with `holdLenBeats` > 0, keeps arpeggiating to
+    that length (fill the whole clip after the keys release). Pure + deterministic (seeded),
+    so it unit-tests and renders stably. */
 inline std::vector<Note> expandArp (const std::vector<Note>& notes, double rateBeats,
-                                    int octaves, float gate, int mode)
+                                    int octaves, float gate, int mode,
+                                    float swing = 0.0f, bool hold = false, double holdLenBeats = 0.0)
 {
     if (rateBeats <= 0.0 || notes.empty()) return notes;
     const int   octs = juce::jlimit (1, 6, octaves);
     const float g    = juce::jlimit (0.05f, 1.0f, gate);
+    const float sw   = juce::jlimit (0.0f, 0.9f, swing);
     const double eps = 1e-6;
 
     double tStart = notes[0].startBeat, tEnd = notes[0].startBeat;
@@ -124,10 +129,12 @@ inline std::vector<Note> expandArp (const std::vector<Note>& notes, double rateB
         tStart = juce::jmin (tStart, n.startBeat);
         tEnd   = juce::jmax (tEnd, n.startBeat + n.lengthBeats);
     }
+    if (hold && holdLenBeats > 0.0) tEnd = juce::jmax (tEnd, tStart + holdLenBeats);
     if (tEnd <= tStart + eps) return notes;
 
     juce::Random rng ((juce::int64) std::llround (tStart * 1000.0) + (juce::int64) notes.size() * 131 + 17);
     std::vector<Note> out;
+    std::vector<int> lastHeld; float lastVel = 0.8f;           // for hold/latch across rests
     int stepIndex = 0;
 
     for (double t = tStart; t < tEnd - eps; t += rateBeats)
@@ -137,9 +144,15 @@ inline std::vector<Note> expandArp (const std::vector<Note>& notes, double rateB
         for (const auto& n : notes)
             if (n.startBeat <= t + eps && t + eps < n.startBeat + n.lengthBeats)
                 { held.push_back (n.pitch); vel = juce::jmax (vel, n.velocity); }
-        if (held.empty()) continue;                            // a rest: nothing held this step
         std::sort (held.begin(), held.end());
         held.erase (std::unique (held.begin(), held.end()), held.end());
+
+        if (held.empty())
+        {
+            if (hold && ! lastHeld.empty()) { held = lastHeld; vel = lastVel; }   // latch the last set
+            else continue;                                     // a rest
+        }
+        else { lastHeld = held; lastVel = vel; }
 
         std::vector<int> pat;                                  // held set across octaves
         for (int o = 0; o < octs; ++o)
@@ -153,7 +166,10 @@ inline std::vector<Note> expandArp (const std::vector<Note>& notes, double rateB
 
         const int pitch = (mode == 3) ? seq[(size_t) rng.nextInt ((int) seq.size())]
                                       : seq[(size_t) (stepIndex % (int) seq.size())];
-        out.push_back ({ pitch, t, rateBeats * g, juce::jlimit (0.0f, 1.0f, vel > 0.0f ? vel : 0.8f) });
+        // Swing: push odd grid steps later (aligned to the grid, so rests don't desync it).
+        const long long gridStep = std::llround ((t - tStart) / rateBeats);
+        const double swOff = (sw > 0.0f && (gridStep % 2 != 0)) ? (double) sw * 0.5 * rateBeats : 0.0;
+        out.push_back ({ pitch, t + swOff, rateBeats * g, juce::jlimit (0.0f, 1.0f, vel > 0.0f ? vel : 0.8f) });
         ++stepIndex;
     }
     return out.empty() ? notes : out;

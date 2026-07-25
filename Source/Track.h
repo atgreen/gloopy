@@ -53,6 +53,8 @@ struct Track
         int    octaves { 1 };
         float  gate    { 0.5f };   // fraction of the step the note sounds
         int    mode    { 0 };      // 0 up, 1 down, 2 up-down, 3 random
+        float  swing   { 0.0f };   // 0 = straight; delays every other step
+        bool   hold    { false };  // latch the last chord across rests / fill the clip
     };
     ArpSpec arp;
 

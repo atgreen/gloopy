@@ -226,11 +226,12 @@ MainComponent::MainComponent (bool headless)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
         const int id = tracks[(size_t) trackIdx]->id;
-        bool en=false; double rate=0.25; int oct=1, mode=0; float gate=0.5f;
-        apiGetTrackArp (id, en, rate, oct, gate, mode);
+        bool en=false, hold=false; double rate=0.25; int oct=1, mode=0; float gate=0.5f, swing=0.0f;
+        apiGetTrackArp (id, en, rate, oct, gate, mode, swing, hold);
 
         juce::PopupMenu m;
         m.addItem (1, "Arpeggiator", true, en);                       // toggle on/off
+        m.addItem (2, "Hold", true, hold);                            // latch across rests / fill clip
         m.addSeparator();
         juce::PopupMenu rateM;
         const std::pair<const char*, double> rates[] = { {"1/4", 1.0}, {"1/8", 0.5}, {"1/16", 0.25}, {"1/32", 0.125} };
@@ -243,16 +244,22 @@ MainComponent::MainComponent (bool headless)
         const char* modes[] = { "Up", "Down", "Up-Down", "Random" };
         for (int i = 0; i < 4; ++i) modeM.addItem (30 + i, modes[i], true, mode == i);
         m.addSubMenu ("Mode", modeM);
+        juce::PopupMenu swingM;
+        const std::pair<const char*, float> swings[] = { {"Off", 0.0f}, {"Subtle", 0.2f}, {"Medium", 0.4f}, {"Strong", 0.6f} };
+        for (int i = 0; i < 4; ++i) swingM.addItem (40 + i, swings[i].first, true, std::abs (swing - swings[i].second) < 0.01f);
+        m.addSubMenu ("Swing", swingM);
 
-        m.showMenuAsync (juce::PopupMenu::Options(), [this, id, en, rate, oct, gate, mode] (int r)
+        m.showMenuAsync (juce::PopupMenu::Options(), [this, id, en, rate, oct, gate, mode, swing, hold] (int r)
         {
             if (r == 0) return;
-            bool nen = en; double nrate = rate; int noct = oct, nmode = mode;
+            bool nen = en, nhold = hold; double nrate = rate; int noct = oct, nmode = mode; float nswing = swing;
             if      (r == 1)                nen = ! en;
+            else if (r == 2)                { nhold = ! hold; nen = true; }
             else if (r >= 10 && r <= 13)    { nrate = (const double[]){1.0,0.5,0.25,0.125}[r-10]; nen = true; }
             else if (r >= 21 && r <= 24)    { noct = r - 20; nen = true; }
             else if (r >= 30 && r <= 33)    { nmode = r - 30; nen = true; }
-            apiSetTrackArp (id, nen, nrate, noct, gate, nmode);
+            else if (r >= 40 && r <= 43)    { nswing = (const float[]){0.0f,0.2f,0.4f,0.6f}[r-40]; nen = true; }
+            apiSetTrackArp (id, nen, nrate, noct, gate, nmode, nswing, nhold);
             if (arrangeView) arrangeView->rebuild();                   // refresh the ARP button lit-state
         });
     };
@@ -2329,6 +2336,8 @@ juce::ValueTree MainComponent::toValueTree()
             tr.setProperty ("arpOct", t->arp.octaves, nullptr);
             tr.setProperty ("arpGate", t->arp.gate, nullptr);
             tr.setProperty ("arpMode", t->arp.mode, nullptr);
+            tr.setProperty ("arpSwing", t->arp.swing, nullptr);
+            tr.setProperty ("arpHold", t->arp.hold, nullptr);
         }
 
         if (auto* sg = dynamic_cast<SynthGenerator*> (t->generator.get()))
@@ -2745,6 +2754,8 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
         t->arp.octaves = (int)  tr.getProperty ("arpOct", 1);
         t->arp.gate    = (float) (double) tr.getProperty ("arpGate", 0.5);
         t->arp.mode    = (int)  tr.getProperty ("arpMode", 0);
+        t->arp.swing   = (float) (double) tr.getProperty ("arpSwing", 0.0);
+        t->arp.hold    = (bool) tr.getProperty ("arpHold", false);
 
         for (int ci = 0; ci < tr.getNumChildren(); ++ci)
         {

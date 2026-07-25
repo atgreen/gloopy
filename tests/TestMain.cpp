@@ -290,6 +290,27 @@ struct NoteEditTests : juce::UnitTest
             for (size_t i = 0; i < a.size(); ++i) same = same && a[i].pitch == b[i].pitch;
             expect (same);
         }
+
+        beginTest ("expandArp swing delays every other step");
+        {
+            std::vector<Note> chord { {60,0,1,0.8f}, {64,0,1,0.8f} };   // 1 beat, rate 1/4 = 4 steps
+            auto a = expandArp (chord, 0.25, 1, 1.0f, 0, 0.4f);          // swing 0.4 -> odd steps +0.05
+            expect ((int) a.size() == 4);
+            expectWithinAbsoluteError (a[0].startBeat, 0.0,  1e-9);      // even: on grid
+            expectWithinAbsoluteError (a[1].startBeat, 0.30, 1e-9);      // odd: 0.25 + 0.4*0.5*0.25
+            expectWithinAbsoluteError (a[2].startBeat, 0.50, 1e-9);
+            expectWithinAbsoluteError (a[3].startBeat, 0.80, 1e-9);
+        }
+
+        beginTest ("expandArp hold latches the chord to fill the clip");
+        {
+            std::vector<Note> chord { {60,0,1,0.8f}, {64,0,1,0.8f} };   // sounds only beats 0-1
+            auto off = expandArp (chord, 0.5, 1, 1.0f, 0, 0.0f, false, 4.0);
+            expect ((int) off.size() == 2);                             // no hold: only while sounding
+            auto on  = expandArp (chord, 0.5, 1, 1.0f, 0, 0.0f, true, 4.0);
+            expect ((int) on.size() == 8);                             // hold: latched across the 4-beat clip
+            for (auto& n : on) expect (n.pitch == 60 || n.pitch == 64);
+        }
     }
 };
 
