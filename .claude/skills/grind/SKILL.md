@@ -55,10 +55,16 @@ that constraint is the product, not a limitation.
 
 ## The principles (how every slice is judged)
 
-1. **API-first, GUI-second.** A feature isn't done until it's reachable over gRPC (and
-   OSC where it's a live knob) with a stable id. The UI is a client of that surface,
-   built after — and never the only way to do the thing. If it can't be scripted, it
-   isn't Gloopy-shaped.
+1. **API-first, GUI-second — but GUI is not optional.** A feature isn't done until it's
+   reachable over gRPC (and OSC where it's a live knob) with a stable id. The UI is a
+   client of that surface, built after — and never the only way to do the thing. If it
+   can't be scripted, it isn't Gloopy-shaped. **AND, per explicit user direction
+   (2026-07): everything we add must have a desktop UI where appropriate — a control,
+   menu item, mouse gesture, or shortcut a desktop user can actually reach.** A slice is
+   NOT done at "backend + gRPC + smoke green"; it also needs the desktop affordance,
+   wiring the same shared transform, screenshot-validated on Xvfb. Do not ship API-only
+   features (the chord tool was caught being grpcurl-only). "Where appropriate" excludes
+   pure non-visual plumbing (format internals, scan/validate CLI).
 2. **Everything lives in the composition text format.** New state serialises to
    readable TOML / `.notes` / `.points` under the content-addressed dirty-write model
    (`Source/Composition.cpp`), so it diffs and travels. No new hidden project blobs. A
