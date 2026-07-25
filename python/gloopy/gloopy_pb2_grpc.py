@@ -295,6 +295,21 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ParameterSet.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.AddLocation = channel.unary_unary(
+                '/gloopy.v1.Gloopy/AddLocation',
+                request_serializer=gloopy__pb2.TimelineLocation.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.ListLocations = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ListLocations',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.LocationList.FromString,
+                _registered_method=True)
+        self.RemoveLocation = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RemoveLocation',
+                request_serializer=gloopy__pb2.LocationName.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.GetState = channel.unary_unary(
                 '/gloopy.v1.Gloopy/GetState',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -681,6 +696,26 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def AddLocation(self, request, context):
+        """timeline locations — named markers / ranges / sections
+        upsert by name
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListLocations(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RemoveLocation(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetState(self, request, context):
         """project & state
         """
@@ -1006,6 +1041,21 @@ def add_GloopyServicer_to_server(servicer, server):
             'SetParameter': grpc.unary_unary_rpc_method_handler(
                     servicer.SetParameter,
                     request_deserializer=gloopy__pb2.ParameterSet.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'AddLocation': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddLocation,
+                    request_deserializer=gloopy__pb2.TimelineLocation.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ListLocations': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListLocations,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.LocationList.SerializeToString,
+            ),
+            'RemoveLocation': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemoveLocation,
+                    request_deserializer=gloopy__pb2.LocationName.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'GetState': grpc.unary_unary_rpc_method_handler(
@@ -2463,6 +2513,87 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/SetParameter',
             gloopy__pb2.ParameterSet.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AddLocation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/AddLocation',
+            gloopy__pb2.TimelineLocation.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListLocations(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ListLocations',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.LocationList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RemoveLocation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RemoveLocation',
+            gloopy__pb2.LocationName.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

@@ -45,6 +45,7 @@ target_sources(Gloopy PRIVATE
     Source/Recording.cpp
     Source/Presets.cpp
     Source/Parameters.cpp
+    Source/Locations.cpp
     Source/ArrangeView.cpp
     Source/PianoRoll.cpp
     Source/MixerView.cpp

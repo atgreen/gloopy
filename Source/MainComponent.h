@@ -304,6 +304,8 @@ private:
     int nextSinkId { 0 };
 
     std::vector<AutoLaneSnap> automationLanes;   // guarded by engineLock
+    struct TimelineLocation { juce::String name, kind; double startBeat, endBeat; };
+    std::vector<TimelineLocation> locations;     // guarded by engineLock
 
     // MIDI recording: audio thread appends played input, message thread drains to a clip.
     void startRecording();
@@ -372,6 +374,17 @@ private:
     std::vector<ParamDesc> apiListParameters();
     bool apiGetParameter (const juce::String& id, ParamDesc& out);   // false if unknown
     bool apiSetParameter (const juce::String& id, float value);      // false if unknown/rejected
+
+    // --- timeline locations (Locations.cpp) ---
+    // Named points and ranges on the timeline (markers, sections, loop/punch/export
+    // ranges). Stored in the composition; render/export can target a range by name.
+    // kind: "marker" | "range" | "section" | "loop" | "punch" | "export" | "skip".
+    // (TimelineLocation struct is declared with the `locations` member, below.)
+    bool apiAddLocation (const juce::String& name, const juce::String& kind,
+                         double startBeat, double endBeat);            // upsert by name
+    std::vector<TimelineLocation> apiListLocations();
+    bool apiRemoveLocation (const juce::String& name);
+    bool apiResolveRange (const juce::String& name, double& startBeat, double& endBeat);  // range/section lookup
 
     std::vector<juce::String> apiListAudioInputs();
     bool apiArmTrack (int trackId, bool armed, int input, int channels, bool monitor);

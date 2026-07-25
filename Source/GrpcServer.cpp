@@ -342,10 +342,32 @@ namespace
           r->set_ok (ok); if (! ok) r->set_error ("no gloopy.toml / load failed"); return Status::OK; }
 
         Status RenderToFile (ServerContext*, const pb::RenderRequest* q, pb::Ack* r) override
-        { const bool ok = main.apiRenderToFile (js (q->path()), q->tail_seconds(),
-                                                q->start_beat(), q->end_beat(),
-                                                q->has_track_id(), q->track_id());
-          r->set_ok (ok); if (! ok) r->set_error ("render failed"); return Status::OK; }
+        {
+            double s = q->start_beat(), e = q->end_beat();
+            if (! q->range_name().empty() && ! main.apiResolveRange (js (q->range_name()), s, e))
+            { r->set_ok (false); r->set_error ("unknown range name"); return Status::OK; }
+            const bool ok = main.apiRenderToFile (js (q->path()), q->tail_seconds(),
+                                                  s, e, q->has_track_id(), q->track_id());
+            r->set_ok (ok); if (! ok) r->set_error ("render failed"); return Status::OK;
+        }
+
+        // ---- timeline locations ----
+        Status AddLocation (ServerContext*, const pb::TimelineLocation* q, pb::Ack* r) override
+        { const bool ok = main.apiAddLocation (js (q->name()), js (q->kind()), q->start_beat(), q->end_beat());
+          r->set_ok (ok); if (! ok) r->set_error ("invalid location"); return Status::OK; }
+        Status ListLocations (ServerContext*, const pb::Empty*, pb::LocationList* r) override
+        {
+            for (auto& l : main.apiListLocations())
+            {
+                auto* o = r->add_locations();
+                o->set_name (l.name.toStdString());   o->set_kind (l.kind.toStdString());
+                o->set_start_beat (l.startBeat);       o->set_end_beat (l.endBeat);
+            }
+            return Status::OK;
+        }
+        Status RemoveLocation (ServerContext*, const pb::LocationName* q, pb::Ack* r) override
+        { const bool ok = main.apiRemoveLocation (js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("location not found"); return Status::OK; }
 
         // ---- track & clip management ----
         Status RemoveTrack (ServerContext*, const pb::TrackId* q, pb::Ack* r) override

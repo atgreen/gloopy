@@ -289,6 +289,21 @@ class Gloopy:
     def set_parameter(self, id: str, value: float) -> None:
         self._ack(self.stub.SetParameter(pb.ParameterSet(id=id, value=value)))
 
+    # -- timeline locations -----------------------------------------------
+    def add_location(self, name: str, kind: str = "marker",
+                     start_beat: float = 0.0, end_beat: float = 0.0) -> None:
+        """Named marker/range/section on the timeline (upsert by name)."""
+        self._ack(self.stub.AddLocation(pb.TimelineLocation(
+            name=name, kind=kind, start_beat=start_beat, end_beat=end_beat)))
+
+    def list_locations(self) -> list[dict]:
+        r = self.stub.ListLocations(pb.Empty())
+        return [{"name": l.name, "kind": l.kind, "start_beat": l.start_beat,
+                 "end_beat": l.end_beat} for l in r.locations]
+
+    def remove_location(self, name: str) -> None:
+        self._ack(self.stub.RemoveLocation(pb.LocationName(name=name)))
+
     # -- automation -------------------------------------------------------
     def set_automation(self, target, id: int, points: Iterable[tuple[float, float]],
                        slot: int = 0, param: str = "") -> None:
@@ -346,9 +361,10 @@ class Gloopy:
         self._ack(self.stub.LoadComposition(pb.FilePath(path=path)))
 
     def render(self, path: str, tail_seconds: float = 0.0, start_beat: float = 0.0,
-               end_beat: float = 0.0, track_id: Optional[int] = None) -> None:
+               end_beat: float = 0.0, track_id: Optional[int] = None,
+               range_name: str = "") -> None:
         kw = {"path": path, "tail_seconds": tail_seconds,
-              "start_beat": start_beat, "end_beat": end_beat}
+              "start_beat": start_beat, "end_beat": end_beat, "range_name": range_name}
         if track_id is not None:
             kw["track_id"] = track_id
         self._ack(self.stub.RenderToFile(pb.RenderRequest(**kw)))

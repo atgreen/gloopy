@@ -118,6 +118,13 @@ message ParameterList { repeated ParameterInfo params = 1; }
 message ParameterId   { string id = 1; }
 message ParameterSet  { string id = 1; float value = 2; }
 
+// ── timeline locations ─────────────────────────────────────
+// A named point or span on the timeline. kind: "marker" | "range" | "section" |
+// "loop" | "punch" | "export" | "skip". For a marker, end_beat collapses to start.
+message TimelineLocation { string name = 1; string kind = 2; double start_beat = 3; double end_beat = 4; }
+message LocationList { repeated TimelineLocation locations = 1; }
+message LocationName { string name = 1; }
+
 // ── presets ────────────────────────────────────────────────
 message PresetRef      { int32 target = 1; string name = 2; }   // target = track id or insert index
 message PresetCategory { string category = 1; }                 // "synth" | "effects"
@@ -158,6 +165,7 @@ message RenderRequest {                       // offline bounce to WAV
   double start_beat = 3;                      // range start (default 0)
   double end_beat = 4;                        // range end (0 = whole song)
   optional int32 track_id = 5;                // solo this track (stem export)
+  string range_name = 6;                      // resolve a named range/section -> start/end (overrides 3/4)
 }
 message ProjectState {
   TransportState transport = 1;
@@ -258,6 +266,11 @@ service Gloopy {
   rpc ListParameters (Empty)         returns (ParameterList);
   rpc GetParameter   (ParameterId)   returns (ParameterInfo);
   rpc SetParameter   (ParameterSet)  returns (Ack);
+
+  // timeline locations — named markers / ranges / sections
+  rpc AddLocation    (TimelineLocation) returns (Ack);   // upsert by name
+  rpc ListLocations  (Empty)            returns (LocationList);
+  rpc RemoveLocation (LocationName)     returns (Ack);
 
   // project & state
   rpc GetState   (Empty)    returns (ProjectState);

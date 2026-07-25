@@ -2224,6 +2224,16 @@ juce::ValueTree MainComponent::toValueTree()
         au.addChild (l, -1, nullptr);
     }
     root.addChild (au, -1, nullptr);
+
+    juce::ValueTree locs ("LOCATIONS");
+    for (auto& l : locations)
+    {
+        juce::ValueTree lv ("LOC");
+        lv.setProperty ("name", l.name, nullptr);   lv.setProperty ("kind", l.kind, nullptr);
+        lv.setProperty ("start", l.startBeat, nullptr); lv.setProperty ("end", l.endBeat, nullptr);
+        locs.addChild (lv, -1, nullptr);
+    }
+    root.addChild (locs, -1, nullptr);
     return root;
 }
 
@@ -2319,6 +2329,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     transport.setPlaying (false);
     tracks.clear();
     mixerTracks.clear();
+    locations.clear();
     automationLanes.clear();
     nextTrackId = 0;
 
@@ -2538,6 +2549,14 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             lane.points.push_back ({ (double) pt.getProperty ("beat"), (float) pt.getProperty ("value") });
         }
         automationLanes.push_back (std::move (lane));
+    }
+
+    auto locs = root.getChildWithName ("LOCATIONS");
+    for (int i = 0; i < locs.getNumChildren(); ++i)
+    {
+        auto l = locs.getChild (i);
+        locations.push_back ({ l.getProperty ("name").toString(), l.getProperty ("kind").toString(),
+                               (double) l.getProperty ("start"), (double) l.getProperty ("end") });
     }
 
     transport.setBpm ((double) root.getProperty ("bpm", 128.0));

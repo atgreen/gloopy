@@ -255,6 +255,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
     }
     man.blank().table ("mixer").str ("file", "mixer/inserts.toml");
     man.blank().table ("automation").str ("file", "automation/lanes.toml");
+    man.blank().table ("locations").str ("file", "locations.toml");
     ctx.writeText ("gloopy.toml", man.str());
 
     // --- per-track files ---
@@ -415,6 +416,21 @@ bool MainComponent::saveComposition (const juce::File& dir)
           .str ("points", rel).blank();
     }
     ctx.writeText ("automation/lanes.toml", aw.str());
+
+    // --- timeline locations (markers, ranges, sections) ---
+    toml::Writer lw;
+    auto locs = root.getChildWithName ("LOCATIONS");
+    for (int i = 0; i < locs.getNumChildren(); ++i)
+    {
+        auto l = locs.getChild (i);
+        if (! l.hasType ("LOC")) continue;
+        lw.arrayItem ("locations").str ("name", l.getProperty ("name").toString())
+          .str ("kind", l.getProperty ("kind").toString())
+          .number ("start", l.getProperty ("start"))
+          .number ("end", l.getProperty ("end")).blank();
+    }
+    ctx.writeText ("locations.toml", lw.str());
+
     ctx.writeText (".gitignore", kGitignore);
     ctx.prune();
 
@@ -626,9 +642,24 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             autoTree.addChild (lane, -1, nullptr);
         }
 
+    // Timeline locations.
+    juce::ValueTree locTree ("LOCATIONS");
+    if (auto locDoc = toml::parse (dir.getChildFile ("locations.toml").loadFileAsString());
+        auto* ls = locDoc.array ("locations"))
+        for (auto& ld : *ls)
+        {
+            juce::ValueTree l ("LOC");
+            l.setProperty ("name", ld.getString ("name"), nullptr);
+            l.setProperty ("kind", ld.getString ("kind"), nullptr);
+            l.setProperty ("start", ld.getDouble ("start", 0.0), nullptr);
+            l.setProperty ("end", ld.getDouble ("end", 0.0), nullptr);
+            locTree.addChild (l, -1, nullptr);
+        }
+
     root.addChild (tracksTree, -1, nullptr);
     root.addChild (mixerTree, -1, nullptr);
     root.addChild (autoTree, -1, nullptr);
+    root.addChild (locTree, -1, nullptr);
 
     currentProjectFile = manifest;   // so relative sample/SFZ paths resolve against the dir
     undoSuppressed = true;

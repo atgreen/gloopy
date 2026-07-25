@@ -86,6 +86,20 @@ assert peak > 0.02, f"render is essentially silent (peak={peak:.4f})"
 print("smoke: PASS — render is non-silent")
 PY
 
+# Timeline locations: add a named range, prove render-by-range is shorter than the
+# full render, and (below) that the location survives the composition round-trip.
+g -d '{"name":"half","kind":"range","start_beat":0,"end_beat":2}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddLocation >/dev/null
+# Render full (0..4) and the named range (0..2) with identical tail, so only the
+# range differs — the range render must be strictly shorter.
+g -d "{\"path\":\"$WORK/full0.wav\",\"tail_seconds\":0,\"start_beat\":0,\"end_beat\":4}" \
+    127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"path\":\"$WORK/half.wav\",\"tail_seconds\":0,\"range_name\":\"half\"}" \
+    127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+FULLF=$(python3 -c "import wave;print(wave.open('$WORK/full0.wav').getnframes())")
+HALFF=$(python3 -c "import wave;print(wave.open('$WORK/half.wav').getnframes())")
+[ "$HALFF" -lt "$FULLF" ] || { echo "smoke: render-by-range not shorter (half=$HALFF full=$FULLF)" >&2; exit 1; }
+echo "smoke: PASS — render-by-range 'half' shorter than full ($HALFF < $FULLF frames)"
+
 # Composition (directory) round-trip: save the current project as a composition,
 # reload it, and re-render — the reloaded render must also be non-silent.
 COMP="$WORK/comp"
@@ -94,6 +108,9 @@ g -d "{\"path\":\"$COMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/d
 [ -f "$COMP/gloopy.toml" ] || { echo "smoke: composition save produced no gloopy.toml" >&2; exit 1; }
 echo "smoke: saved composition ($(find "$COMP" -type f | wc -l) files)"
 g -d "{\"path\":\"$COMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+LOC=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListLocations | grep -c '"name"')
+[ "$LOC" -ge 1 ] || { echo "smoke: timeline location did not survive composition round-trip" >&2; exit 1; }
+echo "smoke: PASS — timeline location survived composition round-trip ($LOC found)"
 g -d "{\"path\":\"$RT\",\"tail_seconds\":1.0,\"start_beat\":0,\"end_beat\":4}" \
     127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
 python3 - "$RT" <<'PY'

@@ -212,6 +212,15 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
    targets.
    *Done when:* `AddLocation`/`ListLocations`/`RemoveLocation` RPCs; locations
    round-trip in the composition; `RenderToFile` can target a named range.
+   - `[x]` **Landed** (`Source/Locations.cpp`, commit): `TimelineLocation{name,kind,
+     startBeat,endBeat}` model + `AddLocation`(upsert)/`ListLocations`/`RemoveLocation`
+     RPCs + `apiResolveRange`; `RenderRequest.range_name` resolves a named range → the
+     render window. Serialised in `toValueTree`/`loadFromTree` + composition
+     `locations.toml` (survives dir round-trip, dirty-write stable). Python client
+     add/list/remove_location + `render(range_name=…)`. smoke.sh asserts render-by-range
+     is shorter than full + location survives the composition round-trip.
+     **Not yet:** folding the *existing* SetLoop/punch state into this model (today
+     they're still separate); ruler UI; export/skip semantics.
 
 ### Wave 2 — Turn the control surface into the product
 
