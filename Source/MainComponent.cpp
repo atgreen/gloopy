@@ -12,7 +12,8 @@
 #include <algorithm>
 #include <iostream>
 
-MainComponent::MainComponent()
+MainComponent::MainComponent (bool headless)
+    : headlessCli (headless)
 {
     setLookAndFeel (&lookAndFeel);
     juce::Desktop::getInstance().setDefaultLookAndFeel (&lookAndFeel);
@@ -208,6 +209,15 @@ MainComponent::MainComponent()
     mixerView->onBeforeStructuralChange = [this] { closeAllPluginWindows(); };
 
     setupDefaultProject();
+
+    // Headless CLI tools (inspect/validate/pack) load a project, print, and exit —
+    // no control ports, no audio device. Skip all of that so they run cleanly
+    // alongside a live instance and keep stdout clean for JSON.
+    if (headlessCli)
+    {
+        setWantsKeyboardFocus (true);
+        return;
+    }
 
     // ---- control API: OSC real-time lane ----
     {

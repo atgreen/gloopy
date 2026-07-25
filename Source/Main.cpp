@@ -3,8 +3,20 @@
 
 #include <JuceHeader.h>
 #include <iostream>
+#include <sstream>
 #include "MainComponent.h"
 #include "PluginHost.h"
+
+// Redirects std::cout to a throwaway buffer for its lifetime, so the runtime's
+// diagnostic chatter (`[composition] loaded …`) during a CLI load/save doesn't
+// pollute the JSON/result stdout the tool is supposed to emit. std::cerr is left
+// alone for real errors.
+struct CoutSilencer
+{
+    std::streambuf* saved; std::ostringstream sink;
+    CoutSilencer() : saved (std::cout.rdbuf()) { std::cout.rdbuf (sink.rdbuf()); }
+    ~CoutSilencer() { std::cout.rdbuf (saved); }
+};
 
 /** Application entry point + the main window that hosts MainComponent. */
 class GloopyApplication : public juce::JUCEApplication
@@ -139,6 +151,57 @@ public:
                     break;
                 }
             }
+            quit();
+            return;
+        }
+
+        // Headless composition utilities: gloopy <inspect|validate|pack> <project> [out]
+        // Reuse the GUI/gRPC load paths; emit stable JSON on stdout; no control ports.
+        if (args.size() >= 2 && (args[0] == "inspect" || args[0] == "validate" || args[0] == "pack"))
+        {
+            std::unique_ptr<MainComponent> comp;
+            { CoutSilencer s; comp = std::make_unique<MainComponent> (true);   // headless CLI mode
+              comp->openProjectFile (resolve (args[1])); }
+            int rc = 0;
+
+            if (args[0] == "inspect")
+                std::cout << comp->apiInspectJson() << std::endl;
+            else if (args[0] == "validate")
+            {
+                bool ok = true;
+                std::cout << comp->apiValidateJson (ok) << std::endl;
+                rc = ok ? 0 : 1;
+            }
+            else   // pack <project> <out.zip>: normalise to a composition, then zip it
+            {
+                if (args.size() < 3) { std::cerr << "usage: gloopy pack <project> <out.zip>\n"; rc = 2; }
+                else
+                {
+                    const auto out = resolve (args[2]);
+                    auto tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                   .getChildFile ("gloopy-pack-" + juce::String (juce::Time::getMillisecondCounterHiRes()));
+                    const auto compDir = tmp.getChildFile (out.getFileNameWithoutExtension());
+                    compDir.createDirectory();
+                    bool savedOk; { CoutSilencer s; savedOk = comp->apiSaveComposition (compDir.getFullPathName()); }
+                    if (! savedOk) rc = 1;
+                    else
+                    {
+                        juce::ZipFile::Builder b;
+                        for (auto& f : compDir.findChildFiles (juce::File::findFiles, true))
+                            b.addFile (f, 9, f.getRelativePathFrom (tmp));
+                        out.deleteFile();
+                        if (auto os = out.createOutputStream())
+                        {
+                            b.writeToStream (*os, nullptr);
+                            std::cout << "packed " << args[1] << " -> " << out.getFullPathName() << std::endl;
+                        }
+                        else { std::cerr << "pack: cannot write " << out.getFullPathName() << "\n"; rc = 1; }
+                    }
+                    tmp.deleteRecursively();
+                }
+            }
+
+            setApplicationReturnValue (rc);
             quit();
             return;
         }

@@ -251,6 +251,17 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
    `pack <proj> out.zip`. `validate` uses Wave 5 #12 loudness/report data.
    *Done when:* each subcommand runs headless with no GUI, emits stable JSON, and is
    exercised in `tests/smoke.sh` / CI.
+   - `[x]` **Landed** (`Source/Cli.cpp` + `Source/Main.cpp` dispatch, commit):
+     `gloopy inspect|validate|pack <project>`. New **headless-CLI `MainComponent`
+     mode** (`MainComponent(bool headless)`) skips OSC/gRPC/audio so tools run
+     alongside a live instance and keep stdout clean (a `CoutSilencer` mutes load
+     chatter). `inspect` → JSON {title,bpm,tracks,inserts,locations,exports};
+     `validate` → JSON {ok,errors,warnings} (missing SFZ, export→unknown-range,
+     zero-length ranges, clip-less tracks) + exit code; `pack` → normalise to a
+     composition and zip it (loadable). Works on any input format via
+     `openProjectFile`. smoke.sh exercises all three. **Not yet:** `render`
+     subcommand (exists as `--render`) and `export-stems` (available via gRPC
+     `RunExport`); `validate` loudness once Wave 5 #12 lands.
 
 5. **MIDI import/export + bulk JSON note I/O.** **M**
    *Idea #9/#14 + Ardour #5.* Standard `.mid` file in/out (map to/from the beat-based

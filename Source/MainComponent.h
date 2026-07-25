@@ -35,7 +35,7 @@ class MainComponent : public juce::AudioAppComponent,
                       private juce::Timer
 {
 public:
-    MainComponent();
+    explicit MainComponent (bool headlessCli = false);   // headlessCli skips OSC/gRPC/audio (CLI tools)
     ~MainComponent() override;
 
     void prepareToPlay (int samplesPerBlockExpected, double sampleRate) override;
@@ -124,6 +124,10 @@ public:
     bool apiSaveProject (const juce::String& path);
     bool apiSaveComposition (const juce::String& path);   // directory "composition as repo" format
     bool apiLoadComposition (const juce::String& path);
+
+    // --- headless CLI utilities (Cli.cpp) ---
+    juce::String apiInspectJson();               // structural summary as JSON
+    juce::String apiValidateJson (bool& ok);     // problems as JSON; ok=false if any errors
 
     // track & clip management
     bool apiRemoveTrack (int id);
@@ -255,6 +259,7 @@ private:
     GloopyLookAndFeel     lookAndFeel;
 
     Transport             transport;
+    bool headlessCli { false };   // CLI tools: no OSC/gRPC/audio started
     juce::CriticalSection engineLock;
     std::vector<std::unique_ptr<Track>>      tracks;
     std::vector<std::unique_ptr<MixerTrack>> mixerTracks;

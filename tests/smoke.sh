@@ -153,4 +153,17 @@ if [ -f "$WORK/comp.zip" ]; then
     [ "$ok" = "true" ] && echo "smoke: PASS — zip composition loads" || { echo "smoke: zip load failed" >&2; exit 1; }
 fi
 
+# Headless CLI utilities: inspect (clean JSON on stdout), validate (exit 0 clean),
+# pack (produces a loadable zip). Runs as a separate headless process — no port
+# bind — so it coexists with the server instance above.
+"$BIN" inspect "$COMP" 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['tracks'], 'no tracks'; print(f\"smoke: PASS — CLI inspect ({len(d['tracks'])} tracks, {len(d['exports'])} exports)\")" \
+    || { echo "smoke: CLI inspect did not emit clean JSON" >&2; exit 1; }
+"$BIN" validate "$COMP" >/dev/null 2>&1 && echo "smoke: PASS — CLI validate (clean project, exit 0)" \
+    || { echo "smoke: CLI validate failed on a clean project" >&2; exit 1; }
+"$BIN" pack "$COMP" "$WORK/packed.zip" >/dev/null 2>&1
+[ -s "$WORK/packed.zip" ] || { echo "smoke: CLI pack produced no zip" >&2; exit 1; }
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+packok=$(g -d "{\"path\":\"$WORK/packed.zip\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition | grep -o 'true\|false' | head -1)
+[ "$packok" = "true" ] && echo "smoke: PASS — CLI pack zip loads" || { echo "smoke: CLI pack zip did not load" >&2; exit 1; }
+
 echo "smoke: OK"
