@@ -359,6 +359,19 @@ EXPFILE=$(g -d "{\"name\":\"master\",\"out_dir\":\"$WORK/exp\"}" 127.0.0.1:$PORT
 python3 -c "import wave;assert wave.open('$EXPFILE').getnframes()>1000, 'export too short'"
 echo "smoke: PASS — export profile 'master' rendered $(basename "$EXPFILE")"
 
+# FLAC export: the same mix as a lossless FLAC. Proves apiRenderToFile picks the
+# encoder from the output extension and the profile's format threads through.
+g -d '{"name":"archive","target":"mix","format":"flac"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/DefineExportProfile >/dev/null
+FLACFILE=$(g -d "{\"name\":\"archive\",\"out_dir\":\"$WORK/exp\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RunExport | grep -o '"[^"]*archive.flac"' | tr -d '"' | head -1)
+[ -s "$FLACFILE" ] || { echo "smoke: FLAC export produced no file" >&2; exit 1; }
+[ "$(head -c 4 "$FLACFILE")" = "fLaC" ] || { echo "smoke: FLAC export lacks fLaC magic" >&2; exit 1; }
+[ "$(stat -c%s "$FLACFILE")" -lt "$(stat -c%s "$EXPFILE")" ] || { echo "smoke: FLAC not smaller than the WAV mix" >&2; exit 1; }
+if command -v ffprobe >/dev/null; then
+    CODEC=$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=nk=1:nw=1 "$FLACFILE")
+    [ "$CODEC" = "flac" ] || { echo "smoke: ffprobe says codec=$CODEC, not flac" >&2; exit 1; }
+fi
+echo "smoke: PASS — FLAC export ($(stat -c%s "$FLACFILE") < $(stat -c%s "$EXPFILE") bytes, decodes as flac)"
+
 # Composition (directory) round-trip: save the current project as a composition,
 # reload it, and re-render — the reloaded render must also be non-silent.
 COMP="$WORK/comp"

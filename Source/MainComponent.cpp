@@ -1352,7 +1352,8 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
     // Optional [startBeat, endBeat) range and a single soloed track (stem export).
     juce::File f = juce::File::isAbsolutePath (path) ? juce::File (path)
                      : juce::File::getCurrentWorkingDirectory().getChildFile (path);
-    f = f.withFileExtension ("wav");
+    if (! f.hasFileExtension ("wav") && ! f.hasFileExtension ("flac"))
+        f = f.withFileExtension ("wav");   // default container; .flac is honoured below
     f.deleteFile();
 
     const juce::ScopedLock sl (engineLock);
@@ -1393,10 +1394,14 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
     const double rate  = currentSampleRate;
     const double tail  = tailSeconds > 0.0 ? tailSeconds : 2.0;
 
-    juce::WavAudioFormat fmt;
+    // Pick the encoder by output extension: FLAC for .flac (lossless archive), WAV
+    // otherwise. Both write 24-bit/stereo at the device rate.
+    std::unique_ptr<juce::AudioFormat> fmt;
+    if (f.hasFileExtension ("flac")) fmt = std::make_unique<juce::FlacAudioFormat>();
+    else                             fmt = std::make_unique<juce::WavAudioFormat>();
     auto os = f.createOutputStream();
     if (os == nullptr) { restore(); return false; }
-    std::unique_ptr<juce::AudioFormatWriter> writer (fmt.createWriterFor (os.release(), rate, 2, 24, {}, 0));
+    std::unique_ptr<juce::AudioFormatWriter> writer (fmt->createWriterFor (os.release(), rate, 2, 24, {}, 0));
     if (writer == nullptr) { restore(); return false; }
 
     juce::AudioBuffer<float> buf (2, block);

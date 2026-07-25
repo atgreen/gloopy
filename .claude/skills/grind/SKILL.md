@@ -247,8 +247,14 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      `toValueTree`/`loadFromTree` + composition `exports.toml`. Python client
      define/list/remove/run_export. smoke.sh: master mix renders a file + profile
      survives composition round-trip. Verified: 6 stems one-per-track, range export
-     shorter than mix. **Not yet:** FLAC/streaming formats (WAV-only — `apiRenderToFile`
-     is wav-hardcoded), loop-pack/current-clip targets, per-format bit depth.
+     shorter than mix.
+   - `[x]` **FLAC export landed** (commit): `apiRenderToFile` now picks the encoder from
+     the output extension (`.flac` → `juce::FlacAudioFormat`, else WAV; both 24-bit),
+     and `apiRunExport` chooses `.flac`/`.wav` from the profile's `format` field (which
+     already existed). The forced-`.wav` line in the render path now only defaults
+     *unknown* extensions. smoke.sh proves a FLAC mix is valid (`fLaC` magic + ffprobe
+     codec=flac) and losslessly smaller than the WAV. **Not yet:** streaming/loop-pack/
+     current-clip targets, per-format bit depth, MP3/OGG (no encoder linked).
 
 4. **CLI composition utilities.** **M**
    *Ardour #1.* `gloopy` subcommands reusing the GUI load/render code paths, with

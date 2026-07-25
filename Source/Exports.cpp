@@ -8,10 +8,13 @@
 // re-implementing rendering. Output lands in <project>/exports/ with deterministic
 // filenames so a composition repo can diff its deliverables.
 //
-// target: "mix"   -> whole song                -> exports/<name>.wav
-//         "range" -> named range (rangeName)   -> exports/<name>.wav
-//         "track" -> one track (trackId)       -> exports/<name>.wav
-//         "stems" -> every instrument track    -> exports/<name>/<id>-<slug>.wav
+// The container follows the profile's `format` ("flac" -> .flac, else .wav); the
+// render encoder is chosen from the output extension by apiRenderToFile.
+//
+// target: "mix"   -> whole song                -> exports/<name>.<ext>
+//         "range" -> named range (rangeName)   -> exports/<name>.<ext>
+//         "track" -> one track (trackId)       -> exports/<name>.<ext>
+//         "stems" -> every instrument track    -> exports/<name>/<id>-<slug>.<ext>
 
 #include "MainComponent.h"
 
@@ -91,6 +94,9 @@ bool MainComponent::apiRunExport (const juce::String& name, const juce::String& 
 
     const double tail = p.tailSeconds;
     const juce::String nm = slug (p.name);
+    // Output container from the profile's format (default WAV). apiRenderToFile picks
+    // the encoder from the file extension, so here we only choose the suffix.
+    const juce::String ext = p.format.trim().toLowerCase() == "flac" ? ".flac" : ".wav";
 
     auto renderOne = [&] (const juce::File& f, double s, double e, bool hasTrack, int trackId) -> bool
     {
@@ -101,17 +107,17 @@ bool MainComponent::apiRunExport (const juce::String& name, const juce::String& 
     };
 
     if (p.target == "mix")
-        return renderOne (base.getChildFile (nm + ".wav"), 0.0, 0.0, false, 0);
+        return renderOne (base.getChildFile (nm + ext), 0.0, 0.0, false, 0);
 
     if (p.target == "range")
     {
         double s = 0, e = 0;
         if (! apiResolveRange (p.rangeName, s, e)) return false;
-        return renderOne (base.getChildFile (nm + ".wav"), s, e, false, 0);
+        return renderOne (base.getChildFile (nm + ext), s, e, false, 0);
     }
 
     if (p.target == "track")
-        return renderOne (base.getChildFile (nm + ".wav"), 0.0, 0.0, true, p.trackId);
+        return renderOne (base.getChildFile (nm + ext), 0.0, 0.0, true, p.trackId);
 
     if (p.target == "stems")
     {
@@ -123,7 +129,7 @@ bool MainComponent::apiRunExport (const juce::String& name, const juce::String& 
         if (stems.empty()) return false;
         auto dir = base.getChildFile (nm);
         for (auto& st : stems)
-            if (! renderOne (dir.getChildFile (juce::String (st.first) + "-" + st.second + ".wav"),
+            if (! renderOne (dir.getChildFile (juce::String (st.first) + "-" + st.second + ext),
                              0.0, 0.0, true, st.first))
                 return false;
         return true;
