@@ -231,6 +231,18 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
    stems. Default outputs to `exports/`, deterministic filenames.
    *Done when:* `DefineExportPreset` + `RunExport(name)` RPCs; a preset renders the
    right files to `exports/` at correct levels; presets round-trip in the composition.
+   - `[x]` **Landed** (`Source/Exports.cpp`, commit): `ExportProfile{name,target,
+     rangeName,format,trackId,tailSeconds}` + `DefineExportProfile`(upsert)/
+     `ListExportProfiles`/`RemoveExportProfile`/`RunExport` RPCs. Targets **mix**
+     (whole song), **range** (named location → window), **track** (solo), **stems**
+     (one file per instrument track). Reuses `apiRenderToFile` + `apiResolveRange`;
+     output to `<project>/exports/` (gitignored) with deterministic
+     `<name>.wav` / `stems/<id>-<slug>.wav`; returns the file list. Serialised in
+     `toValueTree`/`loadFromTree` + composition `exports.toml`. Python client
+     define/list/remove/run_export. smoke.sh: master mix renders a file + profile
+     survives composition round-trip. Verified: 6 stems one-per-track, range export
+     shorter than mix. **Not yet:** FLAC/streaming formats (WAV-only — `apiRenderToFile`
+     is wav-hardcoded), loop-pack/current-clip targets, per-format bit depth.
 
 4. **CLI composition utilities.** **M**
    *Ardour #1.* `gloopy` subcommands reusing the GUI load/render code paths, with

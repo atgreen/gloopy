@@ -100,6 +100,14 @@ HALFF=$(python3 -c "import wave;print(wave.open('$WORK/half.wav').getnframes())"
 [ "$HALFF" -lt "$FULLF" ] || { echo "smoke: render-by-range not shorter (half=$HALFF full=$FULLF)" >&2; exit 1; }
 echo "smoke: PASS — render-by-range 'half' shorter than full ($HALFF < $FULLF frames)"
 
+# Export profiles: a named 'master' mix target renders a deterministic file, and the
+# profile survives the composition round-trip (checked after the reload below).
+g -d '{"name":"master","target":"mix","format":"wav"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/DefineExportProfile >/dev/null
+EXPFILE=$(g -d "{\"name\":\"master\",\"out_dir\":\"$WORK/exp\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RunExport | grep -o '"[^"]*master.wav"' | tr -d '"' | head -1)
+[ -s "$EXPFILE" ] || { echo "smoke: export profile produced no file" >&2; exit 1; }
+python3 -c "import wave;assert wave.open('$EXPFILE').getnframes()>1000, 'export too short'"
+echo "smoke: PASS — export profile 'master' rendered $(basename "$EXPFILE")"
+
 # Composition (directory) round-trip: save the current project as a composition,
 # reload it, and re-render — the reloaded render must also be non-silent.
 COMP="$WORK/comp"
@@ -111,6 +119,9 @@ g -d "{\"path\":\"$COMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/d
 LOC=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListLocations | grep -c '"name"')
 [ "$LOC" -ge 1 ] || { echo "smoke: timeline location did not survive composition round-trip" >&2; exit 1; }
 echo "smoke: PASS — timeline location survived composition round-trip ($LOC found)"
+EXP=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListExportProfiles | grep -c '"name"')
+[ "$EXP" -ge 1 ] || { echo "smoke: export profile did not survive composition round-trip" >&2; exit 1; }
+echo "smoke: PASS — export profile survived composition round-trip ($EXP found)"
 g -d "{\"path\":\"$RT\",\"tail_seconds\":1.0,\"start_beat\":0,\"end_beat\":4}" \
     127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
 python3 - "$RT" <<'PY'

@@ -256,6 +256,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
     man.blank().table ("mixer").str ("file", "mixer/inserts.toml");
     man.blank().table ("automation").str ("file", "automation/lanes.toml");
     man.blank().table ("locations").str ("file", "locations.toml");
+    man.blank().table ("exports").str ("file", "exports.toml");
     ctx.writeText ("gloopy.toml", man.str());
 
     // --- per-track files ---
@@ -430,6 +431,22 @@ bool MainComponent::saveComposition (const juce::File& dir)
           .number ("end", l.getProperty ("end")).blank();
     }
     ctx.writeText ("locations.toml", lw.str());
+
+    // --- export profiles (named render targets) ---
+    toml::Writer ew2;
+    auto exps = root.getChildWithName ("EXPORTS");
+    for (int i = 0; i < exps.getNumChildren(); ++i)
+    {
+        auto e = exps.getChild (i);
+        if (! e.hasType ("EXPORT")) continue;
+        ew2.arrayItem ("exports").str ("name", e.getProperty ("name").toString())
+           .str ("target", e.getProperty ("target").toString())
+           .str ("range", e.getProperty ("range").toString())
+           .str ("format", e.getProperty ("format").toString())
+           .integer ("track", (int) e.getProperty ("track", 0))
+           .number ("tail", e.getProperty ("tail")).blank();
+    }
+    ctx.writeText ("exports.toml", ew2.str());
 
     ctx.writeText (".gitignore", kGitignore);
     ctx.prune();
@@ -656,10 +673,27 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             locTree.addChild (l, -1, nullptr);
         }
 
+    // Export profiles.
+    juce::ValueTree expTree ("EXPORTS");
+    if (auto expDoc = toml::parse (dir.getChildFile ("exports.toml").loadFileAsString());
+        auto* es = expDoc.array ("exports"))
+        for (auto& ed : *es)
+        {
+            juce::ValueTree e ("EXPORT");
+            e.setProperty ("name", ed.getString ("name"), nullptr);
+            e.setProperty ("target", ed.getString ("target"), nullptr);
+            e.setProperty ("range", ed.getString ("range"), nullptr);
+            e.setProperty ("format", ed.getString ("format"), nullptr);
+            e.setProperty ("track", ed.getInt ("track", 0), nullptr);
+            e.setProperty ("tail", ed.getDouble ("tail", 0.0), nullptr);
+            expTree.addChild (e, -1, nullptr);
+        }
+
     root.addChild (tracksTree, -1, nullptr);
     root.addChild (mixerTree, -1, nullptr);
     root.addChild (autoTree, -1, nullptr);
     root.addChild (locTree, -1, nullptr);
+    root.addChild (expTree, -1, nullptr);
 
     currentProjectFile = manifest;   // so relative sample/SFZ paths resolve against the dir
     undoSuppressed = true;

@@ -304,6 +304,31 @@ class Gloopy:
     def remove_location(self, name: str) -> None:
         self._ack(self.stub.RemoveLocation(pb.LocationName(name=name)))
 
+    # -- export profiles (named render targets) ---------------------------
+    def define_export_profile(self, name: str, target: str = "mix", range_name: str = "",
+                              track_id: int = 0, format: str = "wav",
+                              tail_seconds: float = 0.0) -> None:
+        """target: 'mix' | 'range' (+range_name) | 'track' (+track_id) | 'stems'."""
+        self._ack(self.stub.DefineExportProfile(pb.ExportProfile(
+            name=name, target=target, range_name=range_name, track_id=track_id,
+            format=format, tail_seconds=tail_seconds)))
+
+    def list_export_profiles(self) -> list[dict]:
+        r = self.stub.ListExportProfiles(pb.Empty())
+        return [{"name": p.name, "target": p.target, "range_name": p.range_name,
+                 "track_id": p.track_id, "format": p.format, "tail_seconds": p.tail_seconds}
+                for p in r.profiles]
+
+    def remove_export_profile(self, name: str) -> None:
+        self._ack(self.stub.RemoveExportProfile(pb.ExportName(name=name)))
+
+    def run_export(self, name: str, out_dir: str = "") -> list[str]:
+        """Render the named profile; returns the list of files written."""
+        r = self.stub.RunExport(pb.ExportRun(name=name, out_dir=out_dir))
+        if not r.ok:
+            raise RuntimeError(r.error or "export failed")
+        return list(r.files)
+
     # -- automation -------------------------------------------------------
     def set_automation(self, target, id: int, points: Iterable[tuple[float, float]],
                        slot: int = 0, param: str = "") -> None:

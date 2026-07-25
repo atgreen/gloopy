@@ -369,6 +369,35 @@ namespace
         { const bool ok = main.apiRemoveLocation (js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("location not found"); return Status::OK; }
 
+        // ---- export profiles ----
+        Status DefineExportProfile (ServerContext*, const pb::ExportProfile* q, pb::Ack* r) override
+        { const bool ok = main.apiDefineExportProfile (js (q->name()), js (q->target()), js (q->range_name()),
+                                                       js (q->format()), q->track_id(), q->tail_seconds());
+          r->set_ok (ok); if (! ok) r->set_error ("invalid export profile"); return Status::OK; }
+        Status ListExportProfiles (ServerContext*, const pb::Empty*, pb::ExportProfileList* r) override
+        {
+            for (auto& p : main.apiListExportProfiles())
+            {
+                auto* o = r->add_profiles();
+                o->set_name (p.name.toStdString());   o->set_target (p.target.toStdString());
+                o->set_range_name (p.rangeName.toStdString()); o->set_format (p.format.toStdString());
+                o->set_track_id (p.trackId);          o->set_tail_seconds (p.tailSeconds);
+            }
+            return Status::OK;
+        }
+        Status RemoveExportProfile (ServerContext*, const pb::ExportName* q, pb::Ack* r) override
+        { const bool ok = main.apiRemoveExportProfile (js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("export profile not found"); return Status::OK; }
+        Status RunExport (ServerContext*, const pb::ExportRun* q, pb::ExportResult* r) override
+        {
+            std::vector<juce::String> files;
+            const bool ok = main.apiRunExport (js (q->name()), js (q->out_dir()), files);
+            r->set_ok (ok);
+            if (ok) for (auto& f : files) r->add_files (f.toStdString());
+            else    r->set_error ("unknown profile, unresolved range, or render failed");
+            return Status::OK;
+        }
+
         // ---- track & clip management ----
         Status RemoveTrack (ServerContext*, const pb::TrackId* q, pb::Ack* r) override
         { const bool ok = main.apiRemoveTrack (q->id()); r->set_ok (ok); if (! ok) r->set_error ("track not found"); return Status::OK; }

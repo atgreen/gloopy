@@ -306,6 +306,8 @@ private:
     std::vector<AutoLaneSnap> automationLanes;   // guarded by engineLock
     struct TimelineLocation { juce::String name, kind; double startBeat, endBeat; };
     std::vector<TimelineLocation> locations;     // guarded by engineLock
+    struct ExportProfile { juce::String name, target, rangeName, format; int trackId; double tailSeconds; };
+    std::vector<ExportProfile> exportProfiles;   // guarded by engineLock
 
     // MIDI recording: audio thread appends played input, message thread drains to a clip.
     void startRecording();
@@ -385,6 +387,18 @@ private:
     std::vector<TimelineLocation> apiListLocations();
     bool apiRemoveLocation (const juce::String& name);
     bool apiResolveRange (const juce::String& name, double& startBeat, double& endBeat);  // range/section lookup
+
+    // --- export profiles (Exports.cpp) ---
+    // Named render targets stored in the composition. target: "mix" (whole song),
+    // "range" (+ rangeName), "track" (+ trackId), "stems" (one file per instrument
+    // track). Output goes to <project>/exports/ with deterministic filenames.
+    bool apiDefineExportProfile (const juce::String& name, const juce::String& target,
+                                 const juce::String& rangeName, const juce::String& format,
+                                 int trackId, double tailSeconds);   // upsert by name
+    std::vector<ExportProfile> apiListExportProfiles();
+    bool apiRemoveExportProfile (const juce::String& name);
+    bool apiRunExport (const juce::String& name, const juce::String& outDirOverride,
+                       std::vector<juce::String>& filesOut);     // false if unknown/failed
 
     std::vector<juce::String> apiListAudioInputs();
     bool apiArmTrack (int trackId, bool armed, int input, int channels, bool monitor);

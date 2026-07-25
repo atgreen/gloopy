@@ -310,6 +310,26 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.LocationName.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.DefineExportProfile = channel.unary_unary(
+                '/gloopy.v1.Gloopy/DefineExportProfile',
+                request_serializer=gloopy__pb2.ExportProfile.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.ListExportProfiles = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ListExportProfiles',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.ExportProfileList.FromString,
+                _registered_method=True)
+        self.RemoveExportProfile = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RemoveExportProfile',
+                request_serializer=gloopy__pb2.ExportName.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.RunExport = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RunExport',
+                request_serializer=gloopy__pb2.ExportRun.SerializeToString,
+                response_deserializer=gloopy__pb2.ExportResult.FromString,
+                _registered_method=True)
         self.GetState = channel.unary_unary(
                 '/gloopy.v1.Gloopy/GetState',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -716,6 +736,32 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DefineExportProfile(self, request, context):
+        """export profiles — named render targets
+        upsert by name
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListExportProfiles(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RemoveExportProfile(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RunExport(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetState(self, request, context):
         """project & state
         """
@@ -1057,6 +1103,26 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.RemoveLocation,
                     request_deserializer=gloopy__pb2.LocationName.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'DefineExportProfile': grpc.unary_unary_rpc_method_handler(
+                    servicer.DefineExportProfile,
+                    request_deserializer=gloopy__pb2.ExportProfile.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ListExportProfiles': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListExportProfiles,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.ExportProfileList.SerializeToString,
+            ),
+            'RemoveExportProfile': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemoveExportProfile,
+                    request_deserializer=gloopy__pb2.ExportName.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'RunExport': grpc.unary_unary_rpc_method_handler(
+                    servicer.RunExport,
+                    request_deserializer=gloopy__pb2.ExportRun.FromString,
+                    response_serializer=gloopy__pb2.ExportResult.SerializeToString,
             ),
             'GetState': grpc.unary_unary_rpc_method_handler(
                     servicer.GetState,
@@ -2595,6 +2661,114 @@ class Gloopy:
             '/gloopy.v1.Gloopy/RemoveLocation',
             gloopy__pb2.LocationName.SerializeToString,
             gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DefineExportProfile(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/DefineExportProfile',
+            gloopy__pb2.ExportProfile.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListExportProfiles(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ListExportProfiles',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.ExportProfileList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RemoveExportProfile(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RemoveExportProfile',
+            gloopy__pb2.ExportName.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RunExport(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RunExport',
+            gloopy__pb2.ExportRun.SerializeToString,
+            gloopy__pb2.ExportResult.FromString,
             options,
             channel_credentials,
             insecure,

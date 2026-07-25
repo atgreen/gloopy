@@ -2234,6 +2234,17 @@ juce::ValueTree MainComponent::toValueTree()
         locs.addChild (lv, -1, nullptr);
     }
     root.addChild (locs, -1, nullptr);
+
+    juce::ValueTree exps ("EXPORTS");
+    for (auto& p : exportProfiles)
+    {
+        juce::ValueTree ev ("EXPORT");
+        ev.setProperty ("name", p.name, nullptr);       ev.setProperty ("target", p.target, nullptr);
+        ev.setProperty ("range", p.rangeName, nullptr);  ev.setProperty ("format", p.format, nullptr);
+        ev.setProperty ("track", p.trackId, nullptr);    ev.setProperty ("tail", p.tailSeconds, nullptr);
+        exps.addChild (ev, -1, nullptr);
+    }
+    root.addChild (exps, -1, nullptr);
     return root;
 }
 
@@ -2330,6 +2341,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     tracks.clear();
     mixerTracks.clear();
     locations.clear();
+    exportProfiles.clear();
     automationLanes.clear();
     nextTrackId = 0;
 
@@ -2557,6 +2569,15 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
         auto l = locs.getChild (i);
         locations.push_back ({ l.getProperty ("name").toString(), l.getProperty ("kind").toString(),
                                (double) l.getProperty ("start"), (double) l.getProperty ("end") });
+    }
+
+    auto exps = root.getChildWithName ("EXPORTS");
+    for (int i = 0; i < exps.getNumChildren(); ++i)
+    {
+        auto e = exps.getChild (i);
+        exportProfiles.push_back ({ e.getProperty ("name").toString(), e.getProperty ("target").toString(),
+                                    e.getProperty ("range").toString(), e.getProperty ("format").toString(),
+                                    (int) e.getProperty ("track"), (double) e.getProperty ("tail") });
     }
 
     transport.setBpm ((double) root.getProperty ("bpm", 128.0));

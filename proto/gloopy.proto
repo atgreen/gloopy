@@ -125,6 +125,18 @@ message TimelineLocation { string name = 1; string kind = 2; double start_beat =
 message LocationList { repeated TimelineLocation locations = 1; }
 message LocationName { string name = 1; }
 
+// ── export profiles (named render targets) ─────────────────
+// target: "mix" | "range" (+range_name) | "track" (+track_id) | "stems".
+// Output goes to <project>/exports/ (or out_dir), filenames deterministic.
+message ExportProfile {
+  string name = 1; string target = 2; string range_name = 3;
+  int32 track_id = 4; string format = 5; double tail_seconds = 6;
+}
+message ExportProfileList { repeated ExportProfile profiles = 1; }
+message ExportName   { string name = 1; }
+message ExportRun    { string name = 1; string out_dir = 2; }   // out_dir overrides <project>/exports
+message ExportResult { bool ok = 1; string error = 2; repeated string files = 3; }
+
 // ── presets ────────────────────────────────────────────────
 message PresetRef      { int32 target = 1; string name = 2; }   // target = track id or insert index
 message PresetCategory { string category = 1; }                 // "synth" | "effects"
@@ -271,6 +283,12 @@ service Gloopy {
   rpc AddLocation    (TimelineLocation) returns (Ack);   // upsert by name
   rpc ListLocations  (Empty)            returns (LocationList);
   rpc RemoveLocation (LocationName)     returns (Ack);
+
+  // export profiles — named render targets
+  rpc DefineExportProfile (ExportProfile) returns (Ack);   // upsert by name
+  rpc ListExportProfiles  (Empty)         returns (ExportProfileList);
+  rpc RemoveExportProfile (ExportName)    returns (Ack);
+  rpc RunExport           (ExportRun)     returns (ExportResult);
 
   // project & state
   rpc GetState   (Empty)    returns (ProjectState);
