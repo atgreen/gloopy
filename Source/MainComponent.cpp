@@ -2079,6 +2079,10 @@ juce::ValueTree MainComponent::toValueTree()
     root.setProperty ("version", 2, nullptr);
     root.setProperty ("bpm", transport.getBpm(), nullptr);
     root.setProperty ("swing", transport.getSwing(), nullptr);
+    root.setProperty ("scaleRoot", scaleRoot, nullptr);
+    root.setProperty ("scaleName", scaleName, nullptr);
+    { juce::StringArray iv; for (int i : scaleIntervals) iv.add (juce::String (i));
+      root.setProperty ("scaleIntervals", iv.joinIntoString (","), nullptr); }
 
     juce::ValueTree trks ("TRACKS");
     for (auto& t : tracks)
@@ -2658,6 +2662,16 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
 
     transport.setBpm ((double) root.getProperty ("bpm", 128.0));
     transport.setSwing ((double) root.getProperty ("swing", 0.5));
+
+    scaleRoot = (int) root.getProperty ("scaleRoot", 0);
+    scaleName = root.getProperty ("scaleName", "chromatic").toString();
+    if (root.hasProperty ("scaleIntervals"))
+    {
+        scaleIntervals.clear();
+        for (auto& s : juce::StringArray::fromTokens (root.getProperty ("scaleIntervals").toString(), ",", ""))
+            if (s.trim().isNotEmpty()) scaleIntervals.push_back (s.getIntValue());
+        if (scaleIntervals.empty()) scaleIntervals = { 0,1,2,3,4,5,6,7,8,9,10,11 };
+    }
 }
 
 void MainComponent::refreshUiAfterLoad()

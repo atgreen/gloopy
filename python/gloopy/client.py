@@ -330,6 +330,18 @@ class Gloopy:
     def set_parameter(self, id: str, value: float) -> None:
         self._ack(self.stub.SetParameter(pb.ParameterSet(id=id, value=value)))
 
+    # -- scales -----------------------------------------------------------
+    def set_scale(self, root: int = 0, name: str = "", intervals: Iterable[int] = ()) -> None:
+        """Set the project scale by built-in name (major/minor/dorian/...) or explicit intervals."""
+        self._ack(self.stub.SetScale(pb.Scale(root=root, name=name, intervals=list(intervals))))
+
+    def get_scale(self) -> dict:
+        s = self.stub.GetScale(pb.Empty())
+        return {"root": s.root, "name": s.name, "intervals": list(s.intervals)}
+
+    def snap_clip_to_scale(self, track_id: int, index: int) -> None:
+        self._ack(self.stub.SnapClipToScale(pb.ClipRef(track_id=track_id, index=index)))
+
     # -- timeline locations -----------------------------------------------
     def add_location(self, name: str, kind: str = "marker",
                      start_beat: float = 0.0, end_beat: float = 0.0) -> None:

@@ -345,6 +345,21 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ParameterSet.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SetScale = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetScale',
+                request_serializer=gloopy__pb2.Scale.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GetScale = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GetScale',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.Scale.FromString,
+                _registered_method=True)
+        self.SnapClipToScale = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SnapClipToScale',
+                request_serializer=gloopy__pb2.ClipRef.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.AddLocation = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AddLocation',
                 request_serializer=gloopy__pb2.TimelineLocation.SerializeToString,
@@ -841,6 +856,25 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetScale(self, request, context):
+        """scales — project scale + snap-to-scale
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetScale(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SnapClipToScale(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def AddLocation(self, request, context):
         """timeline locations — named markers / ranges / sections
         upsert by name
@@ -1276,6 +1310,21 @@ def add_GloopyServicer_to_server(servicer, server):
             'SetParameter': grpc.unary_unary_rpc_method_handler(
                     servicer.SetParameter,
                     request_deserializer=gloopy__pb2.ParameterSet.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetScale': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetScale,
+                    request_deserializer=gloopy__pb2.Scale.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GetScale': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetScale,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.Scale.SerializeToString,
+            ),
+            'SnapClipToScale': grpc.unary_unary_rpc_method_handler(
+                    servicer.SnapClipToScale,
+                    request_deserializer=gloopy__pb2.ClipRef.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'AddLocation': grpc.unary_unary_rpc_method_handler(
@@ -3048,6 +3097,87 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/SetParameter',
             gloopy__pb2.ParameterSet.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetScale(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetScale',
+            gloopy__pb2.Scale.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetScale(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GetScale',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.Scale.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SnapClipToScale(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SnapClipToScale',
+            gloopy__pb2.ClipRef.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

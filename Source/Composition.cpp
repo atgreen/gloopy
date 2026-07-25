@@ -229,7 +229,14 @@ bool MainComponent::saveComposition (const juce::File& dir)
     man.str ("format", "gloopy-composition").integer ("version", 1)
        .str ("title", title.isEmpty() ? "Untitled" : title)
        .number ("bpm", root.getProperty ("bpm"))
-       .number ("swing", root.getProperty ("swing", 0.5)).blank();
+       .number ("swing", root.getProperty ("swing", 0.5));
+    man.integer ("scale_root", (int) root.getProperty ("scaleRoot", 0))
+       .str ("scale_name", root.getProperty ("scaleName", "chromatic").toString());
+    { juce::StringArray iv;
+      for (auto& s : juce::StringArray::fromTokens (root.getProperty ("scaleIntervals").toString(), ",", ""))
+          if (s.trim().isNotEmpty()) iv.add (s.trim());
+      man.strArray ("scale_intervals", iv); }
+    man.blank();
 
     // Slug the mixer inserts first so tracks can reference them by slug.
     auto mixer = root.getChildWithName ("MIXER");
@@ -526,6 +533,9 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
     root.setProperty ("version", 2, nullptr);
     root.setProperty ("bpm", man.root.getDouble ("bpm", 120.0), nullptr);
     root.setProperty ("swing", man.root.getDouble ("swing", 0.5), nullptr);
+    root.setProperty ("scaleRoot", man.root.getInt ("scale_root", 0), nullptr);
+    root.setProperty ("scaleName", man.root.getString ("scale_name", "chromatic"), nullptr);
+    root.setProperty ("scaleIntervals", man.root.getStringArray ("scale_intervals").joinIntoString (","), nullptr);
 
     // Inserts first (tracks reference them by slug) — establishes slug->index.
     juce::ValueTree mixerTree ("MIXER");

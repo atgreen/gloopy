@@ -124,6 +124,11 @@ message ParameterList { repeated ParameterInfo params = 1; }
 message ParameterId   { string id = 1; }
 message ParameterSet  { string id = 1; float value = 2; }
 
+// ── scales ─────────────────────────────────────────────────
+// root: 0=C .. 11=B. Set by intervals, or by a built-in `name` (major, minor,
+// dorian, pentatonic-minor, blues, whole-tone, chromatic, ...).
+message Scale { int32 root = 1; string name = 2; repeated int32 intervals = 3; }
+
 // ── timeline locations ─────────────────────────────────────
 // A named point or span on the timeline. kind: "marker" | "range" | "section" |
 // "loop" | "punch" | "export" | "skip". For a marker, end_beat collapses to start.
@@ -303,6 +308,11 @@ service Gloopy {
   rpc ListParameters (Empty)         returns (ParameterList);
   rpc GetParameter   (ParameterId)   returns (ParameterInfo);
   rpc SetParameter   (ParameterSet)  returns (Ack);
+
+  // scales — project scale + snap-to-scale
+  rpc SetScale        (Scale)   returns (Ack);
+  rpc GetScale        (Empty)   returns (Scale);
+  rpc SnapClipToScale (ClipRef) returns (Ack);
 
   // timeline locations — named markers / ranges / sections
   rpc AddLocation    (TimelineLocation) returns (Ack);   // upsert by name

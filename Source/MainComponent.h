@@ -134,6 +134,15 @@ public:
     bool apiExportMidi (const juce::String& path);   // all instrument tracks -> a Type-1 SMF
     int  apiImportMidi (const juce::String& path);   // SMF -> synth tracks + clips; count, or -1
 
+    // --- scales & microtuning (Scales.cpp) ---
+    // Set by explicit intervals, or by a built-in name (major, minor, dorian,
+    // pentatonic-minor, blues, whole-tone, chromatic, ...). Snap rounds each note's
+    // pitch to the nearest scale degree (ties round up).
+    bool apiSetScale (int root, const juce::String& name, const std::vector<int>& intervals);
+    void apiGetScale (int& root, juce::String& name, std::vector<int>& intervals);
+    int  apiSnapClipToScale (int trackId, int clipIndex);   // notes changed, or -1
+    int  snapPitchToScale (int pitch) const;                // nearest in-scale pitch
+
     // --- buses & sends (Buses.cpp) ---
     int  apiAddBus (const juce::String& name);                       // append a bus mixer track; -> its index
     bool apiSetSend (int insert, int bus, float level);             // upsert an aux send (level<=0 removes)
@@ -343,6 +352,11 @@ private:
         std::vector<Insert> inserts;
     };
     std::vector<MixerScene> mixerScenes;         // guarded by engineLock
+    // Project scale (for piano-roll highlighting, snap-to-scale, generative clients).
+    // Default chromatic = all 12 pitch classes, so snap is a no-op until a scale is set.
+    int scaleRoot { 0 };                          // 0=C .. 11=B
+    juce::String scaleName { "chromatic" };
+    std::vector<int> scaleIntervals { 0,1,2,3,4,5,6,7,8,9,10,11 };   // semitone offsets from root
 
     // MIDI recording: audio thread appends played input, message thread drains to a clip.
     void startRecording();

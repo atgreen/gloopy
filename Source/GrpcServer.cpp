@@ -254,6 +254,26 @@ namespace
             return Status::OK;
         }
 
+        // ---- scales ----
+        Status SetScale (ServerContext*, const pb::Scale* q, pb::Ack* r) override
+        {
+            std::vector<int> iv; for (int i = 0; i < q->intervals_size(); ++i) iv.push_back (q->intervals (i));
+            const bool ok = main.apiSetScale (q->root(), js (q->name()), iv);
+            r->set_ok (ok); if (! ok) r->set_error ("unknown scale name and no intervals given");
+            return Status::OK;
+        }
+        Status GetScale (ServerContext*, const pb::Empty*, pb::Scale* r) override
+        {
+            int root; juce::String name; std::vector<int> iv;
+            main.apiGetScale (root, name, iv);
+            r->set_root (root); r->set_name (name.toStdString());
+            for (int i : iv) r->add_intervals (i);
+            return Status::OK;
+        }
+        Status SnapClipToScale (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
+        { const int n = main.apiSnapClipToScale (q->track_id(), q->index());
+          r->set_ok (n >= 0); if (n < 0) r->set_error ("clip not found"); return Status::OK; }
+
         // ---- buses & sends ----
         Status AddBus (ServerContext*, const pb::AddBusRequest* q, pb::TrackId* r) override
         { r->set_id (main.apiAddBus (js (q->name()))); return Status::OK; }

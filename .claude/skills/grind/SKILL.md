@@ -363,6 +363,16 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
     Scala/keymap import later.
     *Done when:* set a project scale via API, snap a note list to it, render; scale
     defs round-trip.
+    - `[x]` **Scales + snap landed** (`Source/Scales.cpp`, commit): project scale
+      `{root, name, intervals}` set by explicit intervals or a built-in name (major,
+      minor, modes, pentatonics, blues, whole-tone, chromatic); `apiSetScale`/
+      `apiGetScale`; `apiSnapClipToScale` snaps each note to the nearest scale degree
+      (`snapPitchToScale`, ties round up). Pure metadata + pitch math — no audio path.
+      Serialised on the root ValueTree + composition manifest (`scale_root`/
+      `scale_name`/`scale_intervals`). RPCs SetScale/GetScale/SnapClipToScale; Python
+      set/get_scale + snap_clip_to_scale. Verified chromatic→C-major snap (correct
+      tie-ups) + round-trip. **Not yet:** per-track microtuning (cents offset applied
+      at render), piano-roll highlight UI, Scala/`.kbm` import.
 
 ### Wave 5 — Analysis, plugins, diagnostics (offline / headless-friendly)
 
