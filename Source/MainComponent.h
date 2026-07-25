@@ -260,6 +260,7 @@ public:
     // --- clip / region operations (ClipOps.cpp) ---
     int  apiSplitClip (int trackId, int index, double beat);        // -> new (right) clip index, or -1
     int  apiSplitClipAtMarker (int trackId, int index, const juce::String& marker);   // split at a named timeline location; -1 if no marker / outside clip
+    int  apiSliceClipAtTransients (int trackId, int index, float sensitivity);   // audio clip -> slices at detected onsets; slice count, or -1
     int  apiDuplicateClip (int trackId, int index, double atBeat);  // atBeat<0 => right after; -> new index
     bool apiReverseClip (int trackId, int index);                   // reverse notes (MIDI) or audio buffer
     bool apiCropClip (int trackId, int index, double startBeat, double endBeat);   // trim a MIDI clip to a beat range

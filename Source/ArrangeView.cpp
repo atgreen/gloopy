@@ -463,6 +463,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             m.addItem (10, "Normalize");                // to -1 dBFS
             m.addItem (11, "Gain...");
             m.addItem (12, "Fades...");
+            m.addItem (16, "Slice at transients");      // detect onsets -> split into slices
         }
         if (isTake)
         {
@@ -488,6 +489,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                             : r == 13 ? "croploop"
                             : r == 14 ? "consolidate"
                             : r == 15 ? "bounce"
+                            : r == 16 ? "slicetransients"
                             : r == 10 ? "normalize"
                             : r == 5  ? "usetake"
                             : r == 6  ? "promotetake"

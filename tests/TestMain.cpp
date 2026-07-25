@@ -10,6 +10,7 @@
 #include "Note.h"
 #include "NoteScheduler.h"
 #include "NoteEdits.h"
+#include "Onsets.h"
 #include "FileDrop.h"
 #include "StereoWiden.h"
 #include "Lfo.h"
@@ -265,6 +266,25 @@ struct NoteEditTests : juce::UnitTest
             expectWithinAbsoluteError (ns[0].startBeat, 0.0, 1e-9);
             expectWithinAbsoluteError (ns[1].startBeat, 0.1, 1e-9);
             expectWithinAbsoluteError (ns[2].startBeat, 0.2, 1e-9);
+        }
+
+        beginTest ("onset detection finds transient starts");
+        {
+            // Four 4000-sample "hits" (a loud burst then silence) at 0/4000/8000/12000.
+            const int seg = 4000, n = seg * 4;
+            std::vector<float> x ((size_t) n, 0.0f);
+            for (int h = 0; h < 4; ++h)
+                for (int i = 0; i < 800; ++i)                       // 800-sample burst at each hit start
+                    x[(size_t) (h * seg + i)] = (i % 2 ? 0.9f : -0.9f);   // full-scale buzz
+            auto on = detectOnsets (x.data(), n, 44100.0, 1.0f);
+            // Interior onsets only (the hit at 0 is never returned): expect ~3, near the cuts.
+            expect ((int) on.size() == 3, juce::String ("onsets=") + juce::String ((int) on.size()));
+            auto near = [] (int v, int want) { return std::abs (v - want) < 600; };
+            if (on.size() == 3)
+                expect (near (on[0], 4000) && near (on[1], 8000) && near (on[2], 12000));
+            // Silence yields no onsets.
+            std::vector<float> z ((size_t) n, 0.0f);
+            expect (detectOnsets (z.data(), n, 44100.0, 1.0f).empty());
         }
 
         beginTest ("knife splits notes crossing a beat, leaves others");

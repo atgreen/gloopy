@@ -289,6 +289,7 @@ MainComponent::MainComponent (bool headless)
         else if (cmd == "croploop")  apiCropClip (id, clip, transport.getLoopStartBeats(), transport.getLoopEndBeats());
         else if (cmd == "consolidate") apiConsolidateClip (id, clip);
         else if (cmd == "bounce")    apiBounceClip (id, clip);
+        else if (cmd == "slicetransients") apiSliceClipAtTransients (id, clip, 1.0f);
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")

@@ -235,6 +235,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.SplitAtMarkerRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.ClipId.FromString,
                 _registered_method=True)
+        self.SliceAtTransients = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SliceAtTransients',
+                request_serializer=gloopy__pb2.SliceTransientsRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.SliceResult.FromString,
+                _registered_method=True)
         self.DuplicateClip = channel.unary_unary(
                 '/gloopy.v1.Gloopy/DuplicateClip',
                 request_serializer=gloopy__pb2.DuplicateClipRequest.SerializeToString,
@@ -959,6 +964,13 @@ class GloopyServicer:
 
     def SplitClipAtMarker(self, request, context):
         """split at a named timeline location
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SliceAtTransients(self, request, context):
+        """audio clip -> slices at detected onsets
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1774,6 +1786,11 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.SplitClipAtMarker,
                     request_deserializer=gloopy__pb2.SplitAtMarkerRequest.FromString,
                     response_serializer=gloopy__pb2.ClipId.SerializeToString,
+            ),
+            'SliceAtTransients': grpc.unary_unary_rpc_method_handler(
+                    servicer.SliceAtTransients,
+                    request_deserializer=gloopy__pb2.SliceTransientsRequest.FromString,
+                    response_serializer=gloopy__pb2.SliceResult.SerializeToString,
             ),
             'DuplicateClip': grpc.unary_unary_rpc_method_handler(
                     servicer.DuplicateClip,
@@ -3322,6 +3339,33 @@ class Gloopy:
             '/gloopy.v1.Gloopy/SplitClipAtMarker',
             gloopy__pb2.SplitAtMarkerRequest.SerializeToString,
             gloopy__pb2.ClipId.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SliceAtTransients(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SliceAtTransients',
+            gloopy__pb2.SliceTransientsRequest.SerializeToString,
+            gloopy__pb2.SliceResult.FromString,
             options,
             channel_credentials,
             insecure,

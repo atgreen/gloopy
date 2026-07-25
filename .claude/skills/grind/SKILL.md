@@ -329,6 +329,15 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      embed. Fixes the existing "Split at playhead" clip-menu control for audio. smoke proves
      the split is audibly TRANSPARENT (whole-render mean-abs diff 0.000000 before vs after a
      split of a two-distinct-halves clip — a replay bug would corrupt the second half).
+   - `[x]` **Slice at transients landed** (commit, needed the audio-split fix): a pure
+     energy-flux onset detector (`Source/Onsets.h`, `detectOnsets` — short-frame log-energy
+     rise, peak-picked above mean+sensitivity·std with a 50 ms min gap, no FFT, unit-tested)
+     drives `apiSliceClipAtTransients(trackId,index,sensitivity)` — it detects onsets in an
+     audio clip's buffer, maps each onset source-sample → absolute beat (tempo-aware), and
+     splits the clip left-to-right at each (cutting the fresh right piece each time). RPC
+     (→SliceResult) + Python. **Desktop UI:** "Slice at transients" on the audio-clip menu —
+     screenshot-validated. smoke proves 4 staccato hits slice into ~4 clips; the detector
+     itself is unit-tested (hits at 0/4000/8000/12000 → 3 interior onsets; silence → none).
    - `[x]` **Clip gain + normalize landed** (commit): `apiSetClipGain` (audio clip gain
      in dB) and `apiNormalizeClip` (scan the clip buffer's peak, set gain so it hits a
      target dBFS; returns the applied gain). Audio clips only (MIDI dynamics = velocity);
@@ -591,7 +600,8 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       the `AnalyzeFile`/`RenderToFile`-report paths + `gloopy analyze` JSON + Python.
       smoke proves on a 6 s steady sine that momentary ≥ integrated, short-term ≈
       integrated, and LRA is bounded. **Not yet:** `gloopy validate` render+analyze wiring
-      of these, transient/onset detection.
+      of these. **Transient/onset detection landed** as `Source/Onsets.h` (`detectOnsets`),
+      consumed by the audio-clip "Slice at transients" op (Wave 3 #6).
 
 13. **Plugin scan cache + CLI scan.** **S/M**
     *Ardour #15.* Persist scan results (id, name, format, path, vendor, category,

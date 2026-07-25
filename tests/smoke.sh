@@ -495,6 +495,24 @@ assert d < 0.001, 'audio split is not transparent (mean abs diff %.5f) — right
 print('smoke: PASS — audio SplitClip is transparent (halves trimmed, diff %.6f)'%d)
 " || { echo 'smoke: audio split not transparent' >&2; exit 1; }
 g -d "{\"id\":$SPT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+# Slice at transients: 4 staccato hits (short notes with silence between) rendered to a
+# WAV and loaded as one audio clip should slice into ~4 clips at the detected onsets.
+# (The onset math itself is unit-tested in GloopyTests::NoteEdits.)
+TR=$(g -d '{"name":"trsrc","wave":"SAW","attack":0.001,"decay":0.05,"sustain":0,"release":0.02,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$TR,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":48,\"start_beat\":0,\"length_beats\":0.15,\"velocity\":0.95},{\"pitch\":48,\"start_beat\":1,\"length_beats\":0.15,\"velocity\":0.95},{\"pitch\":48,\"start_beat\":2,\"length_beats\":0.15,\"velocity\":0.95},{\"pitch\":48,\"start_beat\":3,\"length_beats\":0.15,\"velocity\":0.95}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/trsrc.wav\",\"tail_seconds\":0,\"start_beat\":0,\"end_beat\":4,\"track_id\":$TR}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"id\":$TR}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+TRT=$(g -d '{"name":"traud"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddAudioTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$TRT,\"start_beat\":0,\"path\":\"$WORK/trsrc.wav\",\"gain\":1.0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddAudioClip >/dev/null
+SLICES=$(g -d "{\"track_id\":$TRT,\"index\":0,\"sensitivity\":1.0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SliceAtTransients | python3 -c "import json,sys;print(json.load(sys.stdin).get('slices',0))")
+NCL=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t['id']==$TRT))")
+python3 -c "
+s,n=$SLICES,$NCL
+assert 3 <= s <= 5, 'expected ~4 slices from 4 hits, got %d'%s
+assert n==s, 'clip count (%d) != reported slices (%d)'%(n,s)
+print('smoke: PASS — SliceAtTransients cut 4 hits into %d slices'%s)
+" || { echo 'smoke: slice-at-transients wrong' >&2; exit 1; }
+g -d "{\"id\":$TRT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
 g -d "{\"path\":\"$WAV\",\"tail_seconds\":1.0,\"start_beat\":0,\"end_beat\":4}" \
     127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null

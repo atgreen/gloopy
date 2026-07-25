@@ -8,6 +8,7 @@
 
 #include "MainComponent.h"
 #include "NoteEdits.h"
+#include "Onsets.h"
 #include <algorithm>
 
 // Split a clip at a named timeline location (marker/section/range start). Resolves the
@@ -25,6 +26,64 @@ int MainComponent::apiSplitClipAtMarker (int trackId, int index, const juce::Str
         }
         if (beat < 0.0) return -1;                    // no such marker
         return apiSplitClip (trackId, index, beat);   // re-enters on the message thread; no-op if outside the clip
+    });
+}
+
+// Slice an audio clip at its transients: detect onsets in the clip's buffer, then split
+// the clip at each onset beat (audio split now trims each half, so the slices play back
+// seamlessly). `sensitivity` scales the detection threshold (higher => fewer slices).
+// Returns the resulting slice count (1 = no onsets found), or -1 on error.
+int MainComponent::apiSliceClipAtTransients (int trackId, int index, float sensitivity)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        // Snapshot the clip's mono buffer + anchors under the lock; detect off-lock.
+        std::vector<float> mono;
+        double srcRate = 44100.0, clipStart = 0.0, clipLenBeats = 0.0;
+        {
+            const juce::ScopedLock sl (engineLock);
+            Track* t = resolveTrack (trackId);
+            if (t == nullptr || ! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
+            const Clip& c = t->clips[(size_t) index];
+            if (! c.isAudio() || c.audio == nullptr) return -1;
+            const auto& ab = *c.audio;
+            const int frames = ab.getNumSamples(), nch = juce::jmax (1, ab.getNumChannels());
+            mono.resize ((size_t) frames);
+            for (int i = 0; i < frames; ++i)
+            {
+                float s = 0.0f;
+                for (int ch = 0; ch < nch; ++ch) s += ab.getSample (ch, i);
+                mono[(size_t) i] = s / (float) nch;
+            }
+            srcRate      = c.audioSourceRate;
+            clipStart    = c.startBeat;
+            clipLenBeats = c.lengthBeats;
+        }
+
+        const auto onsetSamples = detectOnsets (mono.data(), (int) mono.size(), srcRate, juce::jmax (0.0f, sensitivity));
+        if (onsetSamples.empty()) return 1;   // no transients -> a single (unchanged) slice
+
+        // Map onset source-samples -> absolute beats (natural-speed playback, tempo-aware),
+        // keep only those strictly inside the clip, ascending.
+        const double clipStartSec = apiBeatsToSeconds (clipStart);
+        const double clipEndBeat  = clipStart + clipLenBeats;
+        std::vector<double> beats;
+        for (int s : onsetSamples)
+        {
+            const double b = apiSecondsToBeats (clipStartSec + (double) s / srcRate);
+            if (b > clipStart + 1.0e-4 && b < clipEndBeat - 1.0e-4) beats.push_back (b);
+        }
+        std::sort (beats.begin(), beats.end());
+
+        // Split left-to-right, always cutting the freshly-created right piece so later
+        // (rightward) onsets land inside it.
+        int cur = index, slices = 1;
+        for (double b : beats)
+        {
+            const int right = apiSplitClip (trackId, cur, b);
+            if (right > 0) { cur = right; ++slices; }
+        }
+        return slices;
     });
 }
 

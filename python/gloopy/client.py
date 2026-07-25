@@ -217,6 +217,11 @@ class Gloopy:
         r = self.stub.SplitClipAtMarker(pb.SplitAtMarkerRequest(track_id=track_id, index=index, marker=marker))
         return r.index
 
+    def slice_at_transients(self, track_id: int, index: int, sensitivity: float = 1.0) -> int:
+        """Slice an audio clip at detected onsets; returns the resulting slice count (1 = none)."""
+        r = self.stub.SliceAtTransients(pb.SliceTransientsRequest(track_id=track_id, index=index, sensitivity=sensitivity))
+        return r.slices
+
     def duplicate_clip(self, track_id: int, index: int, at_beat: float = -1.0) -> int:
         """Copy a clip to at_beat (default -1 = butt up right after it); returns new index."""
         r = self.stub.DuplicateClip(pb.DuplicateClipRequest(track_id=track_id, index=index, at_beat=at_beat))

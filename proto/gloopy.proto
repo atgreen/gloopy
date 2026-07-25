@@ -193,6 +193,8 @@ message AddAudioClipRequest { int32 track_id = 1; double start_beat = 2; string 
 // clip / region operations
 message SplitClipRequest     { int32 track_id = 1; int32 index = 2; double beat = 3; }     // beat = absolute split point
 message SplitAtMarkerRequest { int32 track_id = 1; int32 index = 2; string marker = 3; }   // split at a named timeline location
+message SliceTransientsRequest { int32 track_id = 1; int32 index = 2; float sensitivity = 3; }   // audio clip -> slices at onsets
+message SliceResult          { int32 slices = 1; }   // number of resulting slices
 message DuplicateClipRequest { int32 track_id = 1; int32 index = 2; double at_beat = 3; }   // at_beat<0 => right after
 message CropClipRequest      { int32 track_id = 1; int32 index = 2; double start_beat = 3; double end_beat = 4; }  // trim to [start,end)
 message ClipGainRequest      { int32 track_id = 1; int32 index = 2; float gain_db = 3; }     // audio clip gain (dB)
@@ -351,6 +353,7 @@ service Gloopy {
   rpc AddAudioClip    (AddAudioClipRequest)    returns (ClipId);
   rpc SplitClip       (SplitClipRequest)       returns (ClipId);    // -> new (right) clip
   rpc SplitClipAtMarker(SplitAtMarkerRequest)  returns (ClipId);    // split at a named timeline location
+  rpc SliceAtTransients(SliceTransientsRequest) returns (SliceResult);   // audio clip -> slices at detected onsets
   rpc DuplicateClip   (DuplicateClipRequest)   returns (ClipId);
   rpc ReverseClip     (ClipRef)                returns (Ack);
   rpc CropClip        (CropClipRequest)        returns (Ack);      // trim a MIDI clip to a beat range
