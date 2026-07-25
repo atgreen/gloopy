@@ -171,7 +171,7 @@ void PianoRoll::paint (juce::Graphics& g)
 
         if (scaleActive && scaleMask[(size_t) (((pitch % 12) + 12) % 12)])   // tint in-scale rows
         {
-            g.setColour (Palette::accent.withAlpha (0.10f));
+            g.setColour (Palette::accent.withAlpha (0.22f));
             g.fillRect (gx, y, w - gx, rh);
         }
 
