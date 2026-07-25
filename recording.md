@@ -1,6 +1,6 @@
 # Recording Plan
 
-> **Status: Phase 1 implemented.** `Source/Recording.cpp` captures audio input to a
+> **Status: Phases 1–2 implemented.** `Source/Recording.cpp` captures audio input to a
 > WAV take and drops a *referencing* audio clip (no embedded blob). The audio
 > device now opens inputs (`setAudioChannels(2, 2)`); the audio thread copies input
 > into a JUCE `ThreadedWriter` (bounded FIFO + background writer thread), and the
@@ -18,8 +18,19 @@
 > valid 24-bit WAV, the clip plays back at 440 Hz, and it survives a composition
 > save→reload as a reference.
 >
-> Deferred to Phase 2+: monitoring, count-in, punch range, multiple armed tracks,
-> `SetPunchRange`, subscription events, latency compensation, take recovery.
+> **Phase 2** adds: **multiple armed tracks** (one record trigger opens a take
+> writer per armed audio track); per-track **dry monitoring** (`recordMonitor`,
+> input routed to output through track volume while armed); **count-in** (rewind
+> playback before the anchor, start writing at the anchor) and **punch range**
+> (write only within `[in, out)`), via `SetPunchRange`; and **recording events**
+> on `Subscribe` (`recording_started` / `take_created` / `recording_stopped` /
+> `recording_error`, on the change stream). `ArmRequest` gained a `monitor` flag.
+> Verified with the tone seam: N armed tracks yield N takes/clips/events; a
+> punch `[2,4)` with count-in 1 records exactly 2 beats anchored at beat 2.
+>
+> Deferred to Phase 3: latency-compensation UI, failed/partial take recovery,
+> take promotion/cleanup, FLAC, loop recording and take lanes. Monitoring routes
+> dry input only (insert effects not printed).
 
 ## Goal
 

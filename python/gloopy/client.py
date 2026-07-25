@@ -98,10 +98,17 @@ class Gloopy:
     def list_audio_inputs(self) -> list[str]:
         return list(self.stub.ListAudioInputs(pb.Empty()).names)
 
-    def arm_track(self, track_id: int, armed: bool = True, input: int = 0, channels: int = 2) -> None:
+    def arm_track(self, track_id: int, armed: bool = True, input: int = 0,
+                  channels: int = 2, monitor: bool = False) -> None:
         """Arm an audio track for recording (input = first hardware channel)."""
         self._ack(self.stub.ArmTrack(pb.ArmRequest(
-            track_id=track_id, armed=armed, input=input, channels=channels)))
+            track_id=track_id, armed=armed, input=input, channels=channels, monitor=monitor)))
+
+    def set_punch_range(self, enabled: bool = True, in_beat: float = 0.0,
+                        out_beat: float = 0.0, count_in_beats: float = 0.0) -> None:
+        """Punch in/out (record only within [in,out)) with an optional count-in lead."""
+        self._ack(self.stub.SetPunchRange(pb.PunchRange(
+            enabled=enabled, in_beat=in_beat, out_beat=out_beat, count_in_beats=count_in_beats)))
 
     # -- tracks -----------------------------------------------------------
     def add_synth_track(self, name: str = "", wave="SINE", attack=0.01,

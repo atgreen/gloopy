@@ -42,6 +42,7 @@ struct Track
     std::atomic<bool> recordArmed   { false };
     std::atomic<int>  recordInput   { 0 };   // first hardware input channel
     std::atomic<int>  recordChannels{ 2 };   // 1 = mono, 2 = stereo
+    std::atomic<bool> recordMonitor { false };
 
     std::vector<Clip> clips;   // guarded by the engine lock
 };

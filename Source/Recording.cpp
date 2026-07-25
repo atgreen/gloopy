@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Anthony Green <green@moxielogic.com>
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Phase 1 of audio input recording (design: recording.md). Recording writes an
-// ordinary WAV take under the composition's assets/recordings/ and drops a
-// *referencing* audio clip (no embedded blob). The real-time discipline matches
-// the design: the audio thread only copies input samples into a JUCE
-// ThreadedWriter (bounded FIFO + background writer thread); the message thread
-// opens/closes writers and creates clips.
+// Audio input recording (design: recording.md). Phase 1 = one take -> referencing
+// clip. Phase 2 = multiple armed tracks, per-track monitoring, count-in + punch
+// range, and recording events on Subscribe. Real-time discipline: the audio
+// thread only copies input samples into JUCE ThreadedWriters (bounded FIFO +
+// background writer thread); the message thread opens/closes writers, gates by
+// the punch range, and creates clips on stop.
 
 #include "MainComponent.h"
 #include <iostream>
@@ -24,8 +24,6 @@ juce::String takeSlug (const juce::String& name)
 }
 }
 
-// Where recorded takes live: a composition's assets/recordings/, else a folder
-// beside the .gloopy project, else ~/Gloopy Recordings.
 juce::File MainComponent::recordingsDir() const
 {
     if (currentProjectFile.getFileName() == "gloopy.toml")
@@ -49,7 +47,7 @@ std::vector<juce::String> MainComponent::apiListAudioInputs()
     return out;
 }
 
-bool MainComponent::apiArmTrack (int trackId, bool armed, int input, int channels)
+bool MainComponent::apiArmTrack (int trackId, bool armed, int input, int channels, bool monitor)
 {
     return callOnMessageThread ([&] () -> bool
     {
@@ -57,111 +55,180 @@ bool MainComponent::apiArmTrack (int trackId, bool armed, int input, int channel
         if (t == nullptr) return false;
         t->recordInput.store (juce::jmax (0, input));
         t->recordChannels.store (juce::jlimit (1, 2, channels));
+        t->recordMonitor.store (monitor);
         t->recordArmed.store (armed);
         return true;
     });
 }
 
-// --- message thread: open a take writer for the first armed audio track -------
+bool MainComponent::apiSetPunchRange (bool enabled, double inBeat, double outBeat, double countIn)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        punchEnabled.store (enabled);
+        punchInBeat.store (juce::jmax (0.0, inBeat));
+        punchOutBeat.store (outBeat > inBeat ? outBeat : 1.0e12);
+        countInBeats.store (juce::jmax (0.0, countIn));
+        return true;
+    });
+}
+
+// --- message thread: open a take writer for every armed audio track ------------
 bool MainComponent::startAudioRecording()
 {
-    Track* target = nullptr;
-    for (auto& t : tracks) if (t->recordArmed.load()) { target = t.get(); break; }
-    if (target == nullptr) return false;
+    std::vector<Track*> armed;
+    for (auto& t : tracks) if (t->recordArmed.load()) armed.push_back (t.get());
+    if (armed.empty()) return false;
 
-    const int    nch  = juce::jlimit (1, 2, target->recordChannels.load());
+    // Anchor = where takes/clips begin. Punch-in if enabled, else the playhead.
+    const double anchor = punchEnabled.load() ? punchInBeat.load() : transport.getPlayheadBeats();
+    if (! punchEnabled.load())
+    {
+        punchInBeat.store (anchor);
+        punchOutBeat.store (1.0e12);
+    }
+    // Count-in: rewind so the performer hears lead-in; writing still starts at anchor.
+    const double countIn = countInBeats.load();
+    const double spb = juce::jmax (1.0, transport.samplesPerBeat());
+    transport.setPlayheadSamples ((juce::int64) (juce::jmax (0.0, anchor - countIn) * spb));
+
     const double rate = currentSampleRate;
-
     auto dir = recordingsDir();
     dir.createDirectory();
-    const auto file = dir.getNonexistentChildFile (takeSlug (target->name), ".wav", false);
 
-    std::unique_ptr<juce::FileOutputStream> os (file.createOutputStream());
-    if (os == nullptr) { std::cout << "[rec] cannot write take to " << file.getFullPathName() << std::endl; return false; }
+    std::vector<std::unique_ptr<TakeRecorder>> recs;
     juce::WavAudioFormat fmt;
-    auto* writer = fmt.createWriterFor (os.get(), rate, (unsigned) nch, 24, {}, 0);
-    if (writer == nullptr) return false;
-    os.release();
+    for (auto* t : armed)
+    {
+        const int nch = juce::jlimit (1, 2, t->recordChannels.load());
+        auto file = dir.getNonexistentChildFile (takeSlug (t->name), ".wav", false);
+        std::unique_ptr<juce::FileOutputStream> os (file.createOutputStream());
+        if (os == nullptr) { std::cout << "[rec] cannot write " << file.getFullPathName() << std::endl;
+                             emitChange ("recording_error", t->id); continue; }
+        auto* writer = fmt.createWriterFor (os.get(), rate, (unsigned) nch, 24, {}, 0);
+        if (writer == nullptr) continue;
+        os.release();
 
-    if (! recordThread.isThreadRunning()) recordThread.startThread();
-    audioRecFrames.store (0);
+        auto r = std::make_unique<TakeRecorder>();
+        r->trackId = t->id; r->channels = nch; r->input = juce::jmax (0, t->recordInput.load());
+        r->file = file; r->startBeat = anchor;
+        if (! recordThread.isThreadRunning()) recordThread.startThread();
+        r->writer.reset (new juce::AudioFormatWriter::ThreadedWriter (writer, recordThread, 1 << 16));
+        recs.push_back (std::move (r));
+    }
+    if (recs.empty()) return false;
+
+    audioRecRate = rate;
     recordTonePhase = 0.0;
     {
         const juce::ScopedLock sl (takeWriterLock);
-        audioTakeWriter.reset (new juce::AudioFormatWriter::ThreadedWriter (writer, recordThread, 1 << 16));
+        takeRecorders = std::move (recs);
+        audioRecActive.store (true);
     }
-    audioRecTrackId   = target->id;
-    audioRecChannels  = nch;
-    audioRecInput     = juce::jmax (0, target->recordInput.load());
-    audioRecRate      = rate;
-    audioRecStartBeat = transport.getPlayheadBeats();
-    audioTakeFile     = file;
-    std::cout << "[rec] recording " << nch << "ch take -> " << file.getFullPathName() << std::endl;
+    for (auto& r : takeRecorders) emitChange ("recording_started", r->trackId);
+    std::cout << "[rec] recording " << takeRecorders.size() << " armed track(s), anchor beat "
+              << juce::String (anchor, 2) << (countIn > 0 ? ", count-in " + juce::String (countIn, 1) : "")
+              << std::endl;
     return true;
 }
 
-// --- audio thread: copy input (or a test tone) into the writer's FIFO ----------
+// --- audio thread: gate by punch range, copy input into each writer ------------
 void MainComponent::captureRecordingInput (const juce::AudioSourceChannelInfo& info)
 {
-    const juce::ScopedTryLock sl (takeWriterLock);
-    if (! sl.isLocked() || audioTakeWriter == nullptr) return;
-
-    const int num = info.numSamples;
-    const int nch = audioRecChannels;
+    // Stash the raw input for monitoring before the buffer is cleared/overwritten.
     auto* buf = info.buffer;
+    const int num = info.numSamples;
+    monitorStash.setSize (buf->getNumChannels(), num, false, false, true);
+    for (int ch = 0; ch < buf->getNumChannels(); ++ch)
+        monitorStash.copyFrom (ch, 0, *buf, ch, info.startSample, num);
 
-    const double toneHz = recordTestToneHz.load();
-    const float* chans[2] = { nullptr, nullptr };
+    const juce::ScopedTryLock sl (takeWriterLock);
+    if (! sl.isLocked() || ! audioRecActive.load()) return;
+
+    // Within the punch range at this block?
+    const double beat = transport.getPlayheadBeats();
+    const bool writing = beat >= punchInBeat.load() && beat < punchOutBeat.load();
+
+    // Optional self-test tone in place of the mic (2ch max).
     juce::AudioBuffer<float> tone;
-
-    if (toneHz > 0.0)                       // self-test signal in place of the mic
+    const double toneHz = recordTestToneHz.load();
+    if (toneHz > 0.0)
     {
-        tone.setSize (nch, num);
+        tone.setSize (2, num);
         for (int i = 0; i < num; ++i)
         {
             const float s = 0.5f * (float) std::sin (recordTonePhase * juce::MathConstants<double>::twoPi);
-            for (int ch = 0; ch < nch; ++ch) tone.setSample (ch, i, s);
+            tone.setSample (0, i, s); tone.setSample (1, i, s);
             recordTonePhase += toneHz / audioRecRate;
             if (recordTonePhase >= 1.0) recordTonePhase -= 1.0;
         }
-        for (int ch = 0; ch < nch; ++ch) chans[ch] = tone.getReadPointer (ch);
     }
-    else
+
+    if (! writing) return;
+    for (auto& r : takeRecorders)
     {
-        for (int ch = 0; ch < nch; ++ch)
+        const float* chans[2] = { nullptr, nullptr };
+        for (int ch = 0; ch < r->channels; ++ch)
+            chans[ch] = toneHz > 0.0 ? tone.getReadPointer (juce::jmin (ch, 1))
+                                     : buf->getReadPointer (juce::jmin (r->input + ch, buf->getNumChannels() - 1), info.startSample);
+        if (r->writer != nullptr && r->writer->write (chans, num))
+            r->frames.fetch_add (num);
+    }
+}
+
+// --- audio thread: dry input monitoring for armed+monitor tracks ---------------
+void MainComponent::addMonitoring (const juce::AudioSourceChannelInfo& info)
+{
+    if (monitorStash.getNumChannels() == 0) return;
+    auto* out = info.buffer;
+    const int num = info.numSamples;
+    for (auto& t : tracks)
+    {
+        if (! (t->recordArmed.load() && t->recordMonitor.load())) continue;
+        const float g   = t->volume.load();
+        const int   in0 = juce::jmax (0, t->recordInput.load());
+        const int   nch = juce::jlimit (1, 2, t->recordChannels.load());
+        for (int outCh = 0; outCh < juce::jmin (2, out->getNumChannels()); ++outCh)
         {
-            const int src = juce::jmin (audioRecInput + ch, buf->getNumChannels() - 1);
-            chans[ch] = buf->getReadPointer (src, info.startSample);
+            const int src = juce::jmin (in0 + (nch == 1 ? 0 : outCh), monitorStash.getNumChannels() - 1);
+            if (src >= 0)
+                out->addFrom (outCh, info.startSample, monitorStash, src, 0, num, g);
         }
     }
-    if (audioTakeWriter->write (chans, num))
-        audioRecFrames.fetch_add (num);
 }
 
-// --- message thread: close the writer, create the referencing clip -------------
+// --- message thread: close writers, create clips -------------------------------
 void MainComponent::stopAudioRecording()
 {
-    std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> w;
-    { const juce::ScopedLock sl (takeWriterLock); w = std::move (audioTakeWriter); }
-    if (w == nullptr) return;
-    w.reset();                              // flush FIFO + close the WAV
-
-    const int frames = audioRecFrames.load();
-    if (frames <= 0)                        // never captured a sample — no empty clip
+    std::vector<std::unique_ptr<TakeRecorder>> recs;
     {
-        audioTakeFile.deleteFile();
-        std::cout << "[rec] empty take discarded" << std::endl;
-        return;
+        const juce::ScopedLock sl (takeWriterLock);
+        audioRecActive.store (false);
+        recs = std::move (takeRecorders);
     }
-    finalizeTake (audioRecTrackId, audioTakeFile, audioRecChannels, audioRecStartBeat);
+    if (recs.empty()) return;
+
+    for (auto& r : recs)
+    {
+        r->writer.reset();                  // flush FIFO + close the WAV
+        if (r->frames.load() <= 0)          // never captured a sample — no empty clip
+        {
+            r->file.deleteFile();
+            std::cout << "[rec] empty take discarded (" << r->file.getFileName() << ")" << std::endl;
+            emitChange ("recording_stopped", r->trackId);
+            continue;
+        }
+        finalizeTake (*r);
+        emitChange ("recording_stopped", r->trackId);
+    }
 }
 
-void MainComponent::finalizeTake (int trackId, const juce::File& take, int /*channels*/, double startBeat)
+void MainComponent::finalizeTake (const TakeRecorder& rec)
 {
-    Track* t = resolveTrack (trackId);
+    Track* t = resolveTrack (rec.trackId);
     if (t == nullptr) return;
 
-    std::unique_ptr<juce::AudioFormatReader> r (formatManager.createReaderFor (take));
+    std::unique_ptr<juce::AudioFormatReader> r (formatManager.createReaderFor (rec.file));
     if (r == nullptr || r->lengthInSamples <= 0) return;
 
     auto buf = std::make_shared<juce::AudioBuffer<float>> ((int) r->numChannels, (int) r->lengthInSamples);
@@ -171,38 +238,38 @@ void MainComponent::finalizeTake (int trackId, const juce::File& take, int /*cha
     pushUndoSnapshot();
     Clip c;
     c.type            = ClipType::Audio;
-    c.name            = take.getFileNameWithoutExtension();
-    c.startBeat       = startBeat;
+    c.name            = rec.file.getFileNameWithoutExtension();
+    c.startBeat       = rec.startBeat;
     c.lengthBeats     = juce::jmax (0.25, durSec * transport.getBpm() / 60.0);
     c.audio           = buf;
     c.audioSourceRate = r->sampleRate;
     c.audioGain       = 1.0f;
     c.peaks           = std::make_shared<std::vector<float>> (buildPeaks (*buf));
-    c.audioFile       = portableSamplePath (take.getFullPathName());   // reference, not embed
-    c.takeId          = take.getFileNameWithoutExtension();
-    const auto ref    = c.audioFile;                                   // capture before the move
+    c.audioFile       = portableSamplePath (rec.file.getFullPathName());
+    c.takeId          = rec.file.getFileNameWithoutExtension();
+    const auto ref      = c.audioFile;
     const auto lenBeats = c.lengthBeats;
     { const juce::ScopedLock sl (engineLock); t->clips.push_back (std::move (c)); }
 
-    // Take metadata (recordings/takes.toml) — only for a composition project.
     if (currentProjectFile.getFileName() == "gloopy.toml")
     {
         auto tf = currentProjectFile.getParentDirectory().getChildFile ("recordings").getChildFile ("takes.toml");
         tf.getParentDirectory().createDirectory();
         juce::String block;
         block << "\n[[takes]]\n"
-              << "id = \"" << take.getFileNameWithoutExtension() << "\"\n"
+              << "id = \"" << rec.file.getFileNameWithoutExtension() << "\"\n"
               << "file = \"" << ref << "\"\n"
               << "track = \"" << t->name << "\"\n"
               << "channels = " << (int) r->numChannels << "\n"
               << "sample_rate = " << (int) r->sampleRate << "\n"
-              << "start_beat = " << juce::String (startBeat, 6) << "\n"
+              << "start_beat = " << juce::String (rec.startBeat, 6) << "\n"
               << "length_beats = " << juce::String (lenBeats, 6) << "\n"
               << "latency_compensation_seconds = 0.0\n";
         tf.appendText (block);
     }
 
-    std::cout << "[rec] take " << take.getFileName() << " -> clip on '" << t->name
-              << "' (" << juce::String (durSec, 2) << "s)" << std::endl;
+    emitChange ("take_created", rec.trackId);
+    std::cout << "[rec] take " << rec.file.getFileName() << " -> clip on '" << t->name
+              << "' (" << juce::String (durSec, 2) << "s @ beat " << juce::String (rec.startBeat, 2) << ")" << std::endl;
     if (arrangeView) arrangeView->rebuild();
 }

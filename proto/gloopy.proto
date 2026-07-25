@@ -39,7 +39,8 @@ message TrackId { int32 id = 1; }
 
 // ── audio recording ────────────────────────────────────────
 message AudioInputs { repeated string names = 1; }
-message ArmRequest  { int32 track_id = 1; bool armed = 2; int32 input = 3; int32 channels = 4; }
+message ArmRequest  { int32 track_id = 1; bool armed = 2; int32 input = 3; int32 channels = 4; bool monitor = 5; }
+message PunchRange  { bool enabled = 1; double in_beat = 2; double out_beat = 3; double count_in_beats = 4; }
 
 // Live tweak of the built-in synth engine on a track. `name` is one of:
 // wave osc2wave osc2detune oscmix sub attack decay sustain release gain
@@ -168,8 +169,9 @@ service Gloopy {
   rpc GetTransport(Empty)    returns (TransportState);
   rpc StartRecording(Empty)  returns (Ack);   // record armed MIDI + armed audio tracks
   rpc StopRecording (Empty)  returns (Ack);
-  rpc ListAudioInputs(Empty) returns (AudioInputs);   // audio recording (Phase 1)
+  rpc ListAudioInputs(Empty) returns (AudioInputs);   // audio recording
   rpc ArmTrack       (ArmRequest) returns (Ack);
+  rpc SetPunchRange  (PunchRange) returns (Ack);
 
   // tracks
   rpc AddSynthTrack (AddSynthTrackRequest) returns (TrackId);

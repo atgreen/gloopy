@@ -85,6 +85,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ArmRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SetPunchRange = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetPunchRange',
+                request_serializer=gloopy__pb2.PunchRange.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.AddSynthTrack = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AddSynthTrack',
                 request_serializer=gloopy__pb2.AddSynthTrackRequest.SerializeToString,
@@ -322,13 +327,19 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def ListAudioInputs(self, request, context):
-        """audio recording (Phase 1)
+        """audio recording
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ArmTrack(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetPunchRange(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -612,6 +623,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'ArmTrack': grpc.unary_unary_rpc_method_handler(
                     servicer.ArmTrack,
                     request_deserializer=gloopy__pb2.ArmRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetPunchRange': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetPunchRange,
+                    request_deserializer=gloopy__pb2.PunchRange.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'AddSynthTrack': grpc.unary_unary_rpc_method_handler(
@@ -1065,6 +1081,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/ArmTrack',
             gloopy__pb2.ArmRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetPunchRange(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetPunchRange',
+            gloopy__pb2.PunchRange.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

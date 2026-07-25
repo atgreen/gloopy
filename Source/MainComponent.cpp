@@ -1595,6 +1595,9 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
 
     const juce::int64 loopLen = renderBlock (*out, start, num, renderMode.load());
 
+    if (! renderMode.load())
+        addMonitoring (info);   // dry input -> output for armed+monitor tracks
+
     // --- offline render capture (headless --render mode) ---
     if (renderMode.load())
     {

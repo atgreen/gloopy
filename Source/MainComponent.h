@@ -315,26 +315,37 @@ private:
     juce::int64       recordStartSample { 0 };
 
     // --- audio input recording (Recording.cpp) ---
+    struct TakeRecorder
+    {
+        int trackId = -1, channels = 2, input = 0;
+        std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> writer;
+        std::atomic<int> frames { 0 };
+        juce::File file;
+        double startBeat = 0.0;
+    };
     bool startAudioRecording();
     void stopAudioRecording();
     void captureRecordingInput (const juce::AudioSourceChannelInfo&);   // audio thread
-    void finalizeTake (int trackId, const juce::File& take, int channels, double startBeat);
+    void addMonitoring (const juce::AudioSourceChannelInfo&);           // audio thread
+    void finalizeTake (const TakeRecorder&);
     juce::File recordingsDir() const;
     juce::TimeSliceThread recordThread { "gloopy-record" };
     juce::CriticalSection takeWriterLock;
-    std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> audioTakeWriter;
-    std::atomic<int>    audioRecFrames   { 0 };
+    std::vector<std::unique_ptr<TakeRecorder>> takeRecorders;   // guarded by takeWriterLock
+    std::atomic<bool>   audioRecActive   { false };
     std::atomic<double> recordTestToneHz { 0.0 };   // >0 injects a test tone (self-test)
     double  recordTonePhase   { 0.0 };
-    int     audioRecTrackId   { -1 };
-    int     audioRecChannels  { 2 };
-    int     audioRecInput     { 0 };
     double  audioRecRate      { 44100.0 };
-    double  audioRecStartBeat { 0.0 };
-    juce::File audioTakeFile;
+    juce::AudioBuffer<float> monitorStash;          // input copy for monitoring
+    // punch / count-in
+    std::atomic<bool>   punchEnabled { false };
+    std::atomic<double> punchInBeat  { 0.0 };
+    std::atomic<double> punchOutBeat { 1.0e12 };
+    std::atomic<double> countInBeats { 0.0 };
   public:
     std::vector<juce::String> apiListAudioInputs();
-    bool apiArmTrack (int trackId, bool armed, int input, int channels);
+    bool apiArmTrack (int trackId, bool armed, int input, int channels, bool monitor);
+    bool apiSetPunchRange (bool enabled, double inBeat, double outBeat, double countIn);
     void apiSetRecordTestTone (double hz) { recordTestToneHz.store (hz); }
   private:
     juce::StringArray openMidiInputs;
