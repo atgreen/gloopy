@@ -537,6 +537,17 @@ each shipping with desktop UI + screenshot validation.
 
 16. **Browser sidebar + demo/template browser + `File → New From Template`** *(Idea
     #1/#2; absorbs remaining preset UI/work).* **L**
+    - `[~]` **Empty-by-default + template system landed** (commit 5b90d3b, user request):
+      new/launched projects are EMPTY (the forced Kick/Snare/Hat/Clap/Bass kit is gone).
+      `buildTemplate`/`builtinTemplateNames` (Starter Beat / Drum Kit / Lead + Bass) +
+      apiListTemplates/apiNewFromTemplate + ListTemplates/NewFromTemplate RPCs + Python +
+      `File → New from Template`. Track ids are now 1-based (proto3 omits id 0). **The
+      browser sidebar should drive project seeding through this same template API.** Still
+      to build: the sidebar itself + file-based/user templates ("Save as Template").
+    - `[x]` **Busy overlay / spinner landed** (commit, user request): BusyOverlay + runBackground
+      (thread-pool + callAsync swap-in); SFZ + sampler loads run off-thread with a spinner so
+      the UI no longer freezes. Long ops elsewhere (project open, plugin scan, audio import)
+      can adopt runBackground next.
 17. **Stronger piano-roll editing modes** — knife/split, strum, duplicate, transpose,
     quantize, humanize, velocity tools, ghost notes, scale highlight, step recording
     *(Idea #5; shares the note model with the step grid)*. **L**
