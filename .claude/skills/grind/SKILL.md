@@ -556,6 +556,8 @@ each shipping with desktop UI + screenshot validation.
     - `[x]` **Strum landed** (commit a4e353e): shared strumNotes transform + apiStrumClip +
       StrumClip RPC + STRUM header button (Shift-click = up) + S/Shift+S keys. Smoke +
       screenshot validated.
+    - `[x]` **Arpeggiate landed** (commit c90da23): shared arpeggiateNotes + apiArpeggiateClip +
+      ArpeggiateClip RPC + ARP header button (Up/Down/Up-Down menu). Smoke + screenshot.
     - `[x]` **Vertical zoom + scroll landed** (commit 5daac0e, user request): dynamic pitch
       window (viewRows/viewTop over A0..C8); wheel scrolls, Ctrl/Cmd+wheel zooms (cursor-
       anchored); default ~2.5x more zoomed + auto-frames the clip's notes on load.
