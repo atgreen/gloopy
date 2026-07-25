@@ -99,6 +99,11 @@ message EffectBypassSet  { int32 insert = 1; int32 slot = 2; bool bypassed = 3; 
 message Param     { string name = 1; float value = 2; float min = 3; float max = 4; }
 message ParamList { repeated Param params = 1; }
 
+// ── presets ────────────────────────────────────────────────
+message PresetRef      { int32 target = 1; string name = 2; }   // target = track id or insert index
+message PresetCategory { string category = 1; }                 // "synth" | "effects"
+message PresetList     { repeated string names = 1; }
+
 // ── track & clip management ────────────────────────────────
 message AddAudioTrackRequest   { string name = 1; }                             // empty audio track
 message AddSamplerTrackRequest { string name = 1; string path = 2; int32 root_note = 3; }
@@ -215,6 +220,13 @@ service Gloopy {
   rpc SetEffectParam (EffectParamSet)   returns (Ack);
   rpc SetEffectBypass(EffectBypassSet)  returns (Ack);
   rpc GetEffectParams(EffectRef)        returns (ParamList);
+
+  // presets (instrument sound / effect chain, as composition-friendly TOML)
+  rpc ListPresets     (PresetCategory)  returns (PresetList);
+  rpc SaveSynthPreset (PresetRef)       returns (Ack);
+  rpc LoadSynthPreset (PresetRef)       returns (Ack);
+  rpc SaveEffectPreset(PresetRef)       returns (Ack);
+  rpc LoadEffectPreset(PresetRef)       returns (Ack);
 
   // automation
   rpc SetAutomation  (Automation)       returns (Ack);

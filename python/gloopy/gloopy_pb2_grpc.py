@@ -235,6 +235,31 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.EffectRef.SerializeToString,
                 response_deserializer=gloopy__pb2.ParamList.FromString,
                 _registered_method=True)
+        self.ListPresets = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ListPresets',
+                request_serializer=gloopy__pb2.PresetCategory.SerializeToString,
+                response_deserializer=gloopy__pb2.PresetList.FromString,
+                _registered_method=True)
+        self.SaveSynthPreset = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SaveSynthPreset',
+                request_serializer=gloopy__pb2.PresetRef.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.LoadSynthPreset = channel.unary_unary(
+                '/gloopy.v1.Gloopy/LoadSynthPreset',
+                request_serializer=gloopy__pb2.PresetRef.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.SaveEffectPreset = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SaveEffectPreset',
+                request_serializer=gloopy__pb2.PresetRef.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.LoadEffectPreset = channel.unary_unary(
+                '/gloopy.v1.Gloopy/LoadEffectPreset',
+                request_serializer=gloopy__pb2.PresetRef.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.SetAutomation = channel.unary_unary(
                 '/gloopy.v1.Gloopy/SetAutomation',
                 request_serializer=gloopy__pb2.Automation.SerializeToString,
@@ -554,6 +579,37 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListPresets(self, request, context):
+        """presets (instrument sound / effect chain, as composition-friendly TOML)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SaveSynthPreset(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def LoadSynthPreset(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SaveEffectPreset(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def LoadEffectPreset(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SetAutomation(self, request, context):
         """automation
         """
@@ -833,6 +889,31 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.GetEffectParams,
                     request_deserializer=gloopy__pb2.EffectRef.FromString,
                     response_serializer=gloopy__pb2.ParamList.SerializeToString,
+            ),
+            'ListPresets': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListPresets,
+                    request_deserializer=gloopy__pb2.PresetCategory.FromString,
+                    response_serializer=gloopy__pb2.PresetList.SerializeToString,
+            ),
+            'SaveSynthPreset': grpc.unary_unary_rpc_method_handler(
+                    servicer.SaveSynthPreset,
+                    request_deserializer=gloopy__pb2.PresetRef.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'LoadSynthPreset': grpc.unary_unary_rpc_method_handler(
+                    servicer.LoadSynthPreset,
+                    request_deserializer=gloopy__pb2.PresetRef.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SaveEffectPreset': grpc.unary_unary_rpc_method_handler(
+                    servicer.SaveEffectPreset,
+                    request_deserializer=gloopy__pb2.PresetRef.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'LoadEffectPreset': grpc.unary_unary_rpc_method_handler(
+                    servicer.LoadEffectPreset,
+                    request_deserializer=gloopy__pb2.PresetRef.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'SetAutomation': grpc.unary_unary_rpc_method_handler(
                     servicer.SetAutomation,
@@ -1976,6 +2057,141 @@ class Gloopy:
             '/gloopy.v1.Gloopy/GetEffectParams',
             gloopy__pb2.EffectRef.SerializeToString,
             gloopy__pb2.ParamList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListPresets(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ListPresets',
+            gloopy__pb2.PresetCategory.SerializeToString,
+            gloopy__pb2.PresetList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SaveSynthPreset(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SaveSynthPreset',
+            gloopy__pb2.PresetRef.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def LoadSynthPreset(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/LoadSynthPreset',
+            gloopy__pb2.PresetRef.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SaveEffectPreset(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SaveEffectPreset',
+            gloopy__pb2.PresetRef.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def LoadEffectPreset(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/LoadEffectPreset',
+            gloopy__pb2.PresetRef.SerializeToString,
+            gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,
             insecure,

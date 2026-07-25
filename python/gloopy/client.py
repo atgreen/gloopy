@@ -242,6 +242,23 @@ class Gloopy:
         self._ack(self.stub.SetEffectBypass(pb.EffectBypassSet(
             insert=insert, slot=slot, bypassed=bypassed)))
 
+    # -- presets ----------------------------------------------------------
+    def list_presets(self, category: str) -> list[str]:
+        """category = 'synth' | 'effects'."""
+        return list(self.stub.ListPresets(pb.PresetCategory(category=category)).names)
+
+    def save_synth_preset(self, track_id: int, name: str) -> None:
+        self._ack(self.stub.SaveSynthPreset(pb.PresetRef(target=track_id, name=name)))
+
+    def load_synth_preset(self, track_id: int, name: str) -> None:
+        self._ack(self.stub.LoadSynthPreset(pb.PresetRef(target=track_id, name=name)))
+
+    def save_effect_preset(self, insert: int, name: str) -> None:
+        self._ack(self.stub.SaveEffectPreset(pb.PresetRef(target=insert, name=name)))
+
+    def load_effect_preset(self, insert: int, name: str) -> None:
+        self._ack(self.stub.LoadEffectPreset(pb.PresetRef(target=insert, name=name)))
+
     def effect_params(self, insert: int, slot: int) -> list[dict]:
         r = self.stub.GetEffectParams(pb.EffectRef(insert=insert, slot=slot))
         return [{"name": p.name, "value": p.value, "min": p.min, "max": p.max}

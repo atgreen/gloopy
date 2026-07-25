@@ -51,6 +51,59 @@ struct SynthParams
     std::atomic<float> gain         { 0.25f };
 };
 
+/** Serialise the synth engine params to/from a ValueTree node. Shared by project
+    save/load (toValueTree/loadFromTree) and instrument presets so the key set
+    stays in one place. */
+inline void writeSynthParams (juce::ValueTree& s, const SynthParams& p)
+{
+    s.setProperty ("wave",       p.waveform.load(), nullptr);
+    s.setProperty ("attack",     p.attack.load(), nullptr);
+    s.setProperty ("decay",      p.decay.load(), nullptr);
+    s.setProperty ("sustain",    p.sustain.load(), nullptr);
+    s.setProperty ("release",    p.release.load(), nullptr);
+    s.setProperty ("gain",       p.gain.load(), nullptr);
+    s.setProperty ("osc2wave",   p.osc2Wave.load(), nullptr);
+    s.setProperty ("osc2detune", p.osc2Detune.load(), nullptr);
+    s.setProperty ("oscmix",     p.oscMix.load(), nullptr);
+    s.setProperty ("sub",        p.subLevel.load(), nullptr);
+    s.setProperty ("ftype",      p.filterType.load(), nullptr);
+    s.setProperty ("cutoff",     p.cutoff.load(), nullptr);
+    s.setProperty ("reso",       p.resonance.load(), nullptr);
+    s.setProperty ("fenvamt",    p.filterEnvAmt.load(), nullptr);
+    s.setProperty ("fattack",    p.fAttack.load(), nullptr);
+    s.setProperty ("fdecay",     p.fDecay.load(), nullptr);
+    s.setProperty ("fsustain",   p.fSustain.load(), nullptr);
+    s.setProperty ("frelease",   p.fRelease.load(), nullptr);
+    s.setProperty ("lfotarget",  p.lfoTarget.load(), nullptr);
+    s.setProperty ("lforate",    p.lfoRate.load(), nullptr);
+    s.setProperty ("lfodepth",   p.lfoDepth.load(), nullptr);
+}
+
+inline void readSynthParams (const juce::ValueTree& s, SynthParams& p)
+{
+    p.waveform.store     ((int)   s.getProperty ("wave", 1));
+    p.attack.store       ((float) (double) s.getProperty ("attack", 0.01));
+    p.decay.store        ((float) (double) s.getProperty ("decay", 0.15));
+    p.sustain.store      ((float) (double) s.getProperty ("sustain", 0.7));
+    p.release.store      ((float) (double) s.getProperty ("release", 0.25));
+    p.gain.store         ((float) (double) s.getProperty ("gain", 0.25));
+    p.osc2Wave.store     ((int)   s.getProperty ("osc2wave", 1));
+    p.osc2Detune.store   ((float) (double) s.getProperty ("osc2detune", 0.0));
+    p.oscMix.store       ((float) (double) s.getProperty ("oscmix", 0.0));
+    p.subLevel.store     ((float) (double) s.getProperty ("sub", 0.0));
+    p.filterType.store   ((int)   s.getProperty ("ftype", 0));
+    p.cutoff.store       ((float) (double) s.getProperty ("cutoff", 20000.0));
+    p.resonance.store    ((float) (double) s.getProperty ("reso", 0.7));
+    p.filterEnvAmt.store ((float) (double) s.getProperty ("fenvamt", 0.0));
+    p.fAttack.store      ((float) (double) s.getProperty ("fattack", 0.01));
+    p.fDecay.store       ((float) (double) s.getProperty ("fdecay", 0.20));
+    p.fSustain.store     ((float) (double) s.getProperty ("fsustain", 0.60));
+    p.fRelease.store     ((float) (double) s.getProperty ("frelease", 0.30));
+    p.lfoTarget.store    ((int)   s.getProperty ("lfotarget", 0));
+    p.lfoRate.store      ((float) (double) s.getProperty ("lforate", 5.0));
+    p.lfoDepth.store     ((float) (double) s.getProperty ("lfodepth", 0.0));
+}
+
 /** Marker sound: our single voice type plays every note on every channel. */
 struct SynthSound : public juce::SynthesiserSound
 {

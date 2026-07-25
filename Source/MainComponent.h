@@ -352,6 +352,14 @@ private:
     double recordLatencySeconds() const;
     void   rotateLoopTakes();
   public:
+    // --- presets (Presets.cpp) ---
+    juce::File presetsDir (const juce::String& category) const;
+    std::vector<juce::String> apiListPresets (const juce::String& category);
+    bool apiSaveSynthPreset (int trackId, const juce::String& name);
+    bool apiLoadSynthPreset (int trackId, const juce::String& name);
+    bool apiSaveEffectPreset (int insert, const juce::String& name);
+    bool apiLoadEffectPreset (int insert, const juce::String& name);
+
     std::vector<juce::String> apiListAudioInputs();
     bool apiArmTrack (int trackId, bool armed, int input, int channels, bool monitor);
     bool apiSetPunchRange (bool enabled, double inBeat, double outBeat, double countIn);

@@ -133,6 +133,25 @@ namespace
             return Status::OK;
         }
 
+        Status ListPresets (ServerContext*, const pb::PresetCategory* q, pb::PresetList* r) override
+        { for (auto& n : main.apiListPresets (js (q->category()))) r->add_names (n.toStdString()); return Status::OK; }
+
+        Status SaveSynthPreset (ServerContext*, const pb::PresetRef* q, pb::Ack* r) override
+        { const bool ok = main.apiSaveSynthPreset (q->target(), js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("not a synth track"); return Status::OK; }
+
+        Status LoadSynthPreset (ServerContext*, const pb::PresetRef* q, pb::Ack* r) override
+        { const bool ok = main.apiLoadSynthPreset (q->target(), js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("preset or synth track not found"); return Status::OK; }
+
+        Status SaveEffectPreset (ServerContext*, const pb::PresetRef* q, pb::Ack* r) override
+        { const bool ok = main.apiSaveEffectPreset (q->target(), js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("bad insert"); return Status::OK; }
+
+        Status LoadEffectPreset (ServerContext*, const pb::PresetRef* q, pb::Ack* r) override
+        { const bool ok = main.apiLoadEffectPreset (q->target(), js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("preset or insert not found"); return Status::OK; }
+
         Status ListTracks (ServerContext*, const pb::Empty*, pb::TrackList* r) override
         {
             for (auto& t : main.apiListTracks())
