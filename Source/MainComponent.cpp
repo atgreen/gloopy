@@ -195,6 +195,22 @@ MainComponent::MainComponent (bool headless)
         if (auto* g = tracks[(size_t) i]->generator.get())
             openPluginEditor (g->getPluginInstance(), tracks[(size_t) i]->name);
     };
+    arrangeView->getTempoMarkers = [this]
+    {
+        std::vector<std::pair<double, double>> out;
+        for (auto& m : apiListTempoMarkers()) out.push_back ({ m.beat, m.bpm });
+        return out;
+    };
+    arrangeView->onAddTempoMarker = [this] (double beat, double bpm)
+    {
+        apiAddTempoMarker (beat, bpm);
+        if (arrangeView) arrangeView->repaint();
+    };
+    arrangeView->onRemoveTempoMarker = [this] (double beat)
+    {
+        apiRemoveTempoMarker (beat);
+        if (arrangeView) arrangeView->repaint();
+    };
     arrangeView->onClipCommand = [this] (int trackIdx, int clip, const juce::String& cmd)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;

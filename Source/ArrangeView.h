@@ -40,6 +40,11 @@ public:
     /** Right-click clip menu command: (track, clip, command). Commands: "split",
         "duplicate", "reverse", "snapscale", "delete". Owner routes to the api* ops. */
     std::function<void (int, int, const juce::String&)> onClipCommand;
+    /** Tempo markers drawn on the ruler + edited by right-clicking it. Owner wires
+        these to apiListTempoMarkers/apiAddTempoMarker/apiRemoveTempoMarker. */
+    std::function<std::vector<std::pair<double, double>>()> getTempoMarkers;   // (beat, bpm)
+    std::function<void (double, double)> onAddTempoMarker;                     // beat, bpm
+    std::function<void (double)>         onRemoveTempoMarker;                  // beat
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -58,6 +63,7 @@ private:
     double snapToBar (double beat) const;
     int    clipAt (int track, juce::Point<float> p) const;
     void   drawClip (juce::Graphics&, const Track&, const Clip&, juce::Rectangle<float>, bool selected) const;
+    void   promptAddTempoMarker (double beat);   // AlertWindow BPM prompt -> onAddTempoMarker
 
     static constexpr int headerWidth = 190;
     static constexpr int rulerHeight  = 22;

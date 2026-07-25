@@ -219,6 +219,25 @@ void ArrangeView::paint (juce::Graphics& g)
                     juce::Justification::centredLeft, false);
     }
 
+    // Tempo markers — a small flag + BPM at each marker beat on the ruler.
+    if (getTempoMarkers)
+    {
+        for (auto& mk : getTempoMarkers())
+        {
+            const float x = xForBeat (mk.first);
+            if (x < headerWidth - 1.0f) continue;
+            g.setColour (Palette::accent);
+            juce::Path flag;
+            flag.addTriangle (x, 0.0f, x + 8.0f, 0.0f, x, 8.0f);   // corner flag
+            g.fillPath (flag);
+            g.drawVerticalLine ((int) x, 0.0f, (float) rulerHeight);
+            g.setFont (juce::FontOptions (9.0f, juce::Font::bold));
+            g.drawText (juce::String (mk.second, (mk.second == (int) mk.second) ? 0 : 1),
+                        (int) x + 3, rulerHeight - 11, 44, 10,
+                        juce::Justification::centredLeft, false);
+        }
+    }
+
     // Tracks.
     for (int i = 0; i < (int) tracks.size(); ++i)
     {
@@ -298,6 +317,28 @@ void ArrangeView::paint (juce::Graphics& g)
 void ArrangeView::mouseDown (const juce::MouseEvent& e)
 {
     const auto p = e.position;
+
+    // --- ruler: right-click -> tempo-marker menu ---
+    if (p.y < rulerHeight && p.x >= headerWidth && e.mods.isPopupMenu())
+    {
+        const double beat = juce::jmax (0.0, snapToBar (beatForX (p.x)));
+        // Is there already a marker near this bar?
+        double nearBeat = -1.0;
+        if (getTempoMarkers)
+            for (auto& mk : getTempoMarkers())
+                if (std::abs (mk.first - beat) < 1e-6) { nearBeat = mk.first; break; }
+
+        juce::PopupMenu m;
+        m.addSectionHeader ("Bar " + juce::String ((int) (beat / beatsPerBar) + 1));
+        m.addItem (1, "Add tempo marker...");
+        m.addItem (2, "Remove tempo marker", nearBeat >= 0.0);
+        m.showMenuAsync (juce::PopupMenu::Options(), [this, beat, nearBeat] (int r)
+        {
+            if (r == 1) promptAddTempoMarker (beat);
+            else if (r == 2 && nearBeat >= 0.0 && onRemoveTempoMarker) onRemoveTempoMarker (nearBeat);
+        });
+        return;
+    }
 
     // --- ruler: seek / loop region ---
     if (p.y < rulerHeight && p.x >= headerWidth)
@@ -421,6 +462,25 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
     if (onClipSelected) onClipSelected (selTrack, selClip);
     if (onChanged) onChanged();
     repaint();
+}
+
+void ArrangeView::promptAddTempoMarker (double beat)
+{
+    auto* aw = new juce::AlertWindow ("Tempo marker",
+                                      "BPM at bar " + juce::String ((int) (beat / beatsPerBar) + 1),
+                                      juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("bpm", juce::String (transport.getBpm(), 1));
+    aw->addButton ("Add",    1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, beat] (int r)
+    {
+        if (r == 1)
+        {
+            const double bpm = aw->getTextEditorContents ("bpm").getDoubleValue();
+            if (bpm >= 20.0 && bpm <= 400.0 && onAddTempoMarker) onAddTempoMarker (beat, bpm);
+        }
+        delete aw;
+    }), false);
 }
 
 void ArrangeView::mouseDrag (const juce::MouseEvent& e)
