@@ -661,6 +661,26 @@ print('smoke: PASS — loudness analysis (peak %.1f dBFS, true-peak %.1f dBTP, %
 "$BIN" analyze "$WAV" 2>/dev/null | python3 -c "import json,sys;json.load(sys.stdin);print('smoke: PASS — CLI analyze emits JSON')" \
     || { echo "smoke: CLI analyze did not emit JSON" >&2; exit 1; }
 
+# Momentary / short-term LUFS + LRA. Needs a >=3s render for the 3s short-term window:
+# a sustained sine over 12 beats @120bpm = 6s. Steady loudness -> max momentary >=
+# integrated, short-term ~ integrated, and a bounded LRA. Solo-rendered, cleaned up.
+BPM0=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(json.load(sys.stdin).get('bpm',120))")
+g -d '{"bpm":120}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTempo >/dev/null
+LT=$(g -d '{"name":"loudtest","wave":"SINE","attack":0.01,"decay":0.05,"sustain":0.95,"release":0.05,"gain":0.7}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$LT,\"start_beat\":0,\"length_beats\":12,\"notes\":[{\"pitch\":57,\"start_beat\":0,\"length_beats\":11.8,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/steady.wav\",\"tail_seconds\":0,\"end_beat\":12,\"track_id\":$LT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"path\":\"$WORK/steady.wav\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AnalyzeFile | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+lu=d.get('lufs',0); mo=d.get('momentaryLufs',-144); st=d.get('shortTermLufs',-144); lra=d.get('lra',-1)
+assert mo > lu - 1.0, 'max momentary (%.1f) should be >= integrated (%.1f)'%(mo,lu)
+assert abs(st-lu) < 3.0, 'short-term max (%.1f) should be near integrated (%.1f)'%(st,lu)
+assert 0.0 <= lra < 12.0, 'LRA (%.2f) out of range for a steady note'%lra
+print('smoke: PASS — momentary %.1f / short-term %.1f / LRA %.1f LU (integrated %.1f)'%(mo,st,lra,lu))
+" || { echo "smoke: momentary/short-term/LRA out of range" >&2; exit 1; }
+g -d "{\"bpm\":$BPM0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTempo >/dev/null
+g -d "{\"id\":$LT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
 # Render report: RenderToFile with report=true returns the output's loudness inline,
 # so a script gets "render + measure" from one call. It must match a standalone
 # AnalyzeFile of the same file (and be non-silent on this populated project).

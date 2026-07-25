@@ -149,7 +149,8 @@ public:
     // --- offline loudness analysis (Loudness.cpp) ---
     // Peak (sample), true-peak (4x oversampled), RMS, and integrated LUFS
     // (ITU-R BS.1770 / EBU R128: K-weighting + gated mean of 400ms blocks).
-    struct LoudnessReport { float peakDbfs, truePeakDbtp, rmsDbfs, lufs; };
+    struct LoudnessReport { float peakDbfs, truePeakDbtp, rmsDbfs, lufs;
+                            float momentaryLufs, shortTermLufs, lra; };   // max momentary/short-term + loudness range
     bool apiAnalyzeFile (const juce::String& path, LoudnessReport& out);   // false if unreadable
 
     // --- MIDI file import/export (Midi.cpp) ---

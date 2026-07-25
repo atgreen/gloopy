@@ -192,7 +192,9 @@ public:
             int rc = 0;
             if (ok)
                 std::cout << "{ \"peak_dbfs\": " << rep.peakDbfs << ", \"true_peak_dbtp\": " << rep.truePeakDbtp
-                          << ", \"rms_dbfs\": " << rep.rmsDbfs << ", \"lufs\": " << rep.lufs << " }" << std::endl;
+                          << ", \"rms_dbfs\": " << rep.rmsDbfs << ", \"lufs\": " << rep.lufs
+                          << ", \"momentary_lufs\": " << rep.momentaryLufs << ", \"short_term_lufs\": " << rep.shortTermLufs
+                          << ", \"lra\": " << rep.lra << " }" << std::endl;
             else { std::cerr << "analyze: cannot read " << args[1] << "\n"; rc = 1; }
             setApplicationReturnValue (rc);
             quit();

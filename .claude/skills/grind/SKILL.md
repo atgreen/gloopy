@@ -500,8 +500,15 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       — one call for "render + measure" in CI/scripts. `RenderResult` is wire-compatible
       with `Ack` on fields 1/2, so existing clients are unaffected; Python `render(...,
       report=True)` returns the loudness dict. smoke.sh asserts the inline report equals
-      a standalone `AnalyzeFile` and is non-silent. **Not yet:** `gloopy validate`
-      render+analyze, transient/onset detection, momentary/short-term LUFS + LRA.
+      a standalone `AnalyzeFile` and is non-silent.
+    - `[x]` **Momentary + short-term LUFS + LRA landed** (commit): extends `apiAnalyzeFile`
+      with max momentary (400 ms window — reuses the integrated-LUFS block loop), max
+      short-term (3 s / 1 s-hop windows), and LRA (EBU Tech 3342: abs gate −70, relative
+      gate −20 LU, P95−P10 of gated short-term). Added to `LoudnessReport` + the proto +
+      the `AnalyzeFile`/`RenderToFile`-report paths + `gloopy analyze` JSON + Python.
+      smoke proves on a 6 s steady sine that momentary ≥ integrated, short-term ≈
+      integrated, and LRA is bounded. **Not yet:** `gloopy validate` render+analyze wiring
+      of these, transient/onset detection.
 
 13. **Plugin scan cache + CLI scan.** **S/M**
     *Ardour #15.* Persist scan results (id, name, format, path, vendor, category,

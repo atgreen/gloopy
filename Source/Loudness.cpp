@@ -10,6 +10,7 @@
 #include "MainComponent.h"
 #include <cmath>
 #include <vector>
+#include <algorithm>
 
 namespace
 {
@@ -169,10 +170,61 @@ bool MainComponent::apiAnalyzeFile (const juce::String& path, LoudnessReport& ou
         }
     }
 
-    out.peakDbfs     = (float) toDb (peak);
-    out.truePeakDbtp = (float) toDb (truePeak);
-    out.rmsDbfs      = (float) toDb (rms);
-    out.lufs         = (float) lufs;
+    // --- momentary (max 400ms window), short-term (3s windows), LRA (EBU Tech 3342) ---
+    double momMax = -144.0;
+    for (double zb : blockZ) momMax = juce::jmax (momMax, lufsOf (zb));   // blockZ IS the 400ms momentary window
+
+    const int stLen = (int) std::round (3.0 * fs);
+    const int stHop = (int) std::round (1.0 * fs);
+    std::vector<double> shortZ;                                          // 3s, 1s-hop channel-summed mean-square
+    if (n >= stLen && stHop > 0)
+        for (int start = 0; start + stLen <= n; start += stHop)
+        {
+            double zsum = 0.0;
+            for (int c = 0; c < lufsCh; ++c)
+            {
+                double ms = 0.0; const float* d = z[(size_t) c].data();
+                for (int i = start; i < start + stLen; ++i) ms += (double) d[i] * d[i];
+                zsum += ms / stLen;
+            }
+            shortZ.push_back (zsum);
+        }
+
+    double stMax = -144.0, lra = 0.0;
+    for (double zb : shortZ) stMax = juce::jmax (stMax, lufsOf (zb));
+    {
+        // Absolute gate at -70 LUFS, relative gate 20 LU below the gated mean, then
+        // LRA = 95th - 10th percentile of the short-term values above the relative gate.
+        double meanZ = 0.0; int cnt = 0;
+        for (double zb : shortZ) if (lufsOf (zb) > -70.0) { meanZ += zb; ++cnt; }
+        if (cnt > 0)
+        {
+            const double relThresh = lufsOf (meanZ / (double) cnt) - 20.0;
+            std::vector<double> g;
+            for (double zb : shortZ) { const double l = lufsOf (zb); if (l > relThresh) g.push_back (l); }
+            if (g.size() >= 2)
+            {
+                std::sort (g.begin(), g.end());
+                auto pct = [&] (double p)
+                {
+                    const double idx = p / 100.0 * (double) (g.size() - 1);
+                    const int i0 = (int) std::floor (idx);
+                    const int i1 = juce::jmin ((int) g.size() - 1, i0 + 1);
+                    const double fr = idx - (double) i0;
+                    return g[(size_t) i0] * (1.0 - fr) + g[(size_t) i1] * fr;
+                };
+                lra = pct (95.0) - pct (10.0);
+            }
+        }
+    }
+
+    out.peakDbfs      = (float) toDb (peak);
+    out.truePeakDbtp  = (float) toDb (truePeak);
+    out.rmsDbfs       = (float) toDb (rms);
+    out.lufs          = (float) lufs;
+    out.momentaryLufs = (float) momMax;
+    out.shortTermLufs = (float) stMax;
+    out.lra           = (float) lra;
     std::cout << "[loudness] " << f.getFileName() << "  peak=" << out.peakDbfs
               << " tp=" << out.truePeakDbtp << " rms=" << out.rmsDbfs << " lufs=" << out.lufs << std::endl;
     return true;

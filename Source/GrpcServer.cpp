@@ -508,6 +508,7 @@ namespace
                     auto* lr = r->mutable_report();
                     lr->set_peak_dbfs (rep.peakDbfs); lr->set_true_peak_dbtp (rep.truePeakDbtp);
                     lr->set_rms_dbfs (rep.rmsDbfs);   lr->set_lufs (rep.lufs);
+                    lr->set_momentary_lufs (rep.momentaryLufs); lr->set_short_term_lufs (rep.shortTermLufs); lr->set_lra (rep.lra);
                 }
             }
             return Status::OK;
@@ -538,6 +539,7 @@ namespace
                 return Status (grpc::StatusCode::NOT_FOUND, "unreadable audio file");
             r->set_peak_dbfs (rep.peakDbfs); r->set_true_peak_dbtp (rep.truePeakDbtp);
             r->set_rms_dbfs (rep.rmsDbfs);   r->set_lufs (rep.lufs);
+            r->set_momentary_lufs (rep.momentaryLufs); r->set_short_term_lufs (rep.shortTermLufs); r->set_lra (rep.lra);
             return Status::OK;
         }
 

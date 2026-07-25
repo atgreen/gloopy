@@ -613,7 +613,8 @@ class Gloopy:
         """Offline loudness of a WAV: peak/true-peak (dBFS/dBTP), RMS (dBFS), integrated LUFS."""
         r = self.stub.AnalyzeFile(pb.FilePath(path=path))
         return {"peak_dbfs": r.peak_dbfs, "true_peak_dbtp": r.true_peak_dbtp,
-                "rms_dbfs": r.rms_dbfs, "lufs": r.lufs}
+                "rms_dbfs": r.rms_dbfs, "lufs": r.lufs,
+                "momentary_lufs": r.momentary_lufs, "short_term_lufs": r.short_term_lufs, "lra": r.lra}
 
     def render(self, path: str, tail_seconds: float = 0.0, start_beat: float = 0.0,
                end_beat: float = 0.0, track_id: Optional[int] = None,
@@ -631,7 +632,8 @@ class Gloopy:
             return None
         lr = res.report
         return {"peak_dbfs": lr.peak_dbfs, "true_peak_dbtp": lr.true_peak_dbtp,
-                "rms_dbfs": lr.rms_dbfs, "lufs": lr.lufs}
+                "rms_dbfs": lr.rms_dbfs, "lufs": lr.lufs,
+                "momentary_lufs": lr.momentary_lufs, "short_term_lufs": lr.short_term_lufs, "lra": lr.lra}
 
     # -- events -----------------------------------------------------------
     def subscribe(self, transport: bool = True, meters: bool = False,
