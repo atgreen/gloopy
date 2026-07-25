@@ -366,7 +366,19 @@ bool MainComponent::saveComposition (const juce::File& dir)
         auto mt = mixer.getChild (i);
         mw.arrayItem ("inserts").str ("id", insertSlug[i]).str ("name", mt.getProperty ("name").toString())
           .number ("volume", mt.getProperty ("vol", 0.8)).number ("pan", mt.getProperty ("pan", 0.0))
-          .boolean ("mute", mt.getProperty ("mute", false)).boolean ("solo", mt.getProperty ("solo", false)).blank();
+          .boolean ("mute", mt.getProperty ("mute", false)).boolean ("solo", mt.getProperty ("solo", false));
+        if ((bool) mt.getProperty ("bus", false)) mw.boolean ("bus", true);
+        {
+            juce::StringArray sendEnc;   // "busIndex,level"
+            for (int e = 0; e < mt.getNumChildren(); ++e)
+            {
+                auto sd = mt.getChild (e);
+                if (sd.hasType ("SEND"))
+                    sendEnc.add (sd.getProperty ("to").toString() + "," + toml::Writer::num ((double) sd.getProperty ("level", 0.0)));
+            }
+            if (! sendEnc.isEmpty()) mw.strArray ("sends", sendEnc);
+        }
+        mw.blank();
         int slot = 0;
         for (int e = 0; e < mt.getNumChildren(); ++e)
         {
@@ -531,6 +543,15 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             mt.setProperty ("pan", in.getDouble ("pan", 0.0), nullptr);
             mt.setProperty ("mute", in.getBool ("mute"), nullptr);
             mt.setProperty ("solo", in.getBool ("solo"), nullptr);
+            if (in.getBool ("bus")) mt.setProperty ("bus", true, nullptr);
+            for (auto& enc : in.getStringArray ("sends"))
+            {
+                auto p = juce::StringArray::fromTokens (enc, ",", "");
+                juce::ValueTree sv ("SEND");
+                sv.setProperty ("to", p.size() > 0 ? p[0].getIntValue() : 0, nullptr);
+                sv.setProperty ("level", p.size() > 1 ? p[1].getDoubleValue() : 0.0, nullptr);
+                mt.addChild (sv, -1, nullptr);
+            }
             mixerTree.addChild (mt, -1, nullptr);
         }
     }

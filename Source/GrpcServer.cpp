@@ -27,10 +27,16 @@ namespace
     {
         mi->set_index (s.index); mi->set_name (s.name.toStdString());
         mi->set_volume (s.volume); mi->set_pan (s.pan); mi->set_mute (s.mute); mi->set_solo (s.solo);
+        mi->set_is_bus (s.isBus);
         for (auto& e : s.effects)
         {
             auto* ei = mi->add_effects();
             ei->set_slot (e.slot); ei->set_name (e.name.toStdString()); ei->set_bypassed (e.bypassed);
+        }
+        for (auto& sd : s.sends)
+        {
+            auto* o = mi->add_sends();
+            o->set_bus (sd.first); o->set_level (sd.second);
         }
     }
 
@@ -247,6 +253,13 @@ namespace
             }
             return Status::OK;
         }
+
+        // ---- buses & sends ----
+        Status AddBus (ServerContext*, const pb::AddBusRequest* q, pb::TrackId* r) override
+        { r->set_id (main.apiAddBus (js (q->name()))); return Status::OK; }
+        Status SetSend (ServerContext*, const pb::SetSendRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiSetSend (q->insert(), q->bus(), q->level());
+          r->set_ok (ok); if (! ok) r->set_error ("invalid send (bad insert/bus, or nothing to remove)"); return Status::OK; }
 
         // ---- mixer scenes ----
         Status DefineMixerScene (ServerContext*, const pb::SceneName* q, pb::Ack* r) override

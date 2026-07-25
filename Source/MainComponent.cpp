@@ -605,9 +605,10 @@ std::vector<MainComponent::InsertSnap> MainComponent::apiListInserts()
         for (int i = 0; i < (int) mixerTracks.size(); ++i)
         {
             auto& mt = *mixerTracks[(size_t) i];
-            InsertSnap s { i, mt.name, mt.volume.load(), mt.pan.load(), mt.mute.load(), mt.solo.load(), {} };
+            InsertSnap s { i, mt.name, mt.volume.load(), mt.pan.load(), mt.mute.load(), mt.solo.load(), mt.isBus, {}, {} };
             for (int j = 0; j < (int) mt.effects.size(); ++j)
                 s.effects.push_back ({ j, mt.effects[(size_t) j]->name(), mt.effects[(size_t) j]->bypassed.load() });
+            for (auto& sd : mt.sends) s.sends.push_back ({ sd.bus, sd.level });
             out.push_back (std::move (s));
         }
         return out;
@@ -1577,6 +1578,17 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         mt.peakL.store (mpL); mt.peakR.store (mpR);
         if (mpL >= 1.0f || mpR >= 1.0f) mt.clipped.store (true);
 
+        // Aux sends: tap this insert's post-effects signal into its target buses.
+        // Independent of mute/solo (a pre-fader-style aux). Buses have higher indices
+        // (apiAddBus appends), so their buffers accumulate before they're processed.
+        for (auto& sd : mt.sends)
+            if (sd.level > 0.0f && sd.bus > 0 && sd.bus < numTracks && sd.bus != ti)
+            {
+                auto& bus = mixerTracks[(size_t) sd.bus]->buffer;
+                bus.addFrom (0, 0, mt.buffer, 0, 0, num, sd.level);
+                bus.addFrom (1, 0, mt.buffer, 1, 0, num, sd.level);
+            }
+
         const bool audible = ! mt.mute.load() && (! anyTrackSolo || mt.solo.load());
         if (! audible) continue;
         const float v = mt.volume.load();
@@ -2186,6 +2198,13 @@ juce::ValueTree MainComponent::toValueTree()
         t.setProperty ("pan", mt->pan.load(), nullptr);
         t.setProperty ("mute", mt->mute.load(), nullptr);
         t.setProperty ("solo", mt->solo.load(), nullptr);
+        if (mt->isBus) t.setProperty ("bus", true, nullptr);
+        for (auto& sd : mt->sends)
+        {
+            juce::ValueTree sv ("SEND");
+            sv.setProperty ("to", sd.bus, nullptr); sv.setProperty ("level", sd.level, nullptr);
+            t.addChild (sv, -1, nullptr);
+        }
         for (auto& fx : mt->effects)
         {
             juce::ValueTree f ("FX");
@@ -2531,10 +2550,17 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             mt->pan.store    ((float) (double) tv.getProperty ("pan", 0.0));
             mt->mute.store   ((bool) tv.getProperty ("mute", false));
             mt->solo.store   ((bool) tv.getProperty ("solo", false));
+            mt->isBus = (bool) tv.getProperty ("bus", false);
             mt->buffer.setSize (2, juce::jmax (16, currentBlockSize));
             for (int f = 0; f < tv.getNumChildren(); ++f)
             {
                 auto ft = tv.getChild (f);
+                if (ft.hasType ("SEND"))   // aux send, not an effect
+                {
+                    mt->sends.push_back ({ (int) ft.getProperty ("to", 0),
+                                           (float) (double) ft.getProperty ("level", 0.0) });
+                    continue;
+                }
                 const juce::String ftype = ft.getProperty ("type", "Gain").toString();
                 std::unique_ptr<Effect> fx;
 

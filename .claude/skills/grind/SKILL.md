@@ -307,6 +307,21 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
    general patchbay.
    *Done when:* a reverb bus with two sends renders the expected wet/dry mix; routing
    round-trips in the composition.
+   - `[x]` **Landed** (`Source/Buses.cpp` + audio mix loop, commit): `apiAddBus`
+     (append a bus mixer track — `MixerTrack.isBus`, higher index so its buffer
+     accumulates sends before it's processed) and `apiSetSend` (upsert an aux send;
+     `MixerTrack.Send{bus,level}`, level≤0 removes). The mix loop taps each insert's
+     **post-effects** signal into its target buses (additive, independent of
+     mute/solo); the bus processes its own effects and sums to master like any insert.
+     Serialised in `toValueTree`/`loadFromTree` (MTRACK `bus` prop + SEND children,
+     with the FX-load loop now guarding `hasType("FX")`) + composition `inserts.toml`
+     (`bus` flag + `sends = ["busIdx,level", …]`). RPCs AddBus/SetSend, `Send`/`is_bus`
+     on MixerInsert; Python `add_bus`/`set_send`. Verified: reverb bus lifts tail RMS
+     0.040→0.189 (4.7×), routing round-trips. smoke.sh asserts the routing.
+     **Not yet:** pre/post-fader send choice, send presets, RemoveBus, send-level in
+     mixer scenes (scene capture doesn't yet include sends), UI.
+
+   **✅ Wave 3 complete** (#6 clip ops, #7 buses/sends, #8 mixer scenes).
 
 8. **Mixer scenes + control groups (VCA-lite).** **M**
    *Ardour #9/#10.* Named mixer snapshots (rough mix, vocal up, print mix) capturing

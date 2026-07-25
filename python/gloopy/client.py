@@ -260,6 +260,15 @@ class Gloopy:
         self._ack(self.stub.SetEffectBypass(pb.EffectBypassSet(
             insert=insert, slot=slot, bypassed=bypassed)))
 
+    # -- buses & sends ----------------------------------------------------
+    def add_bus(self, name: str = "Bus") -> int:
+        """Append a bus mixer track (receives sends, sums to master); returns its insert index."""
+        return self.stub.AddBus(pb.AddBusRequest(name=name)).id
+
+    def set_send(self, insert: int, bus: int, level: float) -> None:
+        """Aux send from an insert to a bus at level (level<=0 removes)."""
+        self._ack(self.stub.SetSend(pb.SetSendRequest(insert=insert, bus=bus, level=level)))
+
     # -- mixer scenes (named snapshots) -----------------------------------
     def define_mixer_scene(self, name: str) -> None:
         """Snapshot the current mixer strip (vol/pan/mute/solo + effect bypass)."""

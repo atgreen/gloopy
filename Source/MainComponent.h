@@ -90,7 +90,8 @@ public:
 
     struct EffectSnap { int slot; juce::String name; bool bypassed; };
     struct InsertSnap { int index; juce::String name; float volume; float pan; bool mute; bool solo;
-                        std::vector<EffectSnap> effects; };
+                        bool isBus; std::vector<EffectSnap> effects;
+                        std::vector<std::pair<int, float>> sends; };
     struct ParamSnap  { juce::String name; float value; float min; float max; };
 
     std::vector<InsertSnap> apiListInserts();
@@ -132,6 +133,10 @@ public:
     // --- MIDI file import/export (Midi.cpp) ---
     bool apiExportMidi (const juce::String& path);   // all instrument tracks -> a Type-1 SMF
     int  apiImportMidi (const juce::String& path);   // SMF -> synth tracks + clips; count, or -1
+
+    // --- buses & sends (Buses.cpp) ---
+    int  apiAddBus (const juce::String& name);                       // append a bus mixer track; -> its index
+    bool apiSetSend (int insert, int bus, float level);             // upsert an aux send (level<=0 removes)
 
     // --- mixer scenes (MixerScenes.cpp) ---
     // Named snapshots of the mixer strip (insert vol/pan/mute/solo + effect bypass),

@@ -80,10 +80,14 @@ message ClipId { int32 track_id = 1; int32 index = 2; }
 // ── mixer / effects ────────────────────────────────────────
 enum EffectType { GAIN = 0; FILTER = 1; DELAY = 2; REVERB = 3; LIMITER = 4; }
 message EffectInfo  { int32 slot = 1; string name = 2; bool bypassed = 3; }
+message Send { int32 bus = 1; float level = 2; }   // aux send: insert -> bus at level
 message MixerInsert {
   int32 index = 1; string name = 2; float volume = 3; float pan = 4;
   bool mute = 5; bool solo = 6; repeated EffectInfo effects = 7;
+  bool is_bus = 8; repeated Send sends = 9;
 }
+message AddBusRequest  { string name = 1; }
+message SetSendRequest { int32 insert = 1; int32 bus = 2; float level = 3; }   // level<=0 removes
 message InsertList  { repeated MixerInsert inserts = 1; }
 message InsertParams {
   int32 index = 1;
@@ -270,6 +274,10 @@ service Gloopy {
   rpc SetEffectParam (EffectParamSet)   returns (Ack);
   rpc SetEffectBypass(EffectBypassSet)  returns (Ack);
   rpc GetEffectParams(EffectRef)        returns (ParamList);
+
+  // buses & sends
+  rpc AddBus  (AddBusRequest)  returns (TrackId);    // TrackId.id = the new bus's insert index
+  rpc SetSend (SetSendRequest) returns (Ack);
 
   // mixer scenes — named snapshots of the mixer strip (recall on demand)
   rpc DefineMixerScene(SceneName) returns (Ack);   // snapshot current mixer (upsert)

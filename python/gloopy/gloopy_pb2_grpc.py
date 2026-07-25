@@ -255,6 +255,16 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.EffectRef.SerializeToString,
                 response_deserializer=gloopy__pb2.ParamList.FromString,
                 _registered_method=True)
+        self.AddBus = channel.unary_unary(
+                '/gloopy.v1.Gloopy/AddBus',
+                request_serializer=gloopy__pb2.AddBusRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.TrackId.FromString,
+                _registered_method=True)
+        self.SetSend = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetSend',
+                request_serializer=gloopy__pb2.SetSendRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.DefineMixerScene = channel.unary_unary(
                 '/gloopy.v1.Gloopy/DefineMixerScene',
                 request_serializer=gloopy__pb2.SceneName.SerializeToString,
@@ -714,6 +724,20 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def AddBus(self, request, context):
+        """buses & sends
+        TrackId.id = the new bus's insert index
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetSend(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def DefineMixerScene(self, request, context):
         """mixer scenes — named snapshots of the mixer strip (recall on demand)
         snapshot current mixer (upsert)
@@ -1163,6 +1187,16 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.GetEffectParams,
                     request_deserializer=gloopy__pb2.EffectRef.FromString,
                     response_serializer=gloopy__pb2.ParamList.SerializeToString,
+            ),
+            'AddBus': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddBus,
+                    request_deserializer=gloopy__pb2.AddBusRequest.FromString,
+                    response_serializer=gloopy__pb2.TrackId.SerializeToString,
+            ),
+            'SetSend': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetSend,
+                    request_deserializer=gloopy__pb2.SetSendRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'DefineMixerScene': grpc.unary_unary_rpc_method_handler(
                     servicer.DefineMixerScene,
@@ -2529,6 +2563,60 @@ class Gloopy:
             '/gloopy.v1.Gloopy/GetEffectParams',
             gloopy__pb2.EffectRef.SerializeToString,
             gloopy__pb2.ParamList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AddBus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/AddBus',
+            gloopy__pb2.AddBusRequest.SerializeToString,
+            gloopy__pb2.TrackId.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetSend(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetSend',
+            gloopy__pb2.SetSendRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,
             insecure,

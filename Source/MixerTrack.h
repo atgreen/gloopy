@@ -27,4 +27,11 @@ struct MixerTrack
 
     std::vector<std::unique_ptr<Effect>> effects;   // guarded by the engine lock
     juce::AudioBuffer<float>             buffer;     // audio-thread scratch
+
+    // Aux sends: an additive tap of this insert's post-effects signal into another
+    // mixer track (a bus). `isBus` marks a track that exists to receive sends and
+    // sum to master (no track routes its main output to it). Guarded by engineLock.
+    struct Send { int bus; float level; };
+    std::vector<Send> sends;
+    bool isBus { false };
 };
