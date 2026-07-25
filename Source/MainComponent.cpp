@@ -357,11 +357,11 @@ MainComponent::MainComponent (bool headless)
     mixerView->onOpenPluginEditor   = [this] (juce::AudioProcessor* p, const juce::String& n) { openPluginEditor (p, n); };
     mixerView->onBeforeStructuralChange = [this] { closeAllPluginWindows(); };
     mixerView->onMidiLearn          = [this] (const juce::String& target) { apiMidiLearn (target); };
-    mixerView->onSetModulation      = [this] (const juce::String& target, float rate, float depth, int shape, float sync)
+    mixerView->onSetModulation      = [this] (const juce::String& target, float rate, float depth, int shape, float sync, float phase, bool uni)
     {
         ParamDesc d;
         const float center = apiGetParameter (target, d) ? d.value : 0.0f;   // LFO centres on the current value
-        apiSetModulation (target, rate, depth, shape, center, sync);
+        apiSetModulation (target, rate, depth, shape, center, sync, phase, uni);
     };
     mixerView->onRemoveModulation   = [this] (const juce::String& target) { apiRemoveModulation (target); };
 
@@ -2901,6 +2901,8 @@ juce::ValueTree MainComponent::toValueTree()
         mv.setProperty ("depth", m.depth, nullptr);   mv.setProperty ("center", m.center, nullptr);
         mv.setProperty ("shape", m.shape, nullptr);
         if (m.syncBeats > 0.0f) mv.setProperty ("sync", m.syncBeats, nullptr);
+        if (m.phase > 0.0f)     mv.setProperty ("phase", m.phase, nullptr);
+        if (m.unipolar)         mv.setProperty ("unipolar", true, nullptr);
         mods.addChild (mv, -1, nullptr);
     }
     root.addChild (mods, -1, nullptr);
@@ -3327,7 +3329,9 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
                                  (float) (double) mv.getProperty ("depth", 0.0),
                                  (float) (double) mv.getProperty ("center", 0.0),
                                  (int) mv.getProperty ("shape", 0),
-                                 (float) (double) mv.getProperty ("sync", 0.0) });
+                                 (float) (double) mv.getProperty ("sync", 0.0),
+                                 (float) (double) mv.getProperty ("phase", 0.0),
+                                 (bool) mv.getProperty ("unipolar", false) });
     }
 
     auto tm = root.getChildWithName ("TEMPOMAP");

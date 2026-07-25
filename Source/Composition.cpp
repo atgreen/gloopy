@@ -531,6 +531,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
            .number ("rate", mv.getProperty ("rate", 1.0)).number ("depth", mv.getProperty ("depth", 0.0))
            .number ("center", mv.getProperty ("center", 0.0)).integer ("shape", (int) mv.getProperty ("shape", 0))
            .number ("sync", mv.getProperty ("sync", 0.0))
+           .number ("phase", mv.getProperty ("phase", 0.0)).boolean ("unipolar", mv.getProperty ("unipolar", false))
            .blank();
     }
     ctx.writeText ("mods.toml", mdw.str());
@@ -859,6 +860,8 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             mv.setProperty ("center", md.getDouble ("center", 0.0), nullptr);
             mv.setProperty ("shape", md.getInt ("shape", 0), nullptr);
             if (md.getDouble ("sync", 0.0) > 0.0) mv.setProperty ("sync", md.getDouble ("sync", 0.0), nullptr);
+            if (md.getDouble ("phase", 0.0) > 0.0) mv.setProperty ("phase", md.getDouble ("phase", 0.0), nullptr);
+            if (md.getBool ("unipolar")) mv.setProperty ("unipolar", true, nullptr);
             modTree.addChild (mv, -1, nullptr);
         }
 

@@ -26,3 +26,13 @@ inline double lfoOsc (int shape, double phaseCycles)   // -> bipolar [-1, 1]
         default: return std::sin (2.0 * 3.14159265358979323846 * frac);         // sine
     }
 }
+
+// The modulation depth multiplier: the oscillator shifted by a phase offset (0..1 of a
+// cycle) and, when unipolar, folded to [0, 1] so the value stays on one side of centre
+// (centre .. centre+depth) instead of swinging ± depth. The caller forms
+// value = centre + depth * lfoUnit(...).
+inline double lfoUnit (int shape, double phaseCycles, float phaseOffset, bool unipolar)
+{
+    const double osc = lfoOsc (shape, phaseCycles + (double) phaseOffset);   // [-1, 1]
+    return unipolar ? (osc * 0.5 + 0.5) : osc;                               // [0, 1] or [-1, 1]
+}

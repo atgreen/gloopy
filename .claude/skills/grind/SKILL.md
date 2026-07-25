@@ -463,8 +463,16 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      SetModulation RPC + ListModulations + Python; serialised in MODS + `mods.toml`; the
      mixer "Add LFO" prompt gains a Sync field. `GloopyTests::Lfo` proves the sync-vs-free
      phase (and caught a wrong triangle expectation); smoke proves a synced LFO modulates
-     the render and `sync_beats` round-trips. **Not yet:** envelope sources, phase offset,
-     unipolar/smoothing, multiple LFOs per target, plugin-param targets.
+     the render and `sync_beats` round-trips.
+   - `[x]` **Phase offset + unipolar landed** (commit): `Mod.phase` (0..1 cycle offset) and
+     `Mod.unipolar` (value ranges center..center+depth instead of center +/- depth). The
+     folding math is a new `lfoUnit(shape, phase, offset, unipolar)` in `Source/Lfo.h`
+     (unit-tested in `GloopyTests::Lfo`). `phase`/`unipolar` on SetModulation + ListModulations
+     + Python; serialised in MODS + `mods.toml` + composition. **Desktop UI:** the mixer "Add
+     LFO" prompt gains a Phase field and a Bipolar/Unipolar Range selector (screenshot-
+     validated). smoke proves a half-cycle phase shift changes a synced-saw render and that
+     phase 0.25 + unipolar round-trip. **Not yet:** envelope sources, smoothing/slew,
+     multiple LFOs per target, plugin-param targets.
 
 10. **Tempo & time-signature map.** ✦ **M**
     *Ardour #13.* Tempo / time-signature changes on the timeline, stored as tempo

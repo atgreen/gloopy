@@ -449,11 +449,14 @@ class Gloopy:
 
     # -- modulation matrix (LFO -> parameter) -----------------------------
     def set_modulation(self, target: str, rate: float, depth: float,
-                       shape: int = 0, center: float = 0.0, sync_beats: float = 0.0) -> None:
-        """LFO on a ParamModel target: value = center + depth*osc(phase). shape 0=sine 1=tri 2=saw 3=square.
-        sync_beats>0 tempo-syncs the LFO (one cycle per sync_beats beats); otherwise rate is in Hz."""
+                       shape: int = 0, center: float = 0.0, sync_beats: float = 0.0,
+                       phase: float = 0.0, unipolar: bool = False) -> None:
+        """LFO on a ParamModel target: value = center + depth*unit(phase). shape 0=sine 1=tri 2=saw 3=square.
+        sync_beats>0 tempo-syncs the LFO (one cycle per sync_beats beats); otherwise rate is in Hz.
+        phase (0..1) offsets the waveform start; unipolar keeps the value on one side (center..center+depth)."""
         self._ack(self.stub.SetModulation(pb.ModRoute(
-            target=target, rate=rate, depth=depth, center=center, shape=shape, sync_beats=sync_beats)))
+            target=target, rate=rate, depth=depth, center=center, shape=shape,
+            sync_beats=sync_beats, phase=phase, unipolar=unipolar)))
 
     def remove_modulation(self, target: str) -> None:
         self._ack(self.stub.RemoveModulation(pb.ModTarget(target=target)))
@@ -461,7 +464,8 @@ class Gloopy:
     def list_modulations(self) -> list[dict]:
         r = self.stub.ListModulations(pb.Empty())
         return [{"target": m.target, "rate": m.rate, "depth": m.depth,
-                 "center": m.center, "shape": m.shape, "sync_beats": m.sync_beats} for m in r.mods]
+                 "center": m.center, "shape": m.shape, "sync_beats": m.sync_beats,
+                 "phase": m.phase, "unipolar": m.unipolar} for m in r.mods]
 
     # -- tempo map --------------------------------------------------------
     def add_tempo_marker(self, beat: float, bpm: float) -> None:

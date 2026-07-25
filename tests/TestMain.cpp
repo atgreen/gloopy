@@ -465,6 +465,20 @@ struct LfoTests : juce::UnitTest
             // phase wraps: integer cycles land at the cycle start.
             expectWithinAbsoluteError (lfoOsc (0, 5.25), lfoOsc (0, 0.25), 1e-12);
         }
+
+        beginTest ("phase offset + unipolar folding (lfoUnit)");
+        {
+            // Phase offset shifts the waveform: a 0.25-cycle offset makes phase 0 read
+            // like phase 0.25 (sine peak).
+            expectWithinAbsoluteError (lfoUnit (0, 0.0, 0.25f, false), 1.0, 1e-9);
+            expectWithinAbsoluteError (lfoUnit (0, 0.5, 0.25f, false), -1.0, 1e-9);   // 0.5+0.25=0.75 trough
+            // Bipolar passes the osc through unchanged.
+            expectWithinAbsoluteError (lfoUnit (0, 0.25, 0.0f, false), 1.0, 1e-9);
+            // Unipolar folds [-1,1] -> [0,1]: the sine peak/trough/zero map to 1/0/0.5.
+            expectWithinAbsoluteError (lfoUnit (0, 0.25, 0.0f, true), 1.0, 1e-9);     // peak -> 1
+            expectWithinAbsoluteError (lfoUnit (0, 0.75, 0.0f, true), 0.0, 1e-9);     // trough -> 0
+            expectWithinAbsoluteError (lfoUnit (0, 0.0,  0.0f, true), 0.5, 1e-9);     // zero -> 0.5 (never below centre)
+        }
     }
 };
 

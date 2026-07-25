@@ -194,6 +194,27 @@ assert d>0.003, 'tempo-synced LFO did not change the render (diff=%.5f)'%d
 assert abs(float('$SYNCB')-1.0)<1e-4, 'ListModulations sync_beats not 1 (got $SYNCB)'
 print('smoke: PASS — tempo-synced LFO modulates render (diff %.4f), sync_beats=$SYNCB round-trips'%d)
 " || { echo "smoke: tempo-synced modulation failed" >&2; exit 1; }
+# LFO phase offset + unipolar (Wave 4 #9). A half-cycle phase shift on a synced saw LFO
+# changes the render; phase + unipolar round-trip through ListModulations. (The unit-tested
+# lfoUnit math in GloopyTests::Lfo covers the folding itself.)
+g -d "{\"target\":\"track/$MT/synth/cutoff\",\"depth\":1400,\"center\":1500,\"shape\":2,\"sync_beats\":1,\"phase\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetModulation >/dev/null
+g -d "{\"path\":\"$WORK/mod_ph0.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"target\":\"track/$MT/synth/cutoff\",\"depth\":1400,\"center\":1500,\"shape\":2,\"sync_beats\":1,\"phase\":0.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetModulation >/dev/null
+g -d "{\"path\":\"$WORK/mod_ph05.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"target\":\"track/$MT/synth/cutoff\",\"depth\":1400,\"center\":1500,\"shape\":2,\"sync_beats\":1,\"phase\":0.25,\"unipolar\":true}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetModulation >/dev/null
+MODPU=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListModulations | python3 -c "import json,sys;m=json.load(sys.stdin)['mods'][0];print(m.get('phase',0), m.get('unipolar',False))")
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+a=rd('$WORK/mod_ph0.wav');b=rd('$WORK/mod_ph05.wav');m=min(len(a),len(b))
+d=sum(abs(a[i]-b[i]) for i in range(m))/m/(1<<23)
+assert d>0.003, 'phase offset did not change the render (diff=%.5f)'%d
+ph,uni='$MODPU'.split()
+assert abs(float(ph)-0.25)<1e-4, 'phase not round-tripped: %s'%ph
+assert uni=='True', 'unipolar not round-tripped: %s'%uni
+print('smoke: PASS — LFO phase offset changes render (diff %.4f); phase 0.25 + unipolar round-trip'%d)
+" || { echo 'smoke: modulation phase/unipolar wrong' >&2; exit 1; }
 g -d "{\"target\":\"track/$MT/synth/cutoff\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveModulation >/dev/null
 g -d "{\"id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
