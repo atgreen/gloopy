@@ -215,6 +215,23 @@ assert abs(float(ph)-0.25)<1e-4, 'phase not round-tripped: %s'%ph
 assert uni=='True', 'unipolar not round-tripped: %s'%uni
 print('smoke: PASS — LFO phase offset changes render (diff %.4f); phase 0.25 + unipolar round-trip'%d)
 " || { echo 'smoke: modulation phase/unipolar wrong' >&2; exit 1; }
+# LFO slew (Wave 4 #9): a one-pole smoothing on a fast square LFO softens its abrupt
+# edges, so the slewed render differs from the un-slewed one; slew_ms round-trips.
+g -d "{\"target\":\"track/$MT/synth/cutoff\",\"depth\":1400,\"center\":1500,\"shape\":3,\"sync_beats\":0.5,\"slew_ms\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetModulation >/dev/null
+g -d "{\"path\":\"$WORK/mod_noslew.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"target\":\"track/$MT/synth/cutoff\",\"depth\":1400,\"center\":1500,\"shape\":3,\"sync_beats\":0.5,\"slew_ms\":40}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetModulation >/dev/null
+g -d "{\"path\":\"$WORK/mod_slew.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+SLEW=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListModulations | python3 -c "import json,sys;print(json.load(sys.stdin)['mods'][0].get('slewMs',0))")
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+a=rd('$WORK/mod_noslew.wav');b=rd('$WORK/mod_slew.wav');m=min(len(a),len(b))
+d=sum(abs(a[i]-b[i]) for i in range(m))/m/(1<<23)
+assert d>0.003, 'slew did not change the render (diff=%.5f)'%d
+assert abs(float('$SLEW')-40.0)<1e-3, 'slew_ms not round-tripped: %s'%'$SLEW'
+print('smoke: PASS — LFO slew softens a square LFO (render diff %.4f), slew_ms=40 round-trips'%d)
+" || { echo 'smoke: modulation slew wrong' >&2; exit 1; }
 g -d "{\"target\":\"track/$MT/synth/cutoff\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveModulation >/dev/null
 g -d "{\"id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 

@@ -236,7 +236,8 @@ message AutomationList { repeated Automation lanes = 1; }
 // An LFO driving a ParamModel target: value = center + depth*osc(rate*t).
 // shape: 0 sine, 1 triangle, 2 saw, 3 square. One LFO per target (upsert).
 message ModRoute { string target = 1; float rate = 2; float depth = 3; float center = 4; int32 shape = 5; float sync_beats = 6;   // sync_beats>0: cycle length in beats (tempo-synced)
-                   float phase = 7; bool unipolar = 8; }   // phase: cycle offset 0..1; unipolar: center..center+depth (one-sided)
+                   float phase = 7; bool unipolar = 8;   // phase: cycle offset 0..1; unipolar: center..center+depth (one-sided)
+                   float slew_ms = 9; }   // >0: one-pole slew time constant (ms) softening value changes
 message ModList  { repeated ModRoute mods = 1; }
 message ModTarget { string target = 1; }
 

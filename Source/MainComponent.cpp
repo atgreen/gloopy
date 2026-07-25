@@ -357,11 +357,11 @@ MainComponent::MainComponent (bool headless)
     mixerView->onOpenPluginEditor   = [this] (juce::AudioProcessor* p, const juce::String& n) { openPluginEditor (p, n); };
     mixerView->onBeforeStructuralChange = [this] { closeAllPluginWindows(); };
     mixerView->onMidiLearn          = [this] (const juce::String& target) { apiMidiLearn (target); };
-    mixerView->onSetModulation      = [this] (const juce::String& target, float rate, float depth, int shape, float sync, float phase, bool uni)
+    mixerView->onSetModulation      = [this] (const juce::String& target, float rate, float depth, int shape, float sync, float phase, bool uni, float slew)
     {
         ParamDesc d;
         const float center = apiGetParameter (target, d) ? d.value : 0.0f;   // LFO centres on the current value
-        apiSetModulation (target, rate, depth, shape, center, sync, phase, uni);
+        apiSetModulation (target, rate, depth, shape, center, sync, phase, uni, slew);
     };
     mixerView->onRemoveModulation   = [this] (const juce::String& target) { apiRemoveModulation (target); };
 
@@ -1420,6 +1420,7 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
     const juce::int64 startSample = beatToSamples (juce::jmax (0.0, startBeat));
 
     // Start at the range beginning, playing, ignoring any live seek/reset or loop region.
+    resetModulationSmoothing();   // deterministic slew: each offline render seeds afresh
     double dummy; transport.consumeSeek (dummy); transport.consumeReset();
     transport.setPlaying (true);
     transport.setPlayheadSamples (startSample);
@@ -2903,6 +2904,7 @@ juce::ValueTree MainComponent::toValueTree()
         if (m.syncBeats > 0.0f) mv.setProperty ("sync", m.syncBeats, nullptr);
         if (m.phase > 0.0f)     mv.setProperty ("phase", m.phase, nullptr);
         if (m.unipolar)         mv.setProperty ("unipolar", true, nullptr);
+        if (m.slewMs > 0.0f)    mv.setProperty ("slew", m.slewMs, nullptr);
         mods.addChild (mv, -1, nullptr);
     }
     root.addChild (mods, -1, nullptr);
@@ -3331,7 +3333,8 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
                                  (int) mv.getProperty ("shape", 0),
                                  (float) (double) mv.getProperty ("sync", 0.0),
                                  (float) (double) mv.getProperty ("phase", 0.0),
-                                 (bool) mv.getProperty ("unipolar", false) });
+                                 (bool) mv.getProperty ("unipolar", false),
+                                 (float) (double) mv.getProperty ("slew", 0.0) });
     }
 
     auto tm = root.getChildWithName ("TEMPOMAP");

@@ -207,9 +207,10 @@ public:
     // --- modulation matrix (Modulation.cpp) ---
     // shape: 0 sine, 1 triangle, 2 saw, 3 square. rate in Hz. Upsert by target id.
     bool apiSetModulation (const juce::String& target, float rate, float depth, int shape, float center,
-                           float syncBeats = 0.0f, float phase = 0.0f, bool unipolar = false);
+                           float syncBeats = 0.0f, float phase = 0.0f, bool unipolar = false, float slewMs = 0.0f);
+    void resetModulationSmoothing();   // clear transient slew state (call before an offline render / on restart)
     bool apiRemoveModulation (const juce::String& target);
-    struct ModSnap { juce::String target; float rate, depth, center; int shape; float syncBeats, phase; bool unipolar; };
+    struct ModSnap { juce::String target; float rate, depth, center; int shape; float syncBeats, phase; bool unipolar; float slewMs; };
     std::vector<ModSnap> apiListModulations();
     void evaluateModulation (double timeSeconds, double beatPos);   // audio thread, under engineLock
     void applyParamValue (const juce::String& id, float v); // audio-thread-safe direct write by ParamModel id
@@ -567,7 +568,10 @@ private:
     struct Mod { juce::String target; float rate { 1.0f }, depth { 0.0f }, center { 0.0f }; int shape { 0 };
                  float syncBeats { 0.0f };      // >0: cycle length in beats (tempo-synced); 0: free-running Hz
                  float phase { 0.0f };          // cycle offset 0..1 (shifts the waveform start)
-                 bool  unipolar { false }; };   // false: center ± depth; true: center .. center+depth (one-sided)
+                 bool  unipolar { false };      // false: center ± depth; true: center .. center+depth (one-sided)
+                 float slewMs { 0.0f };         // >0: one-pole slew (ms time constant) softening value changes
+                 float smoothState { 0.0f };    // transient: last smoothed value (not serialised)
+                 bool  smoothInit { false }; }; // transient: seeded on the first block after a (re)start
     std::vector<Mod> modulations;                 // guarded by engineLock
     // Tempo map: sorted tempo markers {beat, bpm}. Empty => constant transport.bpm
     // (behaviour unchanged). Drives the beat<->seconds helpers; the render path does

@@ -389,6 +389,7 @@ void MixerView::promptAddLfo (const juce::String& target)
     aw->addTextEditor ("depth", "0.25", "Depth");
     aw->addTextEditor ("sync",  "0",    "Sync (beats, 0=free)");
     aw->addTextEditor ("phase", "0",    "Phase (0..1)");
+    aw->addTextEditor ("slew",  "0",    "Smooth (ms, 0=off)");
     juce::StringArray shapes { "Sine", "Triangle", "Saw", "Square" };
     aw->addComboBox ("shape", shapes, "Shape");
     juce::StringArray polar { "Bipolar (+/- depth)", "Unipolar (0..depth)" };
@@ -403,11 +404,12 @@ void MixerView::promptAddLfo (const juce::String& target)
             const float depth = aw->getTextEditorContents ("depth").getFloatValue();
             const float sync  = aw->getTextEditorContents ("sync").getFloatValue();
             const float phase = aw->getTextEditorContents ("phase").getFloatValue();
+            const float slew  = aw->getTextEditorContents ("slew").getFloatValue();
             const int   shape = aw->getComboBoxComponent ("shape")->getSelectedItemIndex();
             const bool  uni   = aw->getComboBoxComponent ("polar")->getSelectedItemIndex() == 1;
             if (rate > 0.0f || sync > 0.0f)
                 onSetModulation (target, rate, depth, juce::jmax (0, shape), juce::jmax (0.0f, sync),
-                                 juce::jmax (0.0f, phase), uni);
+                                 juce::jmax (0.0f, phase), uni, juce::jmax (0.0f, slew));
         }
         delete aw;
     }), false);

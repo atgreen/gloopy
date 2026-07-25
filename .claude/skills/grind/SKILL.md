@@ -471,8 +471,16 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      + Python; serialised in MODS + `mods.toml` + composition. **Desktop UI:** the mixer "Add
      LFO" prompt gains a Phase field and a Bipolar/Unipolar Range selector (screenshot-
      validated). smoke proves a half-cycle phase shift changes a synced-saw render and that
-     phase 0.25 + unipolar round-trip. **Not yet:** envelope sources, smoothing/slew,
-     multiple LFOs per target, plugin-param targets.
+     phase 0.25 + unipolar round-trip.
+   - `[x]` **Slew / smoothing landed** (commit): `Mod.slewMs` — a one-pole slew (ms time
+     constant) applied per block to the modulation value, softening abrupt shape edges
+     (square/saw) and zipper noise. Transient smooth state (`smoothState`/`smoothInit`, not
+     serialised) is seeded on the first block and reset at the start of every offline render
+     (`resetModulationSmoothing`) so bounces are deterministic. `slew_ms` on SetModulation +
+     ListModulations + Python; serialised in MODS + `mods.toml` + composition. **Desktop UI:**
+     the "Add LFO" prompt gains a "Smooth (ms)" field (screenshot-validated). smoke proves a
+     40 ms slew softens a fast square LFO (render differs) and `slew_ms` round-trips.
+     **Not yet:** envelope sources, multiple LFOs per target, plugin-param targets.
 
 10. **Tempo & time-signature map.** ✦ **M**
     *Ardour #13.* Tempo / time-signature changes on the timeline, stored as tempo

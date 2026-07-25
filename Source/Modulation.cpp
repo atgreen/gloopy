@@ -14,7 +14,7 @@
 #include <cmath>
 
 bool MainComponent::apiSetModulation (const juce::String& target, float rate, float depth, int shape, float center,
-                                      float syncBeats, float phase, bool unipolar)
+                                      float syncBeats, float phase, bool unipolar, float slewMs)
 {
     if (target.trim().isEmpty()) return false;
     return callOnMessageThread ([&] () -> bool
@@ -26,14 +26,22 @@ bool MainComponent::apiSetModulation (const juce::String& target, float rate, fl
         // phase wraps to [0,1): only the fractional cycle offset matters.
         const float ph = phase - std::floor (phase);
         Mod m { target, juce::jmax (0.0f, rate), depth, center, juce::jlimit (0, 3, shape),
-                juce::jmax (0.0f, syncBeats), ph, unipolar };
-        if (it != modulations.end()) *it = m;      // upsert
+                juce::jmax (0.0f, syncBeats), ph, unipolar, juce::jmax (0.0f, slewMs) };
+        if (it != modulations.end()) *it = m;      // upsert (also clears transient slew state)
         else                          modulations.push_back (m);
         std::cout << "[mod] " << target << " rate=" << rate << " depth=" << depth
                   << " center=" << center << " shape=" << shape << " sync=" << syncBeats
-                  << " phase=" << ph << " unipolar=" << (int) unipolar << std::endl;
+                  << " phase=" << ph << " unipolar=" << (int) unipolar << " slew=" << slewMs << std::endl;
         return true;
     });
+}
+
+// Clear the transient one-pole slew state so the next block seeds afresh — makes an
+// offline render reproducible regardless of prior live state (called from apiRenderToFile).
+void MainComponent::resetModulationSmoothing()
+{
+    const juce::ScopedLock sl (engineLock);
+    for (auto& m : modulations) m.smoothInit = false;
 }
 
 bool MainComponent::apiRemoveModulation (const juce::String& target)
@@ -56,7 +64,7 @@ std::vector<MainComponent::ModSnap> MainComponent::apiListModulations()
     {
         const juce::ScopedLock sl (engineLock);
         std::vector<ModSnap> out;
-        for (auto& m : modulations) out.push_back ({ m.target, m.rate, m.depth, m.center, m.shape, m.syncBeats, m.phase, m.unipolar });
+        for (auto& m : modulations) out.push_back ({ m.target, m.rate, m.depth, m.center, m.shape, m.syncBeats, m.phase, m.unipolar, m.slewMs });
         return out;
     });
 }
@@ -118,10 +126,20 @@ void MainComponent::evaluateModulation (double timeSeconds, double beatPos)
     // Called from renderBlock while holding engineLock — iterate the locked vector.
     // A tempo-synced LFO (syncBeats>0) derives its phase from beatPos so its period
     // tracks the tempo; a free LFO uses rate (Hz) against transport seconds.
+    const double blockDur = currentSampleRate > 0.0 ? (double) currentBlockSize / currentSampleRate : 0.0;
     for (auto& m : modulations)
     {
         if (m.syncBeats <= 0.0f && m.rate <= 0.0f && m.shape != 0) continue;   // constant, nothing to do
         const double phase = lfoPhaseCycles (m.syncBeats, beatPos, m.rate, timeSeconds);
-        applyParamValue (m.target, m.center + m.depth * (float) lfoUnit (m.shape, phase, m.phase, m.unipolar));
+        float value = m.center + m.depth * (float) lfoUnit (m.shape, phase, m.phase, m.unipolar);
+        // One-pole slew (per block): soften abrupt shape edges / avoid zipper noise.
+        if (m.slewMs > 0.0f && blockDur > 0.0)
+        {
+            const float coeff = (float) (1.0 - std::exp (-blockDur / ((double) m.slewMs * 1.0e-3)));
+            if (! m.smoothInit) { m.smoothState = value; m.smoothInit = true; }   // seed, no jump on the first block
+            else                  m.smoothState += (value - m.smoothState) * coeff;
+            value = m.smoothState;
+        }
+        applyParamValue (m.target, value);
     }
 }

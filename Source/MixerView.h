@@ -33,7 +33,7 @@ public:
     std::function<void (const juce::String&)> onMidiLearn;
     /** "Add LFO..." on the same right-click menu -> owner resolves the target's current
         value as the LFO centre and calls apiSetModulation (target, rate, depth, shape). */
-    std::function<void (const juce::String&, float, float, int, float, float, bool)> onSetModulation;   // target, rate, depth, shape, syncBeats, phase, unipolar
+    std::function<void (const juce::String&, float, float, int, float, float, bool, float)> onSetModulation;   // target, rate, depth, shape, syncBeats, phase, unipolar, slewMs
     std::function<void (const juce::String&)>                     onRemoveModulation;
 
     // Control groups (VCA-lite): the strip name's right-click menu creates/assigns
