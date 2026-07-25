@@ -8,6 +8,8 @@ package gloopy.v1;
 // queries). Real-time performance (live notes/CC) is on the OSC lane.
 
 message Empty {}
+message TemplateRef  { string name = 1; }
+message TemplateList { repeated string names = 1; }
 message Ack { bool ok = 1; string error = 2; }
 
 // ── transport ──────────────────────────────────────────────
@@ -406,6 +408,8 @@ service Gloopy {
   rpc SetProjectNotes(TextValue) returns (Ack);      // free-form markdown, saved with the song
   rpc GetProjectNotes(Empty)     returns (TextValue);
   rpc NewProject (Empty)    returns (Ack);
+  rpc ListTemplates  (Empty)       returns (TemplateList);   // built-in project templates
+  rpc NewFromTemplate(TemplateRef) returns (Ack);            // empty + seed a template
   rpc Undo       (Empty)    returns (Ack);
   rpc Redo       (Empty)    returns (Ack);
   rpc LoadProject(FilePath) returns (Ack);

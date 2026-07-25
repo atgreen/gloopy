@@ -341,7 +341,8 @@ MainComponent::MainComponent (bool headless)
     };
     mixerView->onRemoveModulation   = [this] (const juce::String& target) { apiRemoveModulation (target); };
 
-    setupDefaultProject();
+    // Start with an EMPTY project — no default tracks. Use File -> New from Template
+    // (or the browser sidebar) to seed a drum kit / starter beat / lead+bass.
 
     // Headless CLI tools (inspect/validate/pack) load a project, print, and exit —
     // no control ports, no audio device. Skip all of that so they run cleanly
@@ -1375,26 +1376,47 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
     return true;
 }
 
-void MainComponent::setupDefaultProject()
+// Built-in project templates (a new project is EMPTY by default; templates are opt-in,
+// reachable via File -> New from Template and, in future, the browser sidebar). Each
+// builds tracks into the current (freshly-emptied) project. Keep this list the single
+// source of truth for apiListTemplates().
+juce::StringArray MainComponent::builtinTemplateNames() const
 {
-    auto makeSamplerTrack = [this] (const juce::String& name,
-                                    juce::AudioBuffer<float> buf, juce::Colour col)
+    return { "Starter Beat", "Drum Kit", "Lead + Bass" };
+}
+
+void MainComponent::buildTemplate (const juce::String& name)
+{
+    auto drum = [this] (const juce::String& n, juce::AudioBuffer<float> buf, juce::Colour col)
     {
         auto sampler = std::make_unique<Sampler>();
         sampler->prepare (currentSampleRate, currentBlockSize);
-        sampler->setSample (std::move (buf), DrumSynth::kRate, name);
-        addTrack (std::make_unique<Track> (name, std::move (sampler), 60, col));
+        sampler->setSample (std::move (buf), DrumSynth::kRate, n);
+        addTrack (std::make_unique<Track> (n, std::move (sampler), 60, col));
+    };
+    auto synth = [this] (const juce::String& n, int wave, float release, int pitch, juce::Colour col)
+    {
+        auto g = std::make_unique<SynthGenerator>();
+        g->engine.params.waveform.store (wave);
+        g->engine.params.release.store (release);
+        addTrack (std::make_unique<Track> (n, std::move (g), pitch, col));
     };
 
-    makeSamplerTrack ("Kick",  DrumSynth::makeKick(),  juce::Colours::orangered);
-    makeSamplerTrack ("Snare", DrumSynth::makeSnare(), juce::Colours::gold);
-    makeSamplerTrack ("Hat",   DrumSynth::makeHat(),   juce::Colours::aquamarine);
-    makeSamplerTrack ("Clap",  DrumSynth::makeClap(),  juce::Colours::violet);
+    if (name == "Lead + Bass")
+    {
+        synth ("Lead", 0, 0.25f, 60, juce::Colours::aquamarine);
+        synth ("Bass", 1, 0.15f, 36, juce::Colours::skyblue);
+        return;
+    }
 
-    auto bass = std::make_unique<SynthGenerator>();
-    bass->engine.params.waveform.store (1);
-    bass->engine.params.release.store (0.15f);
-    addTrack (std::make_unique<Track> ("Bass", std::move (bass), 36, juce::Colours::skyblue));
+    // "Starter Beat" and "Drum Kit" both build the kit; only Starter Beat seeds a groove.
+    drum ("Kick",  DrumSynth::makeKick(),  juce::Colours::orangered);
+    drum ("Snare", DrumSynth::makeSnare(), juce::Colours::gold);
+    drum ("Hat",   DrumSynth::makeHat(),   juce::Colours::aquamarine);
+    drum ("Clap",  DrumSynth::makeClap(),  juce::Colours::violet);
+    synth ("Bass", 1, 0.15f, 36, juce::Colours::skyblue);
+
+    if (name != "Starter Beat") return;
 
     // Seed a 2-bar clip on each track containing a 1-bar looping groove.
     const juce::ScopedLock sl (engineLock);
@@ -1413,6 +1435,28 @@ void MainComponent::setupDefaultProject()
     seed (2, { 0, 2, 4, 6, 8, 10, 12, 14 });
     seed (3, { 8 });
     seed (4, { 0, 3, 6, 8, 11, 14 });
+}
+
+std::vector<juce::String> MainComponent::apiListTemplates()
+{
+    std::vector<juce::String> out;
+    for (auto& n : builtinTemplateNames()) out.push_back (n);
+    return out;
+}
+
+bool MainComponent::apiNewFromTemplate (const juce::String& name)
+{
+    if (! builtinTemplateNames().contains (name)) return false;
+    return callOnMessageThread ([&] () -> bool
+    {
+        newProject();                 // empties the project
+        undoSuppressed = true;
+        buildTemplate (name);
+        undoSuppressed = false;
+        undoStack.clear(); redoStack.clear();
+        refreshUiAfterLoad();
+        return true;
+    });
 }
 
 void MainComponent::selectClip (int track, int clip)
@@ -2194,7 +2238,11 @@ void MainComponent::showFileMenu()
     juce::PopupMenu menu;
     const bool haveProject = currentProjectFile != juce::File();
     const bool isComposition = currentProjectFile.getFileName() == "gloopy.toml";
-    menu.addItem (1, "New Project");
+    menu.addItem (1, "New Project (empty)");
+    juce::PopupMenu templatesMenu;                       // New from a built-in template
+    const auto templates = builtinTemplateNames();
+    for (int i = 0; i < templates.size(); ++i) templatesMenu.addItem (100 + i, templates[i]);
+    menu.addSubMenu ("New from Template", templatesMenu);
     menu.addItem (2, "Open...");                         // .gloopy or .zip
     menu.addItem (6, "Open Composition Folder...");
     menu.addSeparator();
@@ -2208,6 +2256,13 @@ void MainComponent::showFileMenu()
         [this, isComposition] (int result)
         {
             if (result == 8) { openNotes(); return; }
+            if (result >= 100)                                  // New from Template
+            {
+                const auto templates = builtinTemplateNames();
+                if (juce::isPositiveAndBelow (result - 100, templates.size()))
+                    apiNewFromTemplate (templates[result - 100]);
+                return;
+            }
             if (result == 1) newProject();
             else if (result == 2)
             {
@@ -2253,13 +2308,10 @@ void MainComponent::newProject()
         transport.setPlaying (false);
         tracks.clear();
     }
-    nextTrackId = 0;
+    nextTrackId = 1;
     projectNotes.clear();
     if (notesWindow != nullptr) notesEditor.setText ({}, juce::dontSendNotification);
     setupMixer();
-    undoSuppressed = true;
-    setupDefaultProject();
-    undoSuppressed = false;
     undoStack.clear(); redoStack.clear();
     currentProjectFile = juce::File();
     refreshUiAfterLoad();
@@ -2669,7 +2721,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     tempoMap.clear();
     controllerMaps.clear();
     automationLanes.clear();
-    nextTrackId = 0;
+    nextTrackId = 1;
 
     auto trks = root.getChildWithName ("TRACKS");
     for (int i = 0; i < trks.getNumChildren(); ++i)

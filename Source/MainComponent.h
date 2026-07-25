@@ -121,6 +121,8 @@ public:
     std::vector<AutoLaneSnap> apiGetAutomation();
     void evaluateAutomation (double beat);   // audio thread, under engineLock
     void apiNewProject();
+    std::vector<juce::String> apiListTemplates();                 // built-in project templates
+    bool apiNewFromTemplate (const juce::String& name);           // empty the project + seed a template
     bool apiLoadProject (const juce::String& path);
     bool apiSaveProject (const juce::String& path);
     bool apiSaveComposition (const juce::String& path);   // directory "composition as repo" format
@@ -361,7 +363,8 @@ private:
     void timerCallback() override;
 
     void addTrack (std::unique_ptr<Track> track);
-    void setupDefaultProject();
+    void buildTemplate (const juce::String& name);          // seed a built-in template into the current project
+    juce::StringArray builtinTemplateNames() const;
     void selectClip (int track, int clip);
     void writeBackEditor();
     void setEditorMode (int mode);
@@ -471,7 +474,7 @@ private:
     bool pluginsScanned { false };
 
     // Control API.
-    int nextTrackId { 0 };
+    int nextTrackId { 1 };   // 1-based: id 0 would be omitted by proto3 (indistinguishable from "unset")
     std::unordered_map<int, Track*> idMap;
     juce::CriticalSection idMapLock;
     std::unique_ptr<OscControl> osc;

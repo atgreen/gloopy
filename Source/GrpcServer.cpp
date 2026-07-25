@@ -439,6 +439,13 @@ namespace
         Status NewProject (ServerContext*, const pb::Empty*, pb::Ack* r) override
         { main.apiNewProject(); r->set_ok (true); return Status::OK; }
 
+        Status ListTemplates (ServerContext*, const pb::Empty*, pb::TemplateList* r) override
+        { for (auto& n : main.apiListTemplates()) r->add_names (n.toStdString()); return Status::OK; }
+
+        Status NewFromTemplate (ServerContext*, const pb::TemplateRef* q, pb::Ack* r) override
+        { const bool ok = main.apiNewFromTemplate (js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("unknown template"); return Status::OK; }
+
         Status Undo (ServerContext*, const pb::Empty*, pb::Ack* r) override
         { main.apiUndo(); r->set_ok (true); return Status::OK; }
 

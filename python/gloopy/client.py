@@ -509,6 +509,14 @@ class Gloopy:
     def new_project(self) -> None:
         self._ack(self.stub.NewProject(pb.Empty()))
 
+    def list_templates(self) -> list[str]:
+        """Built-in project templates (e.g. 'Starter Beat', 'Drum Kit', 'Lead + Bass')."""
+        return list(self.stub.ListTemplates(pb.Empty()).names)
+
+    def new_from_template(self, name: str) -> None:
+        """Empty the project and seed a built-in template."""
+        self._ack(self.stub.NewFromTemplate(pb.TemplateRef(name=name)))
+
     def undo(self) -> None:
         self._ack(self.stub.Undo(pb.Empty()))
 
