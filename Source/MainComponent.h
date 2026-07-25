@@ -362,6 +362,17 @@ private:
     bool apiSaveEffectPreset (int insert, const juce::String& name);
     bool apiLoadEffectPreset (int insert, const juce::String& name);
 
+    // --- universal parameter model (Parameters.cpp) ---
+    // One flat, stable, string-addressed view of every automatable value, so UI
+    // knobs, automation, MIDI/OSC mapping, gRPC state, and modulation all speak the
+    // same ids. Canonical id grammar:
+    //   track/<id>/{volume|pan|mute|solo}          insert/<index>/{volume|pan|mute|solo}
+    //   track/<id>/synth/<name>                     effect/<insert>/<slot>/<paramName>
+    struct ParamDesc { juce::String id, name, unit, scaling; float value, min, max, def; };
+    std::vector<ParamDesc> apiListParameters();
+    bool apiGetParameter (const juce::String& id, ParamDesc& out);   // false if unknown
+    bool apiSetParameter (const juce::String& id, float value);      // false if unknown/rejected
+
     std::vector<juce::String> apiListAudioInputs();
     bool apiArmTrack (int trackId, bool armed, int input, int channels, bool monitor);
     bool apiSetPunchRange (bool enabled, double inBeat, double outBeat, double countIn);

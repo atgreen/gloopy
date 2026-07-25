@@ -271,6 +271,33 @@ namespace
             return Status::OK;
         }
 
+        // ---- universal parameter model ----
+        static void fillParam (pb::ParameterInfo* pi, const MainComponent::ParamDesc& d)
+        {
+            pi->set_id (d.id.toStdString());   pi->set_name (d.name.toStdString());
+            pi->set_value (d.value);           pi->set_min (d.min);   pi->set_max (d.max);   pi->set_default_value (d.def);
+            pi->set_unit (d.unit.toStdString()); pi->set_scaling (d.scaling.toStdString());
+        }
+        Status ListParameters (ServerContext*, const pb::Empty*, pb::ParameterList* r) override
+        {
+            for (auto& d : main.apiListParameters()) fillParam (r->add_params(), d);
+            return Status::OK;
+        }
+        Status GetParameter (ServerContext*, const pb::ParameterId* q, pb::ParameterInfo* r) override
+        {
+            MainComponent::ParamDesc d;
+            if (! main.apiGetParameter (js (q->id()), d))
+                return Status (grpc::StatusCode::NOT_FOUND, "unknown parameter id");
+            fillParam (r, d);
+            return Status::OK;
+        }
+        Status SetParameter (ServerContext*, const pb::ParameterSet* q, pb::Ack* r) override
+        {
+            const bool ok = main.apiSetParameter (js (q->id()), q->value());
+            r->set_ok (ok); if (! ok) r->set_error ("unknown or rejected parameter id");
+            return Status::OK;
+        }
+
         // ---- project / state ----
         Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override
         {

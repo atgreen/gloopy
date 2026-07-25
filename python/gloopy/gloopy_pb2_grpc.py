@@ -280,6 +280,21 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
                 response_deserializer=gloopy__pb2.AutomationList.FromString,
                 _registered_method=True)
+        self.ListParameters = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ListParameters',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.ParameterList.FromString,
+                _registered_method=True)
+        self.GetParameter = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GetParameter',
+                request_serializer=gloopy__pb2.ParameterId.SerializeToString,
+                response_deserializer=gloopy__pb2.ParameterInfo.FromString,
+                _registered_method=True)
+        self.SetParameter = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetParameter',
+                request_serializer=gloopy__pb2.ParameterSet.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.GetState = channel.unary_unary(
                 '/gloopy.v1.Gloopy/GetState',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -646,6 +661,26 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListParameters(self, request, context):
+        """universal parameter model — one flat, stable, string-addressed view of every
+        automatable value (see ParameterInfo.id grammar).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetParameter(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetParameter(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetState(self, request, context):
         """project & state
         """
@@ -957,6 +992,21 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.GetAutomation,
                     request_deserializer=gloopy__pb2.Empty.FromString,
                     response_serializer=gloopy__pb2.AutomationList.SerializeToString,
+            ),
+            'ListParameters': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListParameters,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.ParameterList.SerializeToString,
+            ),
+            'GetParameter': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetParameter,
+                    request_deserializer=gloopy__pb2.ParameterId.FromString,
+                    response_serializer=gloopy__pb2.ParameterInfo.SerializeToString,
+            ),
+            'SetParameter': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetParameter,
+                    request_deserializer=gloopy__pb2.ParameterSet.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'GetState': grpc.unary_unary_rpc_method_handler(
                     servicer.GetState,
@@ -2333,6 +2383,87 @@ class Gloopy:
             '/gloopy.v1.Gloopy/GetAutomation',
             gloopy__pb2.Empty.SerializeToString,
             gloopy__pb2.AutomationList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListParameters(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ListParameters',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.ParameterList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetParameter(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GetParameter',
+            gloopy__pb2.ParameterId.SerializeToString,
+            gloopy__pb2.ParameterInfo.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetParameter(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetParameter',
+            gloopy__pb2.ParameterSet.SerializeToString,
+            gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,
             insecure,

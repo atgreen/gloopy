@@ -272,6 +272,23 @@ class Gloopy:
         return [{"name": p.name, "value": p.value, "min": p.min, "max": p.max}
                 for p in r.params]
 
+    # -- universal parameter model ----------------------------------------
+    # Every automatable value under one stable string id, e.g.
+    #   "track/0/volume"  "track/0/synth/cutoff"  "insert/0/pan"  "effect/0/1/Wet"
+    def list_parameters(self) -> list[dict]:
+        r = self.stub.ListParameters(pb.Empty())
+        return [{"id": p.id, "name": p.name, "value": p.value, "min": p.min,
+                 "max": p.max, "default": p.default_value,
+                 "unit": p.unit, "scaling": p.scaling} for p in r.params]
+
+    def get_parameter(self, id: str) -> dict:
+        p = self.stub.GetParameter(pb.ParameterId(id=id))
+        return {"id": p.id, "name": p.name, "value": p.value, "min": p.min,
+                "max": p.max, "unit": p.unit, "scaling": p.scaling}
+
+    def set_parameter(self, id: str, value: float) -> None:
+        self._ack(self.stub.SetParameter(pb.ParameterSet(id=id, value=value)))
+
     # -- automation -------------------------------------------------------
     def set_automation(self, target, id: int, points: Iterable[tuple[float, float]],
                        slot: int = 0, param: str = "") -> None:

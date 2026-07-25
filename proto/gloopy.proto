@@ -99,6 +99,25 @@ message EffectBypassSet  { int32 insert = 1; int32 slot = 2; bool bypassed = 3; 
 message Param     { string name = 1; float value = 2; float min = 3; float max = 4; }
 message ParamList { repeated Param params = 1; }
 
+// ── universal parameter model ──────────────────────────────
+// A single flat, stable, string-addressed descriptor for any automatable value.
+// id grammar:
+//   track/<id>/{volume|pan|mute|solo}        insert/<index>/{volume|pan|mute|solo}
+//   track/<id>/synth/<name>                  effect/<insert>/<slot>/<paramName>
+message ParameterInfo {
+  string id      = 1;
+  string name    = 2;   // human label
+  float  value   = 3;
+  float  min           = 4;
+  float  max           = 5;
+  float  default_value = 6;
+  string unit          = 7;   // "", "dB", "Hz", "s", "st", ...
+  string scaling = 8;   // "linear" | "log" | "bool" | "enum"
+}
+message ParameterList { repeated ParameterInfo params = 1; }
+message ParameterId   { string id = 1; }
+message ParameterSet  { string id = 1; float value = 2; }
+
 // ── presets ────────────────────────────────────────────────
 message PresetRef      { int32 target = 1; string name = 2; }   // target = track id or insert index
 message PresetCategory { string category = 1; }                 // "synth" | "effects"
@@ -233,6 +252,12 @@ service Gloopy {
   // automation
   rpc SetAutomation  (Automation)       returns (Ack);
   rpc GetAutomation  (Empty)            returns (AutomationList);
+
+  // universal parameter model — one flat, stable, string-addressed view of every
+  // automatable value (see ParameterInfo.id grammar).
+  rpc ListParameters (Empty)         returns (ParameterList);
+  rpc GetParameter   (ParameterId)   returns (ParameterInfo);
+  rpc SetParameter   (ParameterSet)  returns (Ack);
 
   // project & state
   rpc GetState   (Empty)    returns (ProjectState);
