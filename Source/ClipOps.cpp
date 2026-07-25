@@ -80,6 +80,36 @@ int MainComponent::apiSplitClip (int trackId, int index, double beat)
             a.contentLenBeats = local;
             a.looped          = false;
 
+            // Audio: trim each half's buffer to its own span so the right half continues
+            // from the cut (not a replay from the buffer start). The split's source-sample
+            // offset maps beats -> wall-clock seconds (tempo-aware) -> source samples.
+            if (a.isAudio() && a.audio != nullptr)
+            {
+                const int    frames  = a.audio->getNumSamples();
+                const int    nch     = a.audio->getNumChannels();
+                const double secBase = apiBeatsToSeconds (b.startBeat - local);   // == original clip start
+                const juce::int64 splitSrc = (juce::int64) std::llround ((apiBeatsToSeconds (b.startBeat) - secBase) * a.audioSourceRate);
+                const juce::int64 cut = juce::jlimit ((juce::int64) 0, (juce::int64) frames, splitSrc);
+                const int leftFrames  = (int) cut;
+                const int rightFrames = frames - (int) cut;
+
+                auto trim = [nch] (const juce::AudioBuffer<float>& src, int start, int len)
+                {
+                    auto out = std::make_shared<juce::AudioBuffer<float>> (nch, juce::jmax (1, len));
+                    out->clear();
+                    for (int ch = 0; ch < nch && len > 0; ++ch) out->copyFrom (ch, 0, src, ch, start, len);
+                    return out;
+                };
+                auto left  = trim (*a.audio, 0, leftFrames);
+                auto right = trim (*a.audio, (int) cut, rightFrames);
+                a.audio = left;   a.peaks = std::make_shared<std::vector<float>> (buildPeaks (*left));
+                b.audio = right;  b.peaks = std::make_shared<std::vector<float>> (buildPeaks (*right));
+                a.fadeOutBeats = 0.0;   // the cut edges are hard; keep only the outer fades
+                b.fadeInBeats  = 0.0;
+                a.audioFile = {}; a.takeId = {};   // trimmed buffers no longer match the source file — embed
+                b.audioFile = {}; b.takeId = {};
+            }
+
             t->clips.insert (t->clips.begin() + index + 1, std::move (b));
             newIndex = index + 1;
         }

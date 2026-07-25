@@ -471,6 +471,30 @@ print('smoke: PASS — SplitClipAtMarker split [0,4) at marker \"chorus\"(2) -> 
 " || { echo 'smoke: SplitClipAtMarker notes wrong' >&2; exit 1; }
 g -d '{"name":"chorus"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveLocation >/dev/null 2>&1 || true
 g -d "{\"id\":$SM}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+# Audio-clip split is transparent: splitting an audio clip must trim each half's buffer
+# so the right half continues from the cut (not replay the buffer from its start). Render
+# a tone with two DISTINCT halves to a WAV, load it, split at beat 2, and assert the whole
+# render is unchanged by the split (a replay bug would make the second half wrong).
+SP=$(g -d '{"name":"spsrc","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.8,"release":0.2,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$SP,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":48,\"start_beat\":0,\"length_beats\":2,\"velocity\":0.9},{\"pitch\":72,\"start_beat\":2,\"length_beats\":2,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/spsrc.wav\",\"tail_seconds\":0,\"start_beat\":0,\"end_beat\":4,\"track_id\":$SP}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"id\":$SP}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+SPT=$(g -d '{"name":"spaud"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddAudioTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$SPT,\"start_beat\":0,\"path\":\"$WORK/spsrc.wav\",\"gain\":1.0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddAudioClip >/dev/null
+g -d "{\"path\":\"$WORK/sp_before.wav\",\"tail_seconds\":0,\"start_beat\":0,\"end_beat\":4,\"track_id\":$SPT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+SPNI=$(g -d "{\"track_id\":$SPT,\"index\":0,\"beat\":2}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SplitClip | python3 -c "import json,sys;print(json.load(sys.stdin).get('index',-1))")
+[ "$SPNI" = 1 ] || { echo "smoke: audio SplitClip did not create the right clip (got $SPNI)" >&2; exit 1; }
+g -d "{\"path\":\"$WORK/sp_after.wav\",\"tail_seconds\":0,\"start_beat\":0,\"end_beat\":4,\"track_id\":$SPT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+a=rd('$WORK/sp_before.wav');b=rd('$WORK/sp_after.wav');m=min(len(a),len(b))
+d=sum(abs(a[i]-b[i]) for i in range(m))/m/(1<<23)
+assert d < 0.001, 'audio split is not transparent (mean abs diff %.5f) — right half replays the buffer'%d
+print('smoke: PASS — audio SplitClip is transparent (halves trimmed, diff %.6f)'%d)
+" || { echo 'smoke: audio split not transparent' >&2; exit 1; }
+g -d "{\"id\":$SPT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
 g -d "{\"path\":\"$WAV\",\"tail_seconds\":1.0,\"start_beat\":0,\"end_beat\":4}" \
     127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null

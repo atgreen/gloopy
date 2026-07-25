@@ -321,6 +321,14 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      serialise, so no new persistence. Verified precisely via GetClipNotes (split
      8→4+4 with correct offsets; reverse 60→beat3/63→beat0; duplicate→3 clips) +
      smoke.sh.
+   - `[x]` **Audio-clip split fixed** (commit): `apiSplitClip` on an audio clip previously
+     copied the *shared* full buffer into both halves, so the right half REPLAYED from the
+     buffer start at the cut instead of continuing. Now each half's buffer is trimmed to its
+     own span (source-sample offset via the tempo-aware beats→seconds→samples map, same as
+     crop); peaks rebuilt, inner fades cleared, `audioFile`/`takeId` cleared so the halves
+     embed. Fixes the existing "Split at playhead" clip-menu control for audio. smoke proves
+     the split is audibly TRANSPARENT (whole-render mean-abs diff 0.000000 before vs after a
+     split of a two-distinct-halves clip — a replay bug would corrupt the second half).
    - `[x]` **Clip gain + normalize landed** (commit): `apiSetClipGain` (audio clip gain
      in dB) and `apiNormalizeClip` (scan the clip buffer's peak, set gain so it hits a
      target dBFS; returns the applied gain). Audio clips only (MIDI dynamics = velocity);
