@@ -74,7 +74,7 @@ juce::String MainComponent::apiInspectJson()
     return juce::JSON::toString (obj (root));
 }
 
-juce::String MainComponent::apiValidateJson (bool& ok)
+juce::String MainComponent::apiValidateJson (bool& ok, bool withLoudness)
 {
     juce::Array<juce::var> errors, warnings;
 
@@ -104,10 +104,49 @@ juce::String MainComponent::apiValidateJson (bool& ok)
         if ((l.kind == "range" || l.kind == "section") && l.endBeat <= l.startBeat)
             warnings.add ("location '" + l.name + "' (" + l.kind + ") is zero-length");
 
+    // Optional loudness pass: render the whole song offline and measure it, so CI can
+    // flag clipping or pathological levels. Headless-CLI skips the audio device, so the
+    // generators haven't been prepared — prepareToPlay does that (no device is opened).
+    juce::var loudnessVar;
+    if (withLoudness)
+    {
+        prepareToPlay (512, currentSampleRate > 0.0 ? currentSampleRate : 44100.0);
+        auto tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                     .getChildFile ("gloopy-validate-loudness.wav");
+        LoudnessReport rep;
+        if (apiRenderToFile (tmp.getFullPathName(), 0.0, 0.0, 0.0, false, 0)
+            && apiAnalyzeFile (tmp.getFullPathName(), rep))
+        {
+            juce::DynamicObject::Ptr loud = new juce::DynamicObject();
+            loud->setProperty ("peak_dbfs",      rep.peakDbfs);
+            loud->setProperty ("true_peak_dbtp", rep.truePeakDbtp);
+            loud->setProperty ("rms_dbfs",       rep.rmsDbfs);
+            loud->setProperty ("lufs",           rep.lufs);
+            loudnessVar = obj (loud);
+
+            if (rep.peakDbfs > -60.0)   // only judge levels on a non-silent mix
+            {
+                if (rep.truePeakDbtp > -1.0)
+                    warnings.add ("true-peak " + juce::String (rep.truePeakDbtp, 1)
+                                  + " dBTP exceeds -1 dBTP; may clip after lossy encoding");
+                if (rep.lufs > -8.0)
+                    warnings.add ("integrated loudness " + juce::String (rep.lufs, 1)
+                                  + " LUFS is very hot (streaming targets are around -14)");
+            }
+            else
+                warnings.add ("mix is silent or near-silent (peak "
+                              + juce::String (rep.peakDbfs, 1) + " dBFS)");
+        }
+        else
+            warnings.add ("loudness analysis failed (could not render/measure the mix)");
+        tmp.deleteFile();
+    }
+
     ok = errors.isEmpty();
     juce::DynamicObject::Ptr root = new juce::DynamicObject();
     root->setProperty ("ok", ok);
     root->setProperty ("errors", errors);
     root->setProperty ("warnings", warnings);
+    if (! loudnessVar.isVoid()) root->setProperty ("loudness", loudnessVar);
     return juce::JSON::toString (obj (root));
 }

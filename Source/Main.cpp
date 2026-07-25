@@ -211,7 +211,10 @@ public:
             else if (args[0] == "validate")
             {
                 bool ok = true;
-                std::cout << comp->apiValidateJson (ok) << std::endl;
+                const bool loud = args.contains ("--loudness");   // also render + measure the mix
+                // The render/analyze pass emits diagnostic chatter; keep stdout pure JSON.
+                juce::String out; { CoutSilencer s; out = comp->apiValidateJson (ok, loud); }
+                std::cout << out << std::endl;
                 rc = ok ? 0 : 1;
             }
             else   // pack <project> <out.zip>: normalise to a composition, then zip it

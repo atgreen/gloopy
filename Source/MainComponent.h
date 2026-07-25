@@ -139,7 +139,7 @@ public:
 
     // --- headless CLI utilities (Cli.cpp) ---
     juce::String apiInspectJson();               // structural summary as JSON
-    juce::String apiValidateJson (bool& ok);     // problems as JSON; ok=false if any errors
+    juce::String apiValidateJson (bool& ok, bool withLoudness = false);   // problems as JSON; ok=false if any errors
 
     // --- RT diagnostics (Diagnostics.cpp) ---
     struct DiagSnap { double sampleRate; int blockSize, inputs, outputs;

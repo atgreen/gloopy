@@ -271,9 +271,15 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      `validate` → JSON {ok,errors,warnings} (missing SFZ, export→unknown-range,
      zero-length ranges, clip-less tracks) + exit code; `pack` → normalise to a
      composition and zip it (loadable). Works on any input format via
-     `openProjectFile`. smoke.sh exercises all three. **Not yet:** `render`
-     subcommand (exists as `--render`) and `export-stems` (available via gRPC
-     `RunExport`); `validate` loudness once Wave 5 #12 lands.
+     `openProjectFile`. smoke.sh exercises all three.
+   - `[x]` **`validate --loudness` landed** (commit): with the flag, `apiValidateJson`
+     prepares the engine (headless-CLI skips the device, so `prepareToPlay` preps the
+     generators), renders the whole song offline, `apiAnalyzeFile`s it, and adds a
+     `loudness` object + level warnings (true-peak > -1 dBTP → clip risk; > -8 LUFS →
+     very hot; near-silent). The render/analyze chatter is wrapped in `CoutSilencer` so
+     stdout stays pure JSON. smoke.sh proves it renders non-silent and reports LUFS.
+     **Not yet:** `render`/`export-stems` subcommands (available as `--render` / gRPC
+     `RunExport`).
 
 5. **MIDI import/export + bulk JSON note I/O.** **M**
    *Idea #9/#14 + Ardour #5.* Standard `.mid` file in/out (map to/from the beat-based

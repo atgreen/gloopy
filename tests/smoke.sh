@@ -437,6 +437,15 @@ fi
     || { echo "smoke: CLI inspect did not emit clean JSON" >&2; exit 1; }
 "$BIN" validate "$COMP" >/dev/null 2>&1 && echo "smoke: PASS — CLI validate (clean project, exit 0)" \
     || { echo "smoke: CLI validate failed on a clean project" >&2; exit 1; }
+# validate --loudness renders the mix and adds a loudness section (stdout stays pure JSON).
+"$BIN" validate "$COMP" --loudness 2>/dev/null | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+l=d.get('loudness')
+assert l and 'lufs' in l and 'true_peak_dbtp' in l, 'validate --loudness has no loudness report'
+assert l['peak_dbfs'] > -60, 'validate --loudness rendered silence (%.1f dBFS)'%l['peak_dbfs']
+print('smoke: PASS — CLI validate --loudness (%.1f LUFS, tp %.1f dBTP)'%(l['lufs'], l['true_peak_dbtp']))
+" || { echo "smoke: CLI validate --loudness did not emit a loudness report" >&2; exit 1; }
 "$BIN" pack "$COMP" "$WORK/packed.zip" >/dev/null 2>&1
 [ -s "$WORK/packed.zip" ] || { echo "smoke: CLI pack produced no zip" >&2; exit 1; }
 g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
