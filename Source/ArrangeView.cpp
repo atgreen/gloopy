@@ -436,7 +436,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addItem (2, "Duplicate");
         m.addItem (3, "Reverse");
         m.addItem (4, "Snap to scale", isMidi);
-        m.addItem (13, "Crop to loop region", isMidi && transport.isLoopEnabled());
+        m.addItem (13, "Crop to loop region", transport.isLoopEnabled());   // MIDI notes or audio buffer
         if (! isMidi)                                   // audio-clip level ops
         {
             m.addItem (10, "Normalize");                // to -1 dBFS

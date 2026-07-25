@@ -286,6 +286,38 @@ print('smoke: PASS — CropClip [1,3) kept notes 62@0, 64@1')
 BADCROP=$(g -d "{\"track_id\":$CR,\"index\":0,\"start_beat\":2,\"end_beat\":2}" 127.0.0.1:$PORT gloopy.v1.Gloopy/CropClip | python3 -c "import json,sys;print(json.load(sys.stdin).get('ok',False))")
 [ "$BADCROP" = "False" ] || { echo "smoke: CropClip accepted an empty range" >&2; exit 1; }
 g -d "{\"id\":$CR}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+# Audio-clip crop: render a sustained tone to a WAV, load it as an audio clip [0,4),
+# then crop to [2,4). SaveProject shows the clip MOVED to start=2/len=2 AND that its
+# sample buffer was actually cut to exactly the 2-beat window (~2*60/bpm*rate frames),
+# proving the source samples were trimmed, not merely re-anchored. A clip named "src"
+# (the WAV basename) isolates it in the save.
+clipattr() {   # $1=saved .gloopy  $2=attr  -> value of that attr on the clip named "src"
+  python3 -c "
+import xml.etree.ElementTree as ET
+for c in ET.parse('$1').getroot().iter('CLIP'):
+    if c.get('name')=='src': print(c.get('$2')); break
+"; }
+BPM=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetTransport | python3 -c "import json,sys;print(json.load(sys.stdin).get('bpm',120))")
+ACS=$(g -d '{"name":"cropsrc","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.8,"release":0.2,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$ACS,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\"notes\":[{\"pitch\":48,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+ASRC="$WORK/src.wav"
+g -d "{\"path\":\"$ASRC\",\"tail_seconds\":0,\"start_beat\":0,\"end_beat\":4,\"track_id\":$ACS}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"id\":$ACS}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   # only wanted its WAV
+AUT=$(g -d '{"name":"cropaud"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddAudioTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$AUT,\"start_beat\":0,\"path\":\"$ASRC\",\"gain\":1.0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddAudioClip >/dev/null
+g -d "{\"track_id\":$AUT,\"index\":0,\"start_beat\":2,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/CropClip >/dev/null
+g -d "{\"path\":\"$WORK/acrop.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+ASTART=$(clipattr "$WORK/acrop.gloopy" start); ALEN=$(clipattr "$WORK/acrop.gloopy" len)
+ARATE=$(clipattr "$WORK/acrop.gloopy" arate);  AF1=$(clipattr "$WORK/acrop.gloopy" aframes)
+python3 -c "
+st,ln,rate,f1,bpm=float('$ASTART'),float('$ALEN'),float('$ARATE'),int('$AF1'),float('$BPM')
+want=2.0*60.0/bpm*rate                      # the [2,4) window = 2 beats of source samples
+assert abs(st-2.0)<1e-6, 'crop did not move clip to beat 2 (start=%g)'%st
+assert abs(ln-2.0)<1e-6, 'crop did not resize clip to 2 beats (len=%g)'%ln
+assert abs(f1-want) < 0.03*want, 'buffer not cut to the 2-beat window: %d frames, wanted ~%d'%(f1,want)
+print('smoke: PASS — audio CropClip -> start=%g len=%g, buffer trimmed to %d frames (2 beats @ %g bpm)'%(st,ln,f1,bpm))
+" || { echo 'smoke: audio CropClip did not trim/move correctly' >&2; exit 1; }
+g -d "{\"id\":$AUT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 # Piano-roll note ops (quantize/transpose) on an off-grid clip, verified via GetClipNotes.
 g -d "{\"track_id\":$CO,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\
 \"notes\":[{\"pitch\":60,\"start_beat\":0.1,\"length_beats\":1,\"velocity\":0.8},\

@@ -143,31 +143,62 @@ bool MainComponent::apiCropClip (int trackId, int index, double startBeat, doubl
             const juce::ScopedLock sl (engineLock);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             Clip& c = t->clips[(size_t) index];
-            if (c.isAudio()) return false;                       // MIDI clips only
             const double clipEnd = c.startBeat + c.lengthBeats;
             const double s = juce::jmax (startBeat, c.startBeat);
             const double e = juce::jmin (endBeat,   clipEnd);
             if (e - s < 1.0e-6) return false;                    // empty intersection
-            const double head = s - c.startBeat;                 // clip-relative beats dropped from the front
             const double newLen = e - s;
 
-            std::vector<Note> kept;
-            for (auto& n : c.notes)
+            if (c.isAudio())
             {
-                const double onsetRel = n.startBeat - head;
-                const double endRel   = onsetRel + n.lengthBeats;
-                if (endRel <= 0.0 || onsetRel >= newLen) continue;   // note doesn't sound in the window
-                Note nn = n;
-                nn.startBeat   = juce::jmax (0.0, onsetRel);
-                nn.lengthBeats = juce::jmax (0.0625, juce::jmin (newLen, endRel) - nn.startBeat);
-                kept.push_back (nn);
+                if (c.audio == nullptr) return false;
+                // Audio plays at natural speed, so map the [s,e) beat window to
+                // source-sample offsets via wall-clock seconds (tempo-map aware) and
+                // trim the buffer to that sub-range.
+                const double secStart = apiBeatsToSeconds (c.startBeat);
+                const juce::int64 headSrc = (juce::int64) std::llround ((apiBeatsToSeconds (s) - secStart) * c.audioSourceRate);
+                const juce::int64 tailSrc = (juce::int64) std::llround ((apiBeatsToSeconds (e) - secStart) * c.audioSourceRate);
+                const int frames = c.audio->getNumSamples();
+                const juce::int64 a0 = juce::jlimit ((juce::int64) 0, (juce::int64) frames, headSrc);
+                const juce::int64 a1 = juce::jlimit (a0, (juce::int64) frames, tailSrc);
+                const int newFrames = (int) (a1 - a0);
+                if (newFrames <= 0) return false;
+                const int nch = c.audio->getNumChannels();
+                auto trimmed = std::make_shared<juce::AudioBuffer<float>> (nch, newFrames);
+                for (int ch = 0; ch < nch; ++ch)
+                    trimmed->copyFrom (ch, 0, *c.audio, ch, (int) a0, newFrames);
+                c.audio           = trimmed;
+                c.peaks           = std::make_shared<std::vector<float>> (buildPeaks (*trimmed));
+                c.startBeat       = s;
+                c.lengthBeats     = newLen;
+                c.contentLenBeats = newLen;
+                c.fadeInBeats     = 0.0;   // old fade edges no longer align to the new clip bounds
+                c.fadeOutBeats    = 0.0;
+                c.audioFile       = {};    // trimmed buffer no longer matches the source file — embed it
+                c.takeId          = {};
+                ok = true;
             }
-            c.notes           = std::move (kept);
-            c.startBeat       = s;
-            c.lengthBeats     = newLen;
-            c.contentLenBeats = newLen;
-            c.looped          = false;
-            ok = true;
+            else
+            {
+                const double head = s - c.startBeat;             // clip-relative beats dropped from the front
+                std::vector<Note> kept;
+                for (auto& n : c.notes)
+                {
+                    const double onsetRel = n.startBeat - head;
+                    const double endRel   = onsetRel + n.lengthBeats;
+                    if (endRel <= 0.0 || onsetRel >= newLen) continue;   // note doesn't sound in the window
+                    Note nn = n;
+                    nn.startBeat   = juce::jmax (0.0, onsetRel);
+                    nn.lengthBeats = juce::jmax (0.0625, juce::jmin (newLen, endRel) - nn.startBeat);
+                    kept.push_back (nn);
+                }
+                c.notes           = std::move (kept);
+                c.startBeat       = s;
+                c.lengthBeats     = newLen;
+                c.contentLenBeats = newLen;
+                c.looped          = false;
+                ok = true;
+            }
         }
         emitChange ("clip_changed", trackId);
         if (arrangeView) arrangeView->repaint();
