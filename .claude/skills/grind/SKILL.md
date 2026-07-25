@@ -523,8 +523,12 @@ desktop control wiring the *same* api* op, screenshot-validated. Status:
 - `[x]` **Tempo markers** (AddTempoMarker/RemoveTempoMarker) — right-click the beat ruler
   → Add (BPM prompt) / Remove; markers drawn as flags on the ruler (commit 004c19f).
   Screenshot + headless validated (bar 3 / 150 BPM).
-- `[ ]` **Punch range** (SetPunchRange) — drag on the ruler.
-- `[ ]` **Take management** (PromoteTake/CleanupTakes) — a takes panel.
+- `[x]` **Punch range** (SetPunchRange) — Alt-drag the ruler to set the punch in/out
+  region; drawn in red (loop stays plain-drag/accent) (commit 71e31ef). Screenshot-
+  validated (RPC-set bars 2-4 + Alt-drag bars 5-7).
+- `[ ]` **Take management** (PromoteTake/CleanupTakes) — a takes panel / right-click on a
+  recorded clip. LAST gap. Needs a recording harness (arm → record → produce takes) to
+  validate; larger slice — do next.
 
 16. **Browser sidebar + demo/template browser + `File → New From Template`** *(Idea
     #1/#2; absorbs remaining preset UI/work).* **L**
