@@ -253,6 +253,14 @@ class Gloopy:
     def load_synth_preset(self, track_id: int, name: str) -> None:
         self._ack(self.stub.LoadSynthPreset(pb.PresetRef(target=track_id, name=name)))
 
+    def save_instrument_preset(self, track_id: int, name: str) -> None:
+        """Save a track's instrument (synth or SFZ) as a reusable preset."""
+        self._ack(self.stub.SaveInstrumentPreset(pb.PresetRef(target=track_id, name=name)))
+
+    def load_instrument_preset(self, track_id: int, name: str) -> None:
+        """Replace a track's instrument with a saved preset (may change its type)."""
+        self._ack(self.stub.LoadInstrumentPreset(pb.PresetRef(target=track_id, name=name)))
+
     def save_effect_preset(self, insert: int, name: str) -> None:
         self._ack(self.stub.SaveEffectPreset(pb.PresetRef(target=insert, name=name)))
 

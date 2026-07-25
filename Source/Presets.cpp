@@ -7,6 +7,7 @@
 
 #include "MainComponent.h"
 #include "SynthGenerator.h"
+#include "SfizzGenerator.h"
 #include "Effects.h"
 #include "Toml.h"
 #include <iostream>
@@ -89,6 +90,86 @@ bool MainComponent::apiLoadSynthPreset (int trackId, const juce::String& name)
             s.setProperty (kv.first, params->getDouble (kv.first.toRawUTF8()), nullptr);
         readSynthParams (s, sg->engine.params);   // atomic stores — safe live
         std::cout << "[preset] loaded synth preset '" << name << "' onto track " << trackId << std::endl;
+        return true;
+    });
+}
+
+// ── general instrument presets (synth or SFZ) ────────────────────────────────
+bool MainComponent::apiSaveInstrumentPreset (int trackId, const juce::String& name)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr || t->generator == nullptr) return false;
+
+        toml::Writer w;
+        w.str ("format", "gloopy-preset").str ("type", "instrument").str ("name", name).blank();
+
+        if (auto* sg = dynamic_cast<SynthGenerator*> (t->generator.get()))
+        {
+            w.table ("generator").str ("gen", "synth");
+            juce::ValueTree s ("SYNTH"); writeSynthParams (s, sg->engine.params);
+            for (int p = 0; p < s.getNumProperties(); ++p)
+            { const auto k = s.getPropertyName (p); w.value (k.toString(), s.getProperty (k)); }
+        }
+        else if (auto* sf = dynamic_cast<SfizzGenerator*> (t->generator.get()))
+        {
+            w.table ("generator").str ("gen", "sfz").str ("path", portableSamplePath (sf->getSfzPath()));
+        }
+        else
+        {
+            std::cout << "[preset] instrument preset: only synth/SFZ tracks supported" << std::endl;
+            return false;   // sampler/plugin instrument presets are a follow-up
+        }
+
+        auto dir = presetsDir ("instrument"); dir.createDirectory();
+        dir.getChildFile (presetSlug (name) + ".toml").replaceWithText (w.str(), false, false, "\n");
+        std::cout << "[preset] saved instrument preset '" << name << "'" << std::endl;
+        return true;
+    });
+}
+
+bool MainComponent::apiLoadInstrumentPreset (int trackId, const juce::String& name)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        auto f = presetsDir ("instrument").getChildFile (presetSlug (name) + ".toml");
+        if (! f.existsAsFile()) return false;
+        const auto doc = toml::parse (f.loadFileAsString());
+        auto* g = doc.table ("generator");
+        if (g == nullptr) return false;
+
+        // Build the new generator outside the lock, then swap it in.
+        std::unique_ptr<Generator> gen;
+        const auto kind = g->getString ("gen");
+        if (kind == "synth")
+        {
+            auto sg = std::make_unique<SynthGenerator>();
+            juce::ValueTree s ("SYNTH");
+            for (auto& kv : g->raw)
+                if (kv.first != "gen") s.setProperty (kv.first, g->getDouble (kv.first.toRawUTF8()), nullptr);
+            readSynthParams (s, sg->engine.params);
+            gen = std::move (sg);
+        }
+        else if (kind == "sfz")
+        {
+            auto sf = std::make_unique<SfizzGenerator>();
+            sf->prepare (currentSampleRate, currentBlockSize);
+            juce::String err;
+            if (! sf->loadSfz (resolveSamplePath (g->getString ("path")), err))
+            { std::cout << "[preset] SFZ load failed: " << err << std::endl; return false; }
+            gen = std::move (sf);
+        }
+        else return false;
+
+        gen->prepare (currentSampleRate, currentBlockSize);
+        pushUndoSnapshot();
+        { const juce::ScopedLock sl (engineLock); t->generator = std::move (gen); }
+        emitChange ("track_changed", trackId);
+        if (arrangeView) arrangeView->rebuild();
+        std::cout << "[preset] loaded instrument preset '" << name << "' (" << kind << ") onto track " << trackId << std::endl;
         return true;
     });
 }

@@ -225,6 +225,8 @@ service Gloopy {
   rpc ListPresets     (PresetCategory)  returns (PresetList);
   rpc SaveSynthPreset (PresetRef)       returns (Ack);
   rpc LoadSynthPreset (PresetRef)       returns (Ack);
+  rpc SaveInstrumentPreset(PresetRef)   returns (Ack);   // synth or SFZ instrument
+  rpc LoadInstrumentPreset(PresetRef)   returns (Ack);
   rpc SaveEffectPreset(PresetRef)       returns (Ack);
   rpc LoadEffectPreset(PresetRef)       returns (Ack);
 

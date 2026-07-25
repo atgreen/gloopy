@@ -144,6 +144,14 @@ namespace
         { const bool ok = main.apiLoadSynthPreset (q->target(), js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("preset or synth track not found"); return Status::OK; }
 
+        Status SaveInstrumentPreset (ServerContext*, const pb::PresetRef* q, pb::Ack* r) override
+        { const bool ok = main.apiSaveInstrumentPreset (q->target(), js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("unsupported instrument"); return Status::OK; }
+
+        Status LoadInstrumentPreset (ServerContext*, const pb::PresetRef* q, pb::Ack* r) override
+        { const bool ok = main.apiLoadInstrumentPreset (q->target(), js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("preset or track not found"); return Status::OK; }
+
         Status SaveEffectPreset (ServerContext*, const pb::PresetRef* q, pb::Ack* r) override
         { const bool ok = main.apiSaveEffectPreset (q->target(), js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("bad insert"); return Status::OK; }

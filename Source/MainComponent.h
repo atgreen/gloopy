@@ -357,6 +357,8 @@ private:
     std::vector<juce::String> apiListPresets (const juce::String& category);
     bool apiSaveSynthPreset (int trackId, const juce::String& name);
     bool apiLoadSynthPreset (int trackId, const juce::String& name);
+    bool apiSaveInstrumentPreset (int trackId, const juce::String& name);   // synth or SFZ
+    bool apiLoadInstrumentPreset (int trackId, const juce::String& name);
     bool apiSaveEffectPreset (int insert, const juce::String& name);
     bool apiLoadEffectPreset (int insert, const juce::String& name);
 
