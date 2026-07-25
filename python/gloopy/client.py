@@ -346,6 +346,23 @@ class Gloopy:
         return [{"target": m.target, "rate": m.rate, "depth": m.depth,
                  "center": m.center, "shape": m.shape} for m in r.mods]
 
+    # -- tempo map --------------------------------------------------------
+    def add_tempo_marker(self, beat: float, bpm: float) -> None:
+        self._ack(self.stub.AddTempoMarker(pb.TempoMarker(beat=beat, bpm=bpm)))
+
+    def remove_tempo_marker(self, beat: float) -> None:
+        self._ack(self.stub.RemoveTempoMarker(pb.TempoMarker(beat=beat, bpm=0)))
+
+    def list_tempo_markers(self) -> list[dict]:
+        r = self.stub.ListTempoMarkers(pb.Empty())
+        return [{"beat": m.beat, "bpm": m.bpm} for m in r.markers]
+
+    def beats_to_seconds(self, beats: float) -> float:
+        return self.stub.BeatsToSeconds(pb.Position(beats=beats)).seconds
+
+    def seconds_to_beats(self, seconds: float) -> float:
+        return self.stub.SecondsToBeats(pb.SecondsValue(seconds=seconds)).beats
+
     # -- scales -----------------------------------------------------------
     def set_scale(self, root: int = 0, name: str = "", intervals: Iterable[int] = ()) -> None:
         """Set the project scale by built-in name (major/minor/dorian/...) or explicit intervals."""

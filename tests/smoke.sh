@@ -91,6 +91,18 @@ echo "smoke: PASS — snap-to-scale moved C# into C major ($SP)"
 g -d "{\"id\":$ST}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 g -d '{"root":0,"name":"chromatic"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetScale >/dev/null   # reset
 
+# Tempo map: exact piecewise beat<->seconds. 8 beats across 120->240 bpm = 3.0s
+# (2.0 @120 + 1.0 @240), not 4.0. (Render path not yet tempo-mapped; markers removed after.)
+g -d '{"beat":0,"bpm":120}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddTempoMarker >/dev/null
+g -d '{"beat":4,"bpm":240}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddTempoMarker >/dev/null
+TSEC=$(g -d '{"beats":8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/BeatsToSeconds | python3 -c "import json,sys;print(json.load(sys.stdin).get('seconds',0))")
+TBEAT=$(g -d '{"seconds":3.0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SecondsToBeats | python3 -c "import json,sys;print(json.load(sys.stdin).get('beats',0))")
+python3 -c "assert abs(float('$TSEC')-3.0)<0.01 and abs(float('$TBEAT')-8.0)<0.01, 'tempo map math wrong (8b=%ss, 3s=%sb)'%('$TSEC','$TBEAT')" \
+    || { echo "smoke: tempo map beat/second conversion wrong" >&2; exit 1; }
+echo "smoke: PASS — tempo map beats<->seconds (8 beats @120->240 = ${TSEC}s)"
+g -d '{"beat":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTempoMarker >/dev/null
+g -d '{"beat":4}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTempoMarker >/dev/null
+
 # Modulation matrix: an LFO on a synth cutoff must change the render vs a static
 # cutoff. Dedicated track + two renders, then cleaned up.
 MT=$(g -d '{"name":"modtest","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.2,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)

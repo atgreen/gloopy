@@ -367,6 +367,26 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
     sample-based; add API helpers for bars/beats ↔ beats/seconds.
     *Done when:* a tempo change mid-song changes the rendered duration as computed;
     tempo markers round-trip.
+    - `[~]` **Model + conversion helpers landed** (`Source/Tempo.cpp`, commit): tempo
+      map = sorted `{beat,bpm}` markers (empty ⇒ constant `transport.bpm`, unchanged);
+      exact piecewise `apiBeatsToSeconds`/`apiSecondsToBeats`/`tempoAtBeat`;
+      Add/List/Remove marker (upsert by beat). Serialised (TEMPOMAP + composition
+      `tempo.toml`). RPCs + Python. Verified: 8 beats across 120→240 = 3.0s (not 4.0),
+      round-trips.
+    - `[ ]` **NEXT — render-path integration (the hard, deferred part).** `renderBlock`
+      + `collectClip` + `apiRenderToFile` still schedule at a single `spb =
+      samplesPerBeat()`. To make playback/bounce follow the map, replace the linear
+      `beat*spb` / `sample/spb` conversions with tempo-map-aware `beatToSamples`/
+      `samplesToBeats` (integrate `apiBeatsToSeconds`*sampleRate). **Landmines:**
+      (a) a looping clip's `repUnit` is a *fixed sample count* — wrong under variable
+      tempo; the repeat window must be recomputed per repetition in beats.
+      (b) the playhead advances in samples per block → derive block start/end *beats*
+      via `samplesToBeats`, schedule notes in beat space, and only convert to
+      in-block sample offsets locally (tempo ≈ constant within one ~11ms block).
+      (c) loop window + `loopLen` sample positions. (d) MIDI-record beat capture
+      (`toBeat`). Do this as a dedicated careful pass — the audio thread is sacred.
+      *Proof when done:* a song with a mid-song tempo change renders a shorter WAV
+      (frame count) than the constant-tempo render.
 
 11. **Scales & microtuning.** **M**
     *Idea #11.* Project-level scale definitions; per-track tuning mode; piano-roll

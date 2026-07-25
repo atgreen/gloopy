@@ -56,6 +56,7 @@ target_sources(Gloopy PRIVATE
     Source/Modulation.cpp
     Source/Loudness.cpp
     Source/Diagnostics.cpp
+    Source/Tempo.cpp
     Source/ArrangeView.cpp
     Source/PianoRoll.cpp
     Source/MixerView.cpp

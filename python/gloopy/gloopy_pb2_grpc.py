@@ -65,6 +65,31 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.Loop.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.AddTempoMarker = channel.unary_unary(
+                '/gloopy.v1.Gloopy/AddTempoMarker',
+                request_serializer=gloopy__pb2.TempoMarker.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.RemoveTempoMarker = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RemoveTempoMarker',
+                request_serializer=gloopy__pb2.TempoMarker.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.ListTempoMarkers = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ListTempoMarkers',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.TempoMap.FromString,
+                _registered_method=True)
+        self.BeatsToSeconds = channel.unary_unary(
+                '/gloopy.v1.Gloopy/BeatsToSeconds',
+                request_serializer=gloopy__pb2.Position.SerializeToString,
+                response_deserializer=gloopy__pb2.SecondsValue.FromString,
+                _registered_method=True)
+        self.SecondsToBeats = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SecondsToBeats',
+                request_serializer=gloopy__pb2.SecondsValue.SerializeToString,
+                response_deserializer=gloopy__pb2.Position.FromString,
+                _registered_method=True)
         self.GetTransport = channel.unary_unary(
                 '/gloopy.v1.Gloopy/GetTransport',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -518,6 +543,39 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def SetLoop(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AddTempoMarker(self, request, context):
+        """tempo map (model + beat<->seconds helpers; render path not yet tempo-mapped)
+        upsert by beat
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RemoveTempoMarker(self, request, context):
+        """by beat
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListTempoMarkers(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BeatsToSeconds(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SecondsToBeats(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1090,6 +1148,31 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.SetLoop,
                     request_deserializer=gloopy__pb2.Loop.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'AddTempoMarker': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddTempoMarker,
+                    request_deserializer=gloopy__pb2.TempoMarker.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'RemoveTempoMarker': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemoveTempoMarker,
+                    request_deserializer=gloopy__pb2.TempoMarker.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ListTempoMarkers': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListTempoMarkers,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.TempoMap.SerializeToString,
+            ),
+            'BeatsToSeconds': grpc.unary_unary_rpc_method_handler(
+                    servicer.BeatsToSeconds,
+                    request_deserializer=gloopy__pb2.Position.FromString,
+                    response_serializer=gloopy__pb2.SecondsValue.SerializeToString,
+            ),
+            'SecondsToBeats': grpc.unary_unary_rpc_method_handler(
+                    servicer.SecondsToBeats,
+                    request_deserializer=gloopy__pb2.SecondsValue.FromString,
+                    response_serializer=gloopy__pb2.Position.SerializeToString,
             ),
             'GetTransport': grpc.unary_unary_rpc_method_handler(
                     servicer.GetTransport,
@@ -1670,6 +1753,141 @@ class Gloopy:
             '/gloopy.v1.Gloopy/SetLoop',
             gloopy__pb2.Loop.SerializeToString,
             gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AddTempoMarker(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/AddTempoMarker',
+            gloopy__pb2.TempoMarker.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RemoveTempoMarker(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RemoveTempoMarker',
+            gloopy__pb2.TempoMarker.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListTempoMarkers(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ListTempoMarkers',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.TempoMap.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def BeatsToSeconds(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/BeatsToSeconds',
+            gloopy__pb2.Position.SerializeToString,
+            gloopy__pb2.SecondsValue.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SecondsToBeats(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SecondsToBeats',
+            gloopy__pb2.SecondsValue.SerializeToString,
+            gloopy__pb2.Position.FromString,
             options,
             channel_credentials,
             insecure,

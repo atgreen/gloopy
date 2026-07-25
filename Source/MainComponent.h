@@ -145,6 +145,17 @@ public:
     bool apiExportMidi (const juce::String& path);   // all instrument tracks -> a Type-1 SMF
     int  apiImportMidi (const juce::String& path);   // SMF -> synth tracks + clips; count, or -1
 
+    // --- tempo map (Tempo.cpp) ---
+    // Model + exact piecewise beat<->seconds conversion. Render-path integration
+    // (variable samplesPerBeat across the map) is a checkpointed follow-up.
+    struct TempoMarker { double beat, bpm; };
+    bool apiAddTempoMarker (double beat, double bpm);   // upsert by beat
+    bool apiRemoveTempoMarker (double beat);
+    std::vector<TempoMarker> apiListTempoMarkers();
+    double apiBeatsToSeconds (double beat);
+    double apiSecondsToBeats (double seconds);
+    double tempoAtBeat (double beat);                   // effective bpm (map or transport)
+
     // --- modulation matrix (Modulation.cpp) ---
     // shape: 0 sine, 1 triangle, 2 saw, 3 square. rate in Hz. Upsert by target id.
     bool apiSetModulation (const juce::String& target, float rate, float depth, int shape, float center);
@@ -389,6 +400,11 @@ private:
     // value = center + depth * osc(rate * t). One LFO per target (upsert by target).
     struct Mod { juce::String target; float rate { 1.0f }, depth { 0.0f }, center { 0.0f }; int shape { 0 }; };
     std::vector<Mod> modulations;                 // guarded by engineLock
+    // Tempo map: sorted tempo markers {beat, bpm}. Empty => constant transport.bpm
+    // (behaviour unchanged). Drives the beat<->seconds helpers; the render path does
+    // NOT yet vary tempo across the map (see the checkpoint in the grind skill).
+    // (TempoMarker struct is declared with its api methods, above.)
+    std::vector<TempoMarker> tempoMap;            // guarded by engineLock, sorted by beat
 
     // MIDI recording: audio thread appends played input, message thread drains to a clip.
     void startRecording();

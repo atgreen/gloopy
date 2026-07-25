@@ -286,6 +286,24 @@ namespace
         { const bool ok = main.apiSetSend (q->insert(), q->bus(), q->level());
           r->set_ok (ok); if (! ok) r->set_error ("invalid send (bad insert/bus, or nothing to remove)"); return Status::OK; }
 
+        // ---- tempo map ----
+        Status AddTempoMarker (ServerContext*, const pb::TempoMarker* q, pb::Ack* r) override
+        { const bool ok = main.apiAddTempoMarker (q->beat(), q->bpm());
+          r->set_ok (ok); if (! ok) r->set_error ("invalid tempo marker (beat>=0, bpm 20..400)"); return Status::OK; }
+        Status RemoveTempoMarker (ServerContext*, const pb::TempoMarker* q, pb::Ack* r) override
+        { const bool ok = main.apiRemoveTempoMarker (q->beat());
+          r->set_ok (ok); if (! ok) r->set_error ("no marker at that beat"); return Status::OK; }
+        Status ListTempoMarkers (ServerContext*, const pb::Empty*, pb::TempoMap* r) override
+        {
+            for (auto& mk : main.apiListTempoMarkers())
+            { auto* o = r->add_markers(); o->set_beat (mk.beat); o->set_bpm (mk.bpm); }
+            return Status::OK;
+        }
+        Status BeatsToSeconds (ServerContext*, const pb::Position* q, pb::SecondsValue* r) override
+        { r->set_seconds (main.apiBeatsToSeconds (q->beats())); return Status::OK; }
+        Status SecondsToBeats (ServerContext*, const pb::SecondsValue* q, pb::Position* r) override
+        { r->set_beats (main.apiSecondsToBeats (q->seconds())); return Status::OK; }
+
         // ---- mixer scenes ----
         Status DefineMixerScene (ServerContext*, const pb::SceneName* q, pb::Ack* r) override
         { const bool ok = main.apiDefineMixerScene (js (q->name()));

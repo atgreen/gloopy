@@ -2328,6 +2328,15 @@ juce::ValueTree MainComponent::toValueTree()
         mods.addChild (mv, -1, nullptr);
     }
     root.addChild (mods, -1, nullptr);
+
+    juce::ValueTree tm ("TEMPOMAP");
+    for (auto& mk : tempoMap)
+    {
+        juce::ValueTree v ("TM");
+        v.setProperty ("beat", mk.beat, nullptr); v.setProperty ("bpm", mk.bpm, nullptr);
+        tm.addChild (v, -1, nullptr);
+    }
+    root.addChild (tm, -1, nullptr);
     return root;
 }
 
@@ -2427,6 +2436,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     exportProfiles.clear();
     mixerScenes.clear();
     modulations.clear();
+    tempoMap.clear();
     automationLanes.clear();
     nextTrackId = 0;
 
@@ -2702,6 +2712,13 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
                                  (float) (double) mv.getProperty ("depth", 0.0),
                                  (float) (double) mv.getProperty ("center", 0.0),
                                  (int) mv.getProperty ("shape", 0) });
+    }
+
+    auto tm = root.getChildWithName ("TEMPOMAP");
+    for (int i = 0; i < tm.getNumChildren(); ++i)
+    {
+        auto v = tm.getChild (i);
+        tempoMap.push_back ({ (double) v.getProperty ("beat", 0.0), (double) v.getProperty ("bpm", 120.0) });
     }
 
     transport.setBpm ((double) root.getProperty ("bpm", 128.0));

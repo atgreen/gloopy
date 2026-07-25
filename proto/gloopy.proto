@@ -14,6 +14,11 @@ message Ack { bool ok = 1; string error = 2; }
 message Tempo    { double bpm = 1; }
 message Swing    { double amount = 1; }   // 0.5 = straight, up to ~0.75 = triplet feel
 message Position { double beats = 1; }
+
+// ── tempo map ──────────────────────────────────────────────
+message TempoMarker  { double beat = 1; double bpm = 2; }
+message TempoMap     { repeated TempoMarker markers = 1; }
+message SecondsValue { double seconds = 1; }
 message Loop     { bool enabled = 1; double start_beat = 2; double end_beat = 3; }
 message TransportState { bool playing = 1; double bpm = 2; double position_beats = 3; }
 
@@ -249,6 +254,13 @@ service Gloopy {
   rpc SetSwing    (Swing)    returns (Ack);
   rpc Seek        (Position) returns (Ack);
   rpc SetLoop     (Loop)     returns (Ack);
+
+  // tempo map (model + beat<->seconds helpers; render path not yet tempo-mapped)
+  rpc AddTempoMarker    (TempoMarker)  returns (Ack);   // upsert by beat
+  rpc RemoveTempoMarker (TempoMarker)  returns (Ack);   // by beat
+  rpc ListTempoMarkers  (Empty)        returns (TempoMap);
+  rpc BeatsToSeconds    (Position)     returns (SecondsValue);
+  rpc SecondsToBeats    (SecondsValue) returns (Position);
   rpc GetTransport(Empty)    returns (TransportState);
   rpc StartRecording(Empty)  returns (Ack);   // record armed MIDI + armed audio tracks
   rpc StopRecording (Empty)  returns (Ack);

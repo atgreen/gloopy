@@ -266,6 +266,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
     man.blank().table ("exports").str ("file", "exports.toml");
     man.blank().table ("scenes").str ("file", "scenes.toml");
     man.blank().table ("mods").str ("file", "mods.toml");
+    man.blank().table ("tempo").str ("file", "tempo.toml");
     ctx.writeText ("gloopy.toml", man.str());
 
     // --- per-track files ---
@@ -508,6 +509,18 @@ bool MainComponent::saveComposition (const juce::File& dir)
            .blank();
     }
     ctx.writeText ("mods.toml", mdw.str());
+
+    // --- tempo map (tempo markers) ---
+    toml::Writer tw;
+    auto tmap = root.getChildWithName ("TEMPOMAP");
+    for (int i = 0; i < tmap.getNumChildren(); ++i)
+    {
+        auto v = tmap.getChild (i);
+        if (! v.hasType ("TM")) continue;
+        tw.arrayItem ("markers").number ("beat", v.getProperty ("beat", 0.0))
+          .number ("bpm", v.getProperty ("bpm", 120.0)).blank();
+    }
+    ctx.writeText ("tempo.toml", tw.str());
 
     ctx.writeText (".gitignore", kGitignore);
     ctx.prune();
@@ -804,8 +817,21 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
 
     root.addChild (locTree, -1, nullptr);
     root.addChild (expTree, -1, nullptr);
+    // Tempo map.
+    juce::ValueTree tempoTree ("TEMPOMAP");
+    if (auto tDoc = toml::parse (dir.getChildFile ("tempo.toml").loadFileAsString());
+        auto* ms = tDoc.array ("markers"))
+        for (auto& md : *ms)
+        {
+            juce::ValueTree v ("TM");
+            v.setProperty ("beat", md.getDouble ("beat", 0.0), nullptr);
+            v.setProperty ("bpm", md.getDouble ("bpm", 120.0), nullptr);
+            tempoTree.addChild (v, -1, nullptr);
+        }
+
     root.addChild (sceneTree, -1, nullptr);
     root.addChild (modTree, -1, nullptr);
+    root.addChild (tempoTree, -1, nullptr);
 
     currentProjectFile = manifest;   // so relative sample/SFZ paths resolve against the dir
     undoSuppressed = true;
