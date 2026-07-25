@@ -42,6 +42,9 @@ public:
         A chromatic (all-12) scale disables the highlight. */
     void setScale (int root, const std::vector<int>& intervals);
 
+    /** Reference notes from other tracks in this time range, drawn dim (read-only). */
+    void setGhostNotes (std::vector<Note> g) { ghostNotes = std::move (g); repaint(); }
+
     /** The visible/editable length in beats (a clip's content length). */
     void setLength (double beats) { editLength = juce::jmax (0.25, beats); repaint(); }
     void setShowPlayhead (bool s) { showPlayhead = s; }
@@ -74,6 +77,7 @@ private:
 
     Transport& transport;
     std::vector<Note> notes;
+    std::vector<Note> ghostNotes;         // other tracks' notes (dim, read-only)
     std::array<bool, 12> scaleMask { };   // pitch classes in the project scale
     bool  scaleActive { false };          // a non-chromatic scale is highlighted
     bool editable { true };

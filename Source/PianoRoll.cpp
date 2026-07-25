@@ -192,6 +192,16 @@ void PianoRoll::paint (juce::Graphics& g)
         g.drawVerticalLine ((int) x, 0.0f, h);
     }
 
+    // Ghost notes (other tracks' notes in this time range) — dim, behind the real notes.
+    for (const auto& n : ghostNotes)
+    {
+        auto r = juce::Rectangle<float> (xForBeat (n.startBeat), yForPitch (n.pitch),
+                                         xForBeat (n.startBeat + n.lengthBeats) - xForBeat (n.startBeat), rh)
+                     .reduced (0.5f);
+        g.setColour (juce::Colours::white.withAlpha (0.13f));
+        g.fillRoundedRectangle (r, 2.0f);
+    }
+
     // Notes.
     for (int i = 0; i < (int) notes.size(); ++i)
     {

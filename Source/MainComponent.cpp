@@ -1292,6 +1292,7 @@ void MainComponent::loadSelectedClipIntoEditor()
 {
     bool valid = false, isAudio = false;
     std::vector<Note> notes;
+    std::vector<Note> ghosts;
     double contentLen = 4.0;
     int pitch = 60;
     juce::String trackName;
@@ -1310,11 +1311,30 @@ void MainComponent::loadSelectedClipIntoEditor()
                 contentLen = c.looped ? c.contentLenBeats : c.lengthBeats;
                 pitch = tracks[(size_t) selTrack]->defaultPitch;
                 valid = true;
+
+                // Ghost notes: other instrument tracks' notes overlapping this clip's
+                // time window, mapped to clip-relative beats (read-only reference).
+                const double selStart = c.startBeat;
+                for (int ti = 0; ti < (int) tracks.size(); ++ti)
+                {
+                    if (ti == selTrack || tracks[(size_t) ti]->generator == nullptr) continue;
+                    for (const auto& gc : tracks[(size_t) ti]->clips)
+                    {
+                        if (gc.isAudio()) continue;
+                        for (const auto& gn : gc.notes)
+                        {
+                            const double rel = (gc.startBeat + gn.startBeat) - selStart;
+                            if (rel >= 0.0 && rel < contentLen)
+                                ghosts.push_back ({ gn.pitch, rel, gn.lengthBeats, gn.velocity });
+                        }
+                    }
+                }
             }
         }
     }
 
     editorPanel.roll.setLength (contentLen);
+    editorPanel.roll.setGhostNotes (std::move (ghosts));
     editorPanel.roll.loadNotes (notes);
     editorPanel.roll.setEnabledEditing (valid);
     editorPanel.steps.setContent (contentLen, pitch);

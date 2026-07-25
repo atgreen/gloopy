@@ -508,10 +508,21 @@ effect-chain presets) as part of #16.
       (0.1→0.0, 60→72, jitter ≤±0.02). **UI needs visual eval.** **Not yet:**
       knife/strum tools, ghost notes, step recording, velocity-tool
       drag, per-note selection ops.
-    - `[~]` **Scale highlighting landed** (commit): `PianoRoll::setScale(root,intervals)`
-      builds a 12-pitch-class mask; `paint()` tints in-scale rows (chromatic ⇒ off);
-      wired from `apiSetScale` + `refreshUiAfterLoad` (Wave 4 #11 scale model). **Pure
-      visual — build-verified + smoke-no-regression only; needs eyeballing.**
+    - `[x]` **Scale highlighting landed + screenshot-validated** (commit): `PianoRoll::
+      setScale(root,intervals)` builds a 12-pitch-class mask; `paint()` tints in-scale
+      rows (chromatic ⇒ off); wired from `apiSetScale` + `refreshUiAfterLoad`. Verified
+      by offscreen screenshot (Xvfb capture) — bumped tint 0.10→0.22 alpha for
+      readability after the shot showed it too faint.
+    - `[x]` **Ghost notes landed + screenshot-validated** (commit): other instrument
+      tracks' notes overlapping the edited clip's window are gathered in
+      `loadSelectedClipIntoEditor` (mapped to clip-relative beats) and drawn dim behind
+      the editable notes (`PianoRoll::setGhostNotes` + paint). Verified by screenshot
+      (lead melody bright, harmony/kit notes dim gray behind).
+    - **Screenshot validation now works** (see the `fix(startup)` commit + the offscreen
+      Xvfb recipe): Xvfb → launch → drive via gRPC → `xdotool` (select clip / click
+      PIANO tab) → `ffmpeg x11grab :N` → read PNG. NB: never `pkill -f` a pattern that
+      matches the running shell (use tracked PID or `pkill -x`); the live desktop is
+      Wayland so X11 grab there is black — capture on Xvfb.
 18. **Richer sampler controls + cached waveform thumbnails** — start/end/loop/reverse,
     root note, choke group, fades, interpolation; a multi-resolution peak cache keyed
     by path+mtime+size, reused across clips/sampler/browser/exports *(Idea #6/#7)*. **M/L**
