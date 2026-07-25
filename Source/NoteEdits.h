@@ -102,6 +102,65 @@ inline void arpeggiateNotes (std::vector<Note>& notes, double stepBeats, int mod
     notes = std::move (out);
 }
 
+/** Live-arpeggiator expansion (non-destructive: computed from a clip's raw notes, played
+    instead of them while the arp is on). Each chord (notes sharing a start beat) becomes a
+    repeating stepped pattern over the chord's own duration: `rateBeats` per step, spanning
+    `octaves` (1 = the chord as-is), each note gated to `gate` (0..1) of the step. mode:
+    0 up, 1 down, 2 up-down, 3 random (deterministic per chord). Single notes with octaves<=1
+    pass through unchanged. Pure + deterministic, so it unit-tests and renders stably. */
+inline std::vector<Note> expandArp (const std::vector<Note>& notes, double rateBeats,
+                                    int octaves, float gate, int mode)
+{
+    if (rateBeats <= 0.0 || notes.empty()) return notes;
+    const int octs = juce::jlimit (1, 6, octaves);
+    const float g   = juce::jlimit (0.05f, 1.0f, gate);
+
+    std::map<long long, std::vector<int>> clusters;
+    for (int i = 0; i < (int) notes.size(); ++i)
+        clusters[(long long) std::llround (notes[(size_t) i].startBeat * 1000.0)].push_back (i);
+
+    std::vector<Note> out;
+    for (auto& cl : clusters)
+    {
+        auto& idx = cl.second;
+        if (idx.size() < 2 && octs <= 1) { out.push_back (notes[(size_t) idx[0]]); continue; }
+
+        const double base = notes[(size_t) idx[0]].startBeat;
+        double maxEnd = base; float vel = notes[(size_t) idx[0]].velocity;
+        std::vector<int> pitches;
+        for (int i : idx)
+        {
+            maxEnd = juce::jmax (maxEnd, notes[(size_t) i].startBeat + notes[(size_t) i].lengthBeats);
+            pitches.push_back (notes[(size_t) i].pitch);
+        }
+        std::sort (pitches.begin(), pitches.end());
+
+        std::vector<int> pat;                                   // chord across octaves
+        for (int o = 0; o < octs; ++o)
+            for (int p : pitches) pat.push_back (juce::jlimit (0, 127, p + 12 * o));
+
+        std::vector<int> seq;                                   // ordered by mode
+        if (mode == 1)      for (auto it = pat.rbegin(); it != pat.rend(); ++it) seq.push_back (*it);
+        else if (mode == 2) { seq = pat; for (int k = (int) pat.size() - 2; k >= 1; --k) seq.push_back (pat[(size_t) k]); }
+        else if (mode == 3)                                     // deterministic random per chord
+        {
+            juce::Random rng ((juce::int64) std::llround (base * 1000.0) + (juce::int64) pat.size() * 7 + pat.front());
+            seq = pat;
+            for (int k = (int) seq.size() - 1; k > 0; --k) std::swap (seq[(size_t) k], seq[(size_t) rng.nextInt (k + 1)]);
+        }
+        else seq = pat;                                         // up
+        if (seq.empty()) { out.push_back (notes[(size_t) idx[0]]); continue; }
+
+        const double dur = maxEnd - base;
+        int nsteps = (int) std::floor (dur / rateBeats + 1e-9);
+        if (nsteps < 1) nsteps = 1;
+        for (int s = 0; s < nsteps; ++s)
+            out.push_back ({ seq[(size_t) (s % (int) seq.size())],
+                             base + s * rateBeats, rateBeats * g, vel });
+    }
+    return out;
+}
+
 /** Semitone offsets for a chord type (falls back to a major triad). */
 inline std::vector<int> chordIntervals (const juce::String& type)
 {

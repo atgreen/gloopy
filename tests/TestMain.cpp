@@ -9,6 +9,7 @@
 #include <JuceHeader.h>
 #include "Note.h"
 #include "NoteScheduler.h"
+#include "NoteEdits.h"
 #include "Toml.h"
 
 //==============================================================================
@@ -208,9 +209,69 @@ struct TomlTests : juce::UnitTest
 };
 
 //==============================================================================
+struct NoteEditTests : juce::UnitTest
+{
+    NoteEditTests() : juce::UnitTest ("NoteEdits") {}
+
+    void runTest() override
+    {
+        beginTest ("strum staggers a chord's starts");
+        {
+            std::vector<Note> ns { {60,0,1,0.8f}, {64,0,1,0.8f}, {67,0,1,0.8f} };
+            strumNotes (ns, 0.1, true);                       // down = high->low
+            std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b) { return a.pitch > b.pitch; });
+            expectWithinAbsoluteError (ns[0].startBeat, 0.0, 1e-9);
+            expectWithinAbsoluteError (ns[1].startBeat, 0.1, 1e-9);
+            expectWithinAbsoluteError (ns[2].startBeat, 0.2, 1e-9);
+        }
+
+        beginTest ("arpeggiate up sequences a chord");
+        {
+            std::vector<Note> ns { {60,0,1,0.8f}, {64,0,1,0.8f}, {67,0,1,0.8f} };
+            arpeggiateNotes (ns, 0.25, 0);
+            expect ((int) ns.size() == 3);
+            std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b) { return a.startBeat < b.startBeat; });
+            expect (ns[0].pitch == 60 && ns[1].pitch == 64 && ns[2].pitch == 67);
+            expectWithinAbsoluteError (ns[2].startBeat, 0.5, 1e-9);
+        }
+
+        beginTest ("expandArp repeats a held chord over its duration");
+        {
+            // A 2-beat C-major chord at 1/4 rate, 1 octave, gate 0.5, up = 8 steps cycling C,E,G.
+            std::vector<Note> chord { {60,0,2,0.8f}, {64,0,2,0.8f}, {67,0,2,0.8f} };
+            auto a = expandArp (chord, 0.25, 1, 0.5f, 0);
+            expect ((int) a.size() == 8);
+            expect (a[0].pitch == 60 && a[1].pitch == 64 && a[2].pitch == 67 && a[3].pitch == 60);
+            expectWithinAbsoluteError (a[1].startBeat, 0.25, 1e-9);
+            expectWithinAbsoluteError (a[0].lengthBeats, 0.125, 1e-9);   // 0.25 * gate 0.5
+        }
+
+        beginTest ("expandArp octaves widen the pattern");
+        {
+            std::vector<Note> chord { {60,0,1,0.8f}, {64,0,1,0.8f} };
+            auto a = expandArp (chord, 0.25, 2, 1.0f, 0);        // 1-beat / 0.25 = 4 steps: C,E,C+12,E+12
+            expect ((int) a.size() == 4);
+            expect (a[0].pitch == 60 && a[1].pitch == 64 && a[2].pitch == 72 && a[3].pitch == 76);
+        }
+
+        beginTest ("expandArp is deterministic for random mode");
+        {
+            std::vector<Note> chord { {60,0,2,0.8f}, {64,0,2,0.8f}, {67,0,2,0.8f} };
+            auto a = expandArp (chord, 0.25, 1, 1.0f, 3);
+            auto b = expandArp (chord, 0.25, 1, 1.0f, 3);
+            expect (a.size() == b.size());
+            bool same = true;
+            for (size_t i = 0; i < a.size(); ++i) same = same && a[i].pitch == b[i].pitch;
+            expect (same);
+        }
+    }
+};
+
+//==============================================================================
 static NoteSchedulerTests noteSchedulerTests;
 static TomlTests         tomlTests;
 static SerializationTests serializationTests;
+static NoteEditTests     noteEditTests;
 
 int main (int, char**)
 {
