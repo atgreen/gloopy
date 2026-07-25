@@ -712,6 +712,9 @@ namespace
         Status ArpeggiateClip (ServerContext*, const pb::ArpeggiateRequest* q, pb::Ack* r) override
         { const bool ok = main.apiArpeggiateClip (q->track_id(), q->index(), q->step_beats(), q->mode());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
+        Status SplitNotesAtBeat (ServerContext*, const pb::SplitNotesRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiSplitNotesAtBeat (q->track_id(), q->index(), q->beat());
+          r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
         Status SetTrackArp (ServerContext*, const pb::ArpSpec* q, pb::Ack* r) override
         { const bool ok = main.apiSetTrackArp (q->track_id(), q->enabled(), q->rate(), q->octaves(), q->gate(), q->mode(), q->swing(), q->hold());
           r->set_ok (ok); if (! ok) r->set_error ("track not found"); return Status::OK; }

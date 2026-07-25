@@ -769,7 +769,16 @@ each shipping with desktop UI + screenshot validation.
       drawn/moved pitches to the project scale (roll scaleMask). Wave 6 Tier-1 batch COMPLETE.
     - `[x]` **Velocity ramp tool landed** (commit 55d7a19): shift-drag the velocity strip draws
       a linear crescendo/decrescendo across the spanned notes; plain drag still scrubs one.
-      Screenshot + functional validated. **Not yet:** knife/split tool, step recording.
+      Screenshot + functional validated.
+    - `[x]` **Knife / split-note tool landed** (commit): a shared `splitNotesAtBeat(notes,
+      beat)` transform (`Source/NoteEdits.h`) cuts every note crossing a clip-relative beat
+      into two abutting notes (pitch/velocity preserved; notes starting AT the cut or not
+      crossing it are untouched). Drives both `apiSplitNotesAtBeat` (SplitNotesAtBeat RPC +
+      Python, GetClipNotes-verifiable) and the PianoRoll KNIFE mode — a KNIFE header toggle;
+      when on, a click cuts the notes at the clicked beat. `NoteEditTests` covers the split
+      (spanning note -> halves, boundary/after notes untouched); smoke proves a 2-beat note
+      split at beat 1 -> 60@0/60@1 with 64@1 left intact; screenshot-validated (KNIFE active +
+      notes cut on click). **Not yet:** step recording.
     - `[x]` **Vertical zoom + scroll landed** (commit 5daac0e, user request): dynamic pitch
       window (viewRows/viewTop over A0..C8); wheel scrolls, Ctrl/Cmd+wheel zooms (cursor-
       anchored); default ~2.5x more zoomed + auto-frames the clip's notes on load.

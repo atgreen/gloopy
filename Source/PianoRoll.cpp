@@ -71,6 +71,14 @@ void PianoRoll::strumRollNotes (double stepBeats, bool down)
     repaint();
 }
 
+void PianoRoll::splitRollNotesAt (double beat)
+{
+    if (! editable) return;
+    const size_t before = notes.size();
+    splitNotesAtBeat (notes, beat);
+    if (notes.size() != before) { selection.clear(); if (onNotesChanged) onNotesChanged(); repaint(); }
+}
+
 void PianoRoll::arpeggiateRollNotes (double stepBeats, int mode)
 {
     if (! editable || notes.empty()) return;
@@ -469,6 +477,14 @@ void PianoRoll::mouseDown (const juce::MouseEvent& e)
             if (onNotesChanged) onNotesChanged();
             repaint();
         }
+        return;
+    }
+
+    // Knife mode: a plain click cuts every note crossing the clicked beat in two.
+    if (knifeMode && ! e.mods.isPopupMenu())
+    {
+        splitRollNotesAt (snapBeat (beatForX (p.x)));
+        drag = Drag::none;
         return;
     }
 

@@ -272,6 +272,11 @@ class Gloopy:
         self._ack(self.stub.ArpeggiateClip(pb.ArpeggiateRequest(
             track_id=track_id, index=index, step_beats=step_beats, mode=mode)))
 
+    def split_notes_at_beat(self, track_id: int, index: int, beat: float) -> None:
+        """Knife: cut every note spanning `beat` (clip-relative) into two abutting notes."""
+        self._ack(self.stub.SplitNotesAtBeat(pb.SplitNotesRequest(
+            track_id=track_id, index=index, beat=beat)))
+
     def set_track_arp(self, track_id: int, enabled: bool = True, rate: float = 0.25,
                       octaves: int = 1, gate: float = 0.5, mode: int = 0,
                       swing: float = 0.0, hold: bool = False) -> None:

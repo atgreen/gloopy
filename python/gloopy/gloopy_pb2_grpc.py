@@ -305,6 +305,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ArpeggiateRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SplitNotesAtBeat = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SplitNotesAtBeat',
+                request_serializer=gloopy__pb2.SplitNotesRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.SetTrackArp = channel.unary_unary(
                 '/gloopy.v1.Gloopy/SetTrackArp',
                 request_serializer=gloopy__pb2.ArpSpec.SerializeToString,
@@ -1041,6 +1046,13 @@ class GloopyServicer:
 
     def ArpeggiateClip(self, request, context):
         """chord -> arpeggio (destructive)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SplitNotesAtBeat(self, request, context):
+        """knife: split notes crossing a clip-relative beat
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1819,6 +1831,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'ArpeggiateClip': grpc.unary_unary_rpc_method_handler(
                     servicer.ArpeggiateClip,
                     request_deserializer=gloopy__pb2.ArpeggiateRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SplitNotesAtBeat': grpc.unary_unary_rpc_method_handler(
+                    servicer.SplitNotesAtBeat,
+                    request_deserializer=gloopy__pb2.SplitNotesRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'SetTrackArp': grpc.unary_unary_rpc_method_handler(
@@ -3665,6 +3682,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/ArpeggiateClip',
             gloopy__pb2.ArpeggiateRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SplitNotesAtBeat(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SplitNotesAtBeat',
+            gloopy__pb2.SplitNotesRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

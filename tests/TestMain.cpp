@@ -267,6 +267,26 @@ struct NoteEditTests : juce::UnitTest
             expectWithinAbsoluteError (ns[2].startBeat, 0.2, 1e-9);
         }
 
+        beginTest ("knife splits notes crossing a beat, leaves others");
+        {
+            std::vector<Note> ns { {60,0,2,0.8f},      // spans beat 1 -> splits into [0,1)+[1,2)
+                                   {62,1,1,0.7f},      // starts AT the cut -> untouched
+                                   {64,3,1,0.6f} };    // after the cut -> untouched
+            splitNotesAtBeat (ns, 1.0);
+            expect ((int) ns.size() == 4);
+            std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b)
+                       { return a.pitch != b.pitch ? a.pitch < b.pitch : a.startBeat < b.startBeat; });
+            // pitch 60 -> two halves
+            expectWithinAbsoluteError (ns[0].startBeat, 0.0, 1e-9);
+            expectWithinAbsoluteError (ns[0].lengthBeats, 1.0, 1e-9);
+            expectWithinAbsoluteError (ns[1].startBeat, 1.0, 1e-9);
+            expectWithinAbsoluteError (ns[1].lengthBeats, 1.0, 1e-9);
+            expect (ns[0].velocity == 0.8f && ns[1].velocity == 0.8f);   // velocity preserved
+            // the boundary note (62@1) and the after note (64@3) are untouched
+            expect (ns[2].pitch == 62 && ns[3].pitch == 64);
+            expectWithinAbsoluteError (ns[2].lengthBeats, 1.0, 1e-9);
+        }
+
         beginTest ("arpeggiate up sequences a chord");
         {
             std::vector<Note> ns { {60,0,1,0.8f}, {64,0,1,0.8f}, {67,0,1,0.8f} };

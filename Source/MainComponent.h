@@ -273,6 +273,7 @@ public:
     bool apiHumanizeClip (int trackId, int index, double timing, double velocity);
     bool apiStrumClip (int trackId, int index, double stepBeats, bool down);   // fan out chord voices
     bool apiArpeggiateClip (int trackId, int index, double stepBeats, int mode);   // chord -> arp (0 up/1 down/2 updown)
+    bool apiSplitNotesAtBeat (int trackId, int index, double beat);   // knife: cut notes spanning a clip-relative beat
     // Live (non-destructive) arpeggiator per track. mode 0 up/1 down/2 updown/3 random.
     bool apiSetTrackArp (int trackId, bool enabled, double rate, int octaves, float gate, int mode,
                          float swing, bool hold);
@@ -342,6 +343,13 @@ private:
             scaleLockBtn.onClick = [this] { roll.setSnapToScale (scaleLockBtn.getToggleState()); };
             addAndMakeVisible (scaleLockBtn);
 
+            // Knife: click a note to split it at the click (cut through the roll).
+            knifeBtn.setClickingTogglesState (true);
+            knifeBtn.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
+            knifeBtn.setTooltip ("Knife: click a note to split it at that beat");
+            knifeBtn.onClick = [this] { roll.setKnifeMode (knifeBtn.getToggleState()); };
+            addAndMakeVisible (knifeBtn);
+
             // Arpeggiate: chords -> sequences. Button opens an Up/Down/Up-Down menu.
             arpBtn.setTooltip ("Arpeggiate chords into a sequence");
             arpBtn.onClick = [this]
@@ -388,6 +396,7 @@ private:
             chordCombo.setBounds (h.removeFromRight (74).reduced (2, 0));
             strumBtn.setBounds (h.removeFromRight (52).reduced (2, 0));
             arpBtn.setBounds (h.removeFromRight (46).reduced (2, 0));
+            knifeBtn.setBounds (h.removeFromRight (52).reduced (2, 0));
             scaleLockBtn.setBounds (h.removeFromRight (52).reduced (2, 0));
             auditionBtn.setBounds (h.removeFromRight (72).reduced (2, 0));
             title.setBounds (h.withTrimmedLeft (10));
@@ -401,6 +410,7 @@ private:
         juce::TextButton strumBtn { "STRUM" };
         juce::TextButton arpBtn { "ARP" };
         juce::TextButton scaleLockBtn { "SCALE" };
+        juce::TextButton knifeBtn { "KNIFE" };
         juce::ComboBox   chordCombo;
         PianoRoll   roll;
         StepEditor  steps;

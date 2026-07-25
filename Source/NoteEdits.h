@@ -38,6 +38,30 @@ inline void humanizeNotes (std::vector<Note>& notes, double timing, double veloc
     }
 }
 
+/** Knife: cut every note that spans `beat` (clip-relative) into two abutting notes —
+    [start, beat) and [beat, end) — keeping pitch and velocity. Notes that merely start
+    or end at the beat, or don't cross it, are untouched. A vertical cut through the roll. */
+inline void splitNotesAtBeat (std::vector<Note>& notes, double beat)
+{
+    constexpr double eps = 1.0e-6;
+    std::vector<Note> out;
+    out.reserve (notes.size() + 4);
+    for (const auto& n : notes)
+    {
+        const double end = n.startBeat + n.lengthBeats;
+        if (n.startBeat + eps < beat && beat < end - eps)   // strictly inside the note
+        {
+            Note left = n;  left.lengthBeats  = beat - n.startBeat;
+            Note right = n; right.startBeat = beat; right.lengthBeats = end - beat;
+            out.push_back (left);
+            out.push_back (right);
+        }
+        else
+            out.push_back (n);
+    }
+    notes = std::move (out);
+}
+
 /** Strum: within each cluster of notes that share a start beat (a chord), stagger the
     starts so the voices fan out like a guitar strum. `stepBeats` is the delay between
     consecutive voices; `down` fans high→low (downstroke), else low→high (upstroke). */

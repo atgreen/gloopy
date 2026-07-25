@@ -81,6 +81,12 @@ public:
         arpeggiateNotes transform as apiArpeggiateClip. */
     void arpeggiateRollNotes (double stepBeats, int mode);
 
+    /** Knife mode: when on, a click cuts every note crossing the clicked beat into two
+        (same splitNotesAtBeat transform as apiSplitNotesAtBeat) instead of drawing. */
+    void setKnifeMode (bool b) { knifeMode = b; }
+    bool isKnifeMode() const { return knifeMode; }
+    void splitRollNotesAt (double beat);   // cut notes at a clip-relative beat, fire onNotesChanged
+
     void paint (juce::Graphics&) override;
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
@@ -121,6 +127,7 @@ private:
     juce::String chordType;               // chord-stamp mode ("" = single notes)
     bool auditionEnabled { true };        // play notes through the instrument on click/brush
     bool snapToScale { false };           // snap drawn/moved pitches to the project scale
+    bool knifeMode { false };             // click splits notes at the clicked beat
     bool gutterAuditioning { false };     // a held audition started on the key gutter
     std::vector<int> auditionPitches;     // currently-sounding audition notes
     std::array<bool, 12> scaleMask { };   // pitch classes in the project scale
