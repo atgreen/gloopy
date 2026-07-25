@@ -526,9 +526,14 @@ desktop control wiring the *same* api* op, screenshot-validated. Status:
 - `[x]` **Punch range** (SetPunchRange) — Alt-drag the ruler to set the punch in/out
   region; drawn in red (loop stays plain-drag/accent) (commit 71e31ef). Screenshot-
   validated (RPC-set bars 2-4 + Alt-drag bars 5-7).
-- `[ ]` **Take management** (PromoteTake/CleanupTakes) — a takes panel / right-click on a
-  recorded clip. LAST gap. Needs a recording harness (arm → record → produce takes) to
-  validate; larger slice — do next.
+- `[x]` **Take management** (PromoteTake/CleanupTakes) — right-click a recorded take clip
+  → Use this take (comp: unmute this, mute siblings) / Promote take (keep) / Clean up
+  unused takes (commit 805e4f0). Validated with a real loop+punch recording harness
+  (6 takes → promote moved raw→recordings, cleanup deleted an unreferenced file).
+
+**UI-PARITY BACKLOG COMPLETE — all 11 audited API-only gaps now have desktop UI.**
+Next: Wave 6 Tier-1 piano-roll items (strum, arpeggiate, snap-to-scale-while-drawing),
+each shipping with desktop UI + screenshot validation.
 
 16. **Browser sidebar + demo/template browser + `File → New From Template`** *(Idea
     #1/#2; absorbs remaining preset UI/work).* **L**
