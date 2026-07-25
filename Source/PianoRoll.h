@@ -32,7 +32,7 @@ public:
 
     /** Load notes for display/editing WITHOUT firing onNotesChanged (used when
         switching which channel/pattern the roll is showing). */
-    void loadNotes (std::vector<Note> newNotes) { notes = std::move (newNotes); repaint(); }
+    void loadNotes (std::vector<Note> newNotes) { notes = std::move (newNotes); centerViewOnNotes(); repaint(); }
 
     const std::vector<Note>& getNotes() const noexcept { return notes; }
 
@@ -74,6 +74,7 @@ public:
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp   (const juce::MouseEvent&) override;
+    void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;  // scroll / Ctrl-zoom
     bool keyPressed (const juce::KeyPress&) override;   // Q quantize, H humanize, arrows transpose
 
 private:
@@ -81,6 +82,8 @@ private:
 
     // ---- coordinate helpers -------------------------------------------
     double rowHeight()          const;
+    void   clampView();                  // keep the zoom window inside [pitchLow, pitchHigh]
+    void   centerViewOnNotes();          // scroll the view to frame the current notes
     float  gridBottom()         const;   // y where the note grid ends (above vel strip)
     bool   hasVelStrip()        const;
     float  xForBeat (double b)  const;
@@ -110,9 +113,11 @@ private:
     double editLength { 4.0 };     // visible length in beats (clip content length)
     bool   showPlayhead { false };
 
-    // pitch range shown (inclusive)
-    static constexpr int   pitchLow  = 36;   // C2
-    static constexpr int   pitchHigh = 84;   // C6
+    // Addressable pitch range (full clamp bounds); the visible window is viewTop..viewTop-viewRows+1.
+    static constexpr int   pitchLow  = 21;   // A0
+    static constexpr int   pitchHigh = 108;  // C8
+    int  viewRows { 30 };                    // vertical zoom: semitone rows shown
+    int  viewTop  { 84 };                    // pitch drawn at the top of the grid
     static constexpr double gridSnap = 0.25; // sixteenth-note grid
     static constexpr int   keyGutter = 34;   // left piano-key strip (px)
     static constexpr int   velStripH = 46;   // bottom velocity-editing strip (px)

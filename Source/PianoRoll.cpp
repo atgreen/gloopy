@@ -56,6 +56,7 @@ PianoRoll::~PianoRoll()
 void PianoRoll::setNotes (std::vector<Note> newNotes)
 {
     notes = std::move (newNotes);
+    centerViewOnNotes();
     if (onNotesChanged) onNotesChanged();
     repaint();
 }
@@ -76,7 +77,23 @@ float PianoRoll::gridBottom() const
 
 double PianoRoll::rowHeight() const
 {
-    return (double) gridBottom() / (double) (pitchHigh - pitchLow + 1);
+    return (double) gridBottom() / (double) juce::jmax (1, viewRows);
+}
+
+void PianoRoll::clampView()
+{
+    viewRows = juce::jlimit (8, pitchHigh - pitchLow + 1, viewRows);
+    viewTop  = juce::jlimit (pitchLow + viewRows - 1, pitchHigh, viewTop);
+}
+
+void PianoRoll::centerViewOnNotes()
+{
+    if (notes.empty()) { clampView(); return; }
+    int lo = 127, hi = 0;
+    for (const auto& n : notes) { lo = juce::jmin (lo, n.pitch); hi = juce::jmax (hi, n.pitch); }
+    const int mid = (lo + hi) / 2;
+    viewTop = mid + viewRows / 2;      // frame the notes' centre in the window
+    clampView();
 }
 
 float PianoRoll::noteAreaWidth() const
@@ -96,12 +113,12 @@ double PianoRoll::beatForX (float x) const
 
 float PianoRoll::yForPitch (int p) const
 {
-    return (float) ((pitchHigh - p) * rowHeight());
+    return (float) ((viewTop - p) * rowHeight());
 }
 
 int PianoRoll::pitchForY (float y) const
 {
-    return pitchHigh - (int) std::floor (y / rowHeight());
+    return viewTop - (int) std::floor (y / rowHeight());
 }
 
 double PianoRoll::snapBeat (double b) const
@@ -172,8 +189,8 @@ void PianoRoll::paint (juce::Graphics& g)
     g.fillAll (Palette::inset);
     const float gx = (float) keyGutter;
 
-    // Pitch rows in the note area (shade black-key rows a touch darker).
-    for (int pitch = pitchLow; pitch <= pitchHigh; ++pitch)
+    // Pitch rows in the note area (only the visible zoom window).
+    for (int pitch = viewTop - viewRows + 1; pitch <= viewTop; ++pitch)
     {
         const float y = yForPitch (pitch);
         g.setColour (isBlackKey (pitch) ? Palette::inset : Palette::panel);
@@ -271,7 +288,7 @@ void PianoRoll::paint (juce::Graphics& g)
     // Piano-key gutter on the left.
     g.setColour (Palette::panel);
     g.fillRect (0.0f, 0.0f, gx, h);
-    for (int pitch = pitchLow; pitch <= pitchHigh; ++pitch)
+    for (int pitch = viewTop - viewRows + 1; pitch <= viewTop; ++pitch)
     {
         const float y = yForPitch (pitch);
         const bool black = isBlackKey (pitch);
@@ -485,6 +502,31 @@ void PianoRoll::mouseUp (const juce::MouseEvent&)
     activeNote = -1;
     gutterAuditioning = false;
     stopAudition();
+}
+
+void PianoRoll::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
+{
+    if (! editable) return;
+    const float dy = wheel.deltaY * (wheel.isReversed ? -1.0f : 1.0f);
+    if (std::abs (dy) < 1.0e-4f) return;
+
+    if (e.mods.isCtrlDown() || e.mods.isCommandDown())
+    {
+        // Vertical zoom, keeping the pitch under the cursor stable.
+        const int anchorPitch = pitchForY (e.position.y);
+        viewRows += (dy > 0 ? -2 : 2);                 // wheel up = zoom in (fewer rows)
+        clampView();
+        // re-anchor: put anchorPitch back under the cursor
+        const int rowUnderCursor = (int) std::floor (e.position.y / juce::jmax (1.0, rowHeight()));
+        viewTop = anchorPitch + rowUnderCursor;
+        clampView();
+    }
+    else
+    {
+        viewTop += (dy > 0 ? 2 : -2);                  // wheel up = scroll toward higher pitches
+        clampView();
+    }
+    repaint();
 }
 
 void PianoRoll::timerCallback()
