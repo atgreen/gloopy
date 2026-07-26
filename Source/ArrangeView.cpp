@@ -544,6 +544,10 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             m.addItem (10, "Normalize");                // to -1 dBFS
             m.addItem (11, "Gain...");
             m.addItem (12, "Fades...");
+            juce::PopupMenu fadeShapeM;                 // curve for the fade edges
+            const char* fadeShapes[] = { "Linear", "Equal power", "Exponential" };
+            for (int i = 0; i < 3; ++i) fadeShapeM.addItem (730 + i, fadeShapes[i]);
+            m.addSubMenu ("Fade shape", fadeShapeM);
             m.addItem (16, "Slice at transients");      // detect onsets -> split into slices
         }
         if (isTake)
@@ -583,6 +587,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             {
                 const int pcts[] = { 100, 75, 50, 25, 10 };
                 if (onClipCommand) onClipCommand (t, c, "prob:" + juce::String (pcts[r - 720]));
+                return;
+            }
+            if (r >= 730 && r <= 732)   // Audio-clip fade curve: 0 linear, 1 equal-power, 2 exp
+            {
+                if (onClipCommand) onClipCommand (t, c, "fadeshape:" + juce::String (r - 730));
                 return;
             }
             const char* cmd = r == 1  ? "split"

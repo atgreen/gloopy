@@ -212,6 +212,7 @@ message CropClipRequest      { int32 track_id = 1; int32 index = 2; double start
 message ClipGainRequest      { int32 track_id = 1; int32 index = 2; float gain_db = 3; }     // audio clip gain (dB)
 message NormalizeClipRequest { int32 track_id = 1; int32 index = 2; float target_dbfs = 3; } // gain so peak=target (0=full scale)
 message ClipFadesRequest     { int32 track_id = 1; int32 index = 2; double fade_in_beats = 3; double fade_out_beats = 4; }
+message ClipFadeShapeRequest { int32 track_id = 1; int32 index = 2; int32 shape = 3; }   // 0 linear, 1 equal-power, 2 exponential
 message NoteList             { repeated Note notes = 1; }
 // piano-roll note-edit ops
 message QuantizeRequest  { int32 track_id = 1; int32 index = 2; double grid = 3; }        // grid in beats
@@ -388,6 +389,7 @@ service Gloopy {
   rpc SetClipGain     (ClipGainRequest)        returns (Ack);      // audio clip gain (dB)
   rpc NormalizeClip   (NormalizeClipRequest)   returns (Ack);      // gain so the clip peaks at target dBFS
   rpc SetClipFades    (ClipFadesRequest)       returns (Ack);      // audio clip fade-in / fade-out (beats)
+  rpc SetClipFadeShape (ClipFadeShapeRequest)  returns (Ack);      // audio clip fade curve (linear/equal-power/exp)
   rpc GetClipNotes    (ClipRef)                returns (NoteList);
   rpc ExportNotesJSON (ClipRef)                returns (NotesJson);
   rpc ImportNotesJSON (ImportNotesRequest)     returns (ClipId);

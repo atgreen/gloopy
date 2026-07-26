@@ -753,6 +753,9 @@ namespace
         Status SetClipFades (ServerContext*, const pb::ClipFadesRequest* q, pb::Ack* r) override
         { const bool ok = main.apiSetClipFades (q->track_id(), q->index(), q->fade_in_beats(), q->fade_out_beats());
           r->set_ok (ok); if (! ok) r->set_error ("set clip fades failed (clip not found or not audio)"); return Status::OK; }
+        Status SetClipFadeShape (ServerContext*, const pb::ClipFadeShapeRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiSetClipFadeShape (q->track_id(), q->index(), q->shape());
+          r->set_ok (ok); if (! ok) r->set_error ("set clip fade shape failed (clip not found or not audio)"); return Status::OK; }
         Status GetClipNotes (ServerContext*, const pb::ClipRef* q, pb::NoteList* r) override
         {
             for (auto& n : main.apiGetClipNotes (q->track_id(), q->index()))

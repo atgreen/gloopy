@@ -490,8 +490,19 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      menu, listing only markers that fall strictly inside the clicked clip (via a `getMarkers`
      hook) — screenshot-validated. smoke proves a marker at beat 2 splits a [0,4) clip into
      [0,2)+[2,4) with the right clip's notes rebased to 0/1.
-     **Not yet:** level-matched freeze (pre-master capture); fade curve shapes (linear only);
+     **Not yet:** level-matched freeze (pre-master capture);
      audio-clip consolidate (audio clips are one-shot).
+   - `[x]` **Fade curve shapes landed** (commit): an audio clip's fade edges gain a `fadeShape`
+     (0 linear / 1 equal-power / 2 exponential) — a pure `fadeShapeGain(shape, t)` helper in
+     `Source/FadeShape.h` warps the linear fade position, shared by both edges. Equal-power
+     (sin·π/2, the constant-power crossfade law from Ardour/Reaper) is louder than linear;
+     exponential (t²) is a gentle slow start. `apiSetClipFadeShape` + SetClipFadeShape RPC
+     (`ClipFadeShapeRequest`) + Python `set_clip_fade_shape`; serialised on the CLIP ValueTree
+     (`fadeshape`, omitted when 0) + composition `fade_shape`. **Desktop:** a "Fade shape ▸
+     Linear / Equal power / Exponential" submenu on the audio-clip right-click menu. `FadeShape`
+     unit test proves the curve ordering/endpoints/clamp; smoke proves fade-region RMS orders
+     equal-power > linear > exponential and the shape survives a project round-trip (reproducible
+     re-render); screenshot-validated (the expanded submenu).
 
 7. **Buses & sends.** ✦ **L**
    *Ardour #8.* Explicit bus tracks; tracks route to a bus before master; per-send

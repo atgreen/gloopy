@@ -548,6 +548,26 @@ bool MainComponent::apiSetClipFades (int trackId, int index, double fadeInBeats,
     });
 }
 
+bool MainComponent::apiSetClipFadeShape (int trackId, int index, int shape)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+            Clip& c = t->clips[(size_t) index];
+            if (! c.isAudio()) return false;
+            c.fadeShape = juce::jlimit (0, 2, shape);   // 0 linear, 1 equal-power, 2 exponential
+        }
+        emitChange ("clip_changed", trackId);
+        if (arrangeView) arrangeView->repaint();
+        return true;
+    });
+}
+
 std::vector<Note> MainComponent::apiGetClipNotes (int trackId, int index)
 {
     return callOnMessageThread ([&] () -> std::vector<Note>

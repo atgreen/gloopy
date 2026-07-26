@@ -3,6 +3,7 @@
 
 #include "MainComponent.h"
 #include "NoteScheduler.h"
+#include "FadeShape.h"
 #include "Sampler.h"
 #include "SfizzGenerator.h"
 #include "SynthGenerator.h"
@@ -332,6 +333,7 @@ MainComponent::MainComponent (bool headless)
         else if (cmd.startsWith ("transpose:")) apiSetClipTranspose (id, clip, cmd.substring (10).getIntValue());
         else if (cmd.startsWith ("velscale:")) apiSetClipVelocity (id, clip, cmd.substring (9).getIntValue() / 100.0f);
         else if (cmd.startsWith ("prob:")) apiSetClipProbability (id, clip, cmd.substring (5).getIntValue() / 100.0f);
+        else if (cmd.startsWith ("fadeshape:")) apiSetClipFadeShape (id, clip, cmd.substring (10).getIntValue());
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")
@@ -2204,7 +2206,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         const juce::int64 clipStart = tc.beatToSample (clip.startBeat);
         const juce::int64 clipEnd   = tc.beatToSample (clip.endBeat());
         const juce::int64 clipLen   = clipEnd - clipStart;
-        // Linear fade edges (tempo-aware lengths). Silent at the very start/end.
+        // Shaped fade edges (tempo-aware lengths). Silent at the very start/end.
         const juce::int64 fadeInS  = clip.fadeInBeats  > 0.0 ? tc.beatToSample (clip.startBeat + clip.fadeInBeats) - clipStart : 0;
         const juce::int64 fadeOutS = clip.fadeOutBeats > 0.0 ? clipEnd - tc.beatToSample (clip.endBeat() - clip.fadeOutBeats) : 0;
 
@@ -2217,8 +2219,8 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
 
             const juce::int64 pos = songPos - clipStart;
             float fade = 1.0f;
-            if (fadeInS  > 0 && pos < fadeInS)              fade  = (float) pos / (float) fadeInS;
-            if (fadeOutS > 0 && pos > clipLen - fadeOutS)   fade *= (float) (clipLen - pos) / (float) fadeOutS;
+            if (fadeInS  > 0 && pos < fadeInS)              fade  = fadeShapeGain (clip.fadeShape, (float) pos / (float) fadeInS);
+            if (fadeOutS > 0 && pos > clipLen - fadeOutS)   fade *= fadeShapeGain (clip.fadeShape, (float) (clipLen - pos) / (float) fadeOutS);
             const float g = clip.audioGain * fade;
 
             const int r0 = (int) readPos;
@@ -3139,6 +3141,7 @@ juce::ValueTree MainComponent::toValueTree()
             if (c.muted) cl.setProperty ("muted", true, nullptr);
             if (c.fadeInBeats  > 0.0) cl.setProperty ("fadein",  c.fadeInBeats,  nullptr);
             if (c.fadeOutBeats > 0.0) cl.setProperty ("fadeout", c.fadeOutBeats, nullptr);
+            if (c.fadeShape != 0)     cl.setProperty ("fadeshape", c.fadeShape, nullptr);
             if (c.isAudio() && c.audioFile.isNotEmpty())
             {
                 // Referenced audio (recorded take / import) — store the path, not the blob.
@@ -3549,6 +3552,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             c.muted  = (bool) cl.getProperty ("muted", false);
             c.fadeInBeats  = (double) cl.getProperty ("fadein", 0.0);
             c.fadeOutBeats = (double) cl.getProperty ("fadeout", 0.0);
+            c.fadeShape    = (int) cl.getProperty ("fadeshape", 0);
 
             if (c.isAudio() && cl.hasProperty ("afile"))
             {

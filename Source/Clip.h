@@ -32,8 +32,9 @@ struct Clip
     std::shared_ptr<juce::AudioBuffer<float>> audio;
     double audioSourceRate { 44100.0 };
     float  audioGain       { 1.0f };
-    double fadeInBeats     { 0.0 };   // linear fade-in / fade-out over the clip edges (audio)
+    double fadeInBeats     { 0.0 };   // fade-in / fade-out over the clip edges (audio)
     double fadeOutBeats    { 0.0 };
+    int    fadeShape       { 0 };     // 0 linear, 1 equal-power, 2 exponential (see FadeShape.h)
     std::shared_ptr<std::vector<float>> peaks;   // display overview (max-abs per bucket)
     // When non-empty, the audio came from a file (a recorded take or imported
     // reference) — serialised as a path, not embedded. `audio` still holds the

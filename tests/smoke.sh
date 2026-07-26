@@ -844,6 +844,42 @@ assert abs(f1-want) < 0.03*want, 'buffer not cut to the 2-beat window: %d frames
 print('smoke: PASS — audio CropClip -> start=%g len=%g, buffer trimmed to %d frames (2 beats @ %g bpm)'%(st,ln,f1,bpm))
 " || { echo 'smoke: audio CropClip did not trim/move correctly' >&2; exit 1; }
 g -d "{\"id\":$AUT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+# Fade curve shapes: an audio clip [0,4) with a 2-beat fade-in on a constant tone. Over the
+# fade region the gain follows the shape, so RMS orders equal-power > linear > exponential
+# (sin(t·π/2) > t > t²). Each render is reproducible and the shape survives a project
+# round-trip. SaveProject records fadeshape on the clip.
+FST=$(g -d '{"name":"fadeshape"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddAudioTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$FST,\"start_beat\":0,\"path\":\"$ASRC\",\"gain\":1.0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddAudioClip >/dev/null
+g -d "{\"track_id\":$FST,\"index\":0,\"fade_in_beats\":2.0,\"fade_out_beats\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipFades >/dev/null
+g -d "{\"track_id\":$FST,\"index\":0,\"shape\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipFadeShape >/dev/null
+g -d "{\"path\":\"$WORK/fs_lin.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$FST}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$FST,\"index\":0,\"shape\":1}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipFadeShape >/dev/null
+g -d "{\"path\":\"$WORK/fs_ep.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$FST}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$FST,\"index\":0,\"shape\":2}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipFadeShape >/dev/null
+g -d "{\"path\":\"$WORK/fs_exp.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$FST}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"path\":\"$WORK/fs.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+FSSHAPE=$(python3 -c "
+import xml.etree.ElementTree as ET
+for c in ET.parse('$WORK/fs.gloopy').getroot().iter('CLIP'):
+    if c.get('name')=='src': print(c.get('fadeshape')); break
+")
+g -d "{\"path\":\"$WORK/fs.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null
+FST2=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print([t['id'] for t in json.load(sys.stdin)['tracks']][-1])")
+g -d "{\"path\":\"$WORK/fs_exp2.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$FST2}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+def rms(x): return (sum(v*v for v in x)/max(1,len(x)))**0.5
+lin=rd('$WORK/fs_lin.wav');ep=rd('$WORK/fs_ep.wav');ex=rd('$WORK/fs_exp.wav');ex2=rd('$WORK/fs_exp2.wav')
+n=min(len(lin),len(ep),len(ex),len(ex2)); h=n//2      # first half = the 2-beat fade-in region
+assert '$FSSHAPE'=='2','SaveProject did not record fadeshape=2 (got $FSSHAPE)'
+rl,re,rx=rms(lin[:h]),rms(ep[:h]),rms(ex[:h])
+assert re>rl>rx, 'fade-region RMS not ordered equal-power>linear>exp (ep=%.0f lin=%.0f exp=%.0f)'%(re,rl,rx)
+assert ex[:n]==ex2[:n], 'exponential fade not reproducible across a project round-trip (re-render differs)'
+print('smoke: PASS — fade shapes: equal-power(%.0f)>linear(%.0f)>exp(%.0f) over the fade, and round-trips'%(re,rl,rx))
+" || { echo 'smoke: fade shapes wrong' >&2; exit 1; }
+g -d "{\"id\":$FST2}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 # ConsolidateClip: a looped clip (2-beat content, notes at 0/1, tiled over 4 beats)
 # flattens to explicit notes at 0/1/2/3 and un-loops (content becomes length).
 CN=$(g -d '{"name":"contest","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)

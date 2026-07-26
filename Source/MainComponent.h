@@ -293,6 +293,7 @@ public:
     bool  apiSetClipGain (int trackId, int index, float gainDb);    // audio clip gain (dB); false if not audio
     float apiNormalizeClip (int trackId, int index, float targetDbfs); // gain so peak=target; applied gain or -1
     bool  apiSetClipFades (int trackId, int index, double fadeInBeats, double fadeOutBeats); // audio clip edges
+    bool  apiSetClipFadeShape (int trackId, int index, int shape);  // 0 linear, 1 equal-power, 2 exponential
     std::vector<Note> apiGetClipNotes (int trackId, int index);     // read-back for tooling/verification
     bool apiSetClipTranspose (int trackId, int index, int semitones);   // non-destructive playback pitch offset
     bool apiSetClipVelocity (int trackId, int index, float scale);      // non-destructive playback velocity scale

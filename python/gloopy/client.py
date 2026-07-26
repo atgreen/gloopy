@@ -289,9 +289,15 @@ class Gloopy:
         self._ack(self.stub.NormalizeClip(pb.NormalizeClipRequest(track_id=track_id, index=index, target_dbfs=target_dbfs)))
 
     def set_clip_fades(self, track_id: int, index: int, fade_in_beats: float = 0.0, fade_out_beats: float = 0.0) -> None:
-        """Set an audio clip's linear fade-in / fade-out lengths, in beats."""
+        """Set an audio clip's fade-in / fade-out lengths, in beats."""
         self._ack(self.stub.SetClipFades(pb.ClipFadesRequest(
             track_id=track_id, index=index, fade_in_beats=fade_in_beats, fade_out_beats=fade_out_beats)))
+
+    def set_clip_fade_shape(self, track_id: int, index: int, shape: int = 0) -> None:
+        """Set an audio clip's fade curve shape: 0 linear, 1 equal-power (constant-power,
+        louder than linear), 2 exponential (slow start). Applies to both fade edges."""
+        self._ack(self.stub.SetClipFadeShape(pb.ClipFadeShapeRequest(
+            track_id=track_id, index=index, shape=shape)))
 
     def clip_notes(self, track_id: int, index: int) -> list[dict]:
         r = self.stub.GetClipNotes(pb.ClipRef(track_id=track_id, index=index))

@@ -19,6 +19,7 @@
 #include "FileDrop.h"
 #include "StereoWiden.h"
 #include "Lfo.h"
+#include "FadeShape.h"
 #include "Toml.h"
 
 //==============================================================================
@@ -716,6 +717,56 @@ struct EffectSyncTests : juce::UnitTest
     }
 };
 
+struct FadeShapeTests : juce::UnitTest
+{
+    FadeShapeTests() : juce::UnitTest ("FadeShape") {}
+
+    void runTest() override
+    {
+        beginTest ("endpoints are 0 and 1 for every shape (no edge discontinuity)");
+        {
+            for (int s = 0; s <= 2; ++s)
+            {
+                expectWithinAbsoluteError (fadeShapeGain (s, 0.0f), 0.0f, 1e-6f);
+                expectWithinAbsoluteError (fadeShapeGain (s, 1.0f), 1.0f, 1e-6f);
+            }
+        }
+
+        beginTest ("linear is the identity");
+        {
+            expectWithinAbsoluteError (fadeShapeGain (0, 0.25f), 0.25f, 1e-6f);
+            expectWithinAbsoluteError (fadeShapeGain (0, 0.5f),  0.5f,  1e-6f);
+            expectWithinAbsoluteError (fadeShapeGain (0, 0.75f), 0.75f, 1e-6f);
+        }
+
+        beginTest ("equal-power is louder than linear in the interior; exponential is quieter");
+        {
+            for (float t : { 0.25f, 0.5f, 0.75f })
+            {
+                expect (fadeShapeGain (1, t) > fadeShapeGain (0, t));   // sin(t·π/2) > t
+                expect (fadeShapeGain (2, t) < fadeShapeGain (0, t));   // t² < t
+            }
+            // equal-power midpoint is sin(π/4) = 1/√2 ≈ 0.7071 (constant-power law).
+            expectWithinAbsoluteError (fadeShapeGain (1, 0.5f), 0.70710678f, 1e-6f);
+            expectWithinAbsoluteError (fadeShapeGain (2, 0.5f), 0.25f, 1e-6f);
+        }
+
+        beginTest ("monotonic rising and clamped to [0,1] outside the range");
+        {
+            for (int s = 0; s <= 2; ++s)
+            {
+                float prev = -1.0f;
+                for (int i = 0; i <= 20; ++i) { float g = fadeShapeGain (s, i / 20.0f); expect (g >= prev - 1e-6f); prev = g; }
+                expectWithinAbsoluteError (fadeShapeGain (s, -0.5f), 0.0f, 1e-6f);   // clamp low
+                expectWithinAbsoluteError (fadeShapeGain (s,  1.5f), 1.0f, 1e-6f);   // clamp high
+            }
+            // unknown shape falls back to linear.
+            expectWithinAbsoluteError (fadeShapeGain (99, 0.3f), 0.3f, 1e-6f);
+        }
+    }
+};
+
+static FadeShapeTests    fadeShapeTests;
 static EffectSyncTests   effectSyncTests;
 static BiquadEqTests     biquadEqTests;
 static AllpassPhaserTests allpassPhaserTests;
