@@ -54,7 +54,8 @@ bounce it to a WAV.
   `.points` + WAV sidecars). `--render` bounces to a WAV offline, and named
   **export profiles** (mix / range / track / stems) drive batch renders.
 - **Headless + scriptable** — every capability is reachable over the control API,
-  plus offline CLI utilities (`scan`, `analyze`, `inspect`/`validate`/`pack`) and
+  plus offline CLI utilities (`scan`, `analyze`, `inspect`/`validate`/`pack`,
+  `render` / `export-stems` — both with an optional `--range <startBeat> <endBeat>`) and
   loudness analysis (peak / true-peak / RMS / LUFS) for automation and CI.
 
 ## Building
@@ -76,8 +77,11 @@ cmake --build build
 # ...or open a project straight away:
 ./build/Gloopy_artefacts/Release/gloopy examples/demo-song.gloopy
 
-# ...or bounce a project to a WAV without a GUI:
-./build/Gloopy_artefacts/Release/gloopy --render examples/demo-song.gloopy out.wav
+# ...or bounce a project to a WAV without a GUI (whole song, or just a beat range):
+./build/Gloopy_artefacts/Release/gloopy render examples/demo-song.gloopy out.wav
+./build/Gloopy_artefacts/Release/gloopy render examples/demo-song.gloopy out.wav --range 0 16
+# ...or split it into one WAV per instrument track:
+./build/Gloopy_artefacts/Release/gloopy export-stems examples/demo-song.gloopy stems/
 ```
 
 Complete demo songs live in [`examples/`](examples/): `demo-song.gloopy` (fully
