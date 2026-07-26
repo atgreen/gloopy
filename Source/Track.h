@@ -9,6 +9,7 @@
 #include <atomic>
 #include "Generator.h"
 #include "Clip.h"
+#include "LiveArp.h"
 
 enum class TrackType { Instrument, Audio, MidiOut };
 
@@ -59,6 +60,11 @@ struct Track
         float  probability { 1.0f };  // chance each generated step actually fires (deterministic gate)
     };
     ArpSpec arp;
+
+    // Real-time arp engine for live keyboard/OSC input: when arp.enabled, live notes are run
+    // through this instead of played straight, so a held chord arpeggiates live. Audio-thread
+    // state; reset() on arp-off / panic. (The clip arp above is the non-destructive playback one.)
+    LiveArp liveArp;
 
     std::vector<Clip> clips;   // guarded by the engine lock
 };

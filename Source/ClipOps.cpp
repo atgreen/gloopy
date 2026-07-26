@@ -860,6 +860,7 @@ bool MainComponent::apiSetTrackArp (int trackId, bool enabled, double rate, int 
         pushUndoSnapshot();
         {
             const juce::ScopedLock sl (engineLock);
+            const bool wasEnabled = t->arp.enabled;
             t->arp.enabled = enabled;
             t->arp.rate    = juce::jmax (0.03125, rate);
             t->arp.octaves = juce::jlimit (1, 6, octaves);
@@ -868,6 +869,14 @@ bool MainComponent::apiSetTrackArp (int trackId, bool enabled, double rate, int 
             t->arp.swing   = juce::jlimit (0.0f, 0.9f, swing);
             t->arp.hold    = hold;
             t->arp.probability = juce::jlimit (0.0f, 1.0f, probability);
+            // Turning the live arp off: flush its state and silence any note it was sounding
+            // (renderBlock stops driving it, so it can't note-off itself). Safe here — the audio
+            // thread only try-locks engineLock, so it isn't rendering while we hold it.
+            if (wasEnabled && ! enabled)
+            {
+                t->liveArp.reset();
+                if (t->generator) t->generator->allNotesOff();
+            }
             applyArpToTrack (*t);
         }
         emitChange ("track_arp", trackId);

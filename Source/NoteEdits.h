@@ -324,6 +324,23 @@ inline void arpeggiateNotes (std::vector<Note>& notes, double stepBeats, int mod
     notes = std::move (out);
 }
 
+/** The ordered pitch sequence an arpeggiator plays over one held set: the sorted held pitches
+    repeated across `octaves` (each +12), then ordered by `mode` (0 up, 1 down, 2 up-down w/o
+    repeating the endpoints, 3 random draws from the up order). Shared by the clip arp
+    (expandArp) and the live arp (LiveArp) so they behave identically. */
+inline std::vector<int> arpSequence (const std::vector<int>& heldSorted, int octaves, int mode)
+{
+    const int octs = juce::jlimit (1, 6, octaves);
+    std::vector<int> pat;
+    for (int o = 0; o < octs; ++o)
+        for (int p : heldSorted) pat.push_back (juce::jlimit (0, 127, p + 12 * o));
+    std::vector<int> seq;
+    if (mode == 1)      for (auto it = pat.rbegin(); it != pat.rend(); ++it) seq.push_back (*it);
+    else if (mode == 2) { seq = pat; for (int k = (int) pat.size() - 2; k >= 1; --k) seq.push_back (pat[(size_t) k]); }
+    else                seq = pat;                             // up (random draws from this order)
+    return seq;
+}
+
 /** Live-arpeggiator expansion (non-destructive: computed from a clip's raw notes, played
     instead of them while the arp is on). Models a real DAW / hardware arpeggiator: walk the
     clip in `rateBeats` steps and, at each step, play the next note of the set *currently
@@ -384,14 +401,7 @@ inline std::vector<Note> expandArp (const std::vector<Note>& notes, double rateB
         // keep advancing.
         if (held != prevSet) { stepIndex = 0; prevSet = held; }
 
-        std::vector<int> pat;                                  // held set across octaves
-        for (int o = 0; o < octs; ++o)
-            for (int p : held) pat.push_back (juce::jlimit (0, 127, p + 12 * o));
-
-        std::vector<int> seq;                                  // ordered by mode
-        if (mode == 1)      for (auto it = pat.rbegin(); it != pat.rend(); ++it) seq.push_back (*it);
-        else if (mode == 2) { seq = pat; for (int k = (int) pat.size() - 2; k >= 1; --k) seq.push_back (pat[(size_t) k]); }
-        else                seq = pat;                         // up (random also draws from this)
+        std::vector<int> seq = arpSequence (held, octs, mode);   // held set across octaves, by mode
         if (seq.empty()) continue;
 
         const int pitch = (mode == 3) ? seq[(size_t) rng.nextInt ((int) seq.size())]

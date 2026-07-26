@@ -10,6 +10,7 @@
 #include "Note.h"
 #include "NoteScheduler.h"
 #include "NoteEdits.h"
+#include "LiveArp.h"
 #include "NotesJson.h"
 #include "AllpassPhaser.h"
 #include "Biquad.h"
@@ -620,6 +621,136 @@ struct NoteEditTests : juce::UnitTest
 };
 
 //==============================================================================
+// Live arpeggiator: hold a chord on the live input and it plays a stepped pattern,
+// tracking the held set. Drives the engine block-by-block and reads out the note-ons.
+struct LiveArpTests : juce::UnitTest
+{
+    LiveArpTests() : juce::UnitTest ("LiveArp") {}
+
+    // Push `msgs` (at sample 0) into block 0, then run `blocks` blocks of `num` samples each,
+    // returning the ordered list of note-on pitches the arp emitted across all blocks.
+    static std::vector<int> runArp (LiveArp& arp, const std::vector<juce::MidiMessage>& msgs,
+                                    int blocks, int num, double spb, double rate, int octaves,
+                                    float gate, int mode, bool hold)
+    {
+        std::vector<int> ons;
+        for (int b = 0; b < blocks; ++b)
+        {
+            juce::MidiBuffer in;
+            if (b == 0) for (auto& m : msgs) in.addEvent (m, 0);
+            juce::MidiBuffer out;
+            arp.process (in, out, num, spb, rate, octaves, gate, mode, hold);
+            for (const auto meta : out)
+                if (meta.getMessage().isNoteOn()) ons.push_back (meta.getMessage().getNoteNumber());
+        }
+        return ons;
+    }
+
+    void runTest() override
+    {
+        const double spb = 100.0;   // 100 samples/beat; one block == one beat below
+
+        beginTest ("a held chord arpeggiates up, one note per rate step");
+        {
+            LiveArp arp;
+            std::vector<juce::MidiMessage> chord {
+                juce::MidiMessage::noteOn (1, 60, 0.8f),
+                juce::MidiMessage::noteOn (1, 64, 0.8f),
+                juce::MidiMessage::noteOn (1, 67, 0.8f) };
+            // rate 1 beat, block == 1 beat: expect C,E,G,C,E,G over 6 blocks (hold latches release).
+            auto ons = runArp (arp, chord, 6, 100, spb, 1.0, 1, 1.0f, 0, true);
+            expect ((int) ons.size() == 6);
+            const int want[] = { 60, 64, 67, 60, 64, 67 };
+            for (int i = 0; i < 6 && i < (int) ons.size(); ++i) expectEquals (ons[(size_t) i], want[i]);
+        }
+
+        beginTest ("down mode reverses the order");
+        {
+            LiveArp arp;
+            std::vector<juce::MidiMessage> chord {
+                juce::MidiMessage::noteOn (1, 60, 0.8f),
+                juce::MidiMessage::noteOn (1, 64, 0.8f),
+                juce::MidiMessage::noteOn (1, 67, 0.8f) };
+            auto ons = runArp (arp, chord, 3, 100, spb, 1.0, 1, 1.0f, 1, true);
+            const int want[] = { 67, 64, 60 };
+            expect ((int) ons.size() == 3);
+            for (int i = 0; i < 3 && i < (int) ons.size(); ++i) expectEquals (ons[(size_t) i], want[i]);
+        }
+
+        beginTest ("octaves widen the pattern (+12)");
+        {
+            LiveArp arp;
+            std::vector<juce::MidiMessage> one { juce::MidiMessage::noteOn (1, 60, 0.8f) };
+            auto ons = runArp (arp, one, 4, 100, spb, 1.0, 2, 1.0f, 0, true);   // pattern [60,72]
+            const int want[] = { 60, 72, 60, 72 };
+            expect ((int) ons.size() == 4);
+            for (int i = 0; i < 4 && i < (int) ons.size(); ++i) expectEquals (ons[(size_t) i], want[i]);
+        }
+
+        beginTest ("releasing without hold stops the arp");
+        {
+            LiveArp arp;
+            // Block 0: press C+E. Blocks 1..: release both (note-off) -> arp goes silent (no hold).
+            std::vector<int> ons;
+            for (int b = 0; b < 4; ++b)
+            {
+                juce::MidiBuffer in, out;
+                if (b == 0) { in.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+                              in.addEvent (juce::MidiMessage::noteOn (1, 64, 0.8f), 0); }
+                if (b == 1) { in.addEvent (juce::MidiMessage::noteOff (1, 60), 0);
+                              in.addEvent (juce::MidiMessage::noteOff (1, 64), 0); }
+                arp.process (in, out, 100, spb, 1.0, 1, 1.0f, 0, false);
+                for (const auto meta : out) if (meta.getMessage().isNoteOn()) ons.push_back (meta.getMessage().getNoteNumber());
+            }
+            expect (ons.size() == 1);          // only the first step (C) fired before release
+            if (! ons.empty()) expectEquals (ons[0], 60);
+        }
+
+        beginTest ("a new chord restarts the pattern from its root");
+        {
+            LiveArp arp;
+            std::vector<int> ons;
+            for (int b = 0; b < 4; ++b)
+            {
+                juce::MidiBuffer in, out;
+                if (b == 0) { in.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);   // C major-ish
+                              in.addEvent (juce::MidiMessage::noteOn (1, 64, 0.8f), 0);
+                              in.addEvent (juce::MidiMessage::noteOn (1, 67, 0.8f), 0); }
+                if (b == 2) { in.addEvent (juce::MidiMessage::noteOff (1, 60), 0);         // swap to D-F-A
+                              in.addEvent (juce::MidiMessage::noteOff (1, 64), 0);
+                              in.addEvent (juce::MidiMessage::noteOff (1, 67), 0);
+                              in.addEvent (juce::MidiMessage::noteOn (1, 62, 0.8f), 0);
+                              in.addEvent (juce::MidiMessage::noteOn (1, 65, 0.8f), 0);
+                              in.addEvent (juce::MidiMessage::noteOn (1, 69, 0.8f), 0); }
+                arp.process (in, out, 100, spb, 1.0, 1, 1.0f, 0, false);
+                for (const auto meta : out) if (meta.getMessage().isNoteOn()) ons.push_back (meta.getMessage().getNoteNumber());
+            }
+            // Blocks: C, E, then new chord roots from D: D, F.
+            const int want[] = { 60, 64, 62, 65 };
+            expect ((int) ons.size() == 4);
+            for (int i = 0; i < 4 && i < (int) ons.size(); ++i) expectEquals (ons[(size_t) i], want[i]);
+        }
+
+        beginTest ("gate shortens the note within the step (note-off before next step)");
+        {
+            LiveArp arp;
+            std::vector<juce::MidiMessage> one { juce::MidiMessage::noteOn (1, 60, 0.8f) };
+            juce::MidiBuffer in, out;
+            for (auto& m : one) in.addEvent (m, 0);
+            arp.process (in, out, 100, spb, 1.0, 1, 0.5f, 0, true);   // gate 0.5 -> off at sample ~50
+            int onOff = -1, offOff = -1;
+            for (const auto meta : out)
+            {
+                if (meta.getMessage().isNoteOn())  onOff  = meta.samplePosition;
+                if (meta.getMessage().isNoteOff()) offOff = meta.samplePosition;
+            }
+            expectEquals (onOff, 0);
+            expect (offOff > 40 && offOff < 60);     // ~half the 100-sample beat
+        }
+    }
+};
+
+//==============================================================================
 // Drag-and-drop routing: the classifier decides which load op a dropped file gets.
 struct FileDropTests : juce::UnitTest
 {
@@ -1050,6 +1181,7 @@ static StereoWidenerTests stereoWidenerTests;
 static TomlTests         tomlTests;
 static SerializationTests serializationTests;
 static NoteEditTests     noteEditTests;
+static LiveArpTests      liveArpTests;
 static FileDropTests     fileDropTests;
 static TimeTypesTests    timeTypesTests;
 

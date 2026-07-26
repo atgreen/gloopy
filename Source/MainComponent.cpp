@@ -2581,12 +2581,12 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     auto* out = &outBuf;
 
     if (panicRequested.exchange (false))                 // MIDI panic: kill any stuck/hanging notes
-        for (auto& t : tracks) if (t->generator) t->generator->allNotesOff();
+        for (auto& t : tracks) if (t->generator) { t->generator->allNotesOff(); t->liveArp.reset(); }
 
     if (transport.consumeReset())
     {
         transport.setPlayheadSamples (0);
-        for (auto& t : tracks) if (t->generator) t->generator->allNotesOff();
+        for (auto& t : tracks) if (t->generator) { t->generator->allNotesOff(); t->liveArp.reset(); }
     }
 
     const bool        playing = transport.isPlaying();
@@ -2624,7 +2624,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     if (transport.consumeSeek (seekBeats))
     {
         transport.setPlayheadSamples (juce::jmax ((juce::int64) 0, tc.beatToSample (seekBeats)));
-        for (auto& t : tracks) if (t->generator) t->generator->allNotesOff();
+        for (auto& t : tracks) if (t->generator) { t->generator->allNotesOff(); t->liveArp.reset(); }
     }
 
     // Song length = furthest clip end (min 1 bar).
@@ -2789,10 +2789,18 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
                                        segs[(size_t) s].tsOffset + segs[(size_t) s].chunk);
                 }
             }
-            // Merge live OSC notes (played whether or not the transport is running).
+            // Merge live OSC/keyboard notes (played whether or not the transport is running).
+            // With the arp on, run them through the live arpeggiator so a held chord plays as a
+            // stepped pattern; otherwise pass them straight to the generator. Recording below
+            // still captures the raw `live` input (non-destructive: the clip arp re-applies on
+            // playback), matching how the clip arp works.
             juce::MidiBuffer live;
             t->liveMidi.removeNextBlockOfMessages (live, num);
-            midi.addEvents (live, 0, num, 0);
+            if (t->arp.enabled)
+                t->liveArp.process (live, midi, num, spb, t->arp.rate, t->arp.octaves,
+                                    t->arp.gate, t->arp.mode, t->arp.hold);
+            else
+                midi.addEvents (live, 0, num, 0);
 
             // Capture played input into the record buffer for the armed track.
             if (recording.load() && t->id == recordTrackId.load())
