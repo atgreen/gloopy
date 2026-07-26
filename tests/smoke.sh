@@ -610,6 +610,29 @@ assert int('$STILL69')==69, 'transpose must not edit the stored notes (pitch bec
 assert 1.8 < rb < 2.2, 'clip transpose did not survive composition round-trip (ZCR ratio %.3f)'%rb
 print('smoke: PASS — non-destructive clip transpose +12 doubles pitch (ZCR %.3f), notes untouched, round-trips (%.3f)'%(r,rb))
 " || { echo 'smoke: clip transpose wrong' >&2; exit 1; }
+# Non-destructive per-clip velocity scale: a 0.5x scale halves each note's velocity at render
+# (quieter, since the synth maps velocity to amplitude), the stored velocities are untouched,
+# and a 0x scale renders silent. Reuse the $CT sine track + its clip.
+g -d "{\"track_id\":$CT,\"index\":0,\"semitones\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipTranspose >/dev/null
+g -d "{\"track_id\":$CT,\"index\":0,\"scale\":1.0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipVelocity >/dev/null
+g -d "{\"path\":\"$WORK/vs_full.wav\",\"tail_seconds\":0,\"end_beat\":3.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$CT,\"index\":0,\"scale\":0.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipVelocity >/dev/null
+g -d "{\"path\":\"$WORK/vs_half.wav\",\"tail_seconds\":0,\"end_beat\":3.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+VVEL=$(g -d "{\"track_id\":$CT,\"index\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "import json,sys;print('%.2f'%json.load(sys.stdin)['notes'][0]['velocity'])")
+g -d "{\"track_id\":$CT,\"index\":0,\"scale\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipVelocity >/dev/null
+g -d "{\"path\":\"$WORK/vs_zero.wav\",\"tail_seconds\":0,\"end_beat\":3.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def rms(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());v=[int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+    return (sum(x*x for x in v)/max(1,len(v)))**0.5
+full=rms('$WORK/vs_full.wav');half=rms('$WORK/vs_half.wav');zero=rms('$WORK/vs_zero.wav')
+assert full>0, 'full-velocity render silent'
+assert half < full*0.75, '0.5x velocity should be clearly quieter (full=%.0f half=%.0f)'%(full,half)
+assert zero < full*0.05, '0x velocity should be ~silent (full=%.0f zero=%.0f)'%(full,zero)
+assert abs(float('$VVEL')-0.9)<0.02, 'velocity scale must not edit the stored note velocity (got $VVEL, expected 0.90)'
+print('smoke: PASS — clip velocity scale: 0.5x quieter (rms %.0f<%.0f), 0x silent (%.0f), stored velocity untouched (%s)'%(half,full,zero,'$VVEL'))
+" || { echo 'smoke: clip velocity scale wrong' >&2; exit 1; }
 g -d "{\"id\":$CT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
 # Microtuning (Wave 4 #11): a +1200-cent tuning on pitch class 0 raises a C one octave (ZCR

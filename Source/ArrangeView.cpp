@@ -528,6 +528,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 { "Reset (0)", 0 }, { "+2", 2 }, { "+5 (fourth)", 5 }, { "+7 (fifth)", 7 }, { "+12 (octave)", 12 } };
             for (int i = 0; i < 9; ++i) tr.addItem (700 + i, opts[i].first);
             m.addSubMenu ("Transpose", tr);
+            juce::PopupMenu vel;                             // non-destructive playback velocity scale
+            const std::pair<const char*, int> vopts[] = {
+                { "25%", 25 }, { "50%", 50 }, { "75%", 75 }, { "100% (reset)", 100 }, { "125%", 125 }, { "150%", 150 }, { "200%", 200 } };
+            for (int i = 0; i < 7; ++i) vel.addItem (710 + i, vopts[i].first);
+            m.addSubMenu ("Velocity", vel);
         }
         if (! isMidi)                                   // audio-clip level ops
         {
@@ -561,6 +566,12 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             {
                 const int vals[] = { -12, -7, -5, -2, 0, 2, 5, 7, 12 };
                 if (onClipCommand) onClipCommand (t, c, "transpose:" + juce::String (vals[r - 700]));
+                return;
+            }
+            if (r >= 710 && r <= 716)   // Velocity scale <percent> (non-destructive)
+            {
+                const int pcts[] = { 25, 50, 75, 100, 125, 150, 200 };
+                if (onClipCommand) onClipCommand (t, c, "velscale:" + juce::String (pcts[r - 710]));
                 return;
             }
             const char* cmd = r == 1  ? "split"

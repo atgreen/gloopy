@@ -293,6 +293,7 @@ public:
     bool  apiSetClipFades (int trackId, int index, double fadeInBeats, double fadeOutBeats); // audio clip edges
     std::vector<Note> apiGetClipNotes (int trackId, int index);     // read-back for tooling/verification
     bool apiSetClipTranspose (int trackId, int index, int semitones);   // non-destructive playback pitch offset
+    bool apiSetClipVelocity (int trackId, int index, float scale);      // non-destructive playback velocity scale
     juce::String apiExportClipNotesJson (int trackId, int index);   // clip notes -> JSON (copy / ExportNotesJSON)
     int  apiImportClipNotesJson (int trackId, double startBeat, const juce::String& json);   // JSON -> new clip
     bool apiQuantizeClip (int trackId, int index, double grid);     // snap starts to a beat grid

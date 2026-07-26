@@ -195,6 +195,7 @@ message ClipRef            { int32 track_id = 1; int32 index = 2; }
 message NotesJson          { string json = 1; }
 message ImportNotesRequest { int32 track_id = 1; double start_beat = 2; string json = 3; }
 message ClipTransposeRequest { int32 track_id = 1; int32 index = 2; int32 semitones = 3; }
+message ClipVelocityRequest  { int32 track_id = 1; int32 index = 2; float scale = 3; }
 message MoveClipRequest    { int32 track_id = 1; int32 index = 2; double start_beat = 3; optional int32 to_track_id = 4; }
 message AddAudioClipRequest { int32 track_id = 1; double start_beat = 2; string path = 3; float gain = 4; }
 
@@ -388,6 +389,7 @@ service Gloopy {
   rpc ExportNotesJSON (ClipRef)                returns (NotesJson);
   rpc ImportNotesJSON (ImportNotesRequest)     returns (ClipId);
   rpc SetClipTranspose(ClipTransposeRequest)   returns (Ack);   // non-destructive playback pitch offset
+  rpc SetClipVelocity (ClipVelocityRequest)    returns (Ack);   // non-destructive playback velocity scale
   rpc QuantizeClip    (QuantizeRequest)        returns (Ack);
   rpc TransposeClip   (TransposeRequest)       returns (Ack);
   rpc HumanizeClip    (HumanizeRequest)        returns (Ack);

@@ -982,6 +982,14 @@ each shipping with desktop UI + screenshot validation.
       +2/+5/+7/+12, with interval labels). smoke proves +12 doubles a sine's zero-crossing
       rate (1.999), leaves the stored pitch at 69, and survives a composition round-trip;
       screenshot-validated (the submenu).
+    - `[x]` **Non-destructive per-clip velocity scale landed** (commit): a `Clip.velocityScale`
+      (0..2 multiplier) applied to each note's velocity at render time in `collectNotes` — the
+      stored velocities are untouched (the pair to clip transpose; completes non-destructive
+      "clip performance" controls). `apiSetClipVelocity` + SetClipVelocity RPC + Python;
+      serialised in the CLIP ValueTree + composition TOML (omitted when 1.0). **Desktop:** a
+      "Velocity" submenu on the clip right-click menu (25/50/75/100/125/150/200%). smoke proves
+      0.5x exactly halves the render RMS (velocity->amplitude, 442239 vs 884477), 0x renders
+      silent, and the stored note velocity stays 0.90 (via GetClipNotes); screenshot-validated.
     - `[x]` **Scale highlighting landed + screenshot-validated** (commit): `PianoRoll::
       setScale(root,intervals)` builds a 12-pitch-class mask; `paint()` tints in-scale
       rows (chromatic ⇒ off); wired from `apiSetScale` + `refreshUiAfterLoad`. Verified

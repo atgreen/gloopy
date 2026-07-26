@@ -26,6 +26,7 @@ struct Clip
     double contentLenBeats { 4.0 };
     bool   looped          { true };
     int    transpose       { 0 };    // non-destructive playback pitch offset (semitones)
+    float  velocityScale   { 1.0f };  // non-destructive playback velocity multiplier (0..2)
 
     // Audio content (shared so copies are cheap).
     std::shared_ptr<juce::AudioBuffer<float>> audio;

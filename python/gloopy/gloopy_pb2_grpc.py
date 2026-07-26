@@ -330,6 +330,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ClipTransposeRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SetClipVelocity = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetClipVelocity',
+                request_serializer=gloopy__pb2.ClipVelocityRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.QuantizeClip = channel.unary_unary(
                 '/gloopy.v1.Gloopy/QuantizeClip',
                 request_serializer=gloopy__pb2.QuantizeRequest.SerializeToString,
@@ -1175,6 +1180,13 @@ class GloopyServicer:
 
     def SetClipTranspose(self, request, context):
         """non-destructive playback pitch offset
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetClipVelocity(self, request, context):
+        """non-destructive playback velocity scale
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2079,6 +2091,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'SetClipTranspose': grpc.unary_unary_rpc_method_handler(
                     servicer.SetClipTranspose,
                     request_deserializer=gloopy__pb2.ClipTransposeRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetClipVelocity': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetClipVelocity,
+                    request_deserializer=gloopy__pb2.ClipVelocityRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'QuantizeClip': grpc.unary_unary_rpc_method_handler(
@@ -4135,6 +4152,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/SetClipTranspose',
             gloopy__pb2.ClipTransposeRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetClipVelocity(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetClipVelocity',
+            gloopy__pb2.ClipVelocityRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

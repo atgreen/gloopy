@@ -304,6 +304,12 @@ class Gloopy:
         self._ack(self.stub.SetClipTranspose(pb.ClipTransposeRequest(
             track_id=track_id, index=index, semitones=semitones)))
 
+    def set_clip_velocity(self, track_id: int, index: int, scale: float) -> None:
+        """Non-destructive playback velocity scale of a MIDI clip (multiplier 0..2). The
+        stored note velocities are untouched — the scale is applied at render time."""
+        self._ack(self.stub.SetClipVelocity(pb.ClipVelocityRequest(
+            track_id=track_id, index=index, scale=scale)))
+
     def export_notes_json(self, track_id: int, index: int) -> str:
         """A clip's notes as a JSON array string [{pitch,start,length,velocity},...]."""
         return self.stub.ExportNotesJSON(pb.ClipRef(track_id=track_id, index=index)).json

@@ -88,7 +88,7 @@ inline void collectNotes (const std::vector<Note>& notes, juce::MidiBuffer& midi
                           const TempoConv& tc, double repStartBeat,
                           juce::int64 songStart, int tsOffset,
                           juce::int64 winLo, juce::int64 winHi, double swing = 0.5,
-                          int transpose = 0)
+                          int transpose = 0, float velocityScale = 1.0f)
 {
     for (const auto& n : notes)
     {
@@ -96,9 +96,10 @@ inline void collectNotes (const std::vector<Note>& notes, juce::MidiBuffer& midi
         const juce::int64 on  = tc.beatToSample (repStartBeat + startSw);
         const juce::int64 off = tc.beatToSample (repStartBeat + startSw + n.lengthBeats);
         const int pitch = juce::jlimit (0, 127, n.pitch + transpose);   // non-destructive clip transpose
+        const float vel = juce::jlimit (0.0f, 1.0f, n.velocity * velocityScale);   // non-destructive clip velocity scale
 
         if (on >= winLo && on < winHi)
-            midi.addEvent (juce::MidiMessage::noteOn (1, pitch, n.velocity),
+            midi.addEvent (juce::MidiMessage::noteOn (1, pitch, vel),
                            tsOffset + (int) (on - songStart));
 
         if (off >= winLo && off < winHi)

@@ -581,6 +581,27 @@ bool MainComponent::apiSetClipTranspose (int trackId, int index, int semitones)
     });
 }
 
+// Non-destructive playback velocity scale (multiplier) on a MIDI clip — each note's
+// velocity is scaled at render time, stored notes untouched. Clamped to 0..2.
+bool MainComponent::apiSetClipVelocity (int trackId, int index, float scale)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        pushUndoSnapshot();
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+            auto& c = t->clips[(size_t) index];
+            if (c.isAudio()) return false;                       // MIDI clips only
+            c.velocityScale = juce::jlimit (0.0f, 2.0f, scale);
+        }
+        emitChange ("clip_changed", trackId);
+        return true;
+    });
+}
+
 // A clip's notes as a JSON array (see NotesJson.h) — for the ExportNotesJSON RPC and the
 // desktop "Copy notes" gesture. Empty string if the clip is missing / not a note clip.
 juce::String MainComponent::apiExportClipNotesJson (int trackId, int index)
