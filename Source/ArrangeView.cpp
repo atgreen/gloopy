@@ -430,6 +430,8 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 auto* aw = new juce::AlertWindow ("Sampler", "One-shot playback window", juce::MessageBoxIconType::NoIcon);
                 aw->addTextEditor ("start", juce::String (sc.start, 3), "Start (0..1)");
                 aw->addTextEditor ("end",   juce::String (sc.end, 3),   "End (0..1)");
+                aw->addTextEditor ("fadein",  juce::String (sc.fadeIn, 3),  "Fade in (s)");
+                aw->addTextEditor ("fadeout", juce::String (sc.fadeOut, 3), "Fade out (s)");
                 aw->addTextEditor ("root",  juce::String (sc.root),     "Root note");
                 juce::StringArray dir { "Forward", "Reverse" };
                 aw->addComboBox ("dir", dir, "Direction");
@@ -443,9 +445,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                     {
                         const float s   = aw->getTextEditorContents ("start").getFloatValue();
                         const float en  = aw->getTextEditorContents ("end").getFloatValue();
+                        const float fi  = aw->getTextEditorContents ("fadein").getFloatValue();
+                        const float fo  = aw->getTextEditorContents ("fadeout").getFloatValue();
                         const int   rt  = aw->getTextEditorContents ("root").getIntValue();
                         const bool  rev = aw->getComboBoxComponent ("dir")->getSelectedItemIndex() == 1;
-                        onSetSamplerControls (tk, s, en, rev, rt);
+                        onSetSamplerControls (tk, s, en, rev, rt, fi, fo);
                     }
                     delete aw;
                 }), false);

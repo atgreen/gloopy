@@ -947,8 +947,19 @@ each shipping with desktop UI + screenshot validation.
       track header -> "Sampler" prompt (Start/End/Root/Direction), screenshot- AND
       functionally-validated (GUI Apply -> GetSamplerControls shows start=0.5, reverse=true).
       smoke proves reverse + start-trim move an asymmetric sample's tone to the front and the
-      controls round-trip. **Not yet:** loop mode, choke groups, per-voice fades, root-note
-      keyboard-mapped multisamples, interpolation quality, waveform thumbnails/peak cache.
+      controls round-trip.
+    - `[~]` **Per-voice fades landed** (commit): `fadeIn`/`fadeOut` (seconds) on the Sampler —
+      a linear amplitude ramp from the note-on and a linear ramp approaching the end of the
+      voice's playback window (each voice tracks `age`/`life` in output samples). De-clicks a
+      sample trimmed mid-waveform by the playback window. Extended the SAME plumbing as the
+      window slice: `apiSetSamplerControls`/`apiGetSamplerControls` + the SamplerControls
+      proto messages + Python + the ValueTree/composition serialisation + the "Sampler"
+      header prompt (Fade in/out fields). smoke proves a fade-in ramps a steady tone's start
+      (early peak far below the post-fade level, while the no-fade render stays flat) and
+      `fade_in` round-trips; screenshot-validated. Gotcha logged: the render WAV is stereo
+      interleaved (read one channel), and grpcurl emits camelCase JSON keys (`fadeIn`).
+      **Not yet:** loop mode, choke groups, root-note keyboard-mapped multisamples,
+      interpolation quality, waveform thumbnails/peak cache.
 19. **Controller rack / MIDI-learn / parameter linking + MIDI device maps** — a
     source→target mapping view; MIDI-learn for any `ParamModel` id; OSC/API sources as
     mappable controllers; per-mapping scaling/inversion/smoothing/range/bypass;

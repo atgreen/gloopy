@@ -335,6 +335,38 @@ assert '$SC2'=='0.750 1.000 False', 'sampler window did not survive composition 
 print('smoke: PASS — sampler reverse + start-trim move the tone (fwd_early=%d rev_early=%d trim_early=%d), controls round-trip'%(early(fwd),early(rev),early(trim)))
 " || { echo 'smoke: sampler playback window wrong' >&2; exit 1; }
 g -d "{\"id\":$ST}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+# Sampler fade-in (Wave 6 #18): a per-voice amplitude fade ramps the start up from zero.
+# On a constant-amplitude tone, WITH a fade the peak near the start is far below the peak
+# once the fade completes; WITHOUT a fade they're equal (flat). (The render WAV is stereo
+# 24-bit interleaved, so read the left channel only: every other 3-byte sample.)
+python3 -c "
+import wave, struct, math
+w=wave.open('$WORK/tone.wav','w'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(44100)
+w.writeframes(b''.join(struct.pack('<h',int(0.7*math.sin(2*math.pi*330*i/44100)*32767)) for i in range(20000))); w.close()
+"
+FT=$(g -d "{\"name\":\"tone\",\"path\":\"$WORK/tone.wav\",\"root_note\":60}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSamplerTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$FT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":1.0}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/fade_off.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$FT,\"start\":0,\"end\":1,\"reverse\":false,\"root_note\":0,\"fade_in\":0.2,\"fade_out\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSamplerControls >/dev/null
+g -d "{\"path\":\"$WORK/fade_on.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+FADEIN=$(g -d "{\"id\":$FT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetSamplerControls | python3 -c "import json,sys;print('%.3f'%json.load(sys.stdin).get('fadeIn',0))")
+python3 -c "
+import wave
+def rd(p):   # left channel only (stereo 24-bit interleaved -> stride 6 bytes)
+    w=wave.open(p);f=w.readframes(w.getnframes());return [abs(int.from_bytes(f[i:i+3],'little',signed=True)) for i in range(0,len(f),6)]
+off=rd('$WORK/fade_off.wav');on=rd('$WORK/fade_on.wav')
+def pk(x,a,b): return max(x[a:b])
+# 'late' window (~200 ms in) is past the 0.2 s fade; 'early' (~5 ms in) is deep in the ramp.
+off_e,off_l=pk(off,100,300),pk(off,8600,8800)
+on_e,on_l  =pk(on,100,300), pk(on,8600,8800)
+assert off_l>0 and on_l>0, 'sampler rendered silent'
+assert off_e > off_l*0.8, 'no-fade render is not flat at the start (early=%d late=%d)'%(off_e,off_l)
+assert on_e  < on_l*0.4,  'fade-in did not ramp the start up (early=%d late=%d)'%(on_e,on_l)
+assert abs(on_l-off_l) < off_l*0.15, 'fade changed the post-fade level (on=%d off=%d)'%(on_l,off_l)
+assert abs(float('$FADEIN')-0.2)<1e-3, 'fade_in not read back: got $FADEIN'
+print('smoke: PASS — sampler fade-in ramps the start (fade early/late peak %d/%d vs flat %d/%d), fade_in round-trips'%(on_e,on_l,off_e,off_l))
+" || { echo 'smoke: sampler fade-in wrong' >&2; exit 1; }
+g -d "{\"id\":$FT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
 # ParamModel keystone — automation-by-id: an automation lane addresses the SAME ParamModel
 # id a controller/LFO uses (track/<id>/synth/cutoff), written through the shared
