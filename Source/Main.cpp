@@ -66,7 +66,8 @@ public:
                 "Headless commands (no GUI; results on stdout):\n"
                 "  gloopy render <project> [out.wav] [--range <startBeat> <endBeat>]\n"
                 "                                          Bounce the mix (or a beat range) to a WAV\n"
-                "  gloopy export-stems <project> [outdir]  One WAV per instrument track\n"
+                "  gloopy export-stems <project> [outdir] [--range <startBeat> <endBeat>]\n"
+                "                                          One WAV per instrument track (or a beat range)\n"
                 "  gloopy analyze <file.wav>               Loudness report (peak/LUFS/...) as JSON\n"
                 "  gloopy inspect <project>                Project summary as JSON\n"
                 "  gloopy validate <project> [--loudness]  Validate (optionally render + measure)\n"
@@ -359,13 +360,18 @@ public:
                 else    std::cerr << "render: failed to write " << out.getFullPathName() << "\n";
                 rc = ok ? 0 : 1;
             }
-            else if (args[0] == "export-stems")   // export-stems <project> [outdir]: one WAV per instrument track
+            else if (args[0] == "export-stems")   // export-stems <project> [outdir] [--range <s> <e>]
             {
-                auto dir = args.size() >= 3 ? resolve (args[2])
+                const juce::String dirArg = (args.size() >= 3 && ! args[2].startsWith ("--")) ? args[2] : juce::String();
+                auto dir = dirArg.isNotEmpty() ? resolve (dirArg)
                              : resolve (args[1]).getParentDirectory().getChildFile ("stems");
+                double startBeat = 0.0, endBeat = 0.0;
+                const int rr = args.indexOf ("--range");
+                if (rr >= 0 && rr + 2 < args.size())
+                { startBeat = args[rr + 1].getDoubleValue(); endBeat = args[rr + 2].getDoubleValue(); }
                 juce::Array<juce::var> files;
                 { CoutSilencer s; comp->prepareToPlay (512, 44100.0);
-                  for (auto& p : comp->apiExportStems (dir.getFullPathName())) files.add (p); }
+                  for (auto& p : comp->apiExportStems (dir.getFullPathName(), startBeat, endBeat)) files.add (p); }
                 juce::DynamicObject::Ptr o = new juce::DynamicObject();
                 o->setProperty ("stems", juce::var (files));
                 std::cout << juce::JSON::toString (juce::var (o.get())) << std::endl;

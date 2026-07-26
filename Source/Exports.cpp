@@ -47,16 +47,18 @@ bool MainComponent::apiExportLoopRegion (const juce::String& path)
 // Bounce a single track (its clips through its own insert chain, soloed) to a WAV/FLAC —
 // a stem for mixing/collab. Fails if the track id is unknown. Reuses the offline bounce's
 // single-soloed-track path with a short tail so effect tails aren't clipped.
-bool MainComponent::apiExportTrack (int trackId, const juce::String& path)
+bool MainComponent::apiExportTrack (int trackId, const juce::String& path,
+                                    double startBeat, double endBeat)
 {
     if (resolveTrack (trackId) == nullptr) return false;
-    return apiRenderToFile (path, 2.0, 0.0, 0.0, true, trackId);
+    return apiRenderToFile (path, 2.0, startBeat, endBeat, true, trackId);
 }
 
 // Bounce every INSTRUMENT track to its own stem WAV in `dirPath`, named
 // "<id>-<slug>.wav". Returns the list of files written. The engine must already be
 // prepared (the live app always is; the headless CLI calls prepareToPlay first).
-std::vector<juce::String> MainComponent::apiExportStems (const juce::String& dirPath)
+std::vector<juce::String> MainComponent::apiExportStems (const juce::String& dirPath,
+                                                         double startBeat, double endBeat)
 {
     std::vector<juce::String> out;
     juce::File dir (dirPath);
@@ -66,7 +68,7 @@ std::vector<juce::String> MainComponent::apiExportStems (const juce::String& dir
         {
             auto slug = t.name.toLowerCase().retainCharacters ("abcdefghijklmnopqrstuvwxyz0123456789-");
             auto f = dir.getChildFile (juce::String (t.id) + "-" + (slug.isEmpty() ? "track" : slug) + ".wav");
-            if (apiExportTrack (t.id, f.getFullPathName())) out.push_back (f.getFullPathName());
+            if (apiExportTrack (t.id, f.getFullPathName(), startBeat, endBeat)) out.push_back (f.getFullPathName());
         }
     return out;
 }

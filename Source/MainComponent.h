@@ -378,8 +378,10 @@ public:
                           double startBeat = 0.0, double endBeat = 0.0,
                           bool hasTrack = false, int trackId = -1);           // offline bounce / stem
     bool apiExportLoopRegion (const juce::String& path);                      // bounce the current loop window
-    bool apiExportTrack (int trackId, const juce::String& path);             // bounce one track (soloed) to a stem
-    std::vector<juce::String> apiExportStems (const juce::String& dirPath);  // bounce every instrument track to a stem
+    bool apiExportTrack (int trackId, const juce::String& path,
+                         double startBeat = 0.0, double endBeat = 0.0);       // bounce one track (soloed) to a stem
+    std::vector<juce::String> apiExportStems (const juce::String& dirPath,
+                         double startBeat = 0.0, double endBeat = 0.0);       // bounce every instrument track to a stem
 
 private:
     struct EditorPanel : public juce::Component
