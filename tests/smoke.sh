@@ -212,6 +212,32 @@ print('smoke: PASS — MoveTrack up x2 reordered mvA/mvB/mvC -> mvC/mvA/mvB')
 " || { echo 'smoke: move track wrong' >&2; exit 1; }
 for T in $MVA $MVB $MVC; do g -d "{\"id\":$T}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null; done   # isolate
 
+# Duplicate track: a synth track with a 2-note clip -> a "<name> copy" track whose clip
+# carries the same notes. Then a FOLLOW-UP gRPC call must still succeed (the old
+# whole-reload approach corrupted state and crashed the server on the next call).
+g -d "{\"path\":\"$WORK/dup_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+DTA=$(g -d '{"name":"dupsrc","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$DTA,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":0.8},{\"pitch\":64,\"start_beat\":1,\"length_beats\":1,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+DUPID=$(g -d "{\"id\":$DTA}" 127.0.0.1:$PORT gloopy.v1.Gloopy/DuplicateTrack | grep -o '[0-9]\+' | head -1)
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "
+import json,sys
+ts=json.load(sys.stdin)['tracks']
+names=[t.get('name') for t in ts]
+assert names.count('dupsrc')==1 and names.count('dupsrc copy')==1, 'duplicate names wrong: %s'%names
+dup=next(t for t in ts if t.get('name')=='dupsrc copy')
+assert dup.get('clips')==1, 'duplicate clip count wrong: %s'%dup.get('clips')
+print('smoke: PASS — DuplicateTrack cloned dupsrc -> dupsrc copy with its clip')
+" || { echo 'smoke: duplicate track wrong' >&2; exit 1; }
+# the clone's clip carries the source notes (this is where the old reload approach dropped them).
+g -d "{\"track_id\":$DUPID,\"index\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "
+import json,sys
+ps=sorted(n['pitch'] for n in json.load(sys.stdin)['notes'])
+assert ps==[60,64], 'duplicate clip notes wrong (dropped by the clone?): %s'%ps
+print('smoke: PASS — the duplicated track carries the source notes (60,64) + a follow-up RPC succeeded (no crash)')
+" || { echo 'smoke: duplicate notes wrong' >&2; exit 1; }
+g -d "{\"path\":\"$WORK/dup_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+
 # Track polarity (phase invert): two IDENTICAL synth tracks (same note) sum LOUD; inverting
 # one cancels the other to near-silence (synth phase resets on note-on, so they're identical).
 # Snapshot+restore the session since this needs a clean two-track render.

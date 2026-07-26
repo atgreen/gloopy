@@ -388,6 +388,7 @@ service Gloopy {
   // track & clip management
   rpc RemoveTrack     (TrackId)                returns (Ack);
   rpc RenameTrack     (RenameTrackRequest)     returns (Ack);   // rename an existing track
+  rpc DuplicateTrack  (TrackId)                returns (TrackId);   // clone a track (clips + generator + inserts)
   rpc SetTrackColour  (SetTrackColourRequest)  returns (Ack);   // recolour a track
   rpc MoveTrack       (MoveTrackRequest)       returns (Ack);   // reorder a track up/down
   rpc SetTrackPolarity(SetTrackPolarityRequest) returns (Ack);  // phase invert a track

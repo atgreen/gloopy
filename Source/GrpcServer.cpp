@@ -685,6 +685,8 @@ namespace
         Status RenameTrack (ServerContext*, const pb::RenameTrackRequest* q, pb::Ack* r) override
         { const bool ok = main.apiRenameTrack (q->track_id(), js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("rename failed (track not found or empty name)"); return Status::OK; }
+        Status DuplicateTrack (ServerContext*, const pb::TrackId* q, pb::TrackId* r) override
+        { r->set_id (main.apiDuplicateTrack (q->id())); return Status::OK; }   // -1 if the source id is unknown
 
         Status SetTrackColour (ServerContext*, const pb::SetTrackColourRequest* q, pb::Ack* r) override
         { const bool ok = main.apiSetTrackColour (q->track_id(), js (q->colour()));

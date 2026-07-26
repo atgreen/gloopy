@@ -336,6 +336,7 @@ public:
     // track & clip management
     bool apiRemoveTrack (int id);
     bool apiRenameTrack (int id, const juce::String& name);   // rename an existing track
+    int  apiDuplicateTrack (int id);   // clone a track (clips + generator + inserts state); -> new id or -1
     bool apiSetTrackColour (int id, const juce::String& hexArgb);   // recolour a track (8-hex ARGB)
     bool apiMoveTrack (int id, int delta);   // reorder: delta<0 up (toward top), delta>0 down
     bool apiSetTrackPolarity (int id, bool invert);   // phase invert a track's contribution
@@ -548,6 +549,7 @@ private:
     bool loadComposition (const juce::File& dir);
     juce::ValueTree toValueTree();
     void loadFromTree (const juce::ValueTree&);
+    std::unique_ptr<Track> buildTrackFromTree (const juce::ValueTree& tr);   // one TRACK subtree -> a Track (no reload)
     void refreshUiAfterLoad();
 
     GloopyLookAndFeel     lookAndFeel;

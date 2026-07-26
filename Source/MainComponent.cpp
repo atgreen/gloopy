@@ -445,6 +445,12 @@ MainComponent::MainComponent (bool headless)
         apiSetTrackPolarity (tracks[(size_t) trackIdx]->id, invert);   // map view index -> stable API id
     };
 
+    arrangeView->onDuplicateTrack = [this] (int trackIdx)
+    {
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+        apiDuplicateTrack (tracks[(size_t) trackIdx]->id);   // map view index -> stable API id
+    };
+
     arrangeView->onExportTrack = [this] (int trackIdx)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
@@ -1497,6 +1503,31 @@ bool MainComponent::apiRemoveTrack (int id)
         selectClip (-1, -1);
         resized();
         return true;
+    });
+}
+
+int MainComponent::apiDuplicateTrack (int id)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        // Clone the source track's subtree, then build ONE track from it (no full
+        // project reload — the reload path crashes). buildTrackFromTree reconstructs the
+        // generator + clips; addTrack assigns the duplicate its own mixer strip.
+        juce::ValueTree full = toValueTree();
+        auto trks = full.getChildWithName ("TRACKS");
+        juce::ValueTree src;
+        for (int i = 0; i < trks.getNumChildren(); ++i)
+            if ((int) trks.getChild (i).getProperty ("tid", 0) == id) { src = trks.getChild (i); break; }
+        if (! src.isValid()) return -1;
+
+        juce::ValueTree dup = src.createCopy();
+        dup.setProperty ("name", src.getProperty ("name", "Track").toString() + " copy", nullptr);
+        dup.removeProperty ("tid", nullptr);           // let refreshTrackIds assign a fresh stable id
+        auto t = buildTrackFromTree (dup);
+        if (t == nullptr) return -1;
+        t->id = -1;                                    // force a new id (addTrack -> refreshTrackIds)
+        addTrack (std::move (t));                      // own mixer strip, prepare, undo, push, rebuild
+        return tracks.empty() ? -1 : tracks.back()->id;
     });
 }
 
@@ -3719,29 +3750,8 @@ juce::String MainComponent::portableSamplePath (const juce::String& absolute) co
     return absolute;
 }
 
-void MainComponent::loadFromTree (const juce::ValueTree& root)
+std::unique_ptr<Track> MainComponent::buildTrackFromTree (const juce::ValueTree& tr)
 {
-    if (! root.hasType ("GLOOPY")) return;
-
-    closeAllPluginWindows();
-    const juce::ScopedLock sl (engineLock);
-    transport.setPlaying (false);
-    tracks.clear();
-    mixerTracks.clear();
-    controlGroups.clear();
-    locations.clear();
-    exportProfiles.clear();
-    mixerScenes.clear();
-    modulations.clear();
-    tempoMap.clear();
-    controllerMaps.clear();
-    automationLanes.clear();
-    nextTrackId = 1;
-
-    auto trks = root.getChildWithName ("TRACKS");
-    for (int i = 0; i < trks.getNumChildren(); ++i)
-    {
-        auto tr = trks.getChild (i);
         const int ttype = (int) tr.getProperty ("type", (int) TrackType::Instrument);
         const juce::String genType = tr.getProperty ("gen", "Synth").toString();
         std::unique_ptr<Generator> gen;
@@ -3905,8 +3915,31 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             }
             t->clips.push_back (std::move (c));
         }
-        tracks.push_back (std::move (t));
-    }
+    return t;
+}
+
+void MainComponent::loadFromTree (const juce::ValueTree& root)
+{
+    if (! root.hasType ("GLOOPY")) return;
+
+    closeAllPluginWindows();
+    const juce::ScopedLock sl (engineLock);
+    transport.setPlaying (false);
+    tracks.clear();
+    mixerTracks.clear();
+    controlGroups.clear();
+    locations.clear();
+    exportProfiles.clear();
+    mixerScenes.clear();
+    modulations.clear();
+    tempoMap.clear();
+    controllerMaps.clear();
+    automationLanes.clear();
+    nextTrackId = 1;
+
+    auto trks = root.getChildWithName ("TRACKS");
+    for (int i = 0; i < trks.getNumChildren(); ++i)
+        tracks.push_back (buildTrackFromTree (trks.getChild (i)));
 
     auto mx = root.getChildWithName ("MIXER");
     if (mx.getNumChildren() > 0)

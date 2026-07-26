@@ -1192,11 +1192,20 @@ each shipping with desktop UI + screenshot validation.
   "Flatten velocity ▸ Flat 100%/75%/50%/25%" submenu on the MIDI-clip menu. `GloopyTests::NoteEdits`
   pins it (0.3/0.9/0.6 → all 0.5, pitch/timing kept, out-of-range clamped); smoke drives
   FlattenClipVelocity 0.5 → GetClipNotes velocities all 0.5; screenshot-validated (the submenu).
-- **Duplicate track — STILL DEFERRED (measured):** the loader per-track block is lines 3706-3871
-  (~165 lines building generator + clips + automation), interwoven with device prep. Factoring it
-  into a reusable `readTrackFromTree` helper risks ALL project loads, and a true clone also needs
-  its own mixer strip. This is a legitimate multi-session slice — do the save/load helper extraction
-  carefully with the round-trip smoke as the net; don't rush it into a short tick.
+- `[x]` **Duplicate track landed** (commit) — the deferred high-value item, done safely. Extracted
+  the loader's per-track block into `buildTrackFromTree(ValueTree) -> unique_ptr<Track>` (a
+  MECHANICAL move via a brace-matching python script — no hand transcription; the full smoke suite,
+  which load/saves projects everywhere, proved it behavior-identical). `apiDuplicateTrack(id)` then
+  clones the source's TRACK subtree in `toValueTree()`, drops its `tid`, appends " copy" to the
+  name, builds ONE track via the helper and `addTrack`s it (which assigns the clone its own mixer
+  strip + a fresh id) — **no full `loadFromTree` reload** (that was the crash last attempt).
+  DuplicateTrack RPC (TrackId->TrackId) + Python `duplicate_track`. **Desktop:** "Duplicate track"
+  on the track-header menu. smoke: a synth track with a 2-note clip -> "dupsrc copy" with clips=1,
+  its clip carries notes 60/64, AND a follow-up GetClipNotes succeeds (the old reload approach
+  dropped the notes then crashed the server on the next call — both now fixed). Screenshot-validated
+  (right-click Lead -> Duplicate track -> a "Lead copy" track appears). Follow-up: the clone gets a
+  fresh EMPTY mixer strip (its inserts aren't copied) — copying the source's insert chain is a later
+  slice.
 
 16. **Browser sidebar + demo/template browser + `File → New From Template`** *(Idea
     #1/#2; absorbs remaining preset UI/work).* **L**

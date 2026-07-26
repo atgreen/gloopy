@@ -195,6 +195,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.RenameTrackRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.DuplicateTrack = channel.unary_unary(
+                '/gloopy.v1.Gloopy/DuplicateTrack',
+                request_serializer=gloopy__pb2.TrackId.SerializeToString,
+                response_deserializer=gloopy__pb2.TrackId.FromString,
+                _registered_method=True)
         self.SetTrackColour = channel.unary_unary(
                 '/gloopy.v1.Gloopy/SetTrackColour',
                 request_serializer=gloopy__pb2.SetTrackColourRequest.SerializeToString,
@@ -1140,6 +1145,13 @@ class GloopyServicer:
 
     def RenameTrack(self, request, context):
         """rename an existing track
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DuplicateTrack(self, request, context):
+        """clone a track (clips + generator + inserts)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2280,6 +2292,11 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.RenameTrack,
                     request_deserializer=gloopy__pb2.RenameTrackRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'DuplicateTrack': grpc.unary_unary_rpc_method_handler(
+                    servicer.DuplicateTrack,
+                    request_deserializer=gloopy__pb2.TrackId.FromString,
+                    response_serializer=gloopy__pb2.TrackId.SerializeToString,
             ),
             'SetTrackColour': grpc.unary_unary_rpc_method_handler(
                     servicer.SetTrackColour,
@@ -3882,6 +3899,33 @@ class Gloopy:
             '/gloopy.v1.Gloopy/RenameTrack',
             gloopy__pb2.RenameTrackRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DuplicateTrack(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/DuplicateTrack',
+            gloopy__pb2.TrackId.SerializeToString,
+            gloopy__pb2.TrackId.FromString,
             options,
             channel_credentials,
             insecure,

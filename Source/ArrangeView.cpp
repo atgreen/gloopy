@@ -494,6 +494,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 cm.addItem (10 + i, kColours[i].first);
             m.addSubMenu ("Colour", cm);
             m.addSeparator();
+            m.addItem (8, "Duplicate track");                   // clone clips + generator + inserts
             m.addItem (3, "Move up",   tk > 0);
             m.addItem (4, "Move down", tk < numTracks - 1);
             m.addItem (5, "Invert phase", true, curPolarity);   // checkable polarity flip
@@ -510,6 +511,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 else if (r == 4) { if (onMoveTrack) onMoveTrack (tk, +1); }   // down
                 else if (r == 5) { if (onSetTrackPolarity) onSetTrackPolarity (tk, ! curPolarity); }   // toggle phase
                 else if (r == 6) { if (onExportTrack) onExportTrack (tk); }   // export stem
+                else if (r == 8) { if (onDuplicateTrack) onDuplicateTrack (tk); }   // clone track
                 else if (r == 1)
                 {
                     auto* rw = new juce::AlertWindow ("Rename track", "New track name", juce::MessageBoxIconType::NoIcon);

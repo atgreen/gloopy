@@ -212,6 +212,11 @@ class Gloopy:
         """Rename an existing track. Empty/whitespace names are rejected."""
         self._ack(self.stub.RenameTrack(pb.RenameTrackRequest(track_id=track_id, name=name)))
 
+    def duplicate_track(self, track_id: int) -> int:
+        """Clone a track — its clips, generator/instrument and insert state — as a new
+        '<name> copy' track with its own mixer strip. Returns the new track id (-1 if unknown)."""
+        return self.stub.DuplicateTrack(pb.TrackId(id=track_id)).id
+
     def list_tracks(self) -> list[dict]:
         r = self.stub.ListTracks(pb.Empty())
         return [{"id": t.id, "name": t.name, "type": t.type, "volume": t.volume,
