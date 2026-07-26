@@ -47,21 +47,38 @@ bool MainComponent::apiExportMidi (const juce::String& path)
                 nameEv.setTimeStamp (0.0);
                 seq.addEvent (nameEv);
 
+                // Emit a note-on/off pair at absolute beats.
+                auto emit = [&] (double onBeat, int pitch, float velocity, double len)
+                {
+                    const int vel = juce::jlimit (1, 127, (int) std::lround (velocity * 127.0f));
+                    auto on = juce::MidiMessage::noteOn (1, pitch, (juce::uint8) vel);
+                    on.setTimeStamp (onBeat * kTPQN);
+                    auto off = juce::MidiMessage::noteOff (1, pitch);
+                    off.setTimeStamp ((onBeat + juce::jmax (0.01, len)) * kTPQN);
+                    seq.addEvent (on); seq.addEvent (off);
+                    ++noteCount;
+                };
+
                 for (auto& c : t->clips)
                 {
                     if (c.isAudio()) continue;
-                    for (auto& n : c.notes)
+                    // A LOOPED clip tiles its content window across its arrangement length, so the
+                    // export matches playback (previously only one iteration was written). Notes are
+                    // clamped so they don't ring past the clip end. A one-shot clip emits once.
+                    if (c.looped && c.contentLenBeats > 0.0 && c.contentLenBeats < c.lengthBeats - 1.0e-6)
                     {
-                        const double onBeat  = c.startBeat + n.startBeat;
-                        const double offBeat = onBeat + juce::jmax (0.01, n.lengthBeats);
-                        const int vel = juce::jlimit (1, 127, (int) std::lround (n.velocity * 127.0f));
-                        auto on = juce::MidiMessage::noteOn (1, n.pitch, (juce::uint8) vel);
-                        on.setTimeStamp (onBeat * kTPQN);
-                        auto off = juce::MidiMessage::noteOff (1, n.pitch);
-                        off.setTimeStamp (offBeat * kTPQN);
-                        seq.addEvent (on); seq.addEvent (off);
-                        ++noteCount;
+                        for (double off = 0.0; off < c.lengthBeats - 1.0e-6; off += c.contentLenBeats)
+                            for (auto& n : c.notes)
+                            {
+                                const double localOn = off + n.startBeat;
+                                if (localOn >= c.lengthBeats - 1.0e-6) continue;   // starts at/after the clip end
+                                emit (c.startBeat + localOn, n.pitch, n.velocity,
+                                      juce::jmin (n.lengthBeats, c.lengthBeats - localOn));
+                            }
                     }
+                    else
+                        for (auto& n : c.notes)
+                            emit (c.startBeat + n.startBeat, n.pitch, n.velocity, n.lengthBeats);
                 }
                 seq.updateMatchedPairs();
                 mf.addTrack (seq);

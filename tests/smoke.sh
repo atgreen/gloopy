@@ -1753,6 +1753,22 @@ CLIPS=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import
 g -d "{\"path\":\"$WORK/rt2.wav\",\"tail_seconds\":0.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
 python3 -c "import wave;w=wave.open('$WORK/rt2.wav');n=w.getnframes();f=w.readframes(n);pk=max(abs(int.from_bytes(f[i:i+3],'little',signed=True))/(1<<23) for i in range(0,len(f),3));assert pk>0.02,'imported MIDI renders silent'"
 echo "smoke: PASS — MIDI import round-trip (clips=$CLIPS, renders non-silent)"
+# MIDI export loop-expansion: a LOOPED clip (2-beat content, notes at 0/1, tiled over a 4-beat
+# clip) must export its TILED notes (0/1/2/3), not just one content window, so the .mid matches
+# playback. Fresh project (isolate) -> export -> fresh project -> import -> the 4 tiled notes.
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+LXT=$(g -d '{"name":"looptk","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$LXT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":2,\"looped\":true,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":0.5,\"velocity\":0.9},{\"pitch\":62,\"start_beat\":1,\"length_beats\":0.5,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/loop.mid\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/ExportMidi >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+g -d "{\"path\":\"$WORK/loop.mid\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/ImportMidi >/dev/null
+LXTID=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print([t['id'] for t in json.load(sys.stdin)['tracks']][0])")
+g -d "{\"track_id\":$LXTID,\"index\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "
+import json,sys
+ns=sorted((round(n.get('startBeat',0),3),n['pitch']) for n in json.load(sys.stdin)['notes'])
+assert ns==[(0.0,60),(1.0,62),(2.0,60),(3.0,62)], 'exported loop not tiled: %s'%ns
+print('smoke: PASS — MIDI export tiled the looped clip (2-beat content over 4 beats -> notes 0/1/2/3)')
+" || { echo 'smoke: MIDI export loop-expansion wrong' >&2; exit 1; }
 
 # Audio import (ImportAudio): load the WAV just rendered as a new audio track. Audio
 # import was GUI-only before; this exercises the RPC that the + Audio button now shares.

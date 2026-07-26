@@ -374,8 +374,17 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      `apiAddSynthTrack`/`apiAddClip`. RPCs `ExportMidi`/`ImportMidi` (FilePath) +
      Python `export_midi`/`import_midi`. Verified export→import→re-export round-trip
      (bpm + notes survive, renders); smoke.sh asserts SMF magic + reimport→clips→
-     non-silent. **Not yet:** loop-expansion on export, multi-channel/CC import,
-     per-clip (not per-track) granularity.
+     non-silent.
+   - `[x]` **MIDI export loop-expansion + desktop control landed** (commit): `apiExportMidi`
+     now TILES a looped clip's content window across its arrangement length (mirroring
+     collectNotes/consolidate — notes clamped so they don't ring past the clip end), so the
+     exported .mid matches playback; a one-shot clip still emits once (unchanged). Also closed a
+     UI gap: MIDI export was API-only (import had a File-menu item, export didn't) — added a
+     "Export MIDI File..." item to the File menu (save FileChooser → apiExportMidi, defaults the
+     .mid extension). smoke proves a 2-beat-content/4-beat looped clip exports its tiled notes
+     (0/1/2/3, not just 0/1) via export→NewProject→import→GetClipNotes; screenshot-validated
+     (the File menu item). **Not yet:** multi-channel/CC import, per-clip (not per-track)
+     granularity.
    - `[x]` **Notes JSON + clipboard copy/paste landed** (commit): `ExportNotesJSON` emits a
      clip's notes as a compact JSON array `[{pitch,start,length,velocity},...]`;
      `ImportNotesJSON` builds a new clip on a track at a beat from that JSON (clip length =

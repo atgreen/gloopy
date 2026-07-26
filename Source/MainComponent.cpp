@@ -2920,6 +2920,7 @@ void MainComponent::showFileMenu()
     menu.addItem (4, "Save As .gloopy...");
     menu.addItem (7, "Save As Composition...");
     menu.addItem (10, "Save as Template...");
+    menu.addItem (13, "Export MIDI File...");          // whole project -> .mid (loops tiled)
     menu.addSeparator();
     menu.addItem (11, "Load Tuning (.scl)...");        // Scala microtuning file
     bool tuned = false; for (double c : projectTuning) if (c != 0.0) tuned = true;
@@ -2971,6 +2972,20 @@ void MainComponent::showFileMenu()
                         if (apiImportMidi (f.getFullPathName()) <= 0)
                             juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
                                 "Import MIDI", "No importable note tracks were found in\n" + f.getFileName());
+                    });
+            }
+            else if (result == 13)   // Export the whole project to a standard MIDI file
+            {
+                fileChooser = std::make_unique<juce::FileChooser> ("Export MIDI file", juce::File(), "*.mid");
+                fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
+                    [this] (const juce::FileChooser& fc)
+                    {
+                        auto f = fc.getResult();
+                        if (f == juce::File()) return;
+                        if (f.getFileExtension().isEmpty()) f = f.withFileExtension ("mid");
+                        if (! apiExportMidi (f.getFullPathName()))
+                            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                "Export MIDI", "Could not write\n" + f.getFileName());
                     });
             }
             else if (result == 3)   // Save — same format the project was opened as
