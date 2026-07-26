@@ -293,6 +293,19 @@ print('smoke: PASS — ExportTrack stem A non-silent (%.3f), empty track B silen
 " || { echo 'smoke: export track wrong' >&2; exit 1; }
 g -d "{\"path\":\"$WORK/stem_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 
+# Export stems (all instrument tracks -> a folder): 2 note-bearing synth tracks -> 2 WAVs.
+g -d "{\"path\":\"$WORK/stems_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+SSA=$(g -d '{"name":"ssA","wave":"SAW","attack":0.005,"decay":0.05,"sustain":0.9,"release":0.05,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+SSB=$(g -d '{"name":"ssB","wave":"SQUARE","attack":0.005,"decay":0.05,"sustain":0.9,"release":0.05,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$SSA,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":2,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"track_id\":$SSB,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":false,\"notes\":[{\"pitch\":64,\"start_beat\":0,\"length_beats\":2,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+rm -rf "$WORK/stems_out"
+g -d "{\"path\":\"$WORK/stems_out\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/ExportStems >/dev/null
+NW=$(ls "$WORK/stems_out"/*.wav 2>/dev/null | wc -l)
+[ "$NW" -ge 2 ] && echo "smoke: PASS — ExportStems wrote $NW stem WAVs (one per instrument track)" || { echo "smoke: export stems wrong ($NW files)" >&2; exit 1; }
+g -d "{\"path\":\"$WORK/stems_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+
 # Rename mixer strip (insert): rename the highest-index strip -> ListInserts shows the new
 # name, and it survives a composition round-trip (MTRACK name serialises). Snapshot+restore.
 g -d "{\"path\":\"$WORK/insn_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null

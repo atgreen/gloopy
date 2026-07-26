@@ -3088,6 +3088,7 @@ void MainComponent::showFileMenu()
     menu.addItem (13, "Export MIDI File...");          // whole project -> .mid (loops tiled)
     menu.addItem (14, "Export Audio (WAV)...");        // whole mix -> offline WAV bounce
     menu.addItem (15, "Export Loop Region (WAV)...", transport.isLoopEnabled());   // just the loop selection
+    menu.addItem (16, "Export Stems (WAV)...");        // one WAV per instrument track -> a folder
     menu.addSeparator();
     menu.addItem (11, "Load Tuning (.scl)...");        // Scala microtuning file
     bool tuned = false; for (double c : projectTuning) if (c != 0.0) tuned = true;
@@ -3179,6 +3180,25 @@ void MainComponent::showFileMenu()
                                 if (! *ok)
                                     juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
                                         "Export Audio", "Could not write\n" + f.getFileName());
+                            });
+                    });
+            }
+            else if (result == 16)   // Export one WAV per instrument track into a chosen folder
+            {
+                fileChooser = std::make_unique<juce::FileChooser> ("Export stems to folder", juce::File());
+                fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectDirectories,
+                    [this] (const juce::FileChooser& fc)
+                    {
+                        auto d = fc.getResult();
+                        if (d == juce::File()) return;
+                        const auto dir = d.getFullPathName();
+                        auto count = std::make_shared<int> (0);
+                        runBackground ("Exporting stems…",
+                            [this, dir, count] { *count = (int) apiExportStems (dir).size(); },
+                            [this, count]
+                            {
+                                juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+                                    "Export Stems", juce::String (*count) + (*count == 1 ? " stem written." : " stems written."));
                             });
                     });
             }

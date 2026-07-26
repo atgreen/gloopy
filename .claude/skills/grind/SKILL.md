@@ -1124,6 +1124,14 @@ each shipping with desktop UI + screenshot validation.
   message thread via runBackground + busy overlay. smoke: a track with a note bounces non-silent
   (0.205) while an EMPTY track's stem is silent (0.00000) — proving the stem is isolated to its
   target, not the whole mix. Screenshot-validated (the menu item is present).
+- `[x]` **Export stems (all tracks) — desktop + API landed** (commit): factored the CLI
+  export-stems loop into `apiExportStems(dir)` (bounces every instrument track to `<id>-<slug>.wav`
+  via apiExportTrack; returns the file list) and reused it in `gloopy export-stems` (no behavior
+  change — CLI smoke still green). New ExportStems RPC (`FilePath` dir → Ack, ok if ≥1 stem) +
+  Python `export_stems`. **Desktop:** File → "Export Stems (WAV)..." → folder chooser → renders off
+  the message thread via runBackground, then reports the count. smoke: 2 note-bearing synth tracks →
+  ExportStems → 2 WAVs on disk. Screenshot-validated (the File-menu item, completing the export
+  group: MIDI / Audio / Loop Region / Stems).
 - `[x]` **Rename mixer strip landed** (commit): first direct MixerView slice — mixer strips were
   labelled generically ("Ins N") with no way to rename them. `apiSetInsertName(index,name)`
   (message-thread, undo, rejects empty) + SetInsertName RPC (`InsertName`) + Python

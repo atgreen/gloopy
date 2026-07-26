@@ -235,18 +235,9 @@ public:
             {
                 auto dir = args.size() >= 3 ? resolve (args[2])
                              : resolve (args[1]).getParentDirectory().getChildFile ("stems");
-                dir.createDirectory();
                 juce::Array<juce::var> files;
                 { CoutSilencer s; comp->prepareToPlay (512, 44100.0);
-                  for (auto& t : comp->apiListTracks())
-                      if (t.type == "instrument")
-                      {
-                          auto slug = t.name.toLowerCase().retainCharacters ("abcdefghijklmnopqrstuvwxyz0123456789-");
-                          auto f = dir.getChildFile (juce::String (t.id) + "-" + (slug.isEmpty() ? "track" : slug) + ".wav");
-                          if (comp->apiRenderToFile (f.getFullPathName(), 2.0, 0.0, 0.0, true, t.id))
-                              files.add (f.getFullPathName());
-                          else rc = 1;
-                      } }
+                  for (auto& p : comp->apiExportStems (dir.getFullPathName())) files.add (p); }
                 juce::DynamicObject::Ptr o = new juce::DynamicObject();
                 o->setProperty ("stems", juce::var (files));
                 std::cout << juce::JSON::toString (juce::var (o.get())) << std::endl;

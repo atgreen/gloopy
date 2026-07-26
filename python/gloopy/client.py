@@ -865,6 +865,10 @@ class Gloopy:
         """Bounce a single track (through its own insert chain, soloed) to a WAV/FLAC stem."""
         self._ack(self.stub.ExportTrack(pb.ExportTrackRequest(track_id=track_id, path=path)))
 
+    def export_stems(self, directory: str) -> None:
+        """Bounce every instrument track to its own stem WAV (<id>-<slug>.wav) in `directory`."""
+        self._ack(self.stub.ExportStems(pb.FilePath(path=directory)))
+
     def import_midi(self, path: str) -> None:
         """Load a standard MIDI file as synth tracks + clips."""
         self._ack(self.stub.ImportMidi(pb.FilePath(path=path)))

@@ -53,6 +53,24 @@ bool MainComponent::apiExportTrack (int trackId, const juce::String& path)
     return apiRenderToFile (path, 2.0, 0.0, 0.0, true, trackId);
 }
 
+// Bounce every INSTRUMENT track to its own stem WAV in `dirPath`, named
+// "<id>-<slug>.wav". Returns the list of files written. The engine must already be
+// prepared (the live app always is; the headless CLI calls prepareToPlay first).
+std::vector<juce::String> MainComponent::apiExportStems (const juce::String& dirPath)
+{
+    std::vector<juce::String> out;
+    juce::File dir (dirPath);
+    dir.createDirectory();
+    for (auto& t : apiListTracks())
+        if (t.type == "instrument")
+        {
+            auto slug = t.name.toLowerCase().retainCharacters ("abcdefghijklmnopqrstuvwxyz0123456789-");
+            auto f = dir.getChildFile (juce::String (t.id) + "-" + (slug.isEmpty() ? "track" : slug) + ".wav");
+            if (apiExportTrack (t.id, f.getFullPathName())) out.push_back (f.getFullPathName());
+        }
+    return out;
+}
+
 bool MainComponent::apiDefineExportProfile (const juce::String& name, const juce::String& target,
                                             const juce::String& rangeName, const juce::String& format,
                                             int trackId, double tailSeconds)

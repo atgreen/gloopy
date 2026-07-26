@@ -880,6 +880,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ExportTrackRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.ExportStems = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ExportStems',
+                request_serializer=gloopy__pb2.FilePath.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.ImportMidi = channel.unary_unary(
                 '/gloopy.v1.Gloopy/ImportMidi',
                 request_serializer=gloopy__pb2.FilePath.SerializeToString,
@@ -2023,6 +2028,13 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ExportStems(self, request, context):
+        """bounce every instrument track to a stem WAV in a dir
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ImportMidi(self, request, context):
         """SMF -> synth tracks + clips
         """
@@ -2904,6 +2916,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'ExportTrack': grpc.unary_unary_rpc_method_handler(
                     servicer.ExportTrack,
                     request_deserializer=gloopy__pb2.ExportTrackRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ExportStems': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExportStems,
+                    request_deserializer=gloopy__pb2.FilePath.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'ImportMidi': grpc.unary_unary_rpc_method_handler(
@@ -7495,6 +7512,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/ExportTrack',
             gloopy__pb2.ExportTrackRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ExportStems(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ExportStems',
+            gloopy__pb2.FilePath.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

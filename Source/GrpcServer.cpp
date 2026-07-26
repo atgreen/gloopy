@@ -611,6 +611,9 @@ namespace
         Status ExportTrack (ServerContext*, const pb::ExportTrackRequest* q, pb::Ack* r) override
         { const bool ok = main.apiExportTrack (q->track_id(), js (q->path()));
           r->set_ok (ok); if (! ok) r->set_error ("track export failed (track not found)"); return Status::OK; }
+        Status ExportStems (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        { const bool ok = ! main.apiExportStems (js (q->path())).empty();
+          r->set_ok (ok); if (! ok) r->set_error ("stem export failed (no instrument tracks?)"); return Status::OK; }
         Status ImportMidi (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
         { const int n = main.apiImportMidi (js (q->path()));
           r->set_ok (n >= 0); if (n < 0) r->set_error ("midi import failed (unreadable or not a MIDI file)"); return Status::OK; }
