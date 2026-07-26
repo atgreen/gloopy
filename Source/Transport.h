@@ -17,7 +17,9 @@ public:
     void prepare (double sr) noexcept          { sampleRate = sr; }
     double getSampleRate() const noexcept      { return sampleRate; }
 
-    void   setBpm (double b) noexcept          { bpm = b; }
+    // Ignore invalid tempos (NaN/inf from untrusted OSC, or <= 0 which would divide by zero in
+    // samplesPerBeat) — keep the last good value rather than poison playback.
+    void   setBpm (double b) noexcept          { if (std::isfinite (b) && b > 0.0) bpm = b; }
     double getBpm() const noexcept             { return bpm.load(); }
 
     void   setSwing (double s) noexcept        { swing = juce::jlimit (0.5, 0.9, s); }
@@ -60,7 +62,8 @@ public:
     bool consumeReset() noexcept               { return resetRequested.exchange (false); }
 
     /** Seek the playhead (from dragging it) to a beat position. */
-    void requestSeek (double beats) noexcept   { seekBeats = beats; seekRequested = true; }
+    void requestSeek (double beats) noexcept   // reject NaN/inf; the timeline starts at 0
+    { if (std::isfinite (beats)) { seekBeats = juce::jmax (0.0, beats); seekRequested = true; } }
     bool consumeSeek (double& outBeats) noexcept
     {
         if (! seekRequested.exchange (false)) return false;

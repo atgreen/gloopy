@@ -110,7 +110,7 @@ private:
 
         if (cmd == "note" && m.size() >= 2)
         {
-            const int pitch = argI (m[0]);
+            const int pitch = juce::jlimit (0, 127, argI (m[0]));   // clamp untrusted OSC to a valid note
             const int vel   = argI (m[1]);
             const auto msg = vel > 0 ? juce::MidiMessage::noteOn  (1, pitch, (juce::uint8) juce::jlimit (1, 127, vel))
                                      : juce::MidiMessage::noteOff (1, pitch);
@@ -121,7 +121,7 @@ private:
         else if (cmd == "cc" && m.size() >= 2)
         {
             t->liveMidi.addMessageToQueue (juce::MidiMessage::controllerEvent (
-                1, argI (m[0]), juce::jlimit (0, 127, (int) (argF (m[1]) * 127.0f))));
+                1, juce::jlimit (0, 127, argI (m[0])), juce::jlimit (0, 127, (int) (argF (m[1]) * 127.0f))));
         }
         else if (cmd == "vol"  && m.size() >= 1) t->volume.store (juce::jlimit (0.0f, 1.0f, argF (m[0])));
         else if (cmd == "pan"  && m.size() >= 1) t->pan.store (juce::jlimit (-1.0f, 1.0f, argF (m[0])));
