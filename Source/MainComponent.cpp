@@ -369,6 +369,7 @@ MainComponent::MainComponent (bool headless)
             apiSwingClip (id, clip, a.upToFirstOccurrenceOf (",", false, false).getDoubleValue(),
                           (float) a.fromFirstOccurrenceOf (",", false, false).getDoubleValue());
         }
+        else if (cmd.startsWith ("chordify:")) apiChordifyClip (id, clip, cmd.substring (9).getIntValue());
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")

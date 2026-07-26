@@ -743,6 +743,21 @@ bool MainComponent::apiHarmonizeClip (int trackId, int index, int semitones)
 bool MainComponent::apiSwingClip (int trackId, int index, double grid, float amount)
 { GLOOPY_EDIT_CLIP_NOTES (swingNotes (notes, grid, amount)) }
 
+bool MainComponent::apiChordifyClip (int trackId, int index, int chordType)
+{
+    // 0 major, 1 minor, 2 dom7, 3 diminished, 4 sus4 (intervals in semitones above the root).
+    std::vector<int> iv;
+    switch (chordType)
+    {
+        case 1:  iv = { 3, 7 };     break;   // minor triad
+        case 2:  iv = { 4, 7, 10 }; break;   // dominant 7th
+        case 3:  iv = { 3, 6 };     break;   // diminished triad
+        case 4:  iv = { 5, 7 };     break;   // sus4
+        default: iv = { 4, 7 };     break;   // major triad
+    }
+    GLOOPY_EDIT_CLIP_NOTES (chordifyNotes (notes, iv))
+}
+
 bool MainComponent::apiSplitNotesAtBeat (int trackId, int index, double beat)
 { GLOOPY_EDIT_CLIP_NOTES (splitNotesAtBeat (notes, beat)) }
 

@@ -423,6 +423,26 @@ struct NoteEditTests : juce::UnitTest
             expectWithinAbsoluteError (st[0].startBeat, 0.5, 1e-9);
         }
 
+        beginTest ("chordify builds a named chord from each root, keeping the root");
+        {
+            // major triad {+4,+7} on middle C -> C/E/G (60/64/67), timing/velocity kept.
+            std::vector<Note> ns { {60,0.0,1.0f,0.8f} };
+            chordifyNotes (ns, { 4, 7 });
+            expect (ns.size() == 3);
+            std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b) { return a.pitch < b.pitch; });
+            expect (ns[0].pitch == 60 && ns[1].pitch == 64 && ns[2].pitch == 67);
+            for (auto& n : ns) { expectWithinAbsoluteError (n.startBeat, 0.0, 1e-9);
+                                 expect (n.lengthBeats == 1.0f && n.velocity == 0.8f); }
+            // dominant 7th {+4,+7,+10} -> 4 voices.
+            std::vector<Note> d7 { {50,0,1,0.6f} };
+            chordifyNotes (d7, { 4, 7, 10 });
+            expect (d7.size() == 4);
+            // a voice off the top is dropped (124 + 7 = 131 > 127), root + the in-range voice survive.
+            std::vector<Note> hi { {124,0,1,0.5f} };
+            chordifyNotes (hi, { 3, 7 });   // 127 ok, 131 dropped
+            expect (hi.size() == 2 && hi[0].pitch == 124 && hi[1].pitch == 127);
+        }
+
         beginTest ("melodic inversion mirrors pitches around the earliest note; timing kept");
         {
             std::vector<Note> ns { {60,0,1,0.8f}, {64,1,1,0.7f}, {67,2,0.5f,0.6f} };

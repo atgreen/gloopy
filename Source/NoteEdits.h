@@ -213,6 +213,27 @@ inline void harmonizeNotes (std::vector<Note>& notes, int semitones)
     }
 }
 
+/** Chordify: turn every note into a full chord by adding a voice at each interval in
+    `intervals` (semitones above the note — the root stays as the played note). E.g. a major
+    triad is {4,7}, a dominant 7th {4,7,10}. Added voices share the note's start/length/
+    velocity; a voice off the 0..127 keyboard is dropped. Generalises harmonize (one interval)
+    to a named chord. Size-changing; the originals are kept as the chord roots. */
+inline void chordifyNotes (std::vector<Note>& notes, const std::vector<int>& intervals)
+{
+    if (intervals.empty()) return;
+    const std::vector<Note> src (notes);                    // snapshot (we append)
+    for (const auto& n : src)
+        for (const int iv : intervals)
+        {
+            if (iv == 0) continue;                          // 0 = the root, already present
+            const int p = n.pitch + iv;
+            if (p < 0 || p > 127) continue;                 // off the keyboard — drop this voice
+            Note h = n;
+            h.pitch = p;
+            notes.push_back (h);
+        }
+}
+
 /** MIDI echo / delay: append `repeats` decaying copies of every note, each `delayBeats`
     later than the last, with velocity multiplied by `feedback` each step (copies that fade
     below ~1% are dropped). The originals are kept; pitch and length are preserved. A

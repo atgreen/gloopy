@@ -616,6 +616,13 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             sw.addItem (774, "1/16 medium");
             sw.addItem (775, "1/16 heavy");
             m.addSubMenu ("Swing", sw);
+            juce::PopupMenu cd;                            // chordify: turn each note into a named chord
+            cd.addItem (780, "Major");
+            cd.addItem (781, "Minor");
+            cd.addItem (782, "Dominant 7th");
+            cd.addItem (783, "Diminished");
+            cd.addItem (784, "Sus4");
+            m.addSubMenu ("Chord", cd);
         }
         if (! isMidi)                                   // audio-clip level ops
         {
@@ -704,6 +711,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 const double grid = r <= 772 ? 0.5 : 0.25;
                 const float  amt  = (r == 770 || r == 773) ? 0.2f : (r == 771 || r == 774) ? 0.33f : 0.5f;
                 if (onClipCommand) onClipCommand (t, c, "swing:" + juce::String (grid) + "," + juce::String (amt));
+                return;
+            }
+            if (r >= 780 && r <= 784)   // Chord: major/minor/dom7/dim/sus4
+            {
+                if (onClipCommand) onClipCommand (t, c, "chordify:" + juce::String (r - 780));
                 return;
             }
             const char* cmd = r == 1  ? "split"

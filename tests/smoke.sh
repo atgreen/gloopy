@@ -1115,6 +1115,16 @@ ns=sorted((round(n.get('startBeat',0),4),n['pitch']) for n in json.load(sys.stdi
 assert ns==[(0.0,60),(0.665,62),(1.0,64),(1.665,65)], 'swing wrong: %s'%ns
 print('smoke: PASS — SwingClip 1/8 0.33 delayed off-beats (0.5/1.5 -> 0.665/1.665), on-beats kept')
 " || { echo 'smoke: swing wrong' >&2; exit 1; }
+# Chordify: a single middle-C note, major triad (type 0) -> C/E/G (60/64/67) at beat 0.
+g -d "{\"track_id\":$CO,\"start_beat\":0,\"length_beats\":1,\"content_len_beats\":1,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+CHC=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t.get('name')=='clipops')-1)")
+g -d "{\"track_id\":$CO,\"index\":$CHC,\"chord_type\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/ChordifyClip >/dev/null
+g -d "{\"track_id\":$CO,\"index\":$CHC}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "
+import json,sys
+ps=sorted(n['pitch'] for n in json.load(sys.stdin)['notes'])
+assert ps==[60,64,67], 'chordify wrong: %s'%ps
+print('smoke: PASS — ChordifyClip major turned middle C into a triad (60 -> 60/64/67)')
+" || { echo 'smoke: chordify wrong' >&2; exit 1; }
 g -d "{\"id\":$CO}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   # isolate: drop the scratch track
 # Split-at-named-marker: a marker at beat 2 splits a [0,4) clip (notes 0/1/2/3) into
 # [0,2)+[2,4); the right clip's notes rebase to 0/1. Reuses the locations model.

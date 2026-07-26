@@ -410,6 +410,12 @@ class Gloopy:
         feel. On-beat notes stay; length/pitch/velocity preserved."""
         self._ack(self.stub.SwingClip(pb.SwingClipRequest(track_id=track_id, index=index, grid_beats=grid_beats, amount=amount)))
 
+    def chordify_clip(self, track_id: int, index: int, chord_type: int = 0) -> None:
+        """Chordify: turn every note into a named chord by adding voices above the root.
+        chord_type: 0 major {+4,+7}, 1 minor {+3,+7}, 2 dom7 {+4,+7,+10}, 3 diminished
+        {+3,+6}, 4 sus4 {+5,+7}. Originals kept as roots; off-keyboard voices dropped."""
+        self._ack(self.stub.ChordifyClip(pb.ChordifyRequest(track_id=track_id, index=index, chord_type=chord_type)))
+
     def split_notes_at_beat(self, track_id: int, index: int, beat: float) -> None:
         """Knife: cut every note spanning `beat` (clip-relative) into two abutting notes."""
         self._ack(self.stub.SplitNotesAtBeat(pb.SplitNotesRequest(

@@ -420,6 +420,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.SwingClipRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.ChordifyClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ChordifyClip',
+                request_serializer=gloopy__pb2.ChordifyRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.ArpeggiateClip = channel.unary_unary(
                 '/gloopy.v1.Gloopy/ArpeggiateClip',
                 request_serializer=gloopy__pb2.ArpeggiateRequest.SerializeToString,
@@ -1372,6 +1377,13 @@ class GloopyServicer:
 
     def SwingClip(self, request, context):
         """bake a groove: delay off-beat notes
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ChordifyClip(self, request, context):
+        """turn each note into a named chord
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2348,6 +2360,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'SwingClip': grpc.unary_unary_rpc_method_handler(
                     servicer.SwingClip,
                     request_deserializer=gloopy__pb2.SwingClipRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ChordifyClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.ChordifyClip,
+                    request_deserializer=gloopy__pb2.ChordifyRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'ArpeggiateClip': grpc.unary_unary_rpc_method_handler(
@@ -4875,6 +4892,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/SwingClip',
             gloopy__pb2.SwingClipRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ChordifyClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ChordifyClip',
+            gloopy__pb2.ChordifyRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

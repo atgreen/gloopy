@@ -834,6 +834,9 @@ namespace
         { const double grid = q->grid_beats() <= 0.0 ? 0.5 : q->grid_beats();   // proto3 omits 0; default to 1/8
           const bool ok = main.apiSwingClip (q->track_id(), q->index(), grid, q->amount());
           r->set_ok (ok); if (! ok) r->set_error ("swing failed (clip not found or not MIDI)"); return Status::OK; }
+        Status ChordifyClip (ServerContext*, const pb::ChordifyRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiChordifyClip (q->track_id(), q->index(), q->chord_type());   // 0 (major) is the proto3 default
+          r->set_ok (ok); if (! ok) r->set_error ("chordify failed (clip not found or not MIDI)"); return Status::OK; }
         Status StrumClip (ServerContext*, const pb::StrumRequest* q, pb::Ack* r) override
         { const bool ok = main.apiStrumClip (q->track_id(), q->index(), q->step_beats(), q->down());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }

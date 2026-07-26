@@ -1234,6 +1234,16 @@ each shipping with desktop UI + screenshot validation.
       amount 0.2/0.33/0.5). `GloopyTests::NoteEdits` proves off-beats shift while on-beats/length
       hold (0/0.5/1/1.5 @ 1/8 0.33 → 0/0.665/1/1.665) and amount 0 = straight; smoke drives
       SwingClip and checks GetClipNotes; screenshot-validated (the expanded submenu).
+    - `[x]` **Chordify (named chords) landed** (commit): a shared `chordifyNotes` transform
+      (NoteEdits.h) turns every note into a full chord by adding a voice at each interval of a
+      named chord (root kept as the played note; off-keyboard voices dropped). Generalises
+      harmonize (single interval) — `apiChordifyClip(chordType)` maps 0 major {+4,+7} / 1 minor
+      {+3,+7} / 2 dom7 {+4,+7,+10} / 3 dim {+3,+6} / 4 sus4 {+5,+7} to interval sets. ChordifyClip
+      RPC (`ChordifyRequest`; 0=major is the proto3 default) + Python `chordify_clip`. **Desktop:**
+      a "Chord ▸ Major / Minor / Dominant 7th / Diminished / Sus4" submenu on the MIDI-clip menu.
+      `GloopyTests::NoteEdits` proves the major triad (60 → 60/64/67, timing/vel kept), the dom7
+      voice count, and the off-top drop (124+{3,7} → 124/127); smoke drives ChordifyClip major and
+      checks GetClipNotes; screenshot-validated (the expanded submenu).
     - `[x]` **Arpeggiate (destructive one-shot) landed** (commit c90da23): shared arpeggiateNotes
       + apiArpeggiateClip + ArpeggiateClip RPC + ARP header button (Up/Down/Up-Down menu).
       Rewrites a chord clip into a note sequence in place. Smoke + screenshot.
