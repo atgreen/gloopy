@@ -619,6 +619,45 @@ MainComponent::MainComponent (bool headless)
     arrangeViewport.setScrollBarsShown (true, false);
     addAndMakeVisible (arrangeViewport);
 
+    // ---- session view (clip-launch grid); Tab cycles Arrange -> Session -> Mixer ----
+    sessionView = std::make_unique<SessionView> (tracks, scenes, sessionLauncher, transport, engineLock);
+    sessionView->onLaunchClip  = [this] (int ti, int s) { if (auto* t = trackByIndex (ti)) apiLaunchClip (t->id, s); };
+    sessionView->onStopTrack   = [this] (int ti)        { if (auto* t = trackByIndex (ti)) apiStopTrackClip (t->id); };
+    sessionView->onLaunchScene = [this] (int s)         { apiLaunchScene (s); };
+    sessionView->onStopAll     = [this]                 { apiStopAllClips(); };
+    sessionView->onAddScene    = [this]                 { apiAddScene(); if (sessionView) sessionView->rebuild(); resized(); };
+    sessionView->onRemoveScene = [this] (int s)         { apiRemoveScene (s); if (sessionView) sessionView->rebuild(); resized(); };
+    sessionView->onClearSlot   = [this] (int ti, int s) { if (auto* t = trackByIndex (ti)) { apiClearSessionSlot (t->id, s); if (sessionView) sessionView->rebuild(); } };
+    sessionView->onNewClip     = [this] (int ti, int s)
+    {
+        if (auto* t = trackByIndex (ti))
+        {
+            Clip c; c.type = ClipType::Midi; c.name = "Clip"; c.lengthBeats = 4.0; c.contentLenBeats = 4.0; c.looped = true;
+            apiSetSessionClip (t->id, s, c);
+            if (sessionView) sessionView->rebuild();
+            resized();
+        }
+    };
+    sessionView->onCopySelectedClip = [this] (int ti, int s)
+    {
+        auto* t = trackByIndex (ti);
+        if (t == nullptr) return;
+        Clip copy;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (selTrack < 0 || selTrack >= (int) tracks.size()) return;
+            auto& sc = tracks[(size_t) selTrack]->clips;
+            if (selClip < 0 || selClip >= (int) sc.size()) return;
+            copy = sc[(size_t) selClip];              // copy the selected arrangement clip
+        }
+        apiSetSessionClip (t->id, s, copy);
+        if (sessionView) sessionView->rebuild();
+        resized();
+    };
+    sessionViewport.setViewedComponent (sessionView.get(), false);
+    sessionViewport.setScrollBarsShown (true, true);
+    addChildComponent (sessionViewport);             // hidden until Tab switches to Session
+
     // ---- clip editor ----
     addChildComponent (busyOverlay);   // shown only while a background task runs
     addAndMakeVisible (editorPanel);
@@ -824,6 +863,7 @@ void MainComponent::addTrack (std::unique_ptr<Track> track)
     refreshTrackIds();
     if (! undoSuppressed && ! tracks.empty()) emitChange ("track_added", tracks.back()->id);
     if (arrangeView) arrangeView->rebuild();
+    if (sessionView) sessionView->rebuild();
     resized();
 }
 
@@ -1652,6 +1692,7 @@ bool MainComponent::apiRemoveTrack (int id)
         refreshTrackIds();
         emitChange ("track_removed", id);
         if (arrangeView) arrangeView->rebuild();
+        if (sessionView) sessionView->rebuild();
         selectClip (-1, -1);
         resized();
         return true;
@@ -3084,6 +3125,27 @@ void MainComponent::openMixer()
     mixerWindow->toFront (true);
 }
 
+// Tab cycles the main view: Arrange -> Session (clip-launch grid) -> Mixer (window) -> Arrange.
+void MainComponent::cycleView()
+{
+    viewMode = viewMode == ViewMode::Arrange ? ViewMode::Session
+             : viewMode == ViewMode::Session ? ViewMode::Mixer
+                                             : ViewMode::Arrange;
+    applyViewMode();
+}
+
+void MainComponent::applyViewMode()
+{
+    const bool session = (viewMode == ViewMode::Session);
+    arrangeViewport.setVisible (! session);           // arrangement shows in Arrange + Mixer modes
+    sessionViewport.setVisible (session);
+    if (session && sessionView) sessionView->rebuild();
+    if (viewMode == ViewMode::Mixer)   openMixer();
+    else if (mixerWindow != nullptr)   mixerWindow->setVisible (false);
+    resized();
+    if (auto* top = getTopLevelComponent()) top->grabKeyboardFocus();   // keep Tab reaching keyPressed
+}
+
 void MainComponent::openMappings()
 {
     // Build the row list from the live mapping state (controller maps + LFO routes).
@@ -3423,7 +3485,10 @@ void MainComponent::resized()
     }
 
     // Arrangement | divider | editor.
-    Component* comps[] = { &arrangeViewport, dividerBar.get(), &editorPanel };
+    // The top pane is the arrangement or the session grid, depending on the view mode.
+    Component* topPane = (viewMode == ViewMode::Session) ? (Component*) &sessionViewport
+                                                         : (Component*) &arrangeViewport;
+    Component* comps[] = { topPane, dividerBar.get(), &editorPanel };
     verticalLayout.layOutComponents (comps, 3, area.getX(), area.getY(),
                                      area.getWidth(), area.getHeight(), true, true);
 
@@ -3432,6 +3497,9 @@ void MainComponent::resized()
     if (arrangeView)
         arrangeView->setSize (arrangeViewport.getMaximumVisibleWidth(),
                               juce::jmax (arrangeView->preferredHeight(), arrangeViewport.getHeight()));
+    if (sessionView)
+        sessionView->setSize (juce::jmax (sessionView->preferredWidth(),  sessionViewport.getMaximumVisibleWidth()),
+                              juce::jmax (sessionView->preferredHeight(), sessionViewport.getHeight()));
 }
 
 // ===========================================================================
@@ -3733,6 +3801,7 @@ void MainComponent::apiRedo() { callOnMessageThread ([&] { redo(); return true; 
 bool MainComponent::keyPressed (const juce::KeyPress& key)
 {
     using MK = juce::ModifierKeys;
+    if (key.getKeyCode() == juce::KeyPress::tabKey)                               { cycleView(); return true; }   // Arrange/Session/Mixer
     if (key == juce::KeyPress ('z', MK::commandModifier, 0))                      { undo(); return true; }
     if (key == juce::KeyPress ('z', MK::commandModifier | MK::shiftModifier, 0))  { redo(); return true; }
     if (key == juce::KeyPress ('y', MK::commandModifier, 0))                      { redo(); return true; }

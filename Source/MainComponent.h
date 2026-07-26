@@ -9,6 +9,7 @@
 #include "Transport.h"
 #include "Track.h"
 #include "SessionLauncher.h"
+#include "SessionView.h"
 #include "FileDrop.h"
 #include "Clip.h"
 #include "Time.h"
@@ -542,6 +543,7 @@ private:
     // Control API (OSC).
     void refreshTrackIds();
     Track* resolveTrack (int id);
+    Track* trackByIndex (int i) { return (i >= 0 && i < (int) tracks.size()) ? tracks[(size_t) i].get() : nullptr; }
 
     // Live MIDI input (hardware + a virtual "Gloopy MIDI In" port).
     void setupMidiInputs();
@@ -826,6 +828,12 @@ private:
 
     juce::Viewport   arrangeViewport;
     std::unique_ptr<ArrangeView> arrangeView;
+    juce::Viewport   sessionViewport;                 // holds the Session grid (Tab switches views)
+    std::unique_ptr<SessionView> sessionView;
+    enum class ViewMode { Arrange, Session, Mixer };
+    ViewMode viewMode { ViewMode::Arrange };
+    void cycleView();                                 // Tab: Arrange -> Session -> Mixer -> Arrange
+    void applyViewMode();                             // show/hide the viewports + mixer window
     EditorPanel      editorPanel { transport };
 
     std::unique_ptr<MixerView>            mixerView;
