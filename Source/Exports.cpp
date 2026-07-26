@@ -31,6 +31,19 @@ juce::String slug (const juce::String& s)
 }
 }
 
+// Bounce just the current transport loop window to a WAV/FLAC (the "export selection"
+// action). Fails if no loop is set or it is empty; otherwise reuses the offline bounce
+// with the loop's [start,end) beat range and a short tail so effect/reverb tails aren't
+// clipped. The encoder is picked from the output extension by apiRenderToFile.
+bool MainComponent::apiExportLoopRegion (const juce::String& path)
+{
+    if (! transport.isLoopEnabled()) return false;
+    const double s = transport.getLoopStartBeats();
+    const double e = transport.getLoopEndBeats();
+    if (e <= s + 1.0e-9) return false;                       // empty / inverted loop
+    return apiRenderToFile (path, 1.0, s, e, false, -1);
+}
+
 bool MainComponent::apiDefineExportProfile (const juce::String& name, const juce::String& target,
                                             const juce::String& rangeName, const juce::String& format,
                                             int trackId, double tailSeconds)

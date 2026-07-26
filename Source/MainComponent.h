@@ -359,6 +359,7 @@ public:
     bool apiRenderToFile (const juce::String& path, double tailSeconds,
                           double startBeat = 0.0, double endBeat = 0.0,
                           bool hasTrack = false, int trackId = -1);           // offline bounce / stem
+    bool apiExportLoopRegion (const juce::String& path);                      // bounce the current loop window
 
 private:
     struct EditorPanel : public juce::Component

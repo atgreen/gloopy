@@ -251,6 +251,22 @@ print('smoke: PASS — SetTrackPolarity reported on polB via GetState')
 " || { echo 'smoke: polarity report wrong' >&2; exit 1; }
 g -d "{\"path\":\"$WORK/pol_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 
+# Export loop region: set a 2-beat loop, bounce just it -> a valid WAV strictly shorter
+# than the full-mix render (proves the range window is applied); empty loop -> rejected.
+g -d "{\"path\":\"$WORK/elr_full.wav\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"enabled":true,"start_beat":0,"end_beat":2}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetLoop >/dev/null
+g -d "{\"path\":\"$WORK/elr_loop.wav\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/ExportLoopRegion >/dev/null
+python3 -c "
+import wave
+def frames(p):
+    w=wave.open(p,'rb'); n=w.getnframes(); w.close(); return n
+full=frames('$WORK/elr_full.wav'); loop=frames('$WORK/elr_loop.wav')
+assert loop>0, 'loop export empty'
+assert loop < full, 'loop export (%d) not shorter than full mix (%d)'%(loop,full)
+print('smoke: PASS — ExportLoopRegion bounced just the 2-beat loop (%d < %d frames)'%(loop,full))
+" || { echo 'smoke: export loop region wrong' >&2; exit 1; }
+g -d '{"enabled":false}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetLoop >/dev/null   # clear the loop we set
+
 # Modulation matrix: an LFO on a synth cutoff must change the render vs a static
 # cutoff. Dedicated track + two renders, then cleaned up.
 MT=$(g -d '{"name":"modtest","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.2,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)

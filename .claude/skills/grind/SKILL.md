@@ -1106,6 +1106,16 @@ each shipping with desktop UI + screenshot validation.
   sample-identical) sum LOUD (peak 0.41), then inverting one renders near-silent (peak 0.00000);
   polarity also survives a SaveProject/LoadProject round-trip (GetState). Screenshot-validated
   end-to-end (menu shows "Invert phase" → after clicking, re-opening shows it ✓ checked).
+- `[x]` **Desktop audio export landed** (commit): closed a real gap — audio bounce was API/CLI
+  only (the File menu had "Export MIDI..." but NO audio export). Added File → "Export Audio
+  (WAV)..." (whole mix) and "Export Loop Region (WAV)..." (enabled only when a loop is set), both
+  rendering off the message thread via `runBackground` + the busy overlay (a long bounce no longer
+  freezes the UI; apiRenderToFile holds the engine lock and is thread-safe off-message). New
+  `apiExportLoopRegion(path)` bounces the current transport loop `[start,end)` (fails if no
+  loop / empty) — reuses apiRenderToFile; ExportLoopRegion RPC (`FilePath`) + Python
+  `export_loop_region`. Both choosers accept `.wav`/`.flac` (encoder from extension). smoke: set a
+  2-beat loop, ExportLoopRegion → a valid WAV exactly half the full-mix render (85444 < 170888
+  frames). Screenshot-validated (File menu shows both items, loop-region enabled with the loop on).
 
 16. **Browser sidebar + demo/template browser + `File → New From Template`** *(Idea
     #1/#2; absorbs remaining preset UI/work).* **L**

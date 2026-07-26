@@ -3039,6 +3039,8 @@ void MainComponent::showFileMenu()
     menu.addItem (7, "Save As Composition...");
     menu.addItem (10, "Save as Template...");
     menu.addItem (13, "Export MIDI File...");          // whole project -> .mid (loops tiled)
+    menu.addItem (14, "Export Audio (WAV)...");        // whole mix -> offline WAV bounce
+    menu.addItem (15, "Export Loop Region (WAV)...", transport.isLoopEnabled());   // just the loop selection
     menu.addSeparator();
     menu.addItem (11, "Load Tuning (.scl)...");        // Scala microtuning file
     bool tuned = false; for (double c : projectTuning) if (c != 0.0) tuned = true;
@@ -3104,6 +3106,33 @@ void MainComponent::showFileMenu()
                         if (! apiExportMidi (f.getFullPathName()))
                             juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
                                 "Export MIDI", "Could not write\n" + f.getFileName());
+                    });
+            }
+            else if (result == 14 || result == 15)   // Export audio: whole mix (14) or the loop region (15)
+            {
+                const bool loopOnly = (result == 15);
+                fileChooser = std::make_unique<juce::FileChooser> (loopOnly ? "Export loop region" : "Export audio",
+                                                                   juce::File(), "*.wav;*.flac");
+                fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
+                                            | juce::FileBrowserComponent::warnAboutOverwriting,
+                    [this, loopOnly] (const juce::FileChooser& fc)
+                    {
+                        auto f = fc.getResult();
+                        if (f == juce::File()) return;
+                        if (f.getFileExtension().isEmpty()) f = f.withFileExtension ("wav");
+                        const auto path = f.getFullPathName();
+                        // A long bounce shouldn't freeze the UI: render on the pool thread
+                        // (apiRenderToFile holds the engine lock and is thread-safe off-message).
+                        auto ok = std::make_shared<bool> (false);
+                        runBackground (loopOnly ? "Exporting loop region…" : "Exporting audio…",
+                            [this, path, loopOnly, ok] { *ok = loopOnly ? apiExportLoopRegion (path)
+                                                                        : apiRenderToFile (path, 2.0); },
+                            [this, f, ok]
+                            {
+                                if (! *ok)
+                                    juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                        "Export Audio", "Could not write\n" + f.getFileName());
+                            });
                     });
             }
             else if (result == 3)   // Save — same format the project was opened as

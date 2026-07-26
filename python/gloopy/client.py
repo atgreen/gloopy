@@ -851,6 +851,11 @@ class Gloopy:
         """Write all instrument tracks to a Type-1 standard MIDI file."""
         self._ack(self.stub.ExportMidi(pb.FilePath(path=path)))
 
+    def export_loop_region(self, path: str) -> None:
+        """Bounce the current transport loop window to a WAV/FLAC (the 'export selection'
+        action). Errors if no loop is set or it is empty. Encoder picked from the extension."""
+        self._ack(self.stub.ExportLoopRegion(pb.FilePath(path=path)))
+
     def import_midi(self, path: str) -> None:
         """Load a standard MIDI file as synth tracks + clips."""
         self._ack(self.stub.ImportMidi(pb.FilePath(path=path)))

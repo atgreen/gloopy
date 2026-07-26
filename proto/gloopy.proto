@@ -545,6 +545,7 @@ service Gloopy {
   rpc LoadComposition(FilePath) returns (Ack);
   rpc RenderToFile(RenderRequest) returns (RenderResult);   // offline bounce (+ optional loudness report)
   rpc ExportMidi (FilePath) returns (Ack);         // all instrument tracks -> Type-1 SMF
+  rpc ExportLoopRegion (FilePath) returns (Ack);   // bounce the current transport loop window to WAV/FLAC
   rpc ImportMidi (FilePath) returns (Ack);         // SMF -> synth tracks + clips
   rpc ImportAudio (FilePath) returns (Ack);        // wav/aiff/flac -> a new audio track
   rpc AnalyzeFile(FilePath) returns (LoudnessReport);   // offline peak/true-peak/RMS/LUFS
