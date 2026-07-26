@@ -226,6 +226,7 @@ message LegatoRequest    { int32 track_id = 1; int32 index = 2; float amount = 3
 message VelRampRequest   { int32 track_id = 1; int32 index = 2; float from = 3; float to = 4; }   // crescendo/decrescendo velocities
 message EchoRequest      { int32 track_id = 1; int32 index = 2; double delay_beats = 3; int32 repeats = 4; float feedback = 5; }   // MIDI echo
 message RatchetRequest   { int32 track_id = 1; int32 index = 2; int32 subdivisions = 3; }   // subdivide notes into rapid hits
+message HarmonizeRequest { int32 track_id = 1; int32 index = 2; int32 semitones = 3; }   // add a parallel interval voice to each note
 message ArpeggiateRequest{ int32 track_id = 1; int32 index = 2; double step_beats = 3; int32 mode = 4; } // mode 0=up 1=down 2=updown
 message SplitNotesRequest{ int32 track_id = 1; int32 index = 2; double beat = 3; }   // knife: cut notes spanning this clip-relative beat
 // Live (non-destructive) per-track arpeggiator. mode 0=up 1=down 2=updown 3=random.
@@ -416,6 +417,7 @@ service Gloopy {
   rpc EchoClip        (EchoRequest)            returns (Ack);   // MIDI echo (decaying note repeats)
   rpc InvertClip      (ClipRef)                returns (Ack);   // melodic inversion (mirror pitches)
   rpc RatchetClip     (RatchetRequest)         returns (Ack);   // subdivide notes into rapid same-pitch hits
+  rpc HarmonizeClip   (HarmonizeRequest)       returns (Ack);   // add a parallel interval voice to each note
   rpc ArpeggiateClip  (ArpeggiateRequest)      returns (Ack);   // chord -> arpeggio (destructive)
   rpc SplitNotesAtBeat(SplitNotesRequest)      returns (Ack);   // knife: split notes crossing a clip-relative beat
   rpc SetTrackArp     (ArpSpec)                returns (Ack);   // live per-track arpeggiator

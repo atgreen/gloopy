@@ -362,6 +362,7 @@ MainComponent::MainComponent (bool headless)
         }
         else if (cmd == "invert")       apiInvertClip (id, clip);   // melodic inversion
         else if (cmd.startsWith ("ratchet:")) apiRatchetClip (id, clip, cmd.substring (8).getIntValue());
+        else if (cmd.startsWith ("harmonize:")) apiHarmonizeClip (id, clip, cmd.substring (10).getIntValue());
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")

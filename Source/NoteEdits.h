@@ -173,6 +173,26 @@ inline void invertNotes (std::vector<Note>& notes)
     for (auto& n : notes) n.pitch = juce::jlimit (0, 127, 2 * pivot - n.pitch);
 }
 
+/** Harmonize: for every note, add a parallel voice `semitones` away (a fixed interval —
+    +7 a fifth, +12 an octave, -12 an octave down, etc.), keeping the original. The added
+    voice shares the note's start, length and velocity; its pitch is clamped to 0..127 (a
+    harmony that would fall off the keyboard is dropped, not folded). The originals stay, so
+    a monophonic line becomes parallel harmony. Distinct from transpose (which *moves* every
+    note) and invert (which mirrors) — harmonize *thickens*. Size-changing (grows the list). */
+inline void harmonizeNotes (std::vector<Note>& notes, int semitones)
+{
+    if (semitones == 0) return;                              // nothing to add
+    const std::vector<Note> src (notes);                    // snapshot (we append)
+    for (const auto& n : src)
+    {
+        const int p = n.pitch + semitones;
+        if (p < 0 || p > 127) continue;                     // off the keyboard — drop this voice
+        Note h = n;
+        h.pitch = p;
+        notes.push_back (h);
+    }
+}
+
 /** MIDI echo / delay: append `repeats` decaying copies of every note, each `delayBeats`
     later than the last, with velocity multiplied by `feedback` each step (copies that fade
     below ~1% are dropped). The originals are kept; pitch and length are preserved. A

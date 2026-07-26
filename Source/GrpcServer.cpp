@@ -827,6 +827,9 @@ namespace
         { const int sub = q->subdivisions() <= 1 ? 2 : q->subdivisions();   // proto3 omits 0; default to x2
           const bool ok = main.apiRatchetClip (q->track_id(), q->index(), sub);
           r->set_ok (ok); if (! ok) r->set_error ("ratchet failed (clip not found or not MIDI)"); return Status::OK; }
+        Status HarmonizeClip (ServerContext*, const pb::HarmonizeRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiHarmonizeClip (q->track_id(), q->index(), q->semitones());
+          r->set_ok (ok); if (! ok) r->set_error ("harmonize failed (clip not found or not MIDI)"); return Status::OK; }
         Status StrumClip (ServerContext*, const pb::StrumRequest* q, pb::Ack* r) override
         { const bool ok = main.apiStrumClip (q->track_id(), q->index(), q->step_beats(), q->down());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }

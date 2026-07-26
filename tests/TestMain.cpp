@@ -389,6 +389,23 @@ struct NoteEditTests : juce::UnitTest
             expect (ch.size() == 4);
         }
 
+        beginTest ("harmonize adds a parallel interval voice, keeping the originals");
+        {
+            std::vector<Note> ns { {60,0,1,0.8f}, {64,1,0.5f,0.7f} };
+            harmonizeNotes (ns, 7);                          // add a fifth above each
+            expect (ns.size() == 4);
+            // originals untouched at the front; two new voices +7 sharing start/len/vel.
+            std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b) { return a.pitch < b.pitch; });
+            expect (ns[0].pitch == 60 && ns[1].pitch == 64 && ns[2].pitch == 67 && ns[3].pitch == 71);
+            // the +7 of the first note keeps its timing/velocity.
+            for (auto& n : ns) if (n.pitch == 67) { expectWithinAbsoluteError (n.startBeat, 0.0, 1e-9);
+                                                    expect (n.lengthBeats == 1.0f && n.velocity == 0.8f); }
+            // a voice that would fall off the keyboard is dropped, not folded.
+            std::vector<Note> hi { {125,0,1,0.5f} };
+            harmonizeNotes (hi, 7);                           // 125+7=132 > 127 -> dropped
+            expect (hi.size() == 1 && hi[0].pitch == 125);
+        }
+
         beginTest ("melodic inversion mirrors pitches around the earliest note; timing kept");
         {
             std::vector<Note> ns { {60,0,1,0.8f}, {64,1,1,0.7f}, {67,2,0.5f,0.6f} };

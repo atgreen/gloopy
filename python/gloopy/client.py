@@ -398,6 +398,12 @@ class Gloopy:
         its span (a drum roll / stutter). Pitch and velocity kept."""
         self._ack(self.stub.RatchetClip(pb.RatchetRequest(track_id=track_id, index=index, subdivisions=subdivisions)))
 
+    def harmonize_clip(self, track_id: int, index: int, semitones: int) -> None:
+        """Harmonize: add a parallel voice `semitones` from each note (e.g. +7 a fifth, +12
+        an octave), keeping the originals — a monophonic line becomes parallel harmony.
+        Voices that fall off the 0..127 keyboard are dropped."""
+        self._ack(self.stub.HarmonizeClip(pb.HarmonizeRequest(track_id=track_id, index=index, semitones=semitones)))
+
     def split_notes_at_beat(self, track_id: int, index: int, beat: float) -> None:
         """Knife: cut every note spanning `beat` (clip-relative) into two abutting notes."""
         self._ack(self.stub.SplitNotesAtBeat(pb.SplitNotesRequest(

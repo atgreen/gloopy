@@ -601,6 +601,13 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             rt.addItem (751, "x3");
             rt.addItem (752, "x4");
             m.addSubMenu ("Ratchet", rt);
+            juce::PopupMenu hm;                             // harmonize: add a parallel interval voice
+            hm.addItem (760, "Minor 3rd (+3)");
+            hm.addItem (761, "Major 3rd (+4)");
+            hm.addItem (762, "Perfect 5th (+7)");
+            hm.addItem (763, "Octave (+12)");
+            hm.addItem (764, "Octave down (-12)");
+            m.addSubMenu ("Harmonize", hm);
         }
         if (! isMidi)                                   // audio-clip level ops
         {
@@ -676,6 +683,12 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             if (r >= 750 && r <= 752)   // Ratchet: x2/x3/x4
             {
                 if (onClipCommand) onClipCommand (t, c, "ratchet:" + juce::String (r - 748));
+                return;
+            }
+            if (r >= 760 && r <= 764)   // Harmonize: +3 / +4 / +7 / +12 / -12
+            {
+                const int semis = r == 760 ? 3 : r == 761 ? 4 : r == 762 ? 7 : r == 763 ? 12 : -12;
+                if (onClipCommand) onClipCommand (t, c, "harmonize:" + juce::String (semis));
                 return;
             }
             const char* cmd = r == 1  ? "split"

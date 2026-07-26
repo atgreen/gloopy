@@ -737,6 +737,9 @@ bool MainComponent::apiInvertClip (int trackId, int index)
 bool MainComponent::apiRatchetClip (int trackId, int index, int subdivisions)
 { GLOOPY_EDIT_CLIP_NOTES (ratchetNotes (notes, subdivisions)) }
 
+bool MainComponent::apiHarmonizeClip (int trackId, int index, int semitones)
+{ GLOOPY_EDIT_CLIP_NOTES (harmonizeNotes (notes, semitones)) }
+
 bool MainComponent::apiSplitNotesAtBeat (int trackId, int index, double beat)
 { GLOOPY_EDIT_CLIP_NOTES (splitNotesAtBeat (notes, beat)) }
 

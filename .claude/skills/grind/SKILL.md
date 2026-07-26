@@ -1213,6 +1213,16 @@ each shipping with desktop UI + screenshot validation.
       `GloopyTests::NoteEdits` proves the equal subdivision + chord case; smoke drives RatchetClip
       x4 and checks GetClipNotes (a 1-beat note → 0/0.25/0.5/0.75 len 0.25); screenshot-validated
       (the expanded submenu).
+    - `[x]` **Harmonize landed** (commit): a shared `harmonizeNotes` transform (NoteEdits.h) adds a
+      parallel voice `semitones` from every note (keeping the originals) — a monophonic line becomes
+      parallel harmony. Distinct from transpose (which *moves* every note) and invert (which
+      mirrors): harmonize *thickens*, growing the list; the added voice shares the note's start/len/
+      velocity and is **dropped** (not folded) if it falls off 0..127. `apiHarmonizeClip` (via
+      GLOOPY_EDIT_CLIP_NOTES) + HarmonizeClip RPC (`HarmonizeRequest`) + Python `harmonize_clip`.
+      **Desktop:** a "Harmonize ▸ Minor 3rd (+3) / Major 3rd (+4) / Perfect 5th (+7) / Octave (+12) /
+      Octave down (-12)" submenu on the MIDI-clip menu. `GloopyTests::NoteEdits` proves the +7 voice
+      (60/64 → 60/64/67/71, timing/vel kept) and the off-keyboard drop; smoke drives HarmonizeClip +7
+      and checks GetClipNotes; screenshot-validated (the expanded submenu).
     - `[x]` **Arpeggiate (destructive one-shot) landed** (commit c90da23): shared arpeggiateNotes
       + apiArpeggiateClip + ArpeggiateClip RPC + ARP header button (Up/Down/Up-Down menu).
       Rewrites a chord clip into a note sequence in place. Smoke + screenshot.
