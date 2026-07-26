@@ -54,6 +54,17 @@ CUT=$(g -d "{\"id\":\"track/$TID/synth/cutoff\"}" 127.0.0.1:$PORT gloopy.v1.Gloo
 [ "${CUT%.*}" = "800" ] || { echo "smoke: parameter round-trip failed (cutoff='$CUT', $PCOUNT params listed)" >&2; exit 1; }
 echo "smoke: PASS — parameter model list/get/set ($PCOUNT params; cutoff=$CUT)"
 
+# Scaling-aware normalized set: the cutoff param is log-scaled (20..20000 Hz), so a 0..1
+# knob position 0.5 must land at the geometric mean (~632 Hz), not the arithmetic mean.
+g -d "{\"id\":\"track/$TID/synth/cutoff\",\"value\":0.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameterNormalized >/dev/null
+CUTMID=$(g -d "{\"id\":\"track/$TID/synth/cutoff\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetParameter | grep -o '"value": [0-9.]*' | grep -o '[0-9.]*')
+python3 -c "
+v=float('$CUTMID')
+assert 560 < v < 710, 'log-scaled normalized 0.5 should be ~632 Hz (geometric mean), got %.1f'%v
+print('smoke: PASS — SetParameterNormalized honours log scaling (cutoff 0.5 -> %.0f Hz ~ geo mean)'%v)
+" || { echo 'smoke: normalized-set ignored log scaling' >&2; exit 1; }
+g -d "{\"id\":\"track/$TID/synth/cutoff\",\"value\":800}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null   # restore
+
 # Mixer scenes: snapshot the mixer, change a fader, recall, confirm exact restore
 # (captures/restores current state, so it leaves the mixer where it found it).
 insvol0() { g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListInserts | python3 -c "import json,sys;print(json.load(sys.stdin)['inserts'][0].get('volume',0.0))"; }
@@ -795,6 +806,11 @@ RT="$WORK/rt.wav"
 g -d "{\"path\":\"$COMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
 [ -f "$COMP/gloopy.toml" ] || { echo "smoke: composition save produced no gloopy.toml" >&2; exit 1; }
 echo "smoke: saved composition ($(find "$COMP" -type f | wc -l) files)"
+# ParamModel snapshot manifest: params.toml records non-plugin param id->value so external
+# clients can discover the model from the repo. It must exist and list real param ids.
+[ -f "$COMP/params.toml" ] || { echo "smoke: composition has no params.toml snapshot" >&2; exit 1; }
+grep -qE 'id = "(track|insert)/[0-9]+/(volume|pan)"' "$COMP/params.toml" || { echo "smoke: params.toml snapshot has no recognisable param ids" >&2; exit 1; }
+echo "smoke: PASS — composition param snapshot params.toml ($(grep -c '^\[\[params\]\]' "$COMP/params.toml") params)"
 g -d "{\"path\":\"$COMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
 LOC=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListLocations | grep -c '"name"')
 [ "$LOC" -ge 1 ] || { echo "smoke: timeline location did not survive composition round-trip" >&2; exit 1; }

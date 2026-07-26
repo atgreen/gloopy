@@ -434,6 +434,7 @@ service Gloopy {
   rpc ListParameters (Empty)         returns (ParameterList);
   rpc GetParameter   (ParameterId)   returns (ParameterInfo);
   rpc SetParameter   (ParameterSet)  returns (Ack);
+  rpc SetParameterNormalized (ParameterSet) returns (Ack);   // value is a 0..1 knob position; mapped through the param's scaling
 
   // controller mapping / MIDI-learn (source -> ParamModel target)
   rpc AddControllerMap    (ControllerMap)   returns (Ack);

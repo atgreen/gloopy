@@ -530,6 +530,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ParameterSet.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SetParameterNormalized = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetParameterNormalized',
+                request_serializer=gloopy__pb2.ParameterSet.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.AddControllerMap = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AddControllerMap',
                 request_serializer=gloopy__pb2.ControllerMap.SerializeToString,
@@ -1359,6 +1364,13 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetParameterNormalized(self, request, context):
+        """value is a 0..1 knob position; mapped through the param's scaling
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def AddControllerMap(self, request, context):
         """controller mapping / MIDI-learn (source -> ParamModel target)
         """
@@ -2091,6 +2103,11 @@ def add_GloopyServicer_to_server(servicer, server):
             ),
             'SetParameter': grpc.unary_unary_rpc_method_handler(
                     servicer.SetParameter,
+                    request_deserializer=gloopy__pb2.ParameterSet.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetParameterNormalized': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetParameterNormalized,
                     request_deserializer=gloopy__pb2.ParameterSet.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
@@ -4947,6 +4964,33 @@ class Gloopy:
             request,
             target,
             '/gloopy.v1.Gloopy/SetParameter',
+            gloopy__pb2.ParameterSet.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetParameterNormalized(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetParameterNormalized',
             gloopy__pb2.ParameterSet.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,

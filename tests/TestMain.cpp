@@ -11,6 +11,7 @@
 #include "NoteScheduler.h"
 #include "NoteEdits.h"
 #include "Onsets.h"
+#include "ParamScale.h"
 #include "FileDrop.h"
 #include "StereoWiden.h"
 #include "Lfo.h"
@@ -523,6 +524,40 @@ struct LfoTests : juce::UnitTest
 };
 
 //==============================================================================
+struct ParamScaleTests : juce::UnitTest
+{
+    ParamScaleTests() : juce::UnitTest ("ParamScale") {}
+    void runTest() override
+    {
+        beginTest ("log taper: half-way is the geometric mean");
+        {
+            // A filter cutoff 20..20000 Hz. Position 0.5 -> sqrt(20*20000) = 632.46 Hz.
+            expectWithinAbsoluteError ((double) paramDenormalize (0.5f, 20.f, 20000.f, "log"), 632.4555, 0.5);
+            expectWithinAbsoluteError ((double) paramDenormalize (0.0f, 20.f, 20000.f, "log"), 20.0, 1e-4);
+            expectWithinAbsoluteError ((double) paramDenormalize (1.0f, 20.f, 20000.f, "log"), 20000.0, 1e-2);
+            // Round-trips.
+            expectWithinAbsoluteError ((double) paramNormalize (632.4555f, 20.f, 20000.f, "log"), 0.5, 1e-4);
+            expectWithinAbsoluteError ((double) paramNormalize (paramDenormalize (0.3f, 20.f, 20000.f, "log"),
+                                                                20.f, 20000.f, "log"), 0.3, 1e-5);
+        }
+
+        beginTest ("linear taper is (min + pos*range)");
+        {
+            expectWithinAbsoluteError ((double) paramDenormalize (0.5f, -1.f, 1.f, "linear"), 0.0, 1e-6);
+            expectWithinAbsoluteError ((double) paramDenormalize (0.25f, 0.f, 8.f, "linear"), 2.0, 1e-6);
+            expectWithinAbsoluteError ((double) paramNormalize (2.0f, 0.f, 8.f, "linear"), 0.25, 1e-6);
+        }
+
+        beginTest ("dB taper travels in decibels, floors at min=0");
+        {
+            // amplitude 0..1, position 0.5 -> -30 dB (halfway between the -60 floor and 0 dB).
+            expectWithinAbsoluteError ((double) (20.0 * std::log10 (paramDenormalize (0.5f, 0.f, 1.f, "dB"))), -30.0, 0.1);
+            expectWithinAbsoluteError ((double) paramDenormalize (1.0f, 0.f, 1.f, "dB"), 1.0, 1e-4);
+        }
+    }
+};
+
+static ParamScaleTests   paramScaleTests;
 static NoteSchedulerTests noteSchedulerTests;
 static LfoTests          lfoTests;
 static StereoWidenerTests stereoWidenerTests;

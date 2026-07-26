@@ -437,6 +437,10 @@ class Gloopy:
     def set_parameter(self, id: str, value: float) -> None:
         self._ack(self.stub.SetParameter(pb.ParameterSet(id=id, value=value)))
 
+    def set_parameter_normalized(self, id: str, pos01: float) -> None:
+        """Set a parameter from a 0..1 knob position, mapped through its scaling (log/dB/linear)."""
+        self._ack(self.stub.SetParameterNormalized(pb.ParameterSet(id=id, value=pos01)))
+
     # -- controller mapping / MIDI-learn ----------------------------------
     def add_controller_map(self, source: str, target: str, lo: float = 0.0, hi: float = 1.0) -> None:
         """Map a source (cc:<n> / osc:<name> / any string) to a ParamModel target, scaled to [lo,hi].

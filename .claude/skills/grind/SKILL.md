@@ -200,6 +200,12 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
    *Done when:* `ListParameters` returns stable ids for track/insert/effect/plugin
    params; `GetParameter`/`SetParameter` work by id; an automation lane and an OSC map
    both address the same id; ids survive a composition round-trip.
+   **✅ DONE** (2026-07-25, focused session across 3 slices) — all four "done when" clauses
+   met: `ListParameters` covers track/insert/effect/synth *and* plugin (VST3/LV2) params;
+   Get/Set/SetParameterNormalized work by id; automation, the modulation matrix, and MIDI/
+   OSC controllers all address the *same* id via the shared `applyParamValue`; and the
+   numeric track id is now serialised so `track/<id>/...` ids survive a composition round-
+   trip. See the slice log below.
    - `[~]` **Minimal slice landed** (`Source/Parameters.cpp`, commit): flat string-id
      read/write layer — `ListParameters`/`GetParameter`/`SetParameter` RPCs +
      `ParameterInfo{id,name,value,min,max,default_value,unit,scaling}`, delegating to
@@ -235,8 +241,19 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      (the "Plugin UI" button) edits these params; a *Gloopy-side* generic knob rack to
      attach LFO/MIDI-learn/automation to plugin params from the desktop is the follow-up
      (Wave 6 #19 territory).
-     **Still to do for full done:** persist a full param snapshot in the composition; log/dB
-     scaling for UI knobs; the plugin generic-param rack (desktop attach).
+     **Follow-up (not keystone-blocking):** the plugin generic-param rack (desktop attach).
+   - `[x]` **Param snapshot + scaling helpers landed** (commit, slice 3 — closes the
+     keystone): SaveComposition now writes a readable `params.toml` — a non-plugin
+     id->value/min/max/scaling/unit manifest so external clients can discover the param
+     model from the repo without instantiating plugins (informational; values load from
+     each subsystem's own section). Scaling-aware `paramNormalize`/`paramDenormalize`
+     (`Source/ParamScale.h`, unit-tested: a log cutoff at knob 0.5 = the geometric mean
+     ~632 Hz; linear + dB tapers) back a new `apiSetParameterNormalized(id,pos01)` +
+     SetParameterNormalized RPC + Python, so UI knobs / external controllers set a param
+     from a 0..1 position honouring its log/dB/linear taper. smoke proves the log-scaled
+     normalized set lands at the geometric mean and that `params.toml` lists real ids.
+     **Follow-up:** re-taper the actual mixer faders to use dB, and a synth-param knob panel
+     (no dedicated synth-param UI knobs exist yet to re-taper).
 
 2. **Timeline locations — markers / ranges / loop / punch / sections.** ✦ **M**
    *Ardour #3.* A project-level `TimelineLocation { kind: marker|range|loop|punch|

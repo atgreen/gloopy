@@ -17,6 +17,7 @@
 #include "SynthGenerator.h"
 #include "SynthVoice.h"
 #include "Effect.h"
+#include "ParamScale.h"
 
 namespace
 {
@@ -147,6 +148,30 @@ bool MainComponent::apiGetParameter (const juce::String& id, ParamDesc& out)
     for (auto& d : apiListParameters())
         if (d.id == id) { out = d; return true; }
     return false;
+}
+
+// Set a parameter from a 0..1 knob/fader position, mapping through the param's declared
+// scaling (log/dB/linear) so UI knobs and external controllers travel perceptually. For
+// plugin params (min/max 0/1, linear) this is the identity, matching the plugin's own
+// normalised range.
+bool MainComponent::apiSetParameterNormalized (const juce::String& id, float pos01)
+{
+    ParamDesc d;
+    if (! apiGetParameter (id, d)) return false;
+    return apiSetParameter (id, paramDenormalize (pos01, d.min, d.max, d.scaling));
+}
+
+// The human-meaningful param model (everything except the thousands of opaque hosted-
+// plugin params) as an id->value list — written to the composition as a readable,
+// discoverable manifest so external clients can read the param model from the repo
+// without instantiating plugins. It is informational: on load, values come from each
+// subsystem's own serialised section, not this snapshot.
+std::vector<MainComponent::ParamDesc> MainComponent::apiSnapshotParameters()
+{
+    std::vector<ParamDesc> out;
+    for (auto& d : apiListParameters())
+        if (! d.id.contains ("/plugin/")) out.push_back (d);
+    return out;
 }
 
 bool MainComponent::apiSetParameter (const juce::String& id, float value)

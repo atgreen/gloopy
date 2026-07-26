@@ -666,6 +666,8 @@ private:
     std::vector<ParamDesc> apiListParameters();
     bool apiGetParameter (const juce::String& id, ParamDesc& out);   // false if unknown
     bool apiSetParameter (const juce::String& id, float value);      // false if unknown/rejected
+    bool apiSetParameterNormalized (const juce::String& id, float pos01);   // set from a 0..1 knob position, honouring the param's scaling
+    std::vector<ParamDesc> apiSnapshotParameters();   // non-plugin param id->value snapshot for the composition manifest
 
     // --- timeline locations (Locations.cpp) ---
     // Named points and ranges on the timeline (markers, sections, loop/punch/export

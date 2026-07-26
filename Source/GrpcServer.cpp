@@ -448,6 +448,9 @@ namespace
             fillParam (r, d);
             return Status::OK;
         }
+        Status SetParameterNormalized (ServerContext*, const pb::ParameterSet* q, pb::Ack* r) override
+        { const bool ok = main.apiSetParameterNormalized (js (q->id()), q->value());
+          r->set_ok (ok); if (! ok) r->set_error ("unknown parameter id"); return Status::OK; }
         Status SetParameter (ServerContext*, const pb::ParameterSet* q, pb::Ack* r) override
         {
             const bool ok = main.apiSetParameter (js (q->id()), q->value());

@@ -268,6 +268,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
     man.blank().table ("exports").str ("file", "exports.toml");
     man.blank().table ("scenes").str ("file", "scenes.toml");
     man.blank().table ("groups").str ("file", "groups.toml");
+    man.blank().table ("params").str ("file", "params.toml");
     man.blank().table ("mods").str ("file", "mods.toml");
     man.blank().table ("tempo").str ("file", "tempo.toml");
     man.blank().table ("controllers").str ("file", "controllers.toml");
@@ -523,6 +524,17 @@ bool MainComponent::saveComposition (const juce::File& dir)
           .blank();
     }
     ctx.writeText ("groups.toml", gw.str());
+
+    // --- universal parameter model snapshot (readable id->value manifest) ---
+    // A discoverable record of every non-plugin ParamModel id and its value, so external
+    // clients can read the param model from the repo without instantiating plugins. Purely
+    // informational: on load, values come from each subsystem's own section, not this file.
+    toml::Writer pw;
+    for (auto& d : apiSnapshotParameters())
+        pw.arrayItem ("params").str ("id", d.id).number ("value", d.value)
+          .number ("min", d.min).number ("max", d.max)
+          .str ("scaling", d.scaling).str ("unit", d.unit).blank();
+    ctx.writeText ("params.toml", pw.str());
 
     // --- modulation matrix (LFO -> param) ---
     toml::Writer mdw;
