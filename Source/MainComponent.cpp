@@ -206,7 +206,7 @@ MainComponent::MainComponent (bool headless)
     metroButton.onClick = [this] { apiSetMetronome (metroButton.getToggleState()); };
 
     addAndMakeVisible (panicButton);
-    panicButton.setTooltip ("Panic: send all-notes-off to every track (clears stuck/hanging notes)");
+    panicButton.setTooltip ("Panic (Ctrl+.): send all-notes-off to every track (clears stuck/hanging notes)");
     panicButton.onClick = [this] { apiPanic(); };
 
     addAndMakeVisible (mixerButton);
@@ -3686,6 +3686,7 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     if (key == juce::KeyPress ('z', MK::commandModifier, 0))                      { undo(); return true; }
     if (key == juce::KeyPress ('z', MK::commandModifier | MK::shiftModifier, 0))  { redo(); return true; }
     if (key == juce::KeyPress ('y', MK::commandModifier, 0))                      { redo(); return true; }
+    if (key == juce::KeyPress ('.', MK::commandModifier, 0))                      { apiPanic(); return true; }   // MIDI panic
     return false;
 }
 
