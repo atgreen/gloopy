@@ -50,8 +50,18 @@ default synth — so users get **the real Surge XT editor** (via Gloopy's existi
   (embedded `surge-common` core *and* the bundled GPL-3 LV2 plugin `.so` shipped in the RPM/DEB
   packages), the combined-work / source-availability obligation covering the shipped plugin, and
   that JUCE is statically linked into it under GPL terms.
-- **Step 3.** Make `+ Synth → Surge XT` / the Presets tab drive the hosted bundled plugin (real
-  UI) and load `.fxp` into it, instead of the headless `SurgeGenerator`.
+- **Step 3 — the `+ Synth` toolbar default is DONE.** `+ Synth` no longer pops a 3-item menu
+  (Basic synth / embedded Surge / full editor); it now directly adds a **Surge XT (full editor)**
+  track — Gloopy's default instrument — hosting the installed/bundled plugin (LV2 preferred).
+  Non-breaking: serialization, `apiAddSynthTrack`, tests, and examples are untouched (they use the
+  API, not the UI lambda); other instrument types keep their own toolbar buttons (+SFZ/+Sample/
+  +Audio/+Plugin). **Remaining in step 3:** the *Presets* browser tab still drives the headless
+  `SurgeGenerator` / embedded core — point it at the hosted plugin and load `.fxp` into it.
+- **Removals + migration (do LAST, after the above).** Per the user directive
+  ([[surge-is-the-synth]]): migrate both templates (Piano+Bass+Drums, Lead+Bass) + the ~6 example
+  projects off `SynthGenerator`, THEN remove `SynthGenerator` entirely (code/proto/python/tests/
+  `type="synth"` format) and the embedded Surge (`SurgeGenerator` + `GLOOPY_WITH_SURGE` +
+  `surge-common` link). Old `.gloopy` files with synth tracks will stop loading.
 
 Everything in the headless-embed sections below still works and is committed.
 

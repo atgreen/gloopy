@@ -71,18 +71,11 @@ MainComponent::MainComponent (bool headless)
 
     // ---- add tracks ----
     addAndMakeVisible (addSynthBtn);
-    // Add a built-in step-synth track.
-    auto addBasicSynth = [this]
-    {
-        addTrack (std::make_unique<Track> ("Synth",
-                      std::make_unique<SynthGenerator>(), 48,
-                      paletteColour ((int) tracks.size())));
-    };
-    // Add an embedded Surge XT track (headless core, default init patch — self-contained, no UI).
-    auto addSurge = [this] { addSurgeTrackAsync ({}, "Surge"); };
-    // Add the Surge XT *plugin* — the real, editable Surge editor via the plugin's native UI
-    // (Track/Mixer "Plugin UI" button). Finds an installed/bundled Surge XT in the plugin scan.
-    auto addSurgePlugin = [this]
+    // "+ Synth" adds a Surge XT track — Gloopy's default instrument. Hosts the installed/bundled
+    // Surge XT plugin (LV2 preferred) for the real, editable Surge editor via its native UI (the
+    // Track/Mixer "Plugin UI" button). Other instrument types have their own toolbar buttons
+    // (+ SFZ / + Sample / + Audio / + Plugin).
+    addSynthBtn.onClick = [this]
     {
         juce::String id;
         for (auto& p : apiListPlugins())
@@ -97,22 +90,6 @@ MainComponent::MainComponent (bool headless)
         }
         busyOverlay.show ("Adding Surge XT…");
         juce::MessageManager::callAsync ([this, id] { apiAddPluginTrack (id); busyOverlay.hide(); });
-    };
-    addSynthBtn.onClick = [this, addBasicSynth, addSurge, addSurgePlugin]
-    {
-        juce::PopupMenu m;
-       #ifdef GLOOPY_WITH_SURGE
-        m.addItem (1, "Surge XT  (embedded)");        // self-contained core, no UI
-       #endif
-        m.addItem (3, "Surge XT  (full editor)");     // hosted plugin -> real Surge UI
-        m.addItem (2, "Basic synth");
-        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (addSynthBtn),
-            [addBasicSynth, addSurge, addSurgePlugin] (int r)
-            {
-                if      (r == 1) addSurge();
-                else if (r == 3) addSurgePlugin();
-                else if (r == 2) addBasicSynth();
-            });
     };
 
     addAndMakeVisible (loadSampleBtn);
