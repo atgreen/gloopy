@@ -71,13 +71,13 @@ sudo dnf install -y alsa-lib-devel freetype-devel libX11-devel \
 
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-./build/Gloopy_artefacts/Release/Gloopy
+./build/Gloopy_artefacts/Release/gloopy
 
 # ...or open a project straight away:
-./build/Gloopy_artefacts/Release/Gloopy examples/demo-song.gloopy
+./build/Gloopy_artefacts/Release/gloopy examples/demo-song.gloopy
 
 # ...or bounce a project to a WAV without a GUI:
-./build/Gloopy_artefacts/Release/Gloopy --render examples/demo-song.gloopy out.wav
+./build/Gloopy_artefacts/Release/gloopy --render examples/demo-song.gloopy out.wav
 ```
 
 Complete demo songs live in [`examples/`](examples/): `demo-song.gloopy` (fully

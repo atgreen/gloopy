@@ -39,6 +39,45 @@ public:
     {
         auto args = getCommandLineParameterArray();
 
+        if (args.contains ("--version") || args.contains ("-v"))
+        {
+           #ifdef JUCE_APPLICATION_VERSION_STRING
+            std::cout << "gloopy " << JUCE_APPLICATION_VERSION_STRING << std::endl;
+           #else
+            std::cout << "gloopy" << std::endl;
+           #endif
+            setApplicationReturnValue (0);
+            quit();
+            return;
+        }
+
+        if (args.contains ("--help") || args.contains ("-h"))
+        {
+            std::cout <<
+                "gloopy \xe2\x80\x94 a scriptable, composition-as-repo DAW (JUCE 8 / C++17)\n"
+                "\n"
+                "Usage:\n"
+                "  gloopy                          Launch the GUI\n"
+                "  gloopy <project.gloopy | dir>   Launch the GUI, opening a project\n"
+                "  gloopy --version                Print the version\n"
+                "  gloopy --help                   Show this help\n"
+                "\n"
+                "Headless commands (no GUI; results on stdout):\n"
+                "  gloopy render <project> [out.wav]       Bounce the mix to a WAV\n"
+                "  gloopy export-stems <project> [outdir]  One WAV per instrument track\n"
+                "  gloopy analyze <file.wav>               Loudness report (peak/LUFS/...) as JSON\n"
+                "  gloopy inspect <project>                Project summary as JSON\n"
+                "  gloopy validate <project> [--loudness]  Validate (optionally render + measure)\n"
+                "  gloopy pack <project> <out.zip>         Zip a project as a composition\n"
+                "  gloopy scan [--force]                   List installed VST3/LV2 plugins as JSON\n"
+                "\n"
+                "While the GUI runs, gloopy exposes an OSC (UDP 9000) and gRPC\n"
+                "(127.0.0.1:50051) control API. See the README for the client libraries.\n";
+            setApplicationReturnValue (0);
+            quit();
+            return;
+        }
+
         // Headless plugin diagnostics.
         if (args.contains ("--scan") || args.contains ("--plugintest") || args.contains ("--plugindesc")
               || args.contains ("--plugparams") || args.contains ("--bakestate"))

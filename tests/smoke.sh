@@ -10,7 +10,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BIN="${1:-$ROOT/build/Gloopy_artefacts/Release/Gloopy}"
+BIN="${1:-$ROOT/build/Gloopy_artefacts/Release/gloopy}"
 PROTO_DIR="$ROOT/proto"
 WORK="$(mktemp -d)"
 WAV="$WORK/smoke.wav"

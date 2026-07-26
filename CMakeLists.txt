@@ -33,7 +33,7 @@ endif()
 # The application target.
 # ---------------------------------------------------------------------------
 juce_add_gui_app(Gloopy
-    PRODUCT_NAME "Gloopy"
+    PRODUCT_NAME "gloopy"          # shipped executable is lowercase `gloopy`
     COMPANY_NAME "atgreen")
 
 juce_generate_juce_header(Gloopy)
@@ -73,7 +73,7 @@ target_compile_definitions(Gloopy PUBLIC
     JUCE_PLUGINHOST_VST3=1        # host VST3 plugins
     JUCE_PLUGINHOST_LV2=1         # host LV2 plugins
     JUCE_PLUGINHOST_AU=0
-    JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:Gloopy,JUCE_PRODUCT_NAME>"
+    JUCE_APPLICATION_NAME_STRING="Gloopy"        # display name stays capitalised
     JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:Gloopy,JUCE_VERSION>"
     GLOOPY_ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/third_party")   # vendored assets (bundled piano)
 
