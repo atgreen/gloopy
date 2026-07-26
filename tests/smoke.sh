@@ -1183,6 +1183,34 @@ print('smoke: PASS — Noise Gate: loud attack passes (head %+.1f dB), quiet tai
 " || { echo 'smoke: noise gate wrong' >&2; exit 1; }
 g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
 g -d "{\"id\":$NG}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+# Auto-wah (new effect): an envelope-following low-pass. A saw's zero-crossing rate is
+# level-INDEPENDENT, so a static filter would filter a loud and a quiet copy identically.
+# The auto-wah opens its cutoff with the input envelope, so a LOUD tone renders brighter
+# (higher ZCR) than a QUIET one — a direct proof the envelope drives the filter. Two synth
+# tracks at different gains, auto-wah on master; also reproducible (reset()).
+AWL=$(g -d '{"name":"awloud","wave":"SAW","attack":0.005,"decay":0.05,"sustain":0.95,"release":0.05,"gain":0.95}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$AWL,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":45,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.95}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+AWQ=$(g -d '{"name":"awquiet","wave":"SAW","attack":0.005,"decay":0.05,"sustain":0.95,"release":0.05,"gain":0.12}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$AWQ,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":45,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.95}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d '{"insert":0,"type":"AUTOWAH"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Base Hz","value":250}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Range oct","value":4}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/aw_loud.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$AWL}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"path\":\"$WORK/aw_loud2.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$AWL}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"path\":\"$WORK/aw_quiet.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$AWQ}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+ZL=$(zcr "$WORK/aw_loud.wav"); ZQ=$(zcr "$WORK/aw_quiet.wav")
+python3 -c "
+import wave
+def raw(p):
+    w=wave.open(p);return w.readframes(w.getnframes())
+zl,zq=int('$ZL'),int('$ZQ')
+assert zl > zq*1.3, 'auto-wah did not follow the envelope (loud ZCR %d not > quiet %d)'%(zl,zq)
+assert raw('$WORK/aw_loud.wav')==raw('$WORK/aw_loud2.wav'), 'auto-wah not reproducible (re-render differs)'
+print('smoke: PASS — Auto-wah follows the envelope: loud opens the filter brighter (ZCR %d vs quiet %d), reproducible'%(zl,zq))
+" || { echo 'smoke: auto-wah wrong' >&2; exit 1; }
+g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+g -d "{\"id\":$AWL}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+g -d "{\"id\":$AWQ}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 # Tremolo (new effect): a sine LFO scales master gain. Depth 0 is a true identity; depth 1
 # on a sustained tone makes the amplitude oscillate (trough near silence, so windowed RMS
 # swings hugely); and a tempo-synced 1-beat cycle matches a free LFO at bpm/60 Hz exactly.

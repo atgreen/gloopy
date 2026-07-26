@@ -912,6 +912,17 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       passes (head -1.4 dB vs dry) while the quiet tail is gated (tail -60 dB); screenshot-
       validated (Noise Gate in the add-effect menu + its 4 knobs). Completes the
       limiter/compressor/gate dynamics trio.
+    - `[x]` **Auto-wah landed** (commit): `AutoWahFx`, an envelope-following resonant low-pass
+      (the classic funk "envelope filter"). A peak follower on the input drives the cutoff
+      `fc = Base Hz · 2^(Range·env)`, so a loud transient snaps the filter open and it closes as
+      the note decays. Base Hz / Range oct / Q / Release ms params; a shared mono detector sweeps
+      both channels' TPT-SVF filters; reset() clears state. EffectType AUTOWAH=16, **appended**
+      across all four registries (no enum shift). smoke exploits that a saw's zero-crossing rate
+      is level-INDEPENDENT: a LOUD tone through the auto-wah renders brighter (ZCR 1279) than a
+      QUIET one (853) — a static filter would filter both identically, so this directly proves
+      the envelope drives the cutoff; also reproducible. Screenshot-validated (Auto-wah in the
+      add-effect menu + its 4 knobs). Distinct from the LFO effects (tremolo/auto-pan) and the
+      dynamics (limiter/compressor/gate) — a dynamic *filter*.
       **Not yet:** analyzers (scope/spectrum/vectorscope) with API snapshots.
 
 ### Wave 6 — Product surface & UI (deferred: harder to verify headless; keep layout simple)

@@ -433,6 +433,72 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+// Auto-wah — an envelope-following resonant low-pass filter (the classic funk
+// "envelope filter"). A peak follower on the input drives the cutoff: fc =
+// Base Hz · 2^(Range · env), so a loud transient snaps the filter open (bright) and
+// it closes again as the note decays (a played "wah"). Range is the octaves of sweep,
+// Q the resonance, Release the follower's decay. A shared (mono-summed) detector sweeps
+// both channels' filters together. reset() clears the state for reproducible bounces.
+// ---------------------------------------------------------------------------
+class AutoWahFx : public Effect
+{
+public:
+    void prepare (double sampleRate, int, int) override { sr = (float) sampleRate; reset(); }
+    void reset() override { env = 0.0f; for (auto& s : ic1) s = 0.0f; for (auto& s : ic2) s = 0.0f; }
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        if (bypassed.load()) return;
+        const float base  = juce::jlimit (50.0f, 4000.0f, baseHz.load());
+        const float range = juce::jlimit (0.0f, 6.0f, rangeOct.load());
+        const float q     = juce::jmax (0.5f, resonance.load());
+        const float atCoef = std::exp (-1.0f / (0.005f * sr));                          // 5 ms attack
+        const float rlCoef = std::exp (-1.0f / (juce::jmax (5.0f, releaseMs.load()) * 0.001f * sr));
+        const int n = b.getNumSamples(), ch = juce::jmin (2, b.getNumChannels());
+        const float k = 1.0f / q;
+        for (int i = 0; i < n; ++i)
+        {
+            float peak = 0.0f;
+            for (int c = 0; c < ch; ++c) peak = juce::jmax (peak, std::abs (b.getSample (c, i)));
+            env = peak > env ? atCoef * (env - peak) + peak : rlCoef * (env - peak) + peak;   // follower
+            const float e  = juce::jlimit (0.0f, 1.0f, env);
+            float fc = base * std::pow (2.0f, range * e);                                // env sweeps the cutoff up
+            fc = juce::jlimit (20.0f, sr * 0.49f, fc);
+            const float g  = std::tan (juce::MathConstants<float>::pi * fc / sr);        // TPT SVF low-pass
+            const float a1 = 1.0f / (1.0f + g * (g + k));
+            const float a2 = g * a1, a3 = g * a2;
+            for (int c = 0; c < ch; ++c)
+            {
+                auto* d = b.getWritePointer (c);
+                const float v3 = d[i] - ic2[(size_t) c];
+                const float v1 = a1 * ic1[(size_t) c] + a2 * v3;
+                const float v2 = ic2[(size_t) c] + a2 * ic1[(size_t) c] + a3 * v3;
+                ic1[(size_t) c] = 2.0f * v1 - ic1[(size_t) c];
+                ic2[(size_t) c] = 2.0f * v2 - ic2[(size_t) c];
+                d[i] = v2;                                                               // low-pass output
+            }
+        }
+    }
+
+    juce::String name() const override { return "Auto-wah"; }
+
+    std::vector<EffectParam> parameters() override
+    {
+        return {
+            { "Base Hz",  50.0f, 2000.0f, 300.0f, [this] { return baseHz.load(); },    [this] (float v) { baseHz.store (v); } },
+            { "Range oct", 0.0f, 6.0f, 3.5f,      [this] { return rangeOct.load(); },  [this] (float v) { rangeOct.store (v); } },
+            { "Q",        0.5f, 10.0f, 3.0f,      [this] { return resonance.load(); }, [this] (float v) { resonance.store (v); } },
+            { "Release ms", 5.0f, 1000.0f, 120.0f, [this] { return releaseMs.load(); }, [this] (float v) { releaseMs.store (v); } }
+        };
+    }
+
+private:
+    std::atomic<float> baseHz { 300.0f }, rangeOct { 3.5f }, resonance { 3.0f }, releaseMs { 120.0f };
+    float env { 0.0f }, sr { 44100.0f };
+    std::array<float, 2> ic1 { 0.0f, 0.0f }, ic2 { 0.0f, 0.0f };
+};
+
+// ---------------------------------------------------------------------------
 // Parametric EQ (single peaking band, RBJ biquad)
 // ---------------------------------------------------------------------------
 // Three-band EQ: a low shelf, a mid peaking band, and a high shelf, chained per channel.
@@ -915,7 +981,7 @@ private:
 // ---------------------------------------------------------------------------
 namespace EffectFactory
 {
-    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate" }; }
+    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate", "Auto-wah" }; }
 
     inline std::unique_ptr<Effect> create (const juce::String& type)
     {
@@ -935,6 +1001,7 @@ namespace EffectFactory
         if (type == "Phaser")     return std::make_unique<PhaserFx>();
         if (type == "Auto-pan")   return std::make_unique<AutoPanFx>();
         if (type == "Noise Gate") return std::make_unique<NoiseGateFx>();
+        if (type == "Auto-wah")   return std::make_unique<AutoWahFx>();
         return nullptr;
     }
 }
