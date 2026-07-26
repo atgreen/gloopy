@@ -47,6 +47,19 @@ public:
     int  getRootNote() const { return rootNote; }
     const juce::String& getName() const { return sampleName; }
 
+    // Playback window: start/end are fractions [0,1] of the sample length; reverse plays
+    // the window back-to-front. New note-ons pick these up; already-ringing voices keep
+    // their direction but honour the (possibly changed) bounds for deactivation.
+    void  setPlaybackWindow (float s, float e, bool rev)
+    {
+        startFrac = juce::jlimit (0.0f, 1.0f, s);
+        endFrac   = juce::jlimit (0.0f, 1.0f, e);
+        reverse   = rev;
+    }
+    float getStartFrac() const { return startFrac; }
+    float getEndFrac()   const { return endFrac; }
+    bool  getReverse()   const { return reverse; }
+
     // Accessors for project serialization.
     const juce::AudioBuffer<float>& getSampleBuffer() const { return sample; }
     double getSourceRate() const { return sourceRate; }
@@ -56,6 +69,8 @@ public:
     {
         if (sample.getNumSamples() == 0)
             return;
+
+        const int lo = windowStartFrame(), hi = windowEndFrame();
 
         auto midiIt = midi.cbegin();
         const auto midiEnd = midi.cend();
@@ -80,8 +95,8 @@ public:
                     continue;
 
                 mono += readInterpolated (v.pos) * v.gain;
-                v.pos += v.rate;
-                if (v.pos >= (double) (sample.getNumSamples() - 1))
+                v.pos += v.rate;                          // rate is signed (negative = reverse)
+                if (v.rate >= 0.0 ? (v.pos >= (double) hi) : (v.pos <= (double) lo))
                     v.active = false;
             }
 
@@ -107,6 +122,20 @@ private:
         float  gain   { 1.0f };
     };
 
+    // The playback window in source frames, kept in-bounds so readInterpolated (which
+    // reads pos and pos+1) never runs off the buffer: [0, len-2] for the low edge,
+    // [lo+1, len-1] for the high edge.
+    int windowStartFrame() const
+    {
+        const int len = sample.getNumSamples();
+        return juce::jlimit (0, juce::jmax (0, len - 2), (int) ((double) startFrac * (len - 1)));
+    }
+    int windowEndFrame() const
+    {
+        const int len = sample.getNumSamples();
+        return juce::jlimit (windowStartFrame() + 1, juce::jmax (1, len - 1), (int) ((double) endFrac * (len - 1)));
+    }
+
     void startVoice (int noteNumber, float velocity)
     {
         Voice* slot = nullptr;
@@ -116,9 +145,11 @@ private:
             slot = &voices[0];   // steal the first voice
 
         const double pitchRatio = std::pow (2.0, (noteNumber - rootNote) / 12.0);
+        const double baseRate   = (sourceRate / deviceRate) * pitchRatio;
+        const int lo = windowStartFrame(), hi = windowEndFrame();
         slot->active = true;
-        slot->pos    = 0.0;
-        slot->rate   = (sourceRate / deviceRate) * pitchRatio;
+        slot->rate   = reverse ? -baseRate : baseRate;
+        slot->pos    = reverse ? (double) (hi - 1) : (double) lo;
         slot->gain   = velocity;
     }
 
@@ -135,6 +166,9 @@ private:
     double      sourceRate { 44100.0 };
     double      deviceRate { 44100.0 };
     int         rootNote   { 60 };
+    float       startFrac  { 0.0f };   // playback window start (fraction of length)
+    float       endFrac    { 1.0f };   // playback window end
+    bool        reverse    { false };  // play the window back-to-front
     juce::String sampleName;
 
     static constexpr int kNumVoices = 8;

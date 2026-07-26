@@ -420,6 +420,37 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         selTrack = track; selClip = -1;
         if (onClipSelected) onClipSelected (track, -1);
         repaint();
+
+        // Right-click a Sampler track header -> playback-window prompt (start/end/reverse/root).
+        if (e.mods.isPopupMenu() && getSamplerControls)
+        {
+            const auto sc = getSamplerControls (track);
+            if (sc.isSampler)
+            {
+                auto* aw = new juce::AlertWindow ("Sampler", "One-shot playback window", juce::MessageBoxIconType::NoIcon);
+                aw->addTextEditor ("start", juce::String (sc.start, 3), "Start (0..1)");
+                aw->addTextEditor ("end",   juce::String (sc.end, 3),   "End (0..1)");
+                aw->addTextEditor ("root",  juce::String (sc.root),     "Root note");
+                juce::StringArray dir { "Forward", "Reverse" };
+                aw->addComboBox ("dir", dir, "Direction");
+                aw->getComboBoxComponent ("dir")->setSelectedItemIndex (sc.reverse ? 1 : 0);
+                aw->addButton ("Apply",  1, juce::KeyPress (juce::KeyPress::returnKey));
+                aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+                const int tk = track;
+                aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, tk] (int r)
+                {
+                    if (r == 1 && onSetSamplerControls)
+                    {
+                        const float s   = aw->getTextEditorContents ("start").getFloatValue();
+                        const float en  = aw->getTextEditorContents ("end").getFloatValue();
+                        const int   rt  = aw->getTextEditorContents ("root").getIntValue();
+                        const bool  rev = aw->getComboBoxComponent ("dir")->getSelectedItemIndex() == 1;
+                        onSetSamplerControls (tk, s, en, rev, rt);
+                    }
+                    delete aw;
+                }), false);
+            }
+        }
         return;
     }
 

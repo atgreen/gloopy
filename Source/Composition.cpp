@@ -318,6 +318,9 @@ bool MainComponent::saveComposition (const juce::File& dir)
                                            (double) sm.getProperty ("rate", 44100.0)));
             w.str ("type", "sampler").str ("sample_file", rel)
              .integer ("root", (int) sm.getProperty ("root", 60))
+             .number ("start", (double) sm.getProperty ("sstart", 0.0))
+             .number ("end", (double) sm.getProperty ("send", 1.0))
+             .boolean ("reverse", (bool) sm.getProperty ("srev", false))
              .str ("sample_name", sm.getProperty ("sname").toString())
              .number ("rate", sm.getProperty ("rate", 44100.0));
         }
@@ -744,6 +747,9 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                     s.setProperty ("channels", ch, nullptr); s.setProperty ("frames", fr, nullptr);
                     s.setProperty ("rate", rate, nullptr);
                     s.setProperty ("root", g->getInt ("root", 60), nullptr);
+                    s.setProperty ("sstart", g->getDouble ("start", 0.0), nullptr);
+                    s.setProperty ("send", g->getDouble ("end", 1.0), nullptr);
+                    s.setProperty ("srev", g->getBool ("reverse", false), nullptr);
                     s.setProperty ("sname", g->getString ("sample_name"), nullptr);
                     tr.addChild (s, -1, nullptr);
                 }

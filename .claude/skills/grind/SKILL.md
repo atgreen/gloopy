@@ -936,6 +936,19 @@ each shipping with desktop UI + screenshot validation.
 18. **Richer sampler controls + cached waveform thumbnails** — start/end/loop/reverse,
     root note, choke group, fades, interpolation; a multi-resolution peak cache keyed
     by path+mtime+size, reused across clips/sampler/browser/exports *(Idea #6/#7)*. **M/L**
+    - `[~]` **Playback window landed** (`Source/Sampler.h`, commit): the one-shot Sampler
+      gained a playback window — `start`/`end` as fractions [0,1] of the sample length and
+      a `reverse` flag (voice `pos` starts at the window edge, `rate` is signed, and the
+      window bounds are kept in-range so the linear interpolator never reads off the buffer).
+      A live `apiSetSamplerControls`/`apiGetSamplerControls` (window + reverse + root note)
+      set under engineLock; SetSamplerControls/GetSamplerControls RPCs + Python
+      set/get_sampler_controls. Serialised in both the ValueTree SAMPLE child and the
+      composition sampler TOML (start/end/reverse). **Desktop UI:** right-click a Sampler
+      track header -> "Sampler" prompt (Start/End/Root/Direction), screenshot- AND
+      functionally-validated (GUI Apply -> GetSamplerControls shows start=0.5, reverse=true).
+      smoke proves reverse + start-trim move an asymmetric sample's tone to the front and the
+      controls round-trip. **Not yet:** loop mode, choke groups, per-voice fades, root-note
+      keyboard-mapped multisamples, interpolation quality, waveform thumbnails/peak cache.
 19. **Controller rack / MIDI-learn / parameter linking + MIDI device maps** — a
     source→target mapping view; MIDI-learn for any `ParamModel` id; OSC/API sources as
     mappable controllers; per-mapping scaling/inversion/smoothing/range/bypass;

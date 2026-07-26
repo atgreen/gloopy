@@ -40,6 +40,12 @@ public:
     /** Open the live-arpeggiator config menu for an instrument track (arg = track index).
         The owner builds the menu from apiGetTrackArp / apiSetTrackArp. */
     std::function<void (int)> onArpMenu;
+    /** Right-click a Sampler track header -> playback-window menu. getSamplerControls
+        returns {isSampler, start, end, reverse, root} for the track (index); the owner
+        opens the prompt and routes the result to onSetSamplerControls. */
+    struct SamplerCtl { bool isSampler { false }; float start { 0.0f }, end { 1.0f }; bool reverse { false }; int root { 60 }; };
+    std::function<SamplerCtl (int)>                      getSamplerControls;
+    std::function<void (int, float, float, bool, int)>   onSetSamplerControls;   // track, start, end, reverse, root
     /** Right-click clip menu command: (track, clip, command). Commands: "split",
         "duplicate", "reverse", "snapscale", "delete". Owner routes to the api* ops. */
     std::function<void (int, int, const juce::String&)> onClipCommand;

@@ -200,6 +200,16 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.AddSamplerTrackRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.TrackId.FromString,
                 _registered_method=True)
+        self.SetSamplerControls = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetSamplerControls',
+                request_serializer=gloopy__pb2.SamplerControlsRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GetSamplerControls = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GetSamplerControls',
+                request_serializer=gloopy__pb2.TrackId.SerializeToString,
+                response_deserializer=gloopy__pb2.SamplerControls.FromString,
+                _registered_method=True)
         self.AddSfzTrack = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AddSfzTrack',
                 request_serializer=gloopy__pb2.AddSfzTrackRequest.SerializeToString,
@@ -955,6 +965,18 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def AddSamplerTrack(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetSamplerControls(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetSamplerControls(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1835,6 +1857,16 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.AddSamplerTrack,
                     request_deserializer=gloopy__pb2.AddSamplerTrackRequest.FromString,
                     response_serializer=gloopy__pb2.TrackId.SerializeToString,
+            ),
+            'SetSamplerControls': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetSamplerControls,
+                    request_deserializer=gloopy__pb2.SamplerControlsRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GetSamplerControls': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetSamplerControls,
+                    request_deserializer=gloopy__pb2.TrackId.FromString,
+                    response_serializer=gloopy__pb2.SamplerControls.SerializeToString,
             ),
             'AddSfzTrack': grpc.unary_unary_rpc_method_handler(
                     servicer.AddSfzTrack,
@@ -3269,6 +3301,60 @@ class Gloopy:
             '/gloopy.v1.Gloopy/AddSamplerTrack',
             gloopy__pb2.AddSamplerTrackRequest.SerializeToString,
             gloopy__pb2.TrackId.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetSamplerControls(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetSamplerControls',
+            gloopy__pb2.SamplerControlsRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetSamplerControls(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GetSamplerControls',
+            gloopy__pb2.TrackId.SerializeToString,
+            gloopy__pb2.SamplerControls.FromString,
             options,
             channel_credentials,
             insecure,

@@ -187,6 +187,8 @@ message PresetList     { repeated string names = 1; }
 // ── track & clip management ────────────────────────────────
 message AddAudioTrackRequest   { string name = 1; }                             // empty audio track
 message AddSamplerTrackRequest { string name = 1; string path = 2; int32 root_note = 3; }
+message SamplerControlsRequest { int32 track_id = 1; float start = 2; float end = 3; bool reverse = 4; int32 root_note = 5; }
+message SamplerControls { bool ok = 1; float start = 2; float end = 3; bool reverse = 4; int32 root_note = 5; string name = 6; }
 message AddSfzTrackRequest     { string name = 1; string path = 2; }   // native SFZ instrument
 message AddPluginTrackRequest  { string identifier = 1; }                        // PluginInfo.identifier
 message ClipRef            { int32 track_id = 1; int32 index = 2; }
@@ -354,6 +356,8 @@ service Gloopy {
   rpc RemoveTrack     (TrackId)                returns (Ack);
   rpc AddAudioTrack   (AddAudioTrackRequest)   returns (TrackId);
   rpc AddSamplerTrack (AddSamplerTrackRequest) returns (TrackId);
+  rpc SetSamplerControls (SamplerControlsRequest) returns (Ack);
+  rpc GetSamplerControls (TrackId) returns (SamplerControls);
   rpc AddSfzTrack     (AddSfzTrackRequest)     returns (TrackId);
   rpc AddPluginTrack  (AddPluginTrackRequest)  returns (TrackId);
   rpc RemoveClip      (ClipRef)                returns (Ack);

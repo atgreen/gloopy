@@ -232,6 +232,17 @@ MainComponent::MainComponent (bool headless)
     arrangeView->onSetTimeSignature = [this] (int num, int denom) { apiSetTimeSignature (num, denom); };
     arrangeView->getSwing   = [this] { return transport.getSwing(); };
     arrangeView->onSetSwing = [this] (double s) { apiSetSwing (s); };
+    arrangeView->getSamplerControls = [this] (int trackIdx) -> ArrangeView::SamplerCtl
+    {
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return {};
+        const auto s = apiGetSamplerControls (tracks[(size_t) trackIdx]->id);
+        return { s.ok, s.start, s.end, s.reverse, s.rootNote };
+    };
+    arrangeView->onSetSamplerControls = [this] (int trackIdx, float start, float end, bool reverse, int root)
+    {
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+        apiSetSamplerControls (tracks[(size_t) trackIdx]->id, start, end, reverse, root);
+    };
     arrangeView->getPunchRange = [this] (double& in, double& out) -> bool
     {
         in  = punchInBeat.load();
@@ -1295,6 +1306,40 @@ int MainComponent::apiAddSamplerTrack (const juce::String& name, const juce::Str
         Track* raw = t.get();
         addTrack (std::move (t));
         return raw->id;
+    });
+}
+
+// Live playback controls for a one-shot Sampler track: window [start,end] (fractions of
+// the sample), reverse, and root note. rootNote <= 0 leaves the root unchanged. Set under
+// engineLock (the audio thread reads these fields in render/startVoice).
+bool MainComponent::apiSetSamplerControls (int trackId, float startFrac, float endFrac, bool reverse, int rootNote)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        const juce::ScopedLock sl (engineLock);
+        for (auto& t : tracks)
+            if (t->id == trackId)
+                if (auto* sm = dynamic_cast<Sampler*> (t->generator.get()))
+                {
+                    sm->setPlaybackWindow (startFrac, endFrac, reverse);
+                    if (rootNote > 0) sm->setRootNote (rootNote);
+                    return true;
+                }
+        return false;
+    });
+}
+
+MainComponent::SamplerSnap MainComponent::apiGetSamplerControls (int trackId)
+{
+    return callOnMessageThread ([&] () -> SamplerSnap
+    {
+        const juce::ScopedLock sl (engineLock);
+        for (auto& t : tracks)
+            if (t->id == trackId)
+                if (auto* sm = dynamic_cast<Sampler*> (t->generator.get()))
+                    return { true, sm->getStartFrac(), sm->getEndFrac(), sm->getReverse(), sm->getRootNote(), sm->getName() };
+        return {};
     });
 }
 
@@ -2831,6 +2876,9 @@ juce::ValueTree MainComponent::toValueTree()
             s.setProperty ("channels", buf.getNumChannels(), nullptr);
             s.setProperty ("frames", buf.getNumSamples(), nullptr);
             s.setProperty ("root", sm->getRootNote(), nullptr);
+            s.setProperty ("sstart", sm->getStartFrac(), nullptr);
+            s.setProperty ("send", sm->getEndFrac(), nullptr);
+            s.setProperty ("srev", sm->getReverse(), nullptr);
             s.setProperty ("sname", sm->getName(), nullptr);
             juce::MemoryBlock mb ((size_t) buf.getNumChannels() * (size_t) buf.getNumSamples() * sizeof (float));
             auto* dst = (float*) mb.getData();
@@ -3236,6 +3284,9 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             sm->setSample (std::move (buf), (double) s.getProperty ("rate", 44100.0),
                            s.getProperty ("sname", "sample").toString());
             sm->setRootNote ((int) s.getProperty ("root", 60));
+            sm->setPlaybackWindow ((float) (double) s.getProperty ("sstart", 0.0),
+                                   (float) (double) s.getProperty ("send", 1.0),
+                                   (bool) s.getProperty ("srev", false));
             gen = std::move (sm);
         }
         if (gen) gen->prepare (currentSampleRate, currentBlockSize);

@@ -301,6 +301,9 @@ public:
     bool apiRemoveTrack (int id);
     int  apiAddAudioTrack (const juce::String& name);
     int  apiAddSamplerTrack (const juce::String& name, const juce::String& path, int rootNote);
+    bool apiSetSamplerControls (int trackId, float startFrac, float endFrac, bool reverse, int rootNote);
+    struct SamplerSnap { bool ok { false }; float start { 0.0f }, end { 1.0f }; bool reverse { false }; int rootNote { 60 }; juce::String name; };
+    SamplerSnap apiGetSamplerControls (int trackId);
     int  apiAddSfzTrack (const juce::String& name, const juce::String& path);   // native SFZ, or -1
     juce::File resolveSamplePath (const juce::String& stored) const;            // portable path resolution
     juce::String portableSamplePath (const juce::String& absolute) const;       // inverse, for saving

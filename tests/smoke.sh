@@ -291,6 +291,51 @@ NMODS3=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListModulations | python3 -c
 [ "$NMODS3" = "0" ] || { echo "smoke: RemoveModulation should clear ALL sources on the target (got $NMODS3)" >&2; exit 1; }
 g -d "{\"id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
+# Sampler playback window (Wave 6 #18): reverse + start/end trim on a one-shot Sampler.
+# Build an asymmetric sample (silent for 6000 frames, then a tone in the last quarter) so
+# the tone's POSITION in the render reveals direction/window. Forward -> tone plays late;
+# reverse -> tone plays early; start=0.75 forward -> the window is just the tone, so it
+# also plays early. Controls round-trip through GetSamplerControls and a composition save.
+python3 -c "
+import wave, struct, math
+N=8000; fr=[]
+for i in range(N):
+    v = 0.0 if i < 6000 else 0.8*math.sin(2*math.pi*440*(i-6000)/44100.0)
+    fr.append(int(max(-1,min(1,v))*32767))
+w=wave.open('$WORK/asym.wav','w'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(44100)
+w.writeframes(b''.join(struct.pack('<h',s) for s in fr)); w.close()
+"
+ST=$(g -d "{\"name\":\"smp\",\"path\":\"$WORK/asym.wav\",\"root_note\":60}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSamplerTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$ST,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":1.0}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/smp_fwd.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$ST,\"start\":0,\"end\":1,\"reverse\":true,\"root_note\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSamplerControls >/dev/null
+SCREV=$(g -d "{\"id\":$ST}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetSamplerControls | python3 -c "import json,sys;d=json.load(sys.stdin);print('%.3f %.3f %s'%(d.get('start',0),d.get('end',1),d.get('reverse',False)))")
+g -d "{\"path\":\"$WORK/smp_rev.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$ST,\"start\":0.75,\"end\":1,\"reverse\":false,\"root_note\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSamplerControls >/dev/null
+g -d "{\"path\":\"$WORK/smp_trim.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+SC=$(g -d "{\"id\":$ST}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetSamplerControls | python3 -c "import json,sys;d=json.load(sys.stdin);print('%.3f %.3f %s'%(d.get('start',0),d.get('end',1),d.get('reverse',False)))")
+g -d "{\"path\":\"$WORK/smp.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+g -d "{\"path\":\"$WORK/smp.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+SC2=$(g -d "{\"id\":$ST}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetSamplerControls | python3 -c "import json,sys;d=json.load(sys.stdin);print('%.3f %.3f %s'%(d.get('start',0),d.get('end',1),d.get('reverse',False)))")
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [abs(int.from_bytes(f[i:i+3],'little',signed=True)) for i in range(0,len(f),3)]
+fwd=rd('$WORK/smp_fwd.wav');rev=rd('$WORK/smp_rev.wav');trim=rd('$WORK/smp_trim.wav')
+def early(x): return sum(x[:1500])
+def total(x): return sum(x)
+assert total(fwd)>0 and total(rev)>0, 'sampler rendered silent'
+# Reverse moves the late tone to the front: early energy jumps.
+assert early(rev) > early(fwd)*5, 'reverse did not move the tone earlier (fwd_early=%d rev_early=%d)'%(early(fwd),early(rev))
+# Trimming to the last quarter (forward) also puts the tone up front.
+assert early(trim) > early(fwd)*5, 'start-trim did not move the tone earlier (fwd_early=%d trim_early=%d)'%(early(fwd),early(trim))
+assert '$SCREV'=='0.000 1.000 True', 'GetSamplerControls reverse not read back: got [$SCREV]'
+assert '$SC'=='0.750 1.000 False', 'GetSamplerControls start-trim not read back: got [$SC]'
+assert '$SC2'=='0.750 1.000 False', 'sampler window did not survive composition round-trip: got [$SC2]'
+print('smoke: PASS — sampler reverse + start-trim move the tone (fwd_early=%d rev_early=%d trim_early=%d), controls round-trip'%(early(fwd),early(rev),early(trim)))
+" || { echo 'smoke: sampler playback window wrong' >&2; exit 1; }
+g -d "{\"id\":$ST}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
 # ParamModel keystone — automation-by-id: an automation lane addresses the SAME ParamModel
 # id a controller/LFO uses (track/<id>/synth/cutoff), written through the shared
 # applyParamValue. A ramp 300->8000 Hz over 0..4 beats brightens the render vs a static
