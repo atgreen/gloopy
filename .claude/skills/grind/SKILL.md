@@ -670,8 +670,22 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       Rides the universal param model as `track/<id>/synth/detune` (SetParameter/GetParameter
       /modulation/automation all free) and serialises with the other synth params.
       smoke proves the cents→frequency mapping exactly: +1200 cents doubles a sine's
-      zero-crossing rate (ratio 1.999) and the value round-trips. **Not yet:** SFZ/plugin
-      microtuning, per-note (scale) tuning tables, Scala/`.kbm` import, piano-roll UI.
+      zero-crossing rate (ratio 1.999) and the value round-trips.
+    - `[x]` **Per-pitch-class microtuning + Scala import landed** (commit): a project-level
+      12-entry cents-offset-from-ET table (`projectTuning`, all 0 = 12-TET) applied at the
+      built-in synth's note-on alongside `detune` (`baseFreq *= 2^((detune + tuning[note%12])
+      /1200)`). Stored in `SynthParams.tuning` (12 atomics), broadcast to every synth by
+      `applyTuningToSynths` (new tracks inherit it; load re-applies). `apiSetTuning`/
+      `apiGetTuning` + `apiImportScl` (a Scala `.scl` parser in `Source/Scales.cpp`: skips
+      description + note-count, reads cents `x.y` / ratios `a/b`/`n`, maps degree i to pitch
+      class i's offset = cents − i·100). RPCs SetTuning/GetTuning/ImportScl + Python. Serialised
+      on the root ValueTree + composition manifest (`tuning_cents`, omitted for 12-TET).
+      **Desktop:** File → "Load Tuning (.scl)..." (chooser) + "Reset Tuning (Equal)". smoke:
+      +1200c on C doubles a sine (ZCR 2.005), survives a composition round-trip, and a test
+      `.scl` (degree 1 = 150c) yields class-1 offset +50; screenshot-validated. Gotcha logged:
+      the `.scl` state machine needs explicit have-description/have-count flags — a `< 0`
+      sentinel for "description seen" swallowed the note-count line. **Not yet:** SFZ/plugin
+      microtuning, per-note (not per-class) tables, `.kbm` keyboard maps, piano-roll UI.
 
 ### Wave 5 — Analysis, plugins, diagnostics (offline / headless-friendly)
 

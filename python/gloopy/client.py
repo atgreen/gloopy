@@ -593,6 +593,18 @@ class Gloopy:
         s = self.stub.GetScale(pb.Empty())
         return {"root": s.root, "name": s.name, "intervals": list(s.intervals)}
 
+    def set_tuning(self, cents12: Iterable[float]) -> None:
+        """Microtuning: 12 per-pitch-class cents offsets from equal temperament (all 0 = 12-TET;
+        applies to the built-in synth). Must be exactly 12 values."""
+        self._ack(self.stub.SetTuning(pb.Tuning(cents=list(cents12))))
+
+    def get_tuning(self) -> list[float]:
+        return list(self.stub.GetTuning(pb.Empty()).cents)
+
+    def import_scl(self, path: str) -> None:
+        """Load a Scala .scl tuning file (12-note scales map to the chromatic keys)."""
+        self._ack(self.stub.ImportScl(pb.FilePath(path=path)))
+
     def snap_clip_to_scale(self, track_id: int, index: int) -> None:
         self._ack(self.stub.SnapClipToScale(pb.ClipRef(track_id=track_id, index=index)))
 

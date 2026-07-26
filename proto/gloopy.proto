@@ -260,6 +260,7 @@ message ModTarget { string target = 1; }
 
 // ── project / state ────────────────────────────────────────
 message FilePath { string path = 1; }
+message Tuning   { repeated double cents = 1; }   // 12 pitch-class cents offsets from equal temperament
 message TextValue { string text = 1; }   // project notes (markdown)
 // Waveform thumbnail: min/max peaks per bucket for an audio file.
 message WaveformRequest { string path = 1; int32 buckets = 2; }
@@ -467,6 +468,9 @@ service Gloopy {
   // scales — project scale + snap-to-scale
   rpc SetScale        (Scale)   returns (Ack);
   rpc GetScale        (Empty)   returns (Scale);
+  rpc SetTuning       (Tuning)  returns (Ack);      // 12 cents offsets from equal temperament
+  rpc GetTuning       (Empty)   returns (Tuning);
+  rpc ImportScl       (FilePath) returns (Ack);     // load a Scala .scl tuning file
   rpc SnapClipToScale (ClipRef) returns (Ack);
 
   // timeline locations — named markers / ranges / sections

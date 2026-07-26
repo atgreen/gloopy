@@ -591,6 +591,35 @@ print('smoke: PASS — non-destructive clip transpose +12 doubles pitch (ZCR %.3
 " || { echo 'smoke: clip transpose wrong' >&2; exit 1; }
 g -d "{\"id\":$CT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
+# Microtuning (Wave 4 #11): a +1200-cent tuning on pitch class 0 raises a C one octave (ZCR
+# doubles), it survives a composition round-trip, and a Scala .scl import maps degrees to the
+# right cents-from-ET offsets. Reuses the zcr() helper from the detune block.
+MT=$(g -d '{"name":"tune","wave":"SINE","attack":0.005,"decay":0.05,"sustain":0.95,"release":0.05,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$MT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":3.5,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d '{"cents":[0,0,0,0,0,0,0,0,0,0,0,0]}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTuning >/dev/null
+g -d "{\"path\":\"$WORK/tune0.wav\",\"tail_seconds\":0,\"end_beat\":3.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"cents":[1200,0,0,0,0,0,0,0,0,0,0,0]}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTuning >/dev/null
+g -d "{\"path\":\"$WORK/tune12.wav\",\"tail_seconds\":0,\"end_beat\":3.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"path\":\"$WORK/tune.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+g -d "{\"path\":\"$WORK/tune.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+TRB=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetTuning | python3 -c "import json,sys;print(json.load(sys.stdin).get('cents',[0])[0])")
+# Scala import: a 12-note .scl with degree 1 at 150 cents (ET would be 100) -> class 1 offset +50.
+printf '! test.scl\nTest\n 12\n!\n 150.0\n 200.0\n 300.0\n 400.0\n 500.0\n 600.0\n 700.0\n 800.0\n 900.0\n 1000.0\n 1100.0\n 2/1\n' > "$WORK/test.scl"
+g -d "{\"path\":\"$WORK/test.scl\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/ImportScl >/dev/null
+SCL1=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetTuning | python3 -c "import json,sys;c=json.load(sys.stdin).get('cents',[0]*12);print('%.1f %.1f'%(c[1],c[2]))")
+python3 -c "
+z0=$(zcr "$WORK/tune0.wav"); z12=$(zcr "$WORK/tune12.wav")
+r=z12/max(1,z0)
+assert 1.8 < r < 2.2, 'tuning +1200c on C should double the pitch (ZCR ratio %.3f)'%r
+assert abs(float('$TRB')-1200)<1e-3, 'tuning did not survive composition round-trip (got $TRB)'
+s1,s2='$SCL1'.split()
+assert abs(float(s1)-50.0)<0.5, 'scl degree 1 (150c) should give class-1 offset +50, got %s'%s1
+assert abs(float(s2)-0.0)<0.5, 'scl degree 2 (200c=ET) should give class-2 offset 0, got %s'%s2
+print('smoke: PASS — microtuning +1200c doubles pitch (ZCR %.3f), round-trips, .scl import maps degrees (class1=%sc)'%(r,s1))
+" || { echo 'smoke: microtuning wrong' >&2; exit 1; }
+g -d '{"cents":[0,0,0,0,0,0,0,0,0,0,0,0]}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTuning >/dev/null
+g -d "{\"id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
 # Live arpeggiator: a held chord renders differently with the arp on, and GetTrackArp
 # round-trips. Dedicated track, two renders (chord vs arp), cleaned up.
 AT=$(g -d '{"name":"arptest","wave":"SAW","attack":0.005,"decay":0.05,"sustain":0.9,"release":0.05,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)

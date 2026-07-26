@@ -763,6 +763,7 @@ int MainComponent::apiAddSynthTrack (const juce::String& name, int wave, float a
         auto& p = sg->engine.params;
         p.waveform.store (juce::jlimit (0, 3, wave));
         p.attack.store (a); p.decay.store (d); p.sustain.store (s); p.release.store (r); p.gain.store (g);
+        for (int i = 0; i < 12; ++i) p.tuning[(size_t) i].store ((float) projectTuning[(size_t) i]);   // inherit project microtuning
         auto t = std::make_unique<Track> (name.isNotEmpty() ? name : "Synth",
                                           std::move (sg), 60, paletteColour ((int) tracks.size()));
         Track* raw = t.get();
@@ -2802,6 +2803,10 @@ void MainComponent::showFileMenu()
     menu.addItem (7, "Save As Composition...");
     menu.addItem (10, "Save as Template...");
     menu.addSeparator();
+    menu.addItem (11, "Load Tuning (.scl)...");        // Scala microtuning file
+    bool tuned = false; for (double c : projectTuning) if (c != 0.0) tuned = true;
+    menu.addItem (12, "Reset Tuning (Equal)", tuned);
+    menu.addSeparator();
     menu.addItem (8, "Project Notes...");
     menu.addItem (5, "Rescan Plugins");
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
@@ -2890,6 +2895,19 @@ void MainComponent::showFileMenu()
                     delete aw;
                 }), false);
             }
+            else if (result == 11)   // Load a Scala .scl microtuning file
+            {
+                fileChooser = std::make_unique<juce::FileChooser> ("Load Scala tuning", juce::File(), "*.scl");
+                fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                    [this] (const juce::FileChooser& fc)
+                    {
+                        const auto f = fc.getResult();
+                        if (f.existsAsFile() && ! apiImportScl (f.getFullPathName()))
+                            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                "Load Tuning", "Could not parse a 12-note Scala scale from\n" + f.getFileName());
+                    });
+            }
+            else if (result == 12) apiSetTuning (std::vector<double> (12, 0.0));   // reset to equal temperament
             else if (result == 5) scanPlugins (true);
         });
 }
@@ -2962,6 +2980,9 @@ juce::ValueTree MainComponent::toValueTree()
     root.setProperty ("scaleName", scaleName, nullptr);
     { juce::StringArray iv; for (int i : scaleIntervals) iv.add (juce::String (i));
       root.setProperty ("scaleIntervals", iv.joinIntoString (","), nullptr); }
+    { bool anyTune = false; for (double c : projectTuning) if (c != 0.0) anyTune = true;   // omit for 12-TET
+      if (anyTune) { juce::StringArray tv; for (double c : projectTuning) tv.add (juce::String (c, 4));
+                     root.setProperty ("tuningCents", tv.joinIntoString (","), nullptr); } }
 
     juce::ValueTree trks ("TRACKS");
     for (auto& t : tracks)
@@ -3697,6 +3718,13 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             if (s.trim().isNotEmpty()) scaleIntervals.push_back (s.getIntValue());
         if (scaleIntervals.empty()) scaleIntervals = { 0,1,2,3,4,5,6,7,8,9,10,11 };
     }
+    projectTuning.fill (0.0);
+    if (root.hasProperty ("tuningCents"))
+    {
+        auto tv = juce::StringArray::fromTokens (root.getProperty ("tuningCents").toString(), ",", "");
+        for (int i = 0; i < 12 && i < tv.size(); ++i) projectTuning[(size_t) i] = tv[i].getDoubleValue();
+    }
+    applyTuningToSynths();   // push the loaded tuning into the (just-loaded) synth voices
 }
 
 void MainComponent::refreshUiAfterLoad()

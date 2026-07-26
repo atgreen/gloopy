@@ -50,6 +50,10 @@ struct SynthParams
     // Whole-voice tuning offset (per-track microtuning), applied to every oscillator.
     std::atomic<float> detune       { 0.0f };    // cents
 
+    // Project microtuning: a per-pitch-class cents offset from equal temperament
+    // (index = MIDI note % 12; all 0 = 12-TET). Broadcast to every synth by the owner.
+    std::array<std::atomic<float>, 12> tuning {};
+
     // Output
     std::atomic<float> gain         { 0.25f };
 };
@@ -134,8 +138,10 @@ public:
     {
         phase1 = phase2 = phaseSub = 0.0;
         level  = velocity;
+        const double tuneCents = (double) params.detune.load()                      // per-track cents offset
+                               + (double) params.tuning[(size_t) (((midiNoteNumber % 12) + 12) % 12)].load();  // + project microtuning
         baseFreq = juce::MidiMessage::getMidiNoteInHertz (midiNoteNumber)
-                     * std::pow (2.0, (double) params.detune.load() / 1200.0);   // per-track cents offset
+                     * std::pow (2.0, tuneCents / 1200.0);
 
         adsr.setSampleRate (getSampleRate());
         fenv.setSampleRate (getSampleRate());

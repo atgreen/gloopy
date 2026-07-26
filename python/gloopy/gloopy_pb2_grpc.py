@@ -625,6 +625,21 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
                 response_deserializer=gloopy__pb2.Scale.FromString,
                 _registered_method=True)
+        self.SetTuning = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetTuning',
+                request_serializer=gloopy__pb2.Tuning.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GetTuning = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GetTuning',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.Tuning.FromString,
+                _registered_method=True)
+        self.ImportScl = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ImportScl',
+                request_serializer=gloopy__pb2.FilePath.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.SnapClipToScale = channel.unary_unary(
                 '/gloopy.v1.Gloopy/SnapClipToScale',
                 request_serializer=gloopy__pb2.ClipRef.SerializeToString,
@@ -1544,6 +1559,26 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetTuning(self, request, context):
+        """12 cents offsets from equal temperament
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetTuning(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ImportScl(self, request, context):
+        """load a Scala .scl tuning file
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SnapClipToScale(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2328,6 +2363,21 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.GetScale,
                     request_deserializer=gloopy__pb2.Empty.FromString,
                     response_serializer=gloopy__pb2.Scale.SerializeToString,
+            ),
+            'SetTuning': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetTuning,
+                    request_deserializer=gloopy__pb2.Tuning.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GetTuning': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetTuning,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.Tuning.SerializeToString,
+            ),
+            'ImportScl': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImportScl,
+                    request_deserializer=gloopy__pb2.FilePath.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'SnapClipToScale': grpc.unary_unary_rpc_method_handler(
                     servicer.SnapClipToScale,
@@ -5662,6 +5712,87 @@ class Gloopy:
             '/gloopy.v1.Gloopy/GetScale',
             gloopy__pb2.Empty.SerializeToString,
             gloopy__pb2.Scale.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetTuning(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetTuning',
+            gloopy__pb2.Tuning.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetTuning(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GetTuning',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.Tuning.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ImportScl(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ImportScl',
+            gloopy__pb2.FilePath.SerializeToString,
+            gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,
             insecure,

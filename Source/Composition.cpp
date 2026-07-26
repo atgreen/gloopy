@@ -238,6 +238,13 @@ bool MainComponent::saveComposition (const juce::File& dir)
       for (auto& s : juce::StringArray::fromTokens (root.getProperty ("scaleIntervals").toString(), ",", ""))
           if (s.trim().isNotEmpty()) iv.add (s.trim());
       man.strArray ("scale_intervals", iv); }
+    if (root.hasProperty ("tuningCents"))              // microtuning: 12 cents offsets from ET
+    {
+        juce::StringArray tc;
+        for (auto& s : juce::StringArray::fromTokens (root.getProperty ("tuningCents").toString(), ",", ""))
+            if (s.trim().isNotEmpty()) tc.add (s.trim());
+        if (! tc.isEmpty()) man.strArray ("tuning_cents", tc);
+    }
     man.blank();
 
     // Slug the mixer inserts first so tracks can reference them by slug.
@@ -631,6 +638,8 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
     root.setProperty ("scaleRoot", man.root.getInt ("scale_root", 0), nullptr);
     root.setProperty ("scaleName", man.root.getString ("scale_name", "chromatic"), nullptr);
     root.setProperty ("scaleIntervals", man.root.getStringArray ("scale_intervals").joinIntoString (","), nullptr);
+    { auto tc = man.root.getStringArray ("tuning_cents");
+      if (! tc.isEmpty()) root.setProperty ("tuningCents", tc.joinIntoString (","), nullptr); }
 
     // Inserts first (tracks reference them by slug) — establishes slug->index.
     juce::ValueTree mixerTree ("MIXER");

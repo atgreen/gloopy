@@ -283,6 +283,17 @@ namespace
         Status SnapClipToScale (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
         { const int n = main.apiSnapClipToScale (q->track_id(), q->index());
           r->set_ok (n >= 0); if (n < 0) r->set_error ("clip not found"); return Status::OK; }
+        Status SetTuning (ServerContext*, const pb::Tuning* q, pb::Ack* r) override
+        {
+            std::vector<double> c; for (int i = 0; i < q->cents_size(); ++i) c.push_back (q->cents (i));
+            const bool ok = main.apiSetTuning (c);
+            r->set_ok (ok); if (! ok) r->set_error ("tuning needs exactly 12 cents values"); return Status::OK;
+        }
+        Status GetTuning (ServerContext*, const pb::Empty*, pb::Tuning* r) override
+        { for (double c : main.apiGetTuning()) r->add_cents (c); return Status::OK; }
+        Status ImportScl (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        { const bool ok = main.apiImportScl (js (q->path()));
+          r->set_ok (ok); if (! ok) r->set_error ("could not parse a 12-note .scl"); return Status::OK; }
 
         // ---- buses & sends ----
         Status AddBus (ServerContext*, const pb::AddBusRequest* q, pb::TrackId* r) override

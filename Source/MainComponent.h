@@ -231,6 +231,11 @@ public:
     // pitch to the nearest scale degree (ties round up).
     bool apiSetScale (int root, const juce::String& name, const std::vector<int>& intervals);
     void apiGetScale (int& root, juce::String& name, std::vector<int>& intervals);
+    // Microtuning: a 12-entry cents-offset-from-equal-temperament table (index = pitch class).
+    bool apiSetTuning (const std::vector<double>& cents12);   // all 0 = 12-TET
+    std::vector<double> apiGetTuning();
+    bool apiImportScl (const juce::String& path);             // parse a Scala .scl -> tuning table
+    void applyTuningToSynths();                                // push projectTuning into every synth voice
     int  apiSnapClipToScale (int trackId, int clipIndex);   // notes changed, or -1
     int  snapPitchToScale (int pitch) const;                // nearest in-scale pitch
 
@@ -599,6 +604,7 @@ private:
     int scaleRoot { 0 };                          // 0=C .. 11=B
     juce::String scaleName { "chromatic" };
     std::vector<int> scaleIntervals { 0,1,2,3,4,5,6,7,8,9,10,11 };   // semitone offsets from root
+    std::array<double, 12> projectTuning {};      // microtuning: cents offset from ET per pitch class (all 0 = 12-TET)
     // Modulation matrix: LFO sources that drive a ParamModel target each block.
     // value = center + depth * osc(rate * t). One LFO per target (upsert by target).
     struct Mod { juce::String target; float rate { 1.0f }, depth { 0.0f }, center { 0.0f }; int shape { 0 };

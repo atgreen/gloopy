@@ -7,7 +7,9 @@
 // composition manifest (see Composition.cpp) and toValueTree/loadFromTree.
 
 #include "MainComponent.h"
+#include "SynthGenerator.h"
 #include <set>
+#include <cmath>
 
 namespace
 {
@@ -71,6 +73,78 @@ void MainComponent::apiGetScale (int& root, juce::String& name, std::vector<int>
         root = scaleRoot; name = scaleName; intervals = scaleIntervals;
         return true;
     });
+}
+
+// ── Microtuning ──────────────────────────────────────────────────────────────
+// Push the project cents table into every synth's voice params (index = pitch class).
+// Built-in synth only for now (SFZ/plugins ignore it). Caller holds engineLock.
+void MainComponent::applyTuningToSynths()
+{
+    for (auto& t : tracks)
+        if (auto* sg = dynamic_cast<SynthGenerator*> (t->generator.get()))
+            for (int i = 0; i < 12; ++i)
+                sg->engine.params.tuning[(size_t) i].store ((float) projectTuning[(size_t) i]);
+}
+
+bool MainComponent::apiSetTuning (const std::vector<double>& cents12)
+{
+    if (cents12.size() != 12) return false;
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        const juce::ScopedLock sl (engineLock);
+        for (int i = 0; i < 12; ++i) projectTuning[(size_t) i] = cents12[(size_t) i];
+        applyTuningToSynths();
+        return true;
+    });
+}
+
+std::vector<double> MainComponent::apiGetTuning()
+{
+    return callOnMessageThread ([&]
+    {
+        const juce::ScopedLock sl (engineLock);
+        return std::vector<double> (projectTuning.begin(), projectTuning.end());
+    });
+}
+
+// Parse a Scala .scl file into a 12-entry cents-offset-from-ET table. The file lists a
+// pitch (description line, note count, then that many degrees as cents "x.y" or ratios
+// "a/b"/"n"); degree i is pitch class i's absolute cents from the root, so the stored
+// offset is (degree cents - i*100). Only 12-note scales map cleanly to the chromatic keys.
+bool MainComponent::apiImportScl (const juce::String& path)
+{
+    juce::File f (path);
+    if (! f.existsAsFile()) return false;
+    juce::StringArray lines;
+    lines.addLines (f.loadFileAsString());
+    std::vector<double> degrees;                 // absolute cents from the root, degree 1..N
+    int count = 0;
+    bool haveDesc = false, haveCount = false;
+    for (auto raw : lines)
+    {
+        auto line = raw.trim();
+        if (line.startsWithChar ('!') || line.isEmpty()) continue;   // comment / blank
+        if (! haveDesc)  { haveDesc = true; continue; }               // first non-comment = description (skip)
+        if (! haveCount) { count = line.getIntValue(); haveCount = true; continue; }   // second = note count
+        double cents;
+        if (line.containsChar ('.'))                                  // cents value
+            cents = line.getDoubleValue();
+        else if (line.containsChar ('/'))                             // ratio a/b
+        {
+            const double a = line.upToFirstOccurrenceOf ("/", false, false).getDoubleValue();
+            const double b = line.fromFirstOccurrenceOf ("/", false, false).getDoubleValue();
+            cents = (b > 0.0 && a > 0.0) ? 1200.0 * std::log2 (a / b) : 0.0;
+        }
+        else                                                          // integer ratio n/1
+            cents = line.getDoubleValue() > 0.0 ? 1200.0 * std::log2 (line.getDoubleValue()) : 0.0;
+        degrees.push_back (cents);
+        if ((int) degrees.size() >= count) break;
+    }
+    if (degrees.size() < 12) return false;                            // need 12 degrees (11 + octave)
+    std::vector<double> tuning (12, 0.0);                             // pitch class 0 = root = 0
+    for (int i = 1; i < 12; ++i) tuning[(size_t) i] = degrees[(size_t) (i - 1)] - i * 100.0;
+    return apiSetTuning (tuning);
 }
 
 // Toolbar scale selector -> model. Reads both combo boxes and applies via the same
