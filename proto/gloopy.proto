@@ -252,6 +252,8 @@ message AutomationList { repeated Automation lanes = 1; }
 message AddAutoPointRequest { string param_id = 1; double beat = 2; float value = 3; }
 // Stepped (hold) vs linear interpolation for a ParamModel-id-addressed lane.
 message AutoStepRequest { string param_id = 1; bool step = 2; }
+// Ease curve for a ParamModel-id-addressed lane: -1 ease-out .. 0 linear .. +1 ease-in.
+message AutoCurveRequest { string param_id = 1; float curve = 2; }
 
 // ── modulation matrix ──────────────────────────────────────
 // An LFO driving a ParamModel target: value = center + depth*osc(rate*t).
@@ -449,6 +451,7 @@ service Gloopy {
   rpc SetAutomation  (Automation)       returns (Ack);
   rpc AddAutomationPoint (AddAutoPointRequest) returns (Ack);   // append/replace a keyframe on an id-addressed lane
   rpc SetAutomationStep  (AutoStepRequest)     returns (Ack);   // stepped (hold) vs linear interpolation
+  rpc SetAutomationCurve (AutoCurveRequest)    returns (Ack);   // ease curve (-1 ease-out .. +1 ease-in)
   rpc GetAutomation  (Empty)            returns (AutomationList);
 
   // modulation matrix (LFO -> ParamModel target)

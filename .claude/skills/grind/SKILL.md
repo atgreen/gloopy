@@ -236,8 +236,18 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      automation" item on the mixer param right-click menu (reflects + toggles the lane's mode).
      smoke proves a step cutoff lane renders darker than the linear ramp (holds 300 Hz until
      the last point) and the flag survives a composition round-trip (byte-identical re-render);
-     screenshot-validated (the checked menu item). **Not yet:** per-segment curve shapes
-     (exp/log/S), a visual automation-lane editor.
+     screenshot-validated (the checked menu item).
+   - `[x]` **Curved (ease-in/ease-out) automation landed** (commit): a per-lane `curve` float
+     (-1 ease-out / 0 linear / +1 ease-in) warps `t` within each segment (`interpAuto` uses
+     `pow(t, pow(2, 2*curve))`, ignored while stepped). `apiSetAutomationCurve`/
+     `apiGetAutomationCurve` + a SetAutomationCurve RPC (`AutoCurveRequest`) + Python
+     `set_automation_curve`; serialised on LANE + composition `lanes.toml`. **Desktop:** an
+     "Automation curve ▸ Linear / Ease in / Ease out" submenu on the mixer param right-click
+     menu (reflects + sets the lane's curve; disabled while stepped). smoke proves an ease-in
+     cutoff lane renders darker than the linear ramp (holds low near each segment front),
+     differs from it, and the curve survives a composition round-trip (byte-identical
+     re-render); screenshot-validated (the expanded submenu with Linear checked). **Not yet:**
+     per-segment (as opposed to per-lane) curve shapes, a visual automation-lane editor.
    - `[x]` **Plugin-param ids landed** (commit): hosted VST3/LV2 params now ride the id
      grammar — instrument plugins as `track/<id>/plugin/<index>` and plugin effects as
      `effect/<i>/<slot>/plugin/<index>`, value normalised 0..1. `ListParameters` enumerates

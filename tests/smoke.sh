@@ -528,6 +528,31 @@ assert rms(st[:m]) < rms(lin[:m])*0.85, 'stepped (held-low cutoff) should be dar
 assert st==st2, 'step flag did not survive the composition round-trip (re-render differs)'
 print('smoke: PASS — stepped automation differs from linear (diff %.4f), is darker, and round-trips'%d)
 " || { echo 'smoke: stepped automation wrong' >&2; exit 1; }
+# Curved automation: back to linear interpolation, then apply an ease-in curve (+1, slow
+# start) to the same cutoff lane. Ease-in holds the cutoff low near the front of each
+# segment, so the render is darker than the straight linear ramp yet still sweeps (differs
+# from the flat/stepped render). The per-lane curve float survives a composition round-trip
+# (byte-identical re-render), and Get reports it back.
+g -d "{\"param_id\":\"track/$AM/synth/cutoff\",\"step\":false}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetAutomationStep >/dev/null
+g -d "{\"param_id\":\"track/$AM/synth/cutoff\",\"curve\":1.0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetAutomationCurve >/dev/null
+g -d "{\"path\":\"$WORK/am_curve.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"path\":\"$WORK/amcurve.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+grep -q 'curve' "$WORK/amcurve.gloopy/automation/lanes.toml" || { echo "smoke: lanes.toml missing the curve field" >&2; exit 1; }
+g -d "{\"path\":\"$WORK/amcurve.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+g -d "{\"path\":\"$WORK/am_curve2.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+def rms(x): return (sum(v*v for v in x)/max(1,len(x)))**0.5
+lin=rd('$WORK/am_auto.wav');cv=rd('$WORK/am_curve.wav');cv2=rd('$WORK/am_curve2.wav')
+m=min(len(lin),len(cv),len(cv2))
+d=sum(abs(lin[i]-cv[i]) for i in range(m))/m/(1<<23)
+assert d>0.003, 'ease-in curve rendered the same as linear (diff=%.5f)'%d
+assert rms(cv[:m]) < rms(lin[:m])*0.9, 'ease-in (slow start, held-low cutoff) should be darker than the linear sweep (curve rms %.0f vs lin %.0f)'%(rms(cv[:m]),rms(lin[:m]))
+assert cv==cv2, 'curve did not survive the composition round-trip (re-render differs)'
+print('smoke: PASS — ease-in automation curve differs from linear (diff %.4f), is darker, and round-trips'%d)
+" || { echo 'smoke: curved automation wrong' >&2; exit 1; }
 AMID=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print([t['id'] for t in json.load(sys.stdin)['tracks']][-1])")
 g -d "{\"id\":$AMID}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null 2>&1 || true
 

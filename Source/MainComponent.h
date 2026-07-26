@@ -128,9 +128,11 @@ public:
     // A lane is either id-addressed (target = a ParamModel id, the unified path) or a
     // legacy tuple (type/id/slot/param). When target is non-empty it wins and the lane
     // is written through applyParamValue — the same id a controller/LFO addresses.
-    struct AutoLaneSnap  { int type; int id; int slot; juce::String param; std::vector<AutoPointSnap> points; juce::String target; bool step { false }; };
+    struct AutoLaneSnap  { int type; int id; int slot; juce::String param; std::vector<AutoPointSnap> points; juce::String target; bool step { false }; float curve { 0.0f }; };
     bool apiSetAutomationStep (const juce::String& target, bool step);   // stepped (hold) vs linear interpolation
     bool apiGetAutomationStep (const juce::String& target);
+    bool apiSetAutomationCurve (const juce::String& target, float curve);   // ease: -1 ease-out .. 0 linear .. +1 ease-in
+    float apiGetAutomationCurve (const juce::String& target);
     void apiSetAutomation (int type, int id, int slot, const juce::String& param,
                            const std::vector<AutoPointSnap>& points);        // empty points = clear the lane
     void apiSetAutomationById (const juce::String& target, const std::vector<AutoPointSnap>& points);   // id-addressed lane (upsert; empty = clear)

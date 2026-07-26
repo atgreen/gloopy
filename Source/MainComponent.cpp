@@ -433,6 +433,8 @@ MainComponent::MainComponent (bool headless)
     mixerView->onClearAutomation    = [this] (const juce::String& target) { apiSetAutomationById (target, {}); };
     mixerView->getAutomationStep    = [this] (const juce::String& target) { return apiGetAutomationStep (target); };
     mixerView->onSetAutomationStep  = [this] (const juce::String& target, bool step) { apiSetAutomationStep (target, step); };
+    mixerView->getAutomationCurve   = [this] (const juce::String& target) { return apiGetAutomationCurve (target); };
+    mixerView->onSetAutomationCurve = [this] (const juce::String& target, float curve) { apiSetAutomationCurve (target, curve); };
     // Controller mapping: surface the CC/OSC source bound to a target and clear it from the desktop.
     mixerView->onControllerSourceFor = [this] (const juce::String& target) -> juce::String
     {
@@ -1103,7 +1105,8 @@ void MainComponent::apiRemoveChangeSink (int sinkId)
 }
 
 // --- parameter automation ---
-static float interpAuto (const std::vector<MainComponent::AutoPointSnap>& p, double beat, bool step = false)
+static float interpAuto (const std::vector<MainComponent::AutoPointSnap>& p, double beat,
+                         bool step = false, float curve = 0.0f)
 {
     if (p.empty()) return 0.0f;
     if (beat <= p.front().beat) return p.front().value;
@@ -1112,7 +1115,9 @@ static float interpAuto (const std::vector<MainComponent::AutoPointSnap>& p, dou
         if (beat <= p[i].beat)
         {
             if (step) return p[i-1].value;   // hold the previous point's value until the next (stepped)
-            const double t = (beat - p[i-1].beat) / juce::jmax (1e-9, p[i].beat - p[i-1].beat);
+            double t = (beat - p[i-1].beat) / juce::jmax (1e-9, p[i].beat - p[i-1].beat);
+            if (curve != 0.0f)               // warp t: curve>0 ease-in (slow start), <0 ease-out (fast start)
+                t = std::pow (t, std::pow (2.0, 2.0 * (double) juce::jlimit (-1.0f, 1.0f, curve)));
             return (float) (p[i-1].value + t * (p[i].value - p[i-1].value));
         }
     return p.back().value;
@@ -1124,7 +1129,7 @@ void MainComponent::evaluateAutomation (double beat)
     for (auto& lane : automationLanes)
     {
         if (lane.points.empty()) continue;
-        const float v = interpAuto (lane.points, beat, lane.step);
+        const float v = interpAuto (lane.points, beat, lane.step, lane.curve);
         if (lane.target.isNotEmpty()) { applyParamValue (lane.target, v); continue; }   // id-addressed (unified path)
         const bool insertOk = juce::isPositiveAndBelow (lane.id, (int) mixerTracks.size());
         switch (lane.type)
@@ -1213,6 +1218,30 @@ bool MainComponent::apiGetAutomationStep (const juce::String& target)
         const juce::ScopedLock sl (engineLock);
         for (auto& l : automationLanes) if (l.target == target) return l.step;
         return false;
+    });
+}
+
+// Ease curve for a target's automation lane: -1 (ease-out, fast start) .. 0 (linear) .. +1
+// (ease-in, slow start). Ignored while the lane is stepped. Points are kept.
+bool MainComponent::apiSetAutomationCurve (const juce::String& target, float curve)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        const juce::ScopedLock sl (engineLock);
+        for (auto& l : automationLanes)
+            if (l.target == target) { l.curve = juce::jlimit (-1.0f, 1.0f, curve); return true; }
+        return false;
+    });
+}
+
+float MainComponent::apiGetAutomationCurve (const juce::String& target)
+{
+    return callOnMessageThread ([&] () -> float
+    {
+        const juce::ScopedLock sl (engineLock);
+        for (auto& l : automationLanes) if (l.target == target) return l.curve;
+        return 0.0f;
     });
 }
 
@@ -3213,6 +3242,7 @@ juce::ValueTree MainComponent::toValueTree()
         l.setProperty ("slot", lane.slot, nullptr); l.setProperty ("param", lane.param, nullptr);
         if (lane.target.isNotEmpty()) l.setProperty ("target", lane.target, nullptr);
         if (lane.step) l.setProperty ("step", true, nullptr);
+        if (lane.curve != 0.0f) l.setProperty ("curve", lane.curve, nullptr);
         for (auto& p : lane.points)
         {
             juce::ValueTree pt ("PT");
@@ -3651,7 +3681,8 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
         auto l = au.getChild (i);
         AutoLaneSnap lane { (int) l.getProperty ("type"), (int) l.getProperty ("id"),
                             (int) l.getProperty ("slot"), l.getProperty ("param").toString(), {},
-                            l.getProperty ("target").toString(), (bool) l.getProperty ("step", false) };
+                            l.getProperty ("target").toString(), (bool) l.getProperty ("step", false),
+                            (float) (double) l.getProperty ("curve", 0.0) };
         for (int j = 0; j < l.getNumChildren(); ++j)
         {
             auto pt = l.getChild (j);

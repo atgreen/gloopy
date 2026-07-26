@@ -683,6 +683,11 @@ class Gloopy:
         point) and linear interpolation. The lane must already exist."""
         self._ack(self.stub.SetAutomationStep(pb.AutoStepRequest(param_id=param_id, step=step)))
 
+    def set_automation_curve(self, param_id: str, curve: float) -> None:
+        """Ease curve for a param's automation lane: -1 = ease-out (fast start), 0 = linear,
+        +1 = ease-in (slow start). Ignored while the lane is stepped. Lane must exist."""
+        self._ack(self.stub.SetAutomationCurve(pb.AutoCurveRequest(param_id=param_id, curve=curve)))
+
     def get_automation(self) -> list[dict]:
         r = self.stub.GetAutomation(pb.Empty())
         return [{"target": a.target, "id": a.id, "slot": a.slot, "param": a.param,

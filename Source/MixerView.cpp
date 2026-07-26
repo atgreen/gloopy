@@ -379,6 +379,12 @@ void MixerView::showParamMenu (const juce::String& target, const juce::String& l
     m.addItem (5, "Clear automation");
     const bool stepped = getAutomationStep ? getAutomationStep (target) : false;
     m.addItem (7, "Stepped automation", true, stepped);   // hold each value vs linear ramp
+    const float curve = getAutomationCurve ? getAutomationCurve (target) : 0.0f;
+    juce::PopupMenu cm;                                   // ease curve on a linear lane
+    cm.addItem (70, "Linear",   ! stepped, std::abs (curve) < 0.01f);
+    cm.addItem (71, "Ease in",  ! stepped, curve > 0.5f);
+    cm.addItem (72, "Ease out", ! stepped, curve < -0.5f);
+    m.addSubMenu ("Automation curve", cm, ! stepped);
     const juce::String tgt = target;
     m.showMenuAsync (juce::PopupMenu::Options(), [this, tgt, stepped] (int r)
     {
@@ -389,6 +395,8 @@ void MixerView::showParamMenu (const juce::String& target, const juce::String& l
         else if (r == 4 && onAutomatePoint)      onAutomatePoint (tgt);
         else if (r == 5 && onClearAutomation)    onClearAutomation (tgt);
         else if (r == 7 && onSetAutomationStep)  onSetAutomationStep (tgt, ! stepped);
+        else if (r >= 70 && r <= 72 && onSetAutomationCurve)
+            onSetAutomationCurve (tgt, r == 71 ? 1.0f : r == 72 ? -1.0f : 0.0f);
     });
 }
 

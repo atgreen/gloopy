@@ -42,6 +42,8 @@ public:
     std::function<void (const juce::String&)>                     onClearAutomation;
     std::function<bool (const juce::String&)>                     getAutomationStep;   // -> lane is stepped
     std::function<void (const juce::String&, bool)>               onSetAutomationStep; // stepped vs linear
+    std::function<float (const juce::String&)>                    getAutomationCurve;  // -> lane ease curve (-1..1)
+    std::function<void (const juce::String&, float)>              onSetAutomationCurve;// ease curve
     /** Controller mapping: report the CC/OSC source bound to this target (empty if none)
         and remove that binding — so a MIDI-learned mapping can be seen and cleared from
         the desktop, not only the API. */

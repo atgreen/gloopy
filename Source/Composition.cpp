@@ -468,6 +468,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
           .str ("param", lane.getProperty ("param").toString());
         if (tgt.isNotEmpty()) row.str ("target", tgt);
         if ((bool) lane.getProperty ("step", false)) row.boolean ("step", true);
+        if ((float) (double) lane.getProperty ("curve", 0.0) != 0.0f) row.number ("curve", (double) lane.getProperty ("curve", 0.0));
         row.str ("points", rel).blank();
     }
     ctx.writeText ("automation/lanes.toml", aw.str());
@@ -835,6 +836,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             lane.setProperty ("param", ld.getString ("param"), nullptr);
             if (ld.getString ("target").isNotEmpty()) lane.setProperty ("target", ld.getString ("target"), nullptr);
             if (ld.getBool ("step")) lane.setProperty ("step", true, nullptr);
+            if (ld.getDouble ("curve", 0.0) != 0.0) lane.setProperty ("curve", ld.getDouble ("curve", 0.0), nullptr);
             readPoints (dir.getChildFile (ld.getString ("points")), lane);
             autoTree.addChild (lane, -1, nullptr);
         }
