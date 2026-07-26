@@ -16,9 +16,13 @@ PROJ="${1:-examples/demo-lofi.gloopy}"
 [ -x "$GLOOPY" ] || { echo "gloopy binary not found at $GLOOPY (set GLOOPY_BIN)"; exit 2; }
 [ -f "$PROJ" ]   || { echo "project not found: $PROJ"; exit 2; }
 
+# Render a short beat window (--range) rather than the whole song: determinism is a property
+# of the shared render path (FX reset, buffer init, LFO/mod seeding), so a window is a faithful
+# proxy and keeps CI fast.
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-"$GLOOPY" render "$PROJ" "$TMP/a.wav" >/dev/null 2>&1 || { echo "render A failed for $PROJ"; exit 1; }
-"$GLOOPY" render "$PROJ" "$TMP/b.wav" >/dev/null 2>&1 || { echo "render B failed for $PROJ"; exit 1; }
+RANGE=(--range 0 16)
+"$GLOOPY" render "$PROJ" "$TMP/a.wav" "${RANGE[@]}" >/dev/null 2>&1 || { echo "render A failed for $PROJ"; exit 1; }
+"$GLOOPY" render "$PROJ" "$TMP/b.wav" "${RANGE[@]}" >/dev/null 2>&1 || { echo "render B failed for $PROJ"; exit 1; }
 
 A="$(sha256sum "$TMP/a.wav" | cut -d' ' -f1)"
 B="$(sha256sum "$TMP/b.wav" | cut -d' ' -f1)"

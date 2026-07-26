@@ -64,7 +64,8 @@ public:
                 "  gloopy --help                   Show this help\n"
                 "\n"
                 "Headless commands (no GUI; results on stdout):\n"
-                "  gloopy render <project> [out.wav]       Bounce the mix to a WAV\n"
+                "  gloopy render <project> [out.wav] [--range <startBeat> <endBeat>]\n"
+                "                                          Bounce the mix (or a beat range) to a WAV\n"
                 "  gloopy export-stems <project> [outdir]  One WAV per instrument track\n"
                 "  gloopy analyze <file.wav>               Loudness report (peak/LUFS/...) as JSON\n"
                 "  gloopy inspect <project>                Project summary as JSON\n"
@@ -340,13 +341,20 @@ public:
                 std::cout << out << std::endl;
                 rc = ok ? 0 : 1;
             }
-            else if (args[0] == "render")   // render <project> [out.wav]: offline bounce of the mix
+            else if (args[0] == "render")   // render <project> [out.wav] [--range <startBeat> <endBeat>]
             {
                 const auto in  = resolve (args[1]);
-                const auto out = args.size() >= 3 ? resolve (args[2])
+                // Positional out path only if present and not a --flag; else <project>.wav.
+                const juce::String outArg = (args.size() >= 3 && ! args[2].startsWith ("--")) ? args[2] : juce::String();
+                const auto out = outArg.isNotEmpty() ? resolve (outArg)
                                    : in.getParentDirectory().getChildFile (in.getFileNameWithoutExtension() + ".wav");
+                // --range <startBeat> <endBeat>: bounce just that beat window (else the whole project).
+                double startBeat = 0.0, endBeat = 0.0;
+                const int rr = args.indexOf ("--range");
+                if (rr >= 0 && rr + 2 < args.size())
+                { startBeat = args[rr + 1].getDoubleValue(); endBeat = args[rr + 2].getDoubleValue(); }
                 bool ok; { CoutSilencer s; comp->prepareToPlay (512, 44100.0);   // headless: prep the generators
-                           ok = comp->apiRenderToFile (out.getFullPathName(), 2.0, 0.0, 0.0, false, 0); }
+                           ok = comp->apiRenderToFile (out.getFullPathName(), 2.0, startBeat, endBeat, false, 0); }
                 if (ok) std::cout << out.getFullPathName() << std::endl;
                 else    std::cerr << "render: failed to write " << out.getFullPathName() << "\n";
                 rc = ok ? 0 : 1;
