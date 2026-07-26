@@ -68,10 +68,11 @@ great out of the box, self-contained, no external plugin install required.
 
 ## Sliced plan (each a grind slice: probe → implement → prove → commit)
 
-1. **Isolation probe (NEXT).** Build `surge::surge-common` alone via Surge's CMake in a
-   scratch dir; write a tiny headless program (`createSurge` → load one factory patch →
-   `process()` a few blocks → assert non-silent RMS on `output`). Proves the engine
-   embeds + renders headless here, and measures build cost. No Gloopy changes yet.
+1. **Isolation probe — ✅ DONE (2026-07-26).** Built `surge-common` headless (no JUCE)
+   and linked `docs/surge/probe.cpp` against it: it constructed a `SurgeSynthesizer` on a
+   data path, **scanned 3,559 factory patches / 417 categories**, played middle C, and
+   rendered **non-silent** stereo audio (**RMS 0.070**, blockSize 32). The engine + the
+   embed contract are proven. **Reproducible recipe below.**
 2. **Submodule + CMake link.** Add the `third_party/surge` submodule; get Gloopy to
    configure+build+link `surge-common` (scoped to the core; exclude UI). Green build only.
 3. **`SurgeGenerator` + one hardcoded patch.** Mirror `SfizzGenerator`; a synth track can
@@ -94,6 +95,42 @@ great out of the box, self-contained, no external plugin install required.
   (configuration + at least the wavetables referenced by bundled patches) during slice 1.
 - **BLOCK_SIZE / SR:** Surge fixes BLOCK_SIZE=32; the `SfizzGenerator` chunking pattern
   handles a fixed engine block inside Gloopy's variable callback — reuse it.
+
+## Proven build recipe (slice 1 result — the basis for slice 2's CMake link)
+
+The exact configuration that builds `surge-common` headless and links a consumer here:
+
+- **Submodules `surge-common` needs** (init only these — NOT `libs/JUCE`, which is
+  ~500 MB and only for the plugin/UI): `simde fmt luajitlib pffft airwindows binn
+  eurorack sst oddsound-mts tuning-library PEGTL zstd r8brain-free-src`
+  (`git submodule update --init --recursive -- libs/<each>`). `sqlite-3.23.3` is
+  already vendored source (not a submodule).
+- **CMake flags** (scope to the synth core; no JUCE / plugins / tests):
+  `-DSURGE_SKIP_JUCE_FOR_RACK=TRUE -DSURGE_SKIP_VST3=TRUE -DSURGE_SKIP_STANDALONE=TRUE
+  -DSURGE_BUILD_XT=OFF -DSURGE_BUILD_FX=OFF -DSURGE_BUILD_CLAP=OFF -DSURGE_BUILD_LV2=OFF
+  -DSURGE_BUILD_TESTRUNNER=OFF -DBUILD_TESTING=OFF -DENABLE_LTO=OFF`
+  **and `-DSURGE_SKIP_WERROR=TRUE`** — required: vendored sqlite 3.23.3 trips `-Werror`
+  under GCC 16.
+- **Consumer compile flags:** `-std=c++20 -fno-char8_t` are **mandatory** — Surge's
+  `sst-effects` headers fail to parse under c++17, and Surge builds with `-fno-char8_t`.
+  The `surge-common` target exports its source dir + `SURGE_COMPILE_BLOCK_SIZE=32`
+  **PUBLIC**, so a consumer that links it gets `#include "SurgeSynthesizer.h"` + `BLOCK_SIZE`
+  for free. (Gloopy's build is C++17 today — this bumps the Surge-touching TUs / the
+  whole target to C++20; confirm JUCE is happy or isolate SurgeGenerator's TU.)
+- **Gotchas hit:** (a) `ninja surge-common` compiles surge-common's 84 objects into
+  `CMakeFiles/surge-common.dir/` but does **not** archive them into a single `.a`, and
+  does **not** build the `sqlite`/dep archives — a consumer target that *links*
+  `surge::surge-common` pulls them via CMake, but manual linking must gather the loose
+  objects + `find … -name '*.a'` + build `libsqlite.a` explicitly. In Gloopy (slice 2) we
+  use `add_subdirectory` + `target_link_libraries(Gloopy PRIVATE surge::surge-common)`,
+  which handles all of this. (b) Link with `-Wl,--start-group … --end-group` (inter-lib
+  cycles). (c) Data path = `~/git/surge/resources/data` for the probe; Gloopy will bundle
+  a curated subset (slice 4).
+- **Headless API** (probe, mirrors `HeadlessUtils`): `new SurgeSynthesizer(&layerProxy,
+  dataPath)` → `setSamplerate` → `playNote(0,60,100,0)` → `process()` fills
+  `output[2][BLOCK_SIZE]` → `releaseNote(0,60,0)`. `layerProxy` = a 2-method
+  `SurgeSynthesizer::PluginLayer` subclass. `storage.patch_list` / `patch_category` are
+  public. See `docs/surge/probe.cpp`.
 
 ## Build-state findings (2026-07-26) — resume slice 1 here
 

@@ -1703,11 +1703,14 @@ prior-art references to *read*, not to lift.
     binary becomes a combined GPL/AGPL work); synth core is the `surge::surge-common` CMake
     lib driven headless via `createSurge()` + `HeadlessPluginLayerProxy` (already known-good
     — Surge is installed + hosted here); vendor by **submodule** under `third_party/surge`
-    (NOT a 1.2 GB copy) + a curated data subset (~few MB). Slices: (1) **isolation probe** —
-    build `surge-common` alone + headless render, assert non-silent (NEXT); (2) submodule +
-    CMake link; (3) `SurgeGenerator` + one patch (smoke render); (4) curated patch/wavetable
-    bundle + curation script; (5) default-synth wiring + preset browser (the desktop
-    control); (6) license/docs. Curate ONLY from `patches_factory`/`wavetables` (skip
+    (NOT a 1.2 GB copy) + a curated data subset (~few MB). Slices: (1) **isolation probe —
+    ✅ DONE (commit)**: built `surge-common` headless (no JUCE), linked `docs/surge/probe.cpp`,
+    scanned **3,559 patches** + rendered **non-silent** audio (RMS 0.070); proven build recipe
+    recorded in `docs/surge-embed.md` (submodule set, cmake skip-flags incl. `SURGE_SKIP_WERROR`,
+    consumer `-std=c++20 -fno-char8_t`, PUBLIC include/BLOCK_SIZE contract). (2) submodule +
+    CMake link (NEXT); (3) `SurgeGenerator` + one patch (smoke render); (4) curated
+    patch/wavetable bundle + curation script; (5) default-synth wiring + preset browser (the
+    desktop control); (6) license/docs. Curate ONLY from `patches_factory`/`wavetables` (skip
     `*_3rdparty` without per-pack review).
 
 ## Explicitly NOT doing (the guardrails, made concrete)
