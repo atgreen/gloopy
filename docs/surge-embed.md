@@ -1,5 +1,34 @@
 # Embedding Surge XT as Gloopy's default synth
 
+## ⚠️ DIRECTION CHANGE (2026-07-26): ship the Surge XT *plugin*, host it for the real UI
+
+User decision (superseding the headless-core-only plan below): **build the full Surge XT
+LV2 plugin from the `third_party/surge` submodule, bundle/ship it, and host it** as Gloopy's
+default synth — so users get **the real Surge XT editor** (via Gloopy's existing
+`openPluginEditor`, which already hosts VST3/LV2 with native UIs). The headless embed
+(surge-common, slices 1–6) has no UI; that gap is what prompted this pivot.
+
+**Plan (multi-session):**
+1. Build the Surge XT **LV2** plugin from source — `scripts/build-surge-plugin.sh` (init
+   JUCE + configure LV2 + build + stage `third_party/surge-plugin/Surge XT.lv2`).
+2. Ship the `.lv2` + Surge's data dir in the package; add the bundle dir to Gloopy's plugin
+   scan path so the bundled Surge XT is found without a system install.
+3. Make the default synth (`+ Synth → Surge XT`) + the **Presets tab** instantiate the
+   *hosted bundled plugin* (real UI) and load `.fxp` into it, instead of the headless
+   `SurgeGenerator`.
+4. Retire (or keep as a lean fallback) the headless embed once the plugin path works.
+5. CI/packaging: the release build compiles the plugin (install GUI deps in the container).
+
+**⛔ Local build blocker (this dev box):** the full plugin UI needs **OpenGL** (`libGL`)
++ X11 dev libs, and **sudo is not passwordless here** — so I *cannot build or verify the
+plugin in this environment*. The build recipe **configures cleanly** (verified up to the
+compile boundary); the actual compile + bundling + hosting must run where those GUI deps can
+be installed (the CI containers, or a dev machine). See `scripts/build-surge-plugin.sh` for
+the exact deps + recipe. Everything below (the headless embed) still works and is committed.
+
+---
+
+
 **Status:** planned (opening slice). **Decided 2026-07-26.**
 **Strategy:** embed the Surge XT synth *engine* into Gloopy's build (like the vendored
 sfizz engine), and bundle a **curated ~150–300 patch** subset. Chosen over "host the
