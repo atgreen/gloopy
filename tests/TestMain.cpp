@@ -356,6 +356,21 @@ struct NoteEditTests : juce::UnitTest
             expectWithinAbsoluteError (ch[1].velocity, 0.8f, 1e-5f);
         }
 
+        beginTest ("time-scale multiplies note starts and lengths, preserves pitch/velocity");
+        {
+            std::vector<Note> ns { {60,0,1,0.7f}, {64,2,1,0.8f}, {67,3,0.5f,0.9f} };
+            scaleNoteTimes (ns, 0.5);                        // double-time (twice as fast)
+            expectWithinAbsoluteError (ns[0].startBeat, 0.0, 1e-9);
+            expectWithinAbsoluteError (ns[1].startBeat, 1.0, 1e-9);
+            expectWithinAbsoluteError (ns[1].lengthBeats, 0.5, 1e-9);
+            expectWithinAbsoluteError (ns[2].startBeat, 1.5, 1e-9);
+            expectWithinAbsoluteError (ns[2].lengthBeats, 0.25, 1e-9);
+            expect (ns[1].pitch == 64 && ns[1].velocity == 0.8f);   // pitch/velocity untouched
+            scaleNoteTimes (ns, 2.0);                        // scale back -> original
+            expectWithinAbsoluteError (ns[1].startBeat, 2.0, 1e-9);
+            expectWithinAbsoluteError (ns[2].lengthBeats, 0.5, 1e-9);
+        }
+
         beginTest ("arpeggiate up sequences a chord");
         {
             std::vector<Note> ns { {60,0,1,0.8f}, {64,0,1,0.8f}, {67,0,1,0.8f} };

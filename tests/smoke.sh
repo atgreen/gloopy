@@ -1027,6 +1027,25 @@ ns=sorted((n['pitch'],round(n.get('velocity',0),3)) for n in json.load(sys.stdin
 assert ns==[(60,0.3),(62,0.65),(64,1.0)], 'velocity ramp wrong: %s'%ns
 print('smoke: PASS — RampClipVelocity crescendo -> velocities '+str([v for _,v in ns]))
 " || { echo 'smoke: velocity ramp wrong' >&2; exit 1; }
+# Time-scale (double-time): factor 0.5 halves every note's start+length AND the clip's
+# content/slot length. Notes 0/2/4 (len 1) -> 0/1/2 (len 0.5); clip length 6 -> 3.
+g -d "{\"track_id\":$CO,\"start_beat\":0,\"length_beats\":6,\"content_len_beats\":6,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":0.8},{\"pitch\":62,\"start_beat\":2,\"length_beats\":1,\"velocity\":0.8},{\"pitch\":64,\"start_beat\":4,\"length_beats\":1,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+TSC=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t.get('name')=='clipops')-1)")
+g -d "{\"track_id\":$CO,\"index\":$TSC,\"factor\":0.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/ScaleClipTime >/dev/null
+g -d "{\"track_id\":$CO,\"index\":$TSC}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "
+import json,sys
+ns=sorted((n['pitch'],round(n.get('startBeat',0),3),round(n['lengthBeats'],3)) for n in json.load(sys.stdin)['notes'])
+assert ns==[(60,0.0,0.5),(62,1.0,0.5),(64,2.0,0.5)], 'time-scale note times wrong: %s'%ns
+print('smoke: PASS — ScaleClipTime 0.5 (double-time) halved note starts/lengths (0/1/2, len 0.5)')
+" || { echo 'smoke: time-scale notes wrong' >&2; exit 1; }
+g -d "{\"path\":\"$WORK/ts.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+python3 -c "
+import xml.etree.ElementTree as ET
+cl=list(ET.parse('$WORK/ts.gloopy').getroot().iter('CLIP'))[-1]
+assert abs(float(cl.get('len'))-3.0)<1e-6, 'clip slot length not halved: %s'%cl.get('len')
+assert abs(float(cl.get('content'))-3.0)<1e-6, 'content length not halved: %s'%cl.get('content')
+print('smoke: PASS — ScaleClipTime halved the clip slot + content length (6 -> 3)')
+" || { echo 'smoke: time-scale clip length wrong' >&2; exit 1; }
 g -d "{\"id\":$CO}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   # isolate: drop the scratch track
 # Split-at-named-marker: a marker at beat 2 splits a [0,4) clip (notes 0/1/2/3) into
 # [0,2)+[2,4); the right clip's notes rebase to 0/1. Reuses the locations model.

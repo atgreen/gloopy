@@ -546,6 +546,10 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             vr.addItem (740, "Crescendo");                  // soft -> loud
             vr.addItem (741, "Decrescendo");                // loud -> soft
             m.addSubMenu ("Velocity ramp", vr);
+            juce::PopupMenu ts;                             // time-scale the clip's rhythm
+            ts.addItem (742, "Double-time (faster)");       // factor 0.5
+            ts.addItem (743, "Half-time (slower)");         // factor 2
+            m.addSubMenu ("Time", ts);
         }
         if (! isMidi)                                   // audio-clip level ops
         {
@@ -605,6 +609,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             if (r == 740 || r == 741)   // Velocity ramp: crescendo / decrescendo
             {
                 if (onClipCommand) onClipCommand (t, c, r == 740 ? "velramp:up" : "velramp:down");
+                return;
+            }
+            if (r == 742 || r == 743)   // Time-scale: double-time (0.5) / half-time (2)
+            {
+                if (onClipCommand) onClipCommand (t, c, r == 742 ? "timescale:0.5" : "timescale:2");
                 return;
             }
             const char* cmd = r == 1  ? "split"

@@ -291,6 +291,7 @@ public:
     bool apiReverseClip (int trackId, int index);                   // reverse notes (MIDI) or audio buffer
     bool apiCropClip (int trackId, int index, double startBeat, double endBeat);   // trim a MIDI clip to a beat range
     bool apiConsolidateClip (int trackId, int index);               // flatten a looped MIDI clip's repetitions into explicit notes
+    bool apiScaleClipTime (int trackId, int index, double factor);  // time-scale a MIDI clip (0.5 double-time, 2 half-time)
     int  apiBounceClip (int trackId, int index);                    // render a clip to audio on a new track (freeze); new track id or -1
     bool  apiSetClipGain (int trackId, int index, float gainDb);    // audio clip gain (dB); false if not audio
     float apiNormalizeClip (int trackId, int index, float targetDbfs); // gain so peak=target; applied gain or -1

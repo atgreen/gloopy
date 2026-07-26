@@ -279,6 +279,11 @@ class Gloopy:
         """Flatten a looped MIDI clip's repetitions into explicit notes and un-loop it."""
         self._ack(self.stub.ConsolidateClip(pb.ClipRef(track_id=track_id, index=index)))
 
+    def scale_clip_time(self, track_id: int, index: int, factor: float = 0.5) -> None:
+        """Time-scale a MIDI clip: multiply note starts/lengths and the clip's content+slot
+        by factor (0.5 = double-time / twice as fast, 2 = half-time / twice as slow)."""
+        self._ack(self.stub.ScaleClipTime(pb.ScaleTimeRequest(track_id=track_id, index=index, factor=factor)))
+
     def bounce_clip(self, track_id: int, index: int) -> int:
         """Freeze a clip to audio on a new track; returns the new track id (-1 on failure)."""
         return self.stub.BounceClip(pb.ClipRef(track_id=track_id, index=index)).id

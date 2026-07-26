@@ -290,6 +290,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ClipRef.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.ScaleClipTime = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ScaleClipTime',
+                request_serializer=gloopy__pb2.ScaleTimeRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.BounceClip = channel.unary_unary(
                 '/gloopy.v1.Gloopy/BounceClip',
                 request_serializer=gloopy__pb2.ClipRef.SerializeToString,
@@ -1157,6 +1162,13 @@ class GloopyServicer:
 
     def ConsolidateClip(self, request, context):
         """flatten a looped MIDI clip's repetitions into notes
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ScaleClipTime(self, request, context):
+        """time-scale a MIDI clip (double/half-time)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2123,6 +2135,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'ConsolidateClip': grpc.unary_unary_rpc_method_handler(
                     servicer.ConsolidateClip,
                     request_deserializer=gloopy__pb2.ClipRef.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ScaleClipTime': grpc.unary_unary_rpc_method_handler(
+                    servicer.ScaleClipTime,
+                    request_deserializer=gloopy__pb2.ScaleTimeRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'BounceClip': grpc.unary_unary_rpc_method_handler(
@@ -4038,6 +4055,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/ConsolidateClip',
             gloopy__pb2.ClipRef.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ScaleClipTime(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ScaleClipTime',
+            gloopy__pb2.ScaleTimeRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

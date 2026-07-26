@@ -742,6 +742,11 @@ namespace
         Status CropClip (ServerContext*, const pb::CropClipRequest* q, pb::Ack* r) override
         { const bool ok = main.apiCropClip (q->track_id(), q->index(), q->start_beat(), q->end_beat());
           r->set_ok (ok); if (! ok) r->set_error ("crop failed (clip not found, not MIDI, or empty range)"); return Status::OK; }
+        Status ScaleClipTime (ServerContext*, const pb::ScaleTimeRequest* q, pb::Ack* r) override
+        { // proto3 omits an unset factor (0.0); no-op scaling is meaningless, read it as double-time.
+          const double f = q->factor() <= 0.0 ? 0.5 : q->factor();
+          const bool ok = main.apiScaleClipTime (q->track_id(), q->index(), f);
+          r->set_ok (ok); if (! ok) r->set_error ("scale time failed (clip not found or not MIDI)"); return Status::OK; }
         Status ConsolidateClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
         { const bool ok = main.apiConsolidateClip (q->track_id(), q->index());
           r->set_ok (ok); if (! ok) r->set_error ("consolidate failed (clip not found or not MIDI)"); return Status::OK; }

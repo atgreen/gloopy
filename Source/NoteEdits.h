@@ -129,6 +129,16 @@ inline void rampVelocities (std::vector<Note>& notes, float fromVel, float toVel
     }
 }
 
+/** Time-scale: multiply every note's start and length by `factor` (0.5 = double-time /
+    twice as fast, 2 = half-time / twice as slow). Preserves rhythm proportions, pitch and
+    velocity; size- and order-preserving. The caller scales the clip's content/length bounds
+    to match. */
+inline void scaleNoteTimes (std::vector<Note>& notes, double factor)
+{
+    const double f = juce::jlimit (0.125, 8.0, factor);
+    for (auto& n : notes) { n.startBeat *= f; n.lengthBeats = juce::jmax (0.01, n.lengthBeats * f); }
+}
+
 /** Arpeggiate: turn each chord (notes sharing a start beat) into a sequence of single
     notes, each `stepBeats` long, played in order. mode 0 = up, 1 = down, 2 = up-down.
     Single notes pass through unchanged. Note lengths become the step (classic arp gate). */

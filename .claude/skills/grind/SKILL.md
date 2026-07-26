@@ -1115,6 +1115,16 @@ each shipping with desktop UI + screenshot validation.
       single-onset edges; smoke drives RampClipVelocity and checks GetClipNotes (0.3/0.65/1.0);
       screenshot-validated (the expanded submenu). Distinct from the non-destructive per-clip
       `velocityScale` (a uniform multiplier) — this writes a shaped dynamic into the notes.
+    - `[x]` **Clip time-scale (double/half-time) landed** (commit): a pure `scaleNoteTimes`
+      transform (NoteEdits.h) multiplies every note's start + length by a factor, plus a
+      dedicated `apiScaleClipTime` that also scales the clip's `contentLenBeats` and `lengthBeats`
+      so the loop window + arrangement slot follow (double-time 0.5 = twice as fast, half-time
+      2 = twice as slow). ScaleClipTime RPC (`ScaleTimeRequest`; handler maps unset factor 0→0.5)
+      + Python `scale_clip_time`. **Desktop:** a "Time ▸ Double-time (faster) / Half-time
+      (slower)" submenu on the MIDI-clip right-click menu. `GloopyTests::NoteEdits` proves the
+      scaling + inverse; smoke drives ScaleClipTime 0.5 and checks GetClipNotes (0/1/2, len 0.5)
+      AND that the saved clip's `len`+`content` halved (6→3); screenshot-validated (the expanded
+      submenu). A distinct rhythmic op (not a note-only transform — it resizes the clip).
     - `[x]` **Arpeggiate (destructive one-shot) landed** (commit c90da23): shared arpeggiateNotes
       + apiArpeggiateClip + ArpeggiateClip RPC + ARP header button (Up/Down/Up-Down menu).
       Rewrites a chord clip into a note sequence in place. Smoke + screenshot.

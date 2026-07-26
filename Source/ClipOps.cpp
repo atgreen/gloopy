@@ -319,6 +319,30 @@ bool MainComponent::apiCropClip (int trackId, int index, double startBeat, doubl
 // This "bakes" what you hear into editable notes so each repetition can diverge.
 // MIDI clips only; a one-shot (non-looped, or content >= length) clip is already
 // flat, so it's a no-op success. Mirrors the render's beat-space tiling (collectClip).
+bool MainComponent::apiScaleClipTime (int trackId, int index, double factor)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        pushUndoSnapshot();
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+            Clip& c = t->clips[(size_t) index];
+            if (c.isAudio()) return false;                       // MIDI clips only
+            const double f = juce::jlimit (0.125, 8.0, factor);
+            scaleNoteTimes (c.notes, f);                         // stretch/compress the note rhythm
+            c.contentLenBeats = juce::jmax (0.25, c.contentLenBeats * f);   // content window follows
+            c.lengthBeats     = juce::jmax (0.25, c.lengthBeats * f);       // and the arrangement slot
+        }
+        if (t->arp.enabled) applyArpToTrack (*t);
+        emitChange ("clip_changed", trackId);
+        if (arrangeView) arrangeView->repaint();
+        return true;
+    });
+}
+
 bool MainComponent::apiConsolidateClip (int trackId, int index)
 {
     return callOnMessageThread ([&] () -> bool

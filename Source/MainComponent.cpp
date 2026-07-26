@@ -336,6 +336,7 @@ MainComponent::MainComponent (bool headless)
         else if (cmd.startsWith ("fadeshape:")) apiSetClipFadeShape (id, clip, cmd.substring (10).getIntValue());
         else if (cmd == "velramp:up")   apiRampClipVelocity (id, clip, 0.3f, 1.0f);   // crescendo
         else if (cmd == "velramp:down") apiRampClipVelocity (id, clip, 1.0f, 0.3f);   // decrescendo
+        else if (cmd.startsWith ("timescale:")) apiScaleClipTime (id, clip, cmd.substring (10).getDoubleValue());
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")
