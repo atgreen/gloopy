@@ -665,6 +665,11 @@ class Gloopy:
         """Append/replace one keyframe on an id-addressed automation lane."""
         self._ack(self.stub.AddAutomationPoint(pb.AddAutoPointRequest(param_id=param_id, beat=beat, value=value)))
 
+    def set_automation_step(self, param_id: str, step: bool = True) -> None:
+        """Toggle a param's automation lane between stepped (hold each value until the next
+        point) and linear interpolation. The lane must already exist."""
+        self._ack(self.stub.SetAutomationStep(pb.AutoStepRequest(param_id=param_id, step=step)))
+
     def get_automation(self) -> list[dict]:
         r = self.stub.GetAutomation(pb.Empty())
         return [{"target": a.target, "id": a.id, "slot": a.slot, "param": a.param,

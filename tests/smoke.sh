@@ -507,6 +507,27 @@ d=sum(abs(base[i]-rl[i]) for i in range(m))/m/(1<<23)
 assert d>0.003, 'reloaded project did not sweep — track id not preserved (diff=%.5f)'%d
 print('smoke: PASS — reloaded project still sweeps (stable track id keeps the lane live, diff %.4f)'%d)
 " || { echo 'smoke: track id not preserved across composition round-trip' >&2; exit 1; }
+# Stepped automation: switching the same cutoff lane to step (hold) interpolation renders
+# darker than the linear ramp (the cutoff holds at 300 Hz until beat 4 instead of sweeping),
+# and the step flag survives a composition round-trip (byte-identical re-render).
+g -d "{\"param_id\":\"track/$AM/synth/cutoff\",\"step\":true}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetAutomationStep >/dev/null
+g -d "{\"path\":\"$WORK/am_step.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"path\":\"$WORK/amstep.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+g -d "{\"path\":\"$WORK/amstep.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+g -d "{\"path\":\"$WORK/am_step2.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+def rms(x): return (sum(v*v for v in x)/max(1,len(x)))**0.5
+lin=rd('$WORK/am_auto.wav');st=rd('$WORK/am_step.wav');st2=rd('$WORK/am_step2.wav')
+m=min(len(lin),len(st),len(st2))
+d=sum(abs(lin[i]-st[i]) for i in range(m))/m/(1<<23)
+assert d>0.003, 'step vs linear automation rendered the same (diff=%.5f)'%d
+assert rms(st[:m]) < rms(lin[:m])*0.85, 'stepped (held-low cutoff) should be darker than the linear sweep (step rms %.0f vs lin %.0f)'%(rms(st[:m]),rms(lin[:m]))
+assert st==st2, 'step flag did not survive the composition round-trip (re-render differs)'
+print('smoke: PASS — stepped automation differs from linear (diff %.4f), is darker, and round-trips'%d)
+" || { echo 'smoke: stepped automation wrong' >&2; exit 1; }
 AMID=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print([t['id'] for t in json.load(sys.stdin)['tracks']][-1])")
 g -d "{\"id\":$AMID}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null 2>&1 || true
 

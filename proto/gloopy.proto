@@ -248,6 +248,8 @@ message Automation {
 message AutomationList { repeated Automation lanes = 1; }
 // Append/replace one keyframe on a ParamModel-id-addressed automation lane.
 message AddAutoPointRequest { string param_id = 1; double beat = 2; float value = 3; }
+// Stepped (hold) vs linear interpolation for a ParamModel-id-addressed lane.
+message AutoStepRequest { string param_id = 1; bool step = 2; }
 
 // ── modulation matrix ──────────────────────────────────────
 // An LFO driving a ParamModel target: value = center + depth*osc(rate*t).
@@ -442,6 +444,7 @@ service Gloopy {
   // automation
   rpc SetAutomation  (Automation)       returns (Ack);
   rpc AddAutomationPoint (AddAutoPointRequest) returns (Ack);   // append/replace a keyframe on an id-addressed lane
+  rpc SetAutomationStep  (AutoStepRequest)     returns (Ack);   // stepped (hold) vs linear interpolation
   rpc GetAutomation  (Empty)            returns (AutomationList);
 
   // modulation matrix (LFO -> ParamModel target)

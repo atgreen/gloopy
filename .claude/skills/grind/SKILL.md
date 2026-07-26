@@ -228,6 +228,16 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      screenshot-validated. smoke proves a cutoff sweep on `track/<id>/synth/cutoff` moves
      the render, the lane round-trips through SaveComposition/LoadComposition, and the
      RELOADED project still sweeps (stable id keeps the lane live).
+   - `[x]` **Stepped (hold) automation landed** (commit): an automation lane can interpolate
+     linearly (default) or STEP — hold each point's value until the next (for gated/stepped
+     moves). A per-lane `AutoLaneSnap.step` flag read by `interpAuto`; `apiSetAutomationStep`/
+     `apiGetAutomationStep` + a SetAutomationStep RPC + Python `set_automation_step`;
+     serialised on LANE + composition `lanes.toml`. **Desktop:** a checkable "Stepped
+     automation" item on the mixer param right-click menu (reflects + toggles the lane's mode).
+     smoke proves a step cutoff lane renders darker than the linear ramp (holds 300 Hz until
+     the last point) and the flag survives a composition round-trip (byte-identical re-render);
+     screenshot-validated (the checked menu item). **Not yet:** per-segment curve shapes
+     (exp/log/S), a visual automation-lane editor.
    - `[x]` **Plugin-param ids landed** (commit): hosted VST3/LV2 params now ride the id
      grammar — instrument plugins as `track/<id>/plugin/<index>` and plugin effects as
      `effect/<i>/<slot>/plugin/<index>`, value normalised 0..1. `ListParameters` enumerates

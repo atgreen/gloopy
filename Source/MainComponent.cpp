@@ -429,6 +429,8 @@ MainComponent::MainComponent (bool headless)
         apiAddAutomationPointById (target, transport.getPlayheadBeats(), value);
     };
     mixerView->onClearAutomation    = [this] (const juce::String& target) { apiSetAutomationById (target, {}); };
+    mixerView->getAutomationStep    = [this] (const juce::String& target) { return apiGetAutomationStep (target); };
+    mixerView->onSetAutomationStep  = [this] (const juce::String& target, bool step) { apiSetAutomationStep (target, step); };
     // Controller mapping: surface the CC/OSC source bound to a target and clear it from the desktop.
     mixerView->onControllerSourceFor = [this] (const juce::String& target) -> juce::String
     {
@@ -1099,7 +1101,7 @@ void MainComponent::apiRemoveChangeSink (int sinkId)
 }
 
 // --- parameter automation ---
-static float interpAuto (const std::vector<MainComponent::AutoPointSnap>& p, double beat)
+static float interpAuto (const std::vector<MainComponent::AutoPointSnap>& p, double beat, bool step = false)
 {
     if (p.empty()) return 0.0f;
     if (beat <= p.front().beat) return p.front().value;
@@ -1107,6 +1109,7 @@ static float interpAuto (const std::vector<MainComponent::AutoPointSnap>& p, dou
     for (size_t i = 1; i < p.size(); ++i)
         if (beat <= p[i].beat)
         {
+            if (step) return p[i-1].value;   // hold the previous point's value until the next (stepped)
             const double t = (beat - p[i-1].beat) / juce::jmax (1e-9, p[i].beat - p[i-1].beat);
             return (float) (p[i-1].value + t * (p[i].value - p[i-1].value));
         }
@@ -1119,7 +1122,7 @@ void MainComponent::evaluateAutomation (double beat)
     for (auto& lane : automationLanes)
     {
         if (lane.points.empty()) continue;
-        const float v = interpAuto (lane.points, beat);
+        const float v = interpAuto (lane.points, beat, lane.step);
         if (lane.target.isNotEmpty()) { applyParamValue (lane.target, v); continue; }   // id-addressed (unified path)
         const bool insertOk = juce::isPositiveAndBelow (lane.id, (int) mixerTracks.size());
         switch (lane.type)
@@ -1184,6 +1187,30 @@ void MainComponent::apiSetAutomationById (const juce::String& target, const std:
             automationLanes.push_back (std::move (lane));
         }
         return true;
+    });
+}
+
+// Toggle a target's automation lane between stepped (hold each point's value until the
+// next) and linear interpolation. Applies to the id-addressed lane; the points are kept.
+bool MainComponent::apiSetAutomationStep (const juce::String& target, bool step)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        const juce::ScopedLock sl (engineLock);
+        for (auto& l : automationLanes)
+            if (l.target == target) { l.step = step; return true; }
+        return false;
+    });
+}
+
+bool MainComponent::apiGetAutomationStep (const juce::String& target)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        const juce::ScopedLock sl (engineLock);
+        for (auto& l : automationLanes) if (l.target == target) return l.step;
+        return false;
     });
 }
 
@@ -3181,6 +3208,7 @@ juce::ValueTree MainComponent::toValueTree()
         l.setProperty ("type", lane.type, nullptr); l.setProperty ("id", lane.id, nullptr);
         l.setProperty ("slot", lane.slot, nullptr); l.setProperty ("param", lane.param, nullptr);
         if (lane.target.isNotEmpty()) l.setProperty ("target", lane.target, nullptr);
+        if (lane.step) l.setProperty ("step", true, nullptr);
         for (auto& p : lane.points)
         {
             juce::ValueTree pt ("PT");
@@ -3617,7 +3645,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
         auto l = au.getChild (i);
         AutoLaneSnap lane { (int) l.getProperty ("type"), (int) l.getProperty ("id"),
                             (int) l.getProperty ("slot"), l.getProperty ("param").toString(), {},
-                            l.getProperty ("target").toString() };
+                            l.getProperty ("target").toString(), (bool) l.getProperty ("step", false) };
         for (int j = 0; j < l.getNumChildren(); ++j)
         {
             auto pt = l.getChild (j);

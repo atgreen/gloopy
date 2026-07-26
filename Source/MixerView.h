@@ -40,6 +40,8 @@ public:
         ParamModel id MIDI-learn and the LFO use), authored one keyframe at a time. */
     std::function<void (const juce::String&)>                     onAutomatePoint;
     std::function<void (const juce::String&)>                     onClearAutomation;
+    std::function<bool (const juce::String&)>                     getAutomationStep;   // -> lane is stepped
+    std::function<void (const juce::String&, bool)>               onSetAutomationStep; // stepped vs linear
     /** Controller mapping: report the CC/OSC source bound to this target (empty if none)
         and remove that binding — so a MIDI-learned mapping can be seen and cleared from
         the desktop, not only the API. */

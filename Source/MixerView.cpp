@@ -377,8 +377,10 @@ void MixerView::showParamMenu (const juce::String& target, const juce::String& l
     m.addSeparator();
     m.addItem (4, "Automate at playhead");   // drop a keyframe (current value @ playhead)
     m.addItem (5, "Clear automation");
+    const bool stepped = getAutomationStep ? getAutomationStep (target) : false;
+    m.addItem (7, "Stepped automation", true, stepped);   // hold each value vs linear ramp
     const juce::String tgt = target;
-    m.showMenuAsync (juce::PopupMenu::Options(), [this, tgt] (int r)
+    m.showMenuAsync (juce::PopupMenu::Options(), [this, tgt, stepped] (int r)
     {
         if      (r == 1 && onMidiLearn)          onMidiLearn (tgt);
         else if (r == 6 && onRemoveControllerMap) onRemoveControllerMap (tgt);
@@ -386,6 +388,7 @@ void MixerView::showParamMenu (const juce::String& target, const juce::String& l
         else if (r == 3 && onRemoveModulation)   onRemoveModulation (tgt);
         else if (r == 4 && onAutomatePoint)      onAutomatePoint (tgt);
         else if (r == 5 && onClearAutomation)    onClearAutomation (tgt);
+        else if (r == 7 && onSetAutomationStep)  onSetAutomationStep (tgt, ! stepped);
     });
 }
 

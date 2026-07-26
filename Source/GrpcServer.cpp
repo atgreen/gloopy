@@ -388,6 +388,9 @@ namespace
         Status AddAutomationPoint (ServerContext*, const pb::AddAutoPointRequest* q, pb::Ack* r) override
         { const bool ok = main.apiAddAutomationPointById (js (q->param_id()), q->beat(), q->value());
           r->set_ok (ok); if (! ok) r->set_error ("invalid param id"); return Status::OK; }
+        Status SetAutomationStep (ServerContext*, const pb::AutoStepRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiSetAutomationStep (js (q->param_id()), q->step());
+          r->set_ok (ok); if (! ok) r->set_error ("no automation lane on that param"); return Status::OK; }
 
         Status GetAutomation (ServerContext*, const pb::Empty*, pb::AutomationList* r) override
         {
