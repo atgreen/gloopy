@@ -139,7 +139,8 @@ inline void arpeggiateNotes (std::vector<Note>& notes, double stepBeats, int mod
     so it unit-tests and renders stably. */
 inline std::vector<Note> expandArp (const std::vector<Note>& notes, double rateBeats,
                                     int octaves, float gate, int mode,
-                                    float swing = 0.0f, bool hold = false, double holdLenBeats = 0.0)
+                                    float swing = 0.0f, bool hold = false, double holdLenBeats = 0.0,
+                                    float probability = 1.0f)
 {
     if (rateBeats <= 0.0 || notes.empty()) return notes;
     const int   octs = juce::jlimit (1, 6, octaves);
@@ -193,7 +194,11 @@ inline std::vector<Note> expandArp (const std::vector<Note>& notes, double rateB
         // Swing: push odd grid steps later (aligned to the grid, so rests don't desync it).
         const long long gridStep = std::llround ((t - tStart) / rateBeats);
         const double swOff = (sw > 0.0f && (gridStep % 2 != 0)) ? (double) sw * 0.5 * rateBeats : 0.0;
-        out.push_back ({ pitch, t + swOff, rateBeats * g, juce::jlimit (0.0f, 1.0f, vel > 0.0f ? vel : 0.8f) });
+        // The generative gate rides on Note.probability, so the shared deterministic
+        // noteFires() in collectNotes drops steps reproducibly (per looped repetition).
+        out.push_back ({ pitch, t + swOff, rateBeats * g,
+                         juce::jlimit (0.0f, 1.0f, vel > 0.0f ? vel : 0.8f),
+                         juce::jlimit (0.0f, 1.0f, probability) });
         ++stepIndex;
     }
     return out.empty() ? notes : out;

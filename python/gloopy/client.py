@@ -355,12 +355,14 @@ class Gloopy:
 
     def set_track_arp(self, track_id: int, enabled: bool = True, rate: float = 0.25,
                       octaves: int = 1, gate: float = 0.5, mode: int = 0,
-                      swing: float = 0.0, hold: bool = False) -> None:
+                      swing: float = 0.0, hold: bool = False, probability: float = 1.0) -> None:
         """Live (non-destructive) per-track arpeggiator; mode 0=up 1=down 2=updown 3=random.
-        swing 0..0.9 delays every other step; hold latches the last chord across rests."""
+        swing 0..0.9 delays every other step; hold latches the last chord across rests.
+        probability 0..1 is the chance each generated step fires (a deterministic generative
+        gate; each looped repetition rolls independently, renders stay reproducible)."""
         self._ack(self.stub.SetTrackArp(pb.ArpSpec(
             track_id=track_id, enabled=enabled, rate=rate, octaves=octaves, gate=gate,
-            mode=mode, swing=swing, hold=hold)))
+            mode=mode, swing=swing, hold=hold, probability=probability)))
 
     def add_chord(self, track_id: int, index: int, root: int, type: str = "maj",
                   start_beat: float = 0.0, length_beats: float = 1.0,

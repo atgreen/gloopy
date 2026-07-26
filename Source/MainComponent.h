@@ -307,9 +307,9 @@ public:
     bool apiSplitNotesAtBeat (int trackId, int index, double beat);   // knife: cut notes spanning a clip-relative beat
     // Live (non-destructive) arpeggiator per track. mode 0 up/1 down/2 updown/3 random.
     bool apiSetTrackArp (int trackId, bool enabled, double rate, int octaves, float gate, int mode,
-                         float swing, bool hold);
+                         float swing, bool hold, float probability = 1.0f);
     bool apiGetTrackArp (int trackId, bool& enabled, double& rate, int& octaves, float& gate, int& mode,
-                         float& swing, bool& hold);
+                         float& swing, bool& hold, float& probability);
     void applyArpToTrack (Track& t);   // recompute clip.arpNotes from raw notes (message thread, engineLock held)
     bool apiAddChord (int trackId, int index, int root, const juce::String& type,
                       double startBeat, double lengthBeats, float velocity, int inversion);   // stamp a chord

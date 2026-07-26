@@ -738,6 +738,35 @@ d=sum(abs(a[i]-b[i]) for i in range(m))/max(1,m)
 assert d>0.003,'live arp did not change the render (diff=%.5f)'%d
 print('smoke: PASS — live arpeggiator changes the render (mean abs diff %.4f)'%d)
 " || { echo "smoke: live arp had no audible effect" >&2; exit 1; }
+# Arp probability (generative gate): probability 1.0 fires every generated step and must
+# reproduce the default (unset) arp render byte-for-byte (proves the proto3 unset=full
+# handling). 0.5 drops ~half the steps via the shared deterministic noteFires gate, so it
+# renders quieter than 1.0 yet non-silent, is byte-identical across two renders
+# (reproducible), and survives a project round-trip. GetTrackArp reports it back.
+g -d "{\"track_id\":$AT,\"enabled\":true,\"rate\":0.25,\"octaves\":1,\"gate\":0.5,\"mode\":0,\"probability\":1.0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTrackArp >/dev/null
+g -d "{\"path\":\"$WORK/arp_p100.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$AT,\"enabled\":true,\"rate\":0.25,\"octaves\":1,\"gate\":0.5,\"mode\":0,\"probability\":0.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTrackArp >/dev/null
+ARPPROB=$(g -d "{\"track_id\":$AT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetTrackArp | python3 -c "import json,sys;print(round(json.load(sys.stdin).get('probability',0),3))")
+g -d "{\"path\":\"$WORK/arp_p50.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"path\":\"$WORK/arp_prob.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d "{\"path\":\"$WORK/arp_prob.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null
+g -d "{\"path\":\"$WORK/arp_p50b.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes())
+    return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+def rms(x): return (sum(v*v for v in x)/max(1,len(x)))**0.5
+assert '$ARPPROB'=='0.5','GetTrackArp did not report probability 0.5 (got $ARPPROB)'
+on=rd('$WORK/arp_on.wav');p100=rd('$WORK/arp_p100.wav');p50=rd('$WORK/arp_p50.wav');p50b=rd('$WORK/arp_p50b.wav')
+assert p100==on,'probability 1.0 did not reproduce the default arp render (unset!=full)'
+m=min(len(p100),len(p50))
+assert p50[:m]!=p100[:m],'probability 0.5 rendered identically to 1.0 (no steps dropped)'
+assert rms(p50[:m])>0,'probability 0.5 rendered silent (gate dropped everything)'
+assert rms(p50[:m])<rms(p100[:m])*0.9,'probability 0.5 not quieter than 1.0 (p50 rms %.0f vs p100 %.0f)'%(rms(p50[:m]),rms(p100[:m]))
+assert p50==p50b,'probability 0.5 not reproducible across a project round-trip (re-render differs)'
+print('smoke: PASS — arp probability: 1.0=full(=default), 0.5 drops steps (quieter, non-silent), reproducible + round-trips')
+" || { echo "smoke: arp probability wrong" >&2; exit 1; }
 g -d "{\"id\":$AT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
 g -d "{\"track_id\":$TID,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\

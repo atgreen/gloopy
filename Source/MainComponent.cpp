@@ -268,8 +268,8 @@ MainComponent::MainComponent (bool headless)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
         const int id = tracks[(size_t) trackIdx]->id;
-        bool en=false, hold=false; double rate=0.25; int oct=1, mode=0; float gate=0.5f, swing=0.0f;
-        apiGetTrackArp (id, en, rate, oct, gate, mode, swing, hold);
+        bool en=false, hold=false; double rate=0.25; int oct=1, mode=0; float gate=0.5f, swing=0.0f, prob=1.0f;
+        apiGetTrackArp (id, en, rate, oct, gate, mode, swing, hold, prob);
 
         juce::PopupMenu m;
         m.addItem (1, "Arpeggiator", true, en);                       // toggle on/off
@@ -290,18 +290,23 @@ MainComponent::MainComponent (bool headless)
         const std::pair<const char*, float> swings[] = { {"Off", 0.0f}, {"Subtle", 0.2f}, {"Medium", 0.4f}, {"Strong", 0.6f} };
         for (int i = 0; i < 4; ++i) swingM.addItem (40 + i, swings[i].first, true, std::abs (swing - swings[i].second) < 0.01f);
         m.addSubMenu ("Swing", swingM);
+        juce::PopupMenu chanceM;                                      // generative gate: chance each step fires
+        const std::pair<const char*, float> chances[] = { {"100%", 1.0f}, {"75%", 0.75f}, {"50%", 0.5f}, {"25%", 0.25f} };
+        for (int i = 0; i < 4; ++i) chanceM.addItem (50 + i, chances[i].first, true, std::abs (prob - chances[i].second) < 0.01f);
+        m.addSubMenu ("Chance", chanceM);
 
-        m.showMenuAsync (juce::PopupMenu::Options(), [this, id, en, rate, oct, gate, mode, swing, hold] (int r)
+        m.showMenuAsync (juce::PopupMenu::Options(), [this, id, en, rate, oct, gate, mode, swing, hold, prob] (int r)
         {
             if (r == 0) return;
-            bool nen = en, nhold = hold; double nrate = rate; int noct = oct, nmode = mode; float nswing = swing;
+            bool nen = en, nhold = hold; double nrate = rate; int noct = oct, nmode = mode; float nswing = swing, nprob = prob;
             if      (r == 1)                nen = ! en;
             else if (r == 2)                { nhold = ! hold; nen = true; }
             else if (r >= 10 && r <= 13)    { nrate = (const double[]){1.0,0.5,0.25,0.125}[r-10]; nen = true; }
             else if (r >= 21 && r <= 24)    { noct = r - 20; nen = true; }
             else if (r >= 30 && r <= 33)    { nmode = r - 30; nen = true; }
             else if (r >= 40 && r <= 43)    { nswing = (const float[]){0.0f,0.2f,0.4f,0.6f}[r-40]; nen = true; }
-            apiSetTrackArp (id, nen, nrate, noct, gate, nmode, nswing, nhold);
+            else if (r >= 50 && r <= 53)    { nprob = (const float[]){1.0f,0.75f,0.5f,0.25f}[r-50]; nen = true; }
+            apiSetTrackArp (id, nen, nrate, noct, gate, nmode, nswing, nhold, nprob);
             if (arrangeView) arrangeView->rebuild();                   // refresh the ARP button lit-state
         });
     };
@@ -3066,6 +3071,7 @@ juce::ValueTree MainComponent::toValueTree()
             tr.setProperty ("arpMode", t->arp.mode, nullptr);
             tr.setProperty ("arpSwing", t->arp.swing, nullptr);
             tr.setProperty ("arpHold", t->arp.hold, nullptr);
+            if (t->arp.probability < 1.0f) tr.setProperty ("arpProb", t->arp.probability, nullptr);
         }
 
         if (auto* sg = dynamic_cast<SynthGenerator*> (t->generator.get()))
@@ -3525,6 +3531,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
         t->arp.mode    = (int)  tr.getProperty ("arpMode", 0);
         t->arp.swing   = (float) (double) tr.getProperty ("arpSwing", 0.0);
         t->arp.hold    = (bool) tr.getProperty ("arpHold", false);
+        t->arp.probability = (float) (double) tr.getProperty ("arpProb", 1.0);
 
         for (int ci = 0; ci < tr.getNumChildren(); ++ci)
         {

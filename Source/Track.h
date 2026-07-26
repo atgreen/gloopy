@@ -55,6 +55,7 @@ struct Track
         int    mode    { 0 };      // 0 up, 1 down, 2 up-down, 3 random
         float  swing   { 0.0f };   // 0 = straight; delays every other step
         bool   hold    { false };  // latch the last chord across rests / fill the clip
+        float  probability { 1.0f };  // chance each generated step actually fires (deterministic gate)
     };
     ArpSpec arp;
 

@@ -801,13 +801,16 @@ namespace
         { const bool ok = main.apiSplitNotesAtBeat (q->track_id(), q->index(), q->beat());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
         Status SetTrackArp (ServerContext*, const pb::ArpSpec* q, pb::Ack* r) override
-        { const bool ok = main.apiSetTrackArp (q->track_id(), q->enabled(), q->rate(), q->octaves(), q->gate(), q->mode(), q->swing(), q->hold());
+        { // proto3 omits an unset probability (0.0); a 0% arp is meaningless, so read it as full (1.0).
+          const float prob = q->probability() <= 0.0f ? 1.0f : q->probability();
+          const bool ok = main.apiSetTrackArp (q->track_id(), q->enabled(), q->rate(), q->octaves(), q->gate(), q->mode(), q->swing(), q->hold(), prob);
           r->set_ok (ok); if (! ok) r->set_error ("track not found"); return Status::OK; }
         Status GetTrackArp (ServerContext*, const pb::TrackRef2* q, pb::ArpSpec* r) override
-        { bool en=false, hold=false; double rate=0.25; int oct=1, mode=0; float gate=0.5f, swing=0.0f;
-          if (main.apiGetTrackArp (q->track_id(), en, rate, oct, gate, mode, swing, hold))
+        { bool en=false, hold=false; double rate=0.25; int oct=1, mode=0; float gate=0.5f, swing=0.0f, prob=1.0f;
+          if (main.apiGetTrackArp (q->track_id(), en, rate, oct, gate, mode, swing, hold, prob))
           { r->set_track_id (q->track_id()); r->set_enabled (en); r->set_rate (rate);
-            r->set_octaves (oct); r->set_gate (gate); r->set_mode (mode); r->set_swing (swing); r->set_hold (hold); }
+            r->set_octaves (oct); r->set_gate (gate); r->set_mode (mode); r->set_swing (swing); r->set_hold (hold);
+            r->set_probability (prob); }
           return Status::OK; }
 
         // ---- plugins ----

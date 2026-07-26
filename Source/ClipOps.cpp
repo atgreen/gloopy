@@ -690,7 +690,7 @@ void MainComponent::applyArpToTrack (Track& t)
         {
             const double len = c.contentLenBeats > 0.0 ? c.contentLenBeats : c.lengthBeats;
             c.arpNotes = expandArp (c.notes, t.arp.rate, t.arp.octaves, t.arp.gate, t.arp.mode,
-                                    t.arp.swing, t.arp.hold, len);
+                                    t.arp.swing, t.arp.hold, len, t.arp.probability);
         }
         else
             c.arpNotes.clear();
@@ -698,7 +698,7 @@ void MainComponent::applyArpToTrack (Track& t)
 }
 
 bool MainComponent::apiSetTrackArp (int trackId, bool enabled, double rate, int octaves, float gate, int mode,
-                                   float swing, bool hold)
+                                   float swing, bool hold, float probability)
 {
     return callOnMessageThread ([&] () -> bool
     {
@@ -714,6 +714,7 @@ bool MainComponent::apiSetTrackArp (int trackId, bool enabled, double rate, int 
             t->arp.mode    = juce::jlimit (0, 3, mode);
             t->arp.swing   = juce::jlimit (0.0f, 0.9f, swing);
             t->arp.hold    = hold;
+            t->arp.probability = juce::jlimit (0.0f, 1.0f, probability);
             applyArpToTrack (*t);
         }
         emitChange ("track_arp", trackId);
@@ -722,7 +723,7 @@ bool MainComponent::apiSetTrackArp (int trackId, bool enabled, double rate, int 
 }
 
 bool MainComponent::apiGetTrackArp (int trackId, bool& enabled, double& rate, int& octaves, float& gate, int& mode,
-                                   float& swing, bool& hold)
+                                   float& swing, bool& hold, float& probability)
 {
     return callOnMessageThread ([&] () -> bool
     {
@@ -731,6 +732,7 @@ bool MainComponent::apiGetTrackArp (int trackId, bool& enabled, double& rate, in
         if (t == nullptr) return false;
         enabled = t->arp.enabled; rate = t->arp.rate; octaves = t->arp.octaves;
         gate = t->arp.gate; mode = t->arp.mode; swing = t->arp.swing; hold = t->arp.hold;
+        probability = t->arp.probability;
         return true;
     });
 }

@@ -1013,7 +1013,17 @@ each shipping with desktop UI + screenshot validation.
       0.0 = silent, 0.5 = partial (rms between), and the 0.5 render is byte-identical across a
       composition round-trip (deterministic); screenshot-validated. Gotcha: proto3 omits 0.0,
       so an unset `Note.probability` (=0) is read as 1.0 in AddClip (a 0% note is meaningless).
-      **Not yet:** probability on the live-arp path (arpNotes default to 1.0).
+    - `[x]` **Arp probability (generative gate) landed** (commit): the live arpeggiator gains a
+      per-track `ArpSpec.probability` (0..1) — `expandArp` stamps it onto every generated step
+      so the SAME deterministic `noteFires` gate in `collectNotes` drops steps reproducibly
+      (each looped repetition rolls independently). `probability` on the SetTrackArp/GetTrackArp
+      `ArpSpec` message + Python `set_track_arp(probability=)`; serialised on the track ValueTree
+      (`arpProb`, omitted when 1.0). **Desktop:** a "Chance ▸ 100/75/50/25%" submenu on the ARP
+      config menu. smoke proves 1.0 reproduces the default (unset) arp render byte-for-byte
+      (proto3 unset=full), 0.5 drops steps (quieter, non-silent) and is byte-identical across a
+      project round-trip; screenshot-validated (the expanded Chance submenu, 100% checked). Same
+      proto3 gotcha as note probability: the SetTrackArp handler maps an unset (0.0) probability
+      to 1.0 so existing clients aren't silenced.
     - `[x]` **Scale highlighting landed + screenshot-validated** (commit): `PianoRoll::
       setScale(root,intervals)` builds a 12-pitch-class mask; `paint()` tints in-scale
       rows (chromatic ⇒ off); wired from `apiSetScale` + `refreshUiAfterLoad`. Verified

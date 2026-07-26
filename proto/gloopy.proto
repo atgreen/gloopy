@@ -221,7 +221,7 @@ message StrumRequest     { int32 track_id = 1; int32 index = 2; double step_beat
 message ArpeggiateRequest{ int32 track_id = 1; int32 index = 2; double step_beats = 3; int32 mode = 4; } // mode 0=up 1=down 2=updown
 message SplitNotesRequest{ int32 track_id = 1; int32 index = 2; double beat = 3; }   // knife: cut notes spanning this clip-relative beat
 // Live (non-destructive) per-track arpeggiator. mode 0=up 1=down 2=updown 3=random.
-message ArpSpec          { int32 track_id = 1; bool enabled = 2; double rate = 3; int32 octaves = 4; float gate = 5; int32 mode = 6; float swing = 7; bool hold = 8; }
+message ArpSpec          { int32 track_id = 1; bool enabled = 2; double rate = 3; int32 octaves = 4; float gate = 5; int32 mode = 6; float swing = 7; bool hold = 8; float probability = 9; }
 message TrackRef2        { int32 track_id = 1; }
 // Stamp a chord. type: maj/min/dim/aug/sus2/sus4/6/min6/7/maj7/min7/m7b5/dim7/add9/maj9/min9/5.
 message ChordRequest     { int32 track_id = 1; int32 index = 2; int32 root = 3; string type = 4;
