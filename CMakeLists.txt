@@ -207,6 +207,13 @@ if(GLOOPY_WITH_SURGE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-d
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-data
         DESTINATION bin/assets)
 endif()
+# Bundled Surge XT LV2 plugin (built by scripts/build-surge-plugin.sh) — shipped beside the
+# binary so "+ Synth -> Surge XT (full editor)" works with no external install; PluginHost
+# adds <exeDir>/plugins to its scan path.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-plugin")
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-plugin/
+        DESTINATION bin/plugins)
+endif()
 
 option(GLOOPY_TESTS "Build the Gloopy unit-test target" OFF)
 if(GLOOPY_TESTS)

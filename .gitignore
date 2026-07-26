@@ -1,8 +1,13 @@
 build/
+build-surge-plugin/
 cmake-build-*/
 .cache/
 *.o
 *.a
+
+# Built Surge XT LV2 bundle, staged by scripts/build-surge-plugin.sh and packaged in
+# releases (built in CI). A 37 MB binary — not tracked; regenerate with the script.
+third_party/surge-plugin/
 
 # Python bytecode (tools/)
 __pycache__/
