@@ -497,6 +497,8 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             m.addItem (3, "Move up",   tk > 0);
             m.addItem (4, "Move down", tk < numTracks - 1);
             m.addItem (5, "Invert phase", true, curPolarity);   // checkable polarity flip
+            m.addSeparator();
+            m.addItem (6, "Export track (WAV)...");             // bounce this track to a stem
             if (sc.isSampler) { m.addSeparator(); m.addItem (2, "Sampler playback window..."); }
             m.showMenuAsync (juce::PopupMenu::Options(), [this, tk, curName, sc, curPolarity] (int r)
             {
@@ -507,6 +509,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 else if (r == 3) { if (onMoveTrack) onMoveTrack (tk, -1); }   // up
                 else if (r == 4) { if (onMoveTrack) onMoveTrack (tk, +1); }   // down
                 else if (r == 5) { if (onSetTrackPolarity) onSetTrackPolarity (tk, ! curPolarity); }   // toggle phase
+                else if (r == 6) { if (onExportTrack) onExportTrack (tk); }   // export stem
                 else if (r == 1)
                 {
                     auto* rw = new juce::AlertWindow ("Rename track", "New track name", juce::MessageBoxIconType::NoIcon);

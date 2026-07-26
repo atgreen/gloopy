@@ -430,6 +430,33 @@ MainComponent::MainComponent (bool headless)
         apiSetTrackPolarity (tracks[(size_t) trackIdx]->id, invert);   // map view index -> stable API id
     };
 
+    arrangeView->onExportTrack = [this] (int trackIdx)
+    {
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+        const int id = tracks[(size_t) trackIdx]->id;
+        const auto suggested = juce::File::getSpecialLocation (juce::File::userMusicDirectory)
+                                   .getChildFile (juce::File::createLegalFileName (tracks[(size_t) trackIdx]->name) + ".wav");
+        fileChooser = std::make_unique<juce::FileChooser> ("Export track", suggested, "*.wav;*.flac");
+        fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
+                                    | juce::FileBrowserComponent::warnAboutOverwriting,
+            [this, id] (const juce::FileChooser& fc)
+            {
+                auto f = fc.getResult();
+                if (f == juce::File()) return;
+                if (f.getFileExtension().isEmpty()) f = f.withFileExtension ("wav");
+                const auto path = f.getFullPathName();
+                auto ok = std::make_shared<bool> (false);
+                runBackground ("Exporting track…",
+                    [this, id, path, ok] { *ok = apiExportTrack (id, path); },
+                    [this, f, ok]
+                    {
+                        if (! *ok)
+                            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                "Export Track", "Could not write\n" + f.getFileName());
+                    });
+            });
+    };
+
     arrangeView->onClipGain = [this] (int trackIdx, int clip, float db)
     {
         if (juce::isPositiveAndBelow (trackIdx, (int) tracks.size()))

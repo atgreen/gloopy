@@ -267,6 +267,32 @@ print('smoke: PASS — ExportLoopRegion bounced just the 2-beat loop (%d < %d fr
 " || { echo 'smoke: export loop region wrong' >&2; exit 1; }
 g -d '{"enabled":false}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetLoop >/dev/null   # clear the loop we set
 
+# Export track (stem): a track WITH a note bounces non-silent; an EMPTY track's stem is
+# silent (proves the stem is isolated to its target, not the whole mix). Snapshot+restore.
+g -d "{\"path\":\"$WORK/stem_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+STA=$(g -d '{"name":"stemA","wave":"SAW","attack":0.005,"decay":0.05,"sustain":0.9,"release":0.05,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+STB=$(g -d '{"name":"stemB","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$STA,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":2,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"track_id\":$STA,\"path\":\"$WORK/stem_a.wav\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/ExportTrack >/dev/null
+g -d "{\"track_id\":$STB,\"path\":\"$WORK/stem_b.wav\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/ExportTrack >/dev/null
+python3 -c "
+import wave,struct
+def peak(p):
+    w=wave.open(p,'rb'); d=w.readframes(w.getnframes()); sw=w.getsampwidth(); w.close()
+    if sw==3:
+        m=0
+        for i in range(0,len(d),3): m=max(m,abs(int.from_bytes(d[i:i+3],'little',signed=True)))
+        return m/(2**23)
+    fmt={1:'b',2:'h',4:'i'}[sw]; v=struct.unpack('<%d%s'%(len(d)//sw,fmt),d)
+    return max(abs(x) for x in v)/float(2**(8*sw-1)) if v else 0.0
+a=peak('$WORK/stem_a.wav'); b=peak('$WORK/stem_b.wav')
+assert a>0.05, 'stem A silent (%.4f)'%a
+assert b<0.001, 'empty track stem not silent (%.4f) -> not isolated'%b
+print('smoke: PASS — ExportTrack stem A non-silent (%.3f), empty track B silent (%.5f) -> isolated'%(a,b))
+" || { echo 'smoke: export track wrong' >&2; exit 1; }
+g -d "{\"path\":\"$WORK/stem_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+
 # Modulation matrix: an LFO on a synth cutoff must change the render vs a static
 # cutoff. Dedicated track + two renders, then cleaned up.
 MT=$(g -d '{"name":"modtest","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.2,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)

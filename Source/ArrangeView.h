@@ -53,6 +53,7 @@ public:
     std::function<void (int, const juce::String&)>      onSetTrackColour; // track index, 8-hex ARGB
     std::function<void (int, int)>                      onMoveTrack;     // track index, delta (<0 up, >0 down)
     std::function<void (int, bool)>                     onSetTrackPolarity; // track index, invert
+    std::function<void (int)>                           onExportTrack;   // track index -> bounce a stem
     /** Right-click an empty part of a track -> "Paste notes here": (track, beat). The
         owner reads JSON notes from the system clipboard and builds a clip at that beat. */
     std::function<void (int, double)> onPasteNotes;

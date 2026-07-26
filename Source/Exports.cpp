@@ -44,6 +44,15 @@ bool MainComponent::apiExportLoopRegion (const juce::String& path)
     return apiRenderToFile (path, 1.0, s, e, false, -1);
 }
 
+// Bounce a single track (its clips through its own insert chain, soloed) to a WAV/FLAC —
+// a stem for mixing/collab. Fails if the track id is unknown. Reuses the offline bounce's
+// single-soloed-track path with a short tail so effect tails aren't clipped.
+bool MainComponent::apiExportTrack (int trackId, const juce::String& path)
+{
+    if (resolveTrack (trackId) == nullptr) return false;
+    return apiRenderToFile (path, 2.0, 0.0, 0.0, true, trackId);
+}
+
 bool MainComponent::apiDefineExportProfile (const juce::String& name, const juce::String& target,
                                             const juce::String& rangeName, const juce::String& format,
                                             int trackId, double tailSeconds)

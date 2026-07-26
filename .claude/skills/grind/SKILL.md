@@ -1116,6 +1116,14 @@ each shipping with desktop UI + screenshot validation.
   `export_loop_region`. Both choosers accept `.wav`/`.flac` (encoder from extension). smoke: set a
   2-beat loop, ExportLoopRegion → a valid WAV exactly half the full-mix render (85444 < 170888
   frames). Screenshot-validated (File menu shows both items, loop-region enabled with the loop on).
+- `[x]` **Per-track stem export landed** (commit): completes the desktop export trio (mix / loop /
+  stem). `apiExportTrack(id,path)` bounces ONE track through its own insert chain, soloed, to a
+  WAV/FLAC (reuses apiRenderToFile's single-soloed-track path). ExportTrack RPC
+  (`ExportTrackRequest`) + Python `export_track`. **Desktop:** "Export track (WAV)..." on the
+  track-header menu → FileChooser (defaults to the track name under ~/Music) → renders off the
+  message thread via runBackground + busy overlay. smoke: a track with a note bounces non-silent
+  (0.205) while an EMPTY track's stem is silent (0.00000) — proving the stem is isolated to its
+  target, not the whole mix. Screenshot-validated (the menu item is present).
 
 16. **Browser sidebar + demo/template browser + `File → New From Template`** *(Idea
     #1/#2; absorbs remaining preset UI/work).* **L**

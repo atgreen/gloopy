@@ -195,6 +195,7 @@ message RenameTrackRequest     { int32 track_id = 1; string name = 2; }         
 message SetTrackColourRequest  { int32 track_id = 1; string colour = 2; }       // recolour a track (8-hex ARGB)
 message MoveTrackRequest       { int32 track_id = 1; int32 delta = 2; }         // reorder: delta<0 up, delta>0 down
 message SetTrackPolarityRequest{ int32 track_id = 1; bool invert = 2; }         // phase invert a track
+message ExportTrackRequest     { int32 track_id = 1; string path = 2; }         // bounce one track to a stem WAV/FLAC
 message AddSamplerTrackRequest { string name = 1; string path = 2; int32 root_note = 3; }
 message SamplerControlsRequest { int32 track_id = 1; float start = 2; float end = 3; bool reverse = 4; int32 root_note = 5; float fade_in = 6; float fade_out = 7; bool loop = 8; bool mono = 9; }
 message SamplerControls { bool ok = 1; float start = 2; float end = 3; bool reverse = 4; int32 root_note = 5; string name = 6; float fade_in = 7; float fade_out = 8; bool loop = 9; bool mono = 10; }
@@ -546,6 +547,7 @@ service Gloopy {
   rpc RenderToFile(RenderRequest) returns (RenderResult);   // offline bounce (+ optional loudness report)
   rpc ExportMidi (FilePath) returns (Ack);         // all instrument tracks -> Type-1 SMF
   rpc ExportLoopRegion (FilePath) returns (Ack);   // bounce the current transport loop window to WAV/FLAC
+  rpc ExportTrack (ExportTrackRequest) returns (Ack);   // bounce one track (soloed) to a stem WAV/FLAC
   rpc ImportMidi (FilePath) returns (Ack);         // SMF -> synth tracks + clips
   rpc ImportAudio (FilePath) returns (Ack);        // wav/aiff/flac -> a new audio track
   rpc AnalyzeFile(FilePath) returns (LoudnessReport);   // offline peak/true-peak/RMS/LUFS

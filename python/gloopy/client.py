@@ -856,6 +856,10 @@ class Gloopy:
         action). Errors if no loop is set or it is empty. Encoder picked from the extension."""
         self._ack(self.stub.ExportLoopRegion(pb.FilePath(path=path)))
 
+    def export_track(self, track_id: int, path: str) -> None:
+        """Bounce a single track (through its own insert chain, soloed) to a WAV/FLAC stem."""
+        self._ack(self.stub.ExportTrack(pb.ExportTrackRequest(track_id=track_id, path=path)))
+
     def import_midi(self, path: str) -> None:
         """Load a standard MIDI file as synth tracks + clips."""
         self._ack(self.stub.ImportMidi(pb.FilePath(path=path)))
