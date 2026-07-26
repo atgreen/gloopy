@@ -816,6 +816,9 @@ namespace
           const float fb = q->feedback() <= 0.0f ? 0.6f : q->feedback();
           const bool ok = main.apiEchoClip (q->track_id(), q->index(), q->delay_beats(), reps, fb);
           r->set_ok (ok); if (! ok) r->set_error ("echo failed (clip not found or not MIDI)"); return Status::OK; }
+        Status InvertClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
+        { const bool ok = main.apiInvertClip (q->track_id(), q->index());
+          r->set_ok (ok); if (! ok) r->set_error ("invert failed (clip not found or not MIDI)"); return Status::OK; }
         Status StrumClip (ServerContext*, const pb::StrumRequest* q, pb::Ack* r) override
         { const bool ok = main.apiStrumClip (q->track_id(), q->index(), q->step_beats(), q->down());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }

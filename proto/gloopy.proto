@@ -410,6 +410,7 @@ service Gloopy {
   rpc LegatoClip      (LegatoRequest)          returns (Ack);   // stretch notes to the next onset
   rpc RampClipVelocity (VelRampRequest)        returns (Ack);   // velocity crescendo/decrescendo
   rpc EchoClip        (EchoRequest)            returns (Ack);   // MIDI echo (decaying note repeats)
+  rpc InvertClip      (ClipRef)                returns (Ack);   // melodic inversion (mirror pitches)
   rpc ArpeggiateClip  (ArpeggiateRequest)      returns (Ack);   // chord -> arpeggio (destructive)
   rpc SplitNotesAtBeat(SplitNotesRequest)      returns (Ack);   // knife: split notes crossing a clip-relative beat
   rpc SetTrackArp     (ArpSpec)                returns (Ack);   // live per-track arpeggiator

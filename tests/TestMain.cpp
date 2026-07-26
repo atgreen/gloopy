@@ -371,6 +371,17 @@ struct NoteEditTests : juce::UnitTest
             expectWithinAbsoluteError (ns[2].lengthBeats, 0.5, 1e-9);
         }
 
+        beginTest ("melodic inversion mirrors pitches around the earliest note; timing kept");
+        {
+            std::vector<Note> ns { {60,0,1,0.8f}, {64,1,1,0.7f}, {67,2,0.5f,0.6f} };
+            invertNotes (ns);                               // pivot = 60 (earliest) -> 60, 56, 53
+            expect (ns[0].pitch == 60 && ns[1].pitch == 56 && ns[2].pitch == 53);
+            expectWithinAbsoluteError (ns[1].startBeat, 1.0, 1e-9);   // timing untouched
+            expect (ns[1].lengthBeats == 1.0f && ns[1].velocity == 0.7f);
+            invertNotes (ns);                               // inverting twice restores (pivot still 60)
+            expect (ns[0].pitch == 60 && ns[1].pitch == 64 && ns[2].pitch == 67);
+        }
+
         beginTest ("MIDI echo appends decaying repeats; faded copies dropped; originals kept");
         {
             std::vector<Note> ns { {60,0,0.5f,0.8f} };

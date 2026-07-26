@@ -381,6 +381,11 @@ class Gloopy:
         self._ack(self.stub.EchoClip(pb.EchoRequest(
             track_id=track_id, index=index, delay_beats=delay_beats, repeats=repeats, feedback=feedback)))
 
+    def invert_clip(self, track_id: int, index: int) -> None:
+        """Melodic inversion: mirror every note's pitch around the earliest note's pitch, so
+        intervals flip direction (ascending <-> descending). Timing/length/velocity kept."""
+        self._ack(self.stub.InvertClip(pb.ClipRef(track_id=track_id, index=index)))
+
     def split_notes_at_beat(self, track_id: int, index: int, beat: float) -> None:
         """Knife: cut every note spanning `beat` (clip-relative) into two abutting notes."""
         self._ack(self.stub.SplitNotesAtBeat(pb.SplitNotesRequest(

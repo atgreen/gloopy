@@ -353,6 +353,7 @@ MainComponent::MainComponent (bool headless)
             apiEchoClip (id, clip, a.upToFirstOccurrenceOf (",", false, false).getDoubleValue(),
                          a.fromLastOccurrenceOf (",", false, false).getIntValue(), 0.6f);
         }
+        else if (cmd == "invert")       apiInvertClip (id, clip);   // melodic inversion
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")

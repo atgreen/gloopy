@@ -1152,6 +1152,14 @@ each shipping with desktop UI + screenshot validation.
       "Echo ▸ 1/8 note ×3 / 1/16 note ×4" submenu on the MIDI-clip menu. `GloopyTests::NoteEdits`
       proves the decaying repeats + the fade-out drop + originals-kept; smoke drives EchoClip and
       checks GetClipNotes (0.5/1.0/1.5 @ 0.4/0.2/0.1); screenshot-validated (the expanded submenu).
+    - `[x]` **Melodic inversion landed** (commit): a shared `invertNotes` transform (NoteEdits.h)
+      mirrors every note's pitch around the earliest note's pitch (`newPitch = 2·pivot − pitch`,
+      clamped 0..127) so intervals flip direction — a core compositional device; timing/length/
+      velocity kept, size/order-preserving, self-inverse. `apiInvertClip` (via GLOOPY_EDIT_CLIP_
+      NOTES) + InvertClip RPC (reuses `ClipRef`) + Python `invert_clip`. **Desktop:** an "Invert
+      (mirror pitches)" item on the MIDI-clip menu. `GloopyTests::NoteEdits` proves the mirror +
+      double-invert restore; smoke drives InvertClip and checks GetClipNotes (60/64/67 → 60/56/53);
+      screenshot-validated (the menu item).
     - `[x]` **Arpeggiate (destructive one-shot) landed** (commit c90da23): shared arpeggiateNotes
       + apiArpeggiateClip + ArpeggiateClip RPC + ARP header button (Up/Down/Up-Down menu).
       Rewrites a chord clip into a note sequence in place. Smoke + screenshot.

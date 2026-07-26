@@ -583,6 +583,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             ec.addItem (744, "1/8 note x3");                // delay 0.5, 3 reps
             ec.addItem (745, "1/16 note x4");               // delay 0.25, 4 reps
             m.addSubMenu ("Echo", ec);
+            m.addItem (746, "Invert (mirror pitches)");     // melodic inversion around the first note
         }
         if (! isMidi)                                   // audio-clip level ops
         {
@@ -654,6 +655,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 if (onClipCommand) onClipCommand (t, c, r == 744 ? "echo:0.5,3" : "echo:0.25,4");
                 return;
             }
+            if (r == 746) { if (onClipCommand) onClipCommand (t, c, "invert"); return; }   // melodic inversion
             const char* cmd = r == 1  ? "split"
                             : r == 2  ? "duplicate"
                             : r == 3  ? "reverse"

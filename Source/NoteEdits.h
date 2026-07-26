@@ -139,6 +139,18 @@ inline void scaleNoteTimes (std::vector<Note>& notes, double factor)
     for (auto& n : notes) { n.startBeat *= f; n.lengthBeats = juce::jmax (0.01, n.lengthBeats * f); }
 }
 
+/** Melodic inversion: mirror every note's pitch around a pivot (the earliest-starting
+    note's pitch), so intervals flip direction — an ascending line becomes descending. The
+    pivot note stays put; `newPitch = 2·pivot − pitch`, clamped to 0..127. Timing, length and
+    velocity are preserved; size- and order-preserving. A core compositional device. */
+inline void invertNotes (std::vector<Note>& notes)
+{
+    if (notes.empty()) return;
+    int pivot = notes[0].pitch; double earliest = notes[0].startBeat;
+    for (const auto& n : notes) if (n.startBeat < earliest) { earliest = n.startBeat; pivot = n.pitch; }
+    for (auto& n : notes) n.pitch = juce::jlimit (0, 127, 2 * pivot - n.pitch);
+}
+
 /** MIDI echo / delay: append `repeats` decaying copies of every note, each `delayBeats`
     later than the last, with velocity multiplied by `feedback` each step (copies that fade
     below ~1% are dropped). The originals are kept; pitch and length are preserved. A
