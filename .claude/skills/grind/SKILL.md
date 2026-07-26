@@ -1026,6 +1026,13 @@ desktop control wiring the *same* api* op, screenshot-validated. Status:
   RPC + Python + `transport()` readback. **Desktop UI:** a "Metro" toolbar toggle next to Loop
   — screenshot-validated (highlights when on). smoke proves an empty 4-beat render is silent
   off and clicks each beat on. Session toggle (not serialised).
+  - `[x]` **Metronome level landed** (commit): the click volume was fixed (accent 0.6 / beat 0.4);
+    now a `metronomeLevel` (0..1, session setting) scales it. `apiSetMetronomeLevel`/
+    `apiGetMetronomeLevel` + SetMetronomeLevel/GetMetronomeLevel RPCs (`MetronomeLevel{level}`) +
+    Python. **Desktop:** a "Metronome level ▸ 25/50/75/100%" submenu on the beat-ruler right-click
+    menu (alongside Swing/Time signature), reflecting + setting the level. smoke proves level 0.5
+    halves the click peak (0.60→0.30) and round-trips via GetMetronomeLevel; screenshot-validated
+    (the expanded submenu, 100% checked).
 - `[x]` **Take management** (PromoteTake/CleanupTakes) — right-click a recorded take clip
   → Use this take (comp: unmute this, mute siblings) / Promote take (keep) / Clean up
   unused takes (commit 805e4f0). Validated with a real loop+punch recording harness

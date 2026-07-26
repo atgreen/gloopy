@@ -2091,5 +2091,19 @@ assert bursts>=3, 'expected several beat clicks, got %d bursts'%bursts
 assert '$METFLAG'=='True', 'GetTransport did not report metronome on'
 print('smoke: PASS — metronome clicks each beat (off silent %.3f, on peak %.2f, %d bursts)'%(poff,pon,bursts))
 " || { echo 'smoke: metronome wrong' >&2; exit 1; }
+# Metronome level: the click volume scales linearly, so at 0.5 the click peak is ~half the
+# full-level (metro_on) click. GetMetronomeLevel reports it back.
+g -d '{"level":0.5}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetMetronomeLevel >/dev/null
+MLVL=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetMetronomeLevel | python3 -c "import json,sys;print(round(json.load(sys.stdin).get('level',0),3))")
+g -d "{\"path\":\"$WORK/metro_half.wav\",\"tail_seconds\":0,\"start_beat\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [abs(int.from_bytes(f[i:i+3],'little',signed=True))/(1<<23) for i in range(0,len(f),3)]
+full=max(rd('$WORK/metro_on.wav'));half=max(rd('$WORK/metro_half.wav'))
+assert '$MLVL'=='0.5','GetMetronomeLevel did not report 0.5 (got $MLVL)'
+assert abs(half - full*0.5) < full*0.1, 'metronome level 0.5 did not halve the click (full %.3f, half %.3f)'%(full,half)
+print('smoke: PASS — metronome level scales the click (full %.2f -> half %.2f), round-trips'%(full,half))
+" || { echo 'smoke: metronome level wrong' >&2; exit 1; }
 
 echo "smoke: OK"

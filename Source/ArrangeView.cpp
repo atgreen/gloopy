@@ -405,6 +405,13 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         for (int i = 0; i < 5; ++i)
             sw.addItem (30 + i, swingPresets[i].first, true, std::abs (curSwing - swingPresets[i].second) < 0.005);
         m.addSubMenu ("Swing", sw);
+        // Metronome click volume.
+        const float curMetro = getMetronomeLevel ? getMetronomeLevel() : 1.0f;
+        const std::pair<const char*, float> metroLvls[] = { {"25%", 0.25f}, {"50%", 0.5f}, {"75%", 0.75f}, {"100%", 1.0f} };
+        juce::PopupMenu mm;
+        for (int i = 0; i < 4; ++i)
+            mm.addItem (60 + i, metroLvls[i].first, true, std::abs (curMetro - metroLvls[i].second) < 0.01f);
+        m.addSubMenu ("Metronome level", mm);
         m.showMenuAsync (juce::PopupMenu::Options(), [this, beat, nearBeat, nearMarker] (int r)
         {
             if (r == 1) promptAddTempoMarker (beat);
@@ -416,6 +423,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             {
                 const double vals[] = { 0.50, 0.56, 0.62, 0.68, 0.667 };
                 onSetSwing (vals[r - 30]);
+            }
+            else if (r >= 60 && r <= 63 && onSetMetronomeLevel)
+            {
+                const float vals[] = { 0.25f, 0.5f, 0.75f, 1.0f };
+                onSetMetronomeLevel (vals[r - 60]);
             }
         });
         return;

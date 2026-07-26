@@ -286,6 +286,8 @@ public:
     bool apiSetLoopToClip (int trackId, int index);                  // set the transport loop to a clip's [start,end) and enable it
     bool apiSetMetronome (bool enabled);                             // toggle the beat click; -> new state
     bool apiGetMetronome();
+    void  apiSetMetronomeLevel (float level);                        // click volume (0..1)
+    float apiGetMetronomeLevel();
     int  apiDuplicateClip (int trackId, int index, double atBeat);  // atBeat<0 => right after; -> new index
     int  apiRepeatClip (int trackId, int index, int copies);        // tile N butted copies after the clip; -> copies added, or -1
     bool apiReverseClip (int trackId, int index);                   // reverse notes (MIDI) or audio buffer
@@ -687,6 +689,7 @@ private:
     // Metronome: a monitor click at each beat (audio-thread state; touched only in
     // renderBlock, except the atomic enable flag). Not serialised (a session toggle).
     std::atomic<bool> metronomeEnabled { false };
+    std::atomic<float> metronomeLevel { 1.0f };   // click volume (0..1); a session setting
     int    metroSamplesLeft { 0 };
     double metroPhase { 0.0 }, metroInc { 0.0 };
     float  metroAmp { 0.0f };

@@ -97,6 +97,13 @@ class Gloopy:
         """Toggle the beat-click metronome (a monitor layer; included in a bounce if left on)."""
         self._ack(self.stub.SetMetronome(pb.MetronomeRequest(enabled=enabled)))
 
+    def set_metronome_level(self, level: float = 1.0) -> None:
+        """Set the metronome click volume (0..1). A session setting (not saved)."""
+        self._ack(self.stub.SetMetronomeLevel(pb.MetronomeLevel(level=level)))
+
+    def get_metronome_level(self) -> float:
+        return self.stub.GetMetronomeLevel(pb.Empty()).level
+
     def start_recording(self) -> None:
         """Record armed MIDI + armed audio tracks from the playhead."""
         self._ack(self.stub.StartRecording(pb.Empty()))

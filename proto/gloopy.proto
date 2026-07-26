@@ -29,6 +29,7 @@ message TransportState { bool playing = 1; double bpm = 2; double position_beats
                          bool loop_enabled = 4; double loop_start = 5; double loop_end = 6;
                          bool metronome = 7; double swing = 8; }
 message MetronomeRequest { bool enabled = 1; }
+message MetronomeLevel   { float level = 1; }   // click volume 0..1
 
 // ── notes / clips ──────────────────────────────────────────
 message Note {
@@ -385,6 +386,8 @@ service Gloopy {
   rpc SetClipMuted    (ClipMuteRequest)        returns (Ack);      // mute/enable a clip in the arrangement
   rpc SetLoopToClip   (ClipRef)                returns (Ack);      // loop the transport over a clip's span
   rpc SetMetronome    (MetronomeRequest)       returns (Ack);      // toggle the beat-click metronome
+  rpc SetMetronomeLevel (MetronomeLevel)       returns (Ack);      // click volume (0..1)
+  rpc GetMetronomeLevel (Empty)                returns (MetronomeLevel);
   rpc DuplicateClip   (DuplicateClipRequest)   returns (ClipId);
   rpc RepeatClip      (RepeatClipRequest)      returns (SliceResult);   // SliceResult.slices = copies added
   rpc ReverseClip     (ClipRef)                returns (Ack);

@@ -265,6 +265,16 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.MetronomeRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SetMetronomeLevel = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetMetronomeLevel',
+                request_serializer=gloopy__pb2.MetronomeLevel.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GetMetronomeLevel = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GetMetronomeLevel',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.MetronomeLevel.FromString,
+                _registered_method=True)
         self.DuplicateClip = channel.unary_unary(
                 '/gloopy.v1.Gloopy/DuplicateClip',
                 request_serializer=gloopy__pb2.DuplicateClipRequest.SerializeToString,
@@ -1140,6 +1150,19 @@ class GloopyServicer:
     def SetMetronome(self, request, context):
         """toggle the beat-click metronome
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetMetronomeLevel(self, request, context):
+        """click volume (0..1)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetMetronomeLevel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -2135,6 +2158,16 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.SetMetronome,
                     request_deserializer=gloopy__pb2.MetronomeRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetMetronomeLevel': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetMetronomeLevel,
+                    request_deserializer=gloopy__pb2.MetronomeLevel.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GetMetronomeLevel': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetMetronomeLevel,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.MetronomeLevel.SerializeToString,
             ),
             'DuplicateClip': grpc.unary_unary_rpc_method_handler(
                     servicer.DuplicateClip,
@@ -3955,6 +3988,60 @@ class Gloopy:
             '/gloopy.v1.Gloopy/SetMetronome',
             gloopy__pb2.MetronomeRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetMetronomeLevel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetMetronomeLevel',
+            gloopy__pb2.MetronomeLevel.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetMetronomeLevel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GetMetronomeLevel',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.MetronomeLevel.FromString,
             options,
             channel_credentials,
             insecure,

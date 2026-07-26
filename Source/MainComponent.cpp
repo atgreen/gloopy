@@ -253,6 +253,8 @@ MainComponent::MainComponent (bool headless)
     arrangeView->onSetTimeSignature = [this] (int num, int denom) { apiSetTimeSignature (num, denom); };
     arrangeView->getSwing   = [this] { return transport.getSwing(); };
     arrangeView->onSetSwing = [this] (double s) { apiSetSwing (s); };
+    arrangeView->getMetronomeLevel   = [this] { return apiGetMetronomeLevel(); };
+    arrangeView->onSetMetronomeLevel = [this] (float l) { apiSetMetronomeLevel (l); };
     arrangeView->getSamplerControls = [this] (int trackIdx) -> ArrangeView::SamplerCtl
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return {};
@@ -809,6 +811,8 @@ MainComponent::TransportSnap MainComponent::apiGetTransport()
 
 bool MainComponent::apiSetMetronome (bool enabled) { metronomeEnabled.store (enabled); return enabled; }
 bool MainComponent::apiGetMetronome() { return metronomeEnabled.load(); }
+void  MainComponent::apiSetMetronomeLevel (float level) { metronomeLevel.store (juce::jlimit (0.0f, 1.0f, level)); }
+float MainComponent::apiGetMetronomeLevel() { return metronomeLevel.load(); }
 
 int MainComponent::apiAddSynthTrack (const juce::String& name, int wave, float a, float d, float s, float r, float g)
 {
@@ -2430,7 +2434,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
                 const bool accent = (k % bpb) == 0;
                 metroSamplesLeft = clickLen; metroPhase = 0.0;
                 metroInc = 2.0 * juce::MathConstants<double>::pi * (accent ? 1600.0 : 1000.0) / rate;
-                metroAmp = accent ? 0.6f : 0.4f;
+                metroAmp = (accent ? 0.6f : 0.4f) * metronomeLevel.load();
                 nextBeat = tc.beatToSample (++k);
             }
             if (metroSamplesLeft > 0)

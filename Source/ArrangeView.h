@@ -64,6 +64,8 @@ public:
     std::function<void (const juce::String&)>         onRemoveMarker;          // remove a named marker
     std::function<void (int, int)>       onSetTimeSignature;                   // numerator, denominator
     std::function<double()>              getSwing;                             // current swing (0.5 = straight)
+    std::function<float()>               getMetronomeLevel;                    // current click volume (0..1)
+    std::function<void (float)>          onSetMetronomeLevel;                  // set click volume
     std::function<void (double)>         onSetSwing;                           // set the groove swing amount
     /** Recording punch region drawn on the ruler + set by Alt-dragging it (like the
         loop region). getPunchRange fills in/out and returns whether it's enabled;

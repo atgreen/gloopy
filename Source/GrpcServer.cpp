@@ -728,6 +728,10 @@ namespace
           r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
         Status SetMetronome (ServerContext*, const pb::MetronomeRequest* q, pb::Ack* r) override
         { main.apiSetMetronome (q->enabled()); r->set_ok (true); return Status::OK; }
+        Status SetMetronomeLevel (ServerContext*, const pb::MetronomeLevel* q, pb::Ack* r) override
+        { main.apiSetMetronomeLevel (q->level()); r->set_ok (true); return Status::OK; }
+        Status GetMetronomeLevel (ServerContext*, const pb::Empty*, pb::MetronomeLevel* r) override
+        { r->set_level (main.apiGetMetronomeLevel()); return Status::OK; }
         Status DuplicateClip (ServerContext*, const pb::DuplicateClipRequest* q, pb::ClipId* r) override
         {
             const int idx = main.apiDuplicateClip (q->track_id(), q->index(), q->at_beat());
