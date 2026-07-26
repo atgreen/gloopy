@@ -509,6 +509,10 @@ namespace
         { const bool ok = main.apiNewFromTemplate (js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("unknown template"); return Status::OK; }
 
+        Status SaveAsTemplate (ServerContext*, const pb::TemplateRef* q, pb::Ack* r) override
+        { const bool ok = main.apiSaveAsTemplate (js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("could not save template"); return Status::OK; }
+
         Status Undo (ServerContext*, const pb::Empty*, pb::Ack* r) override
         { main.apiUndo(); r->set_ok (true); return Status::OK; }
 

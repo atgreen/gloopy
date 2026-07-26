@@ -135,8 +135,10 @@ public:
     std::vector<AutoLaneSnap> apiGetAutomation();
     void evaluateAutomation (double beat);   // audio thread, under engineLock
     void apiNewProject();
-    std::vector<juce::String> apiListTemplates();                 // built-in project templates
+    std::vector<juce::String> apiListTemplates();                 // built-in + user project templates
     bool apiNewFromTemplate (const juce::String& name);           // empty the project + seed a template
+    bool apiSaveAsTemplate (const juce::String& name);            // save the current project as a reusable user template
+    juce::File templatesDir() const;                              // user templates dir (GLOOPY_TEMPLATE_PATH override)
     bool apiLoadProject (const juce::String& path);
     bool apiSaveProject (const juce::String& path);
     bool apiSaveComposition (const juce::String& path);   // directory "composition as repo" format

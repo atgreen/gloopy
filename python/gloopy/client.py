@@ -676,12 +676,19 @@ class Gloopy:
         self._ack(self.stub.NewProject(pb.Empty()))
 
     def list_templates(self) -> list[str]:
-        """Built-in project templates (e.g. 'Starter Beat', 'Drum Kit', 'Lead + Bass')."""
+        """Project templates: built-ins ('Starter Beat', 'Drum Kit', 'Lead + Bass')
+        plus any user templates saved with save_as_template."""
         return list(self.stub.ListTemplates(pb.Empty()).names)
 
     def new_from_template(self, name: str) -> None:
-        """Empty the project and seed a built-in template."""
+        """Empty the project and seed a template (built-in or a saved user template)."""
         self._ack(self.stub.NewFromTemplate(pb.TemplateRef(name=name)))
+
+    def save_as_template(self, name: str) -> None:
+        """Save the current project as a reusable user template under the templates dir
+        (<userAppData>/Gloopy/templates, or $GLOOPY_TEMPLATE_PATH). It then appears in
+        list_templates and can be seeded with new_from_template."""
+        self._ack(self.stub.SaveAsTemplate(pb.TemplateRef(name=name)))
 
     def undo(self) -> None:
         self._ack(self.stub.Undo(pb.Empty()))

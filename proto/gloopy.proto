@@ -484,8 +484,9 @@ service Gloopy {
   rpc SetProjectNotes(TextValue) returns (Ack);      // free-form markdown, saved with the song
   rpc GetProjectNotes(Empty)     returns (TextValue);
   rpc NewProject (Empty)    returns (Ack);
-  rpc ListTemplates  (Empty)       returns (TemplateList);   // built-in project templates
+  rpc ListTemplates  (Empty)       returns (TemplateList);   // built-in + user project templates
   rpc NewFromTemplate(TemplateRef) returns (Ack);            // empty + seed a template
+  rpc SaveAsTemplate (TemplateRef) returns (Ack);            // save the current project as a user template
   rpc Undo       (Empty)    returns (Ack);
   rpc Redo       (Empty)    returns (Ack);
   rpc LoadProject(FilePath) returns (Ack);

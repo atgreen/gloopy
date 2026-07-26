@@ -888,8 +888,19 @@ each shipping with desktop UI + screenshot validation.
       `buildTemplate`/`builtinTemplateNames` (Starter Beat / Drum Kit / Lead + Bass) +
       apiListTemplates/apiNewFromTemplate + ListTemplates/NewFromTemplate RPCs + Python +
       `File → New from Template`. Track ids are now 1-based (proto3 omits id 0). **The
-      browser sidebar should drive project seeding through this same template API.** Still
-      to build: the sidebar itself + file-based/user templates ("Save as Template").
+      browser sidebar should drive project seeding through this same template API.**
+    - `[x]` **User templates ("Save as Template") landed** (commit): the current project can
+      be saved as a reusable template — `apiSaveAsTemplate(name)` writes a `.gloopy` into a
+      user templates dir (`<userAppData>/Gloopy/templates`, or `$GLOOPY_TEMPLATE_PATH`, the
+      presets-dir pattern), preserving the open project's title. `apiListTemplates` now merges
+      built-ins + those files (built-ins win a name clash) and `apiNewFromTemplate` seeds from
+      either (a user template loads via `openAny` into a NEW untitled project). SaveAsTemplate
+      RPC + Python `save_as_template`; the File menu gained "Save as Template..." (name prompt)
+      and its "New from Template" submenu is now built from `apiListTemplates` so user
+      templates appear alongside built-ins. smoke: save -> lists -> NewProject -> NewFromTemplate
+      restores the tracks (snapshot+restore around the destructive New* calls); screenshot-
+      validated (the menu shows a saved "My Song Starter" under the built-ins). Still to build:
+      the browser sidebar.
     - `[x]` **Busy overlay / spinner landed** (commit, user request): BusyOverlay + runBackground
       (thread-pool + callAsync swap-in); SFZ + sampler loads run off-thread with a spinner so
       the UI no longer freezes. Long ops elsewhere (project open, plugin scan, audio import)

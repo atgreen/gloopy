@@ -1780,24 +1780,67 @@ void MainComponent::runBackground (const juce::String& label,
     });
 }
 
+// User templates are saved projects: <userAppData>/Gloopy/templates/<name>.gloopy
+// (override the base with GLOOPY_TEMPLATE_PATH, mirroring presetsDir).
+juce::File MainComponent::templatesDir() const
+{
+    auto base = juce::SystemStats::getEnvironmentVariable ("GLOOPY_TEMPLATE_PATH", {});
+    return base.isNotEmpty()
+        ? juce::File (base)
+        : juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory).getChildFile ("Gloopy").getChildFile ("templates");
+}
+
 std::vector<juce::String> MainComponent::apiListTemplates()
 {
     std::vector<juce::String> out;
-    for (auto& n : builtinTemplateNames()) out.push_back (n);
+    const auto builtins = builtinTemplateNames();
+    for (auto& n : builtins) out.push_back (n);
+    for (auto& f : templatesDir().findChildFiles (juce::File::findFiles, false, "*.gloopy"))
+    {
+        const auto n = f.getFileNameWithoutExtension();
+        if (! builtins.contains (n)) out.push_back (n);   // built-ins win a name clash
+    }
     return out;
+}
+
+// Save the current project as a reusable user template (a .gloopy in templatesDir).
+bool MainComponent::apiSaveAsTemplate (const juce::String& name)
+{
+    const auto clean = juce::File::createLegalFileName (name.trim());
+    if (clean.isEmpty()) return false;
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto dir = templatesDir();
+        if (! dir.createDirectory()) return false;
+        auto file = dir.getChildFile (clean + ".gloopy");
+        const auto prev = currentProjectFile;   // saving a template must not retitle the open project
+        saveProject (file);
+        currentProjectFile = prev;
+        return file.existsAsFile();
+    });
 }
 
 bool MainComponent::apiNewFromTemplate (const juce::String& name)
 {
-    if (! builtinTemplateNames().contains (name)) return false;
+    const bool builtin = builtinTemplateNames().contains (name);
+    juce::File userFile = builtin ? juce::File() : templatesDir().getChildFile (juce::File::createLegalFileName (name.trim()) + ".gloopy");
+    if (! builtin && ! userFile.existsAsFile()) return false;
     return callOnMessageThread ([&] () -> bool
     {
-        newProject();                 // empties the project
-        undoSuppressed = true;
-        buildTemplate (name);
-        undoSuppressed = false;
-        undoStack.clear(); redoStack.clear();
-        refreshUiAfterLoad();
+        if (builtin)
+        {
+            newProject();                 // empties the project
+            undoSuppressed = true;
+            buildTemplate (name);
+            undoSuppressed = false;
+            undoStack.clear(); redoStack.clear();
+            refreshUiAfterLoad();
+        }
+        else
+        {
+            openAny (userFile);           // load the saved-template project
+            currentProjectFile = juce::File();   // a template seeds a NEW untitled project, not the template file
+        }
         return true;
     });
 }
@@ -2695,9 +2738,9 @@ void MainComponent::showFileMenu()
     const bool haveProject = currentProjectFile != juce::File();
     const bool isComposition = currentProjectFile.getFileName() == "gloopy.toml";
     menu.addItem (1, "New Project (empty)");
-    juce::PopupMenu templatesMenu;                       // New from a built-in template
-    const auto templates = builtinTemplateNames();
-    for (int i = 0; i < templates.size(); ++i) templatesMenu.addItem (100 + i, templates[i]);
+    juce::PopupMenu templatesMenu;                       // New from a built-in or user template
+    const auto templates = apiListTemplates();
+    for (int i = 0; i < (int) templates.size(); ++i) templatesMenu.addItem (100 + i, templates[(size_t) i]);
     menu.addSubMenu ("New from Template", templatesMenu);
     menu.addItem (2, "Open...");                         // .gloopy or .zip
     menu.addItem (6, "Open Composition Folder...");
@@ -2706,6 +2749,7 @@ void MainComponent::showFileMenu()
     menu.addItem (3, "Save", haveProject);
     menu.addItem (4, "Save As .gloopy...");
     menu.addItem (7, "Save As Composition...");
+    menu.addItem (10, "Save as Template...");
     menu.addSeparator();
     menu.addItem (8, "Project Notes...");
     menu.addItem (5, "Rescan Plugins");
@@ -2715,10 +2759,10 @@ void MainComponent::showFileMenu()
             if (result == 8) { openNotes(); return; }
             if (result >= 100)                                  // New from Template
             {
-                const auto templates = builtinTemplateNames();
-                if (juce::isPositiveAndBelow (result - 100, templates.size()))
+                const auto templates = apiListTemplates();
+                if (juce::isPositiveAndBelow (result - 100, (int) templates.size()))
                 {
-                    const auto name = templates[result - 100];
+                    const auto name = templates[(size_t) (result - 100)];
                     // A template may load a big sampled instrument (piano SFZ) — show the
                     // busy overlay while it builds so the UI doesn't look frozen.
                     busyOverlay.show ("Loading " + name + "…");
@@ -2774,6 +2818,26 @@ void MainComponent::showFileMenu()
                 fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectDirectories,
                     [this] (const juce::FileChooser& fc)
                     { auto d = fc.getResult(); if (d != juce::File()) saveComposition (d); });
+            }
+            else if (result == 10)   // Save the current project as a reusable user template
+            {
+                auto* aw = new juce::AlertWindow ("Save as Template",
+                    "Name this template — it will appear under \"New from Template\".",
+                    juce::MessageBoxIconType::NoIcon);
+                aw->addTextEditor ("name", "My Template", "Template name");
+                aw->addButton ("Save",   1, juce::KeyPress (juce::KeyPress::returnKey));
+                aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+                aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw] (int r)
+                {
+                    if (r == 1)
+                    {
+                        const auto name = aw->getTextEditorContents ("name").trim();
+                        if (name.isNotEmpty() && ! apiSaveAsTemplate (name))
+                            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                "Save as Template", "Could not save the template \"" + name + "\".");
+                    }
+                    delete aw;
+                }), false);
             }
             else if (result == 5) scanPlugins (true);
         });

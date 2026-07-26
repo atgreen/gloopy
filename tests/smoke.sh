@@ -15,6 +15,8 @@ PROTO_DIR="$ROOT/proto"
 WORK="$(mktemp -d)"
 WAV="$WORK/smoke.wav"
 PORT=50051
+# Isolate user templates to a temp dir (read by the app at launch, per templatesDir()).
+export GLOOPY_TEMPLATE_PATH="$WORK/templates"
 
 [ -x "$BIN" ] || { echo "smoke: binary not found: $BIN" >&2; exit 2; }
 command -v grpcurl >/dev/null || { echo "smoke: grpcurl not installed" >&2; exit 2; }
@@ -431,6 +433,28 @@ print('smoke: PASS — notes export->import JSON round-trips (3 notes, pitch/sta
 " || { echo 'smoke: notes JSON copy/paste wrong' >&2; exit 1; }
 g -d "{\"id\":$SRC}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 g -d "{\"id\":$DST}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
+# User templates (Wave 6 #16): save the current project as a template, confirm it lists
+# alongside the built-ins, then seed a fresh project from it and check the tracks return.
+# NewProject/NewFromTemplate are destructive to the session, so snapshot + restore around it.
+g -d "{\"path\":\"$WORK/tpl_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+TPL_A=$(g -d '{"name":"tplA","wave":"SAW","gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+TPL_B=$(g -d '{"name":"tplB","wave":"SINE","gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+NBEFORE=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListTracks | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('tracks',[])))")
+g -d '{"name":"Smoke Template"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveAsTemplate >/dev/null
+LISTED=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListTemplates | python3 -c "import json,sys;print('Smoke Template' in json.load(sys.stdin).get('names',[]))")
+[ -f "$WORK/templates/Smoke Template.gloopy" ] || { echo "smoke: SaveAsTemplate did not write the template file" >&2; exit 1; }
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+NEMPTY=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListTracks | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('tracks',[])))")
+g -d '{"name":"Smoke Template"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewFromTemplate >/dev/null
+NAFTER=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListTracks | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('tracks',[])))")
+python3 -c "
+assert '$LISTED'=='True', 'saved template not in ListTemplates'
+assert int('$NBEFORE')==int('$NAFTER'), 'seeded template track count %s != saved %s'%('$NAFTER','$NBEFORE')
+assert int('$NEMPTY') < int('$NAFTER'), 'NewProject then NewFromTemplate did not restore tracks (empty=%s after=%s)'%('$NEMPTY','$NAFTER')
+print('smoke: PASS — user template saves, lists, and seeds a fresh project (%s tracks) '%'$NAFTER')
+" || { echo 'smoke: user template wrong' >&2; exit 1; }
+g -d "{\"path\":\"$WORK/tpl_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 
 # ParamModel keystone — automation-by-id: an automation lane addresses the SAME ParamModel
 # id a controller/LFO uses (track/<id>/synth/cutoff), written through the shared
