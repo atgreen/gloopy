@@ -194,6 +194,28 @@ MainComponent::MainComponent (bool headless)
               busyOverlay.show ("Opening " + name + "…");
               juce::MessageManager::callAsync ([this, f] { openAny (f); busyOverlay.hide(); });
           } },
+        { "Plugins",
+          [this]                                            // installed instrument plugins
+          {
+              browserPluginIds.clear();
+              std::vector<juce::String> names;
+              for (auto& p : apiListPlugins())
+                  if (p.isInstrument)
+                  {
+                      const auto label = p.name + "  (" + p.format + ")";
+                      browserPluginIds[label] = p.identifier;
+                      names.push_back (label);
+                  }
+              return names;
+          },
+          [this] (const juce::String& label)
+          {
+              const auto it = browserPluginIds.find (label);
+              if (it == browserPluginIds.end()) return;
+              const auto id = it->second;
+              busyOverlay.show ("Loading " + label + "…");
+              juce::MessageManager::callAsync ([this, id] { apiAddPluginTrack (id); busyOverlay.hide(); });
+          } },
     });
     addChildComponent (*browser);   // hidden until toggled
     browseButton.setClickingTogglesState (true);

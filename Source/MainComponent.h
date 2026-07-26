@@ -791,6 +791,7 @@ private:
     std::unique_ptr<MixerView>            mixerView;
     std::unique_ptr<BrowserSidebar>       browser;          // collapsible left browser (templates, ...)
     bool                                  browserVisible { false };
+    std::map<juce::String, juce::String>  browserPluginIds; // Plugins tab: row label -> plugin identifier
     std::unique_ptr<juce::DocumentWindow> mixerWindow;
     juce::String projectNotes;                          // free-form markdown (message thread)
     std::unique_ptr<juce::DocumentWindow> notesWindow;

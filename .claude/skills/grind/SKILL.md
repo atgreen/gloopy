@@ -1242,6 +1242,15 @@ each shipping with desktop UI + screenshot validation.
       demos [demo-ambient … demo-synthwave]; clicking "demo-song" loaded the full 7-track composition
       at tempo 124). **Next slices:** Samples / Plugins / Presets / Favorites tabs, and first-class
       drag-and-drop from the browser onto tracks/inserts.
+    - `[~]` **Browser sidebar — Plugins tab landed** (commit): a third category listing every
+      installed INSTRUMENT plugin (`apiListPlugins()` filtered to `isInstrument`, label "name
+      (format)"); clicking one `apiAddPluginTrack(identifier)`s it (off-thread + busy overlay). Row
+      label → identifier is cached in `browserPluginIds` (getItems fills it; onChoose looks it up,
+      since a Category's onChoose only gets the label). apiListPlugins loads the plugin cache on
+      first use, so the tab populates without a manual rescan. Screenshot-validated end-to-end with
+      the real host: the Plugins tab listed sfizz / Surge XT (VST3+LV2) / ZynAddSubFX / Calf * , and
+      clicking "Surge XT (LV2)" instantiated it as a new "Surge XT" instrument track. **Next:** Samples
+      / Presets / Favorites tabs, and first-class drag-and-drop onto tracks/inserts.
     - `[x]` **User templates ("Save as Template") landed** (commit): the current project can
       be saved as a reusable template — `apiSaveAsTemplate(name)` writes a `.gloopy` into a
       user templates dir (`<userAppData>/Gloopy/templates`, or `$GLOOPY_TEMPLATE_PATH`, the
