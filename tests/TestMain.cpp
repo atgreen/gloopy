@@ -371,6 +371,24 @@ struct NoteEditTests : juce::UnitTest
             expectWithinAbsoluteError (ns[2].lengthBeats, 0.5, 1e-9);
         }
 
+        beginTest ("ratchet subdivides each note into equal same-pitch hits");
+        {
+            std::vector<Note> ns { {60,0,1,0.8f} };
+            ratchetNotes (ns, 4);                            // 1-beat note -> 4 hits of 0.25
+            expect (ns.size() == 4);
+            std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b) { return a.startBeat < b.startBeat; });
+            for (int k = 0; k < 4; ++k)
+            {
+                expectWithinAbsoluteError (ns[(size_t) k].startBeat, k * 0.25, 1e-9);
+                expectWithinAbsoluteError (ns[(size_t) k].lengthBeats, 0.25, 1e-9);
+                expect (ns[(size_t) k].pitch == 60 && ns[(size_t) k].velocity == 0.8f);
+            }
+            // a chord (two notes) ratcheted x2 -> 4 hits (2 per note).
+            std::vector<Note> ch { {60,0,1,0.7f}, {64,0,1,0.7f} };
+            ratchetNotes (ch, 2);
+            expect (ch.size() == 4);
+        }
+
         beginTest ("melodic inversion mirrors pitches around the earliest note; timing kept");
         {
             std::vector<Note> ns { {60,0,1,0.8f}, {64,1,1,0.7f}, {67,2,0.5f,0.6f} };

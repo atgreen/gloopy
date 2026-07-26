@@ -405,6 +405,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ClipRef.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.RatchetClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RatchetClip',
+                request_serializer=gloopy__pb2.RatchetRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.ArpeggiateClip = channel.unary_unary(
                 '/gloopy.v1.Gloopy/ArpeggiateClip',
                 request_serializer=gloopy__pb2.ArpeggiateRequest.SerializeToString,
@@ -1336,6 +1341,13 @@ class GloopyServicer:
 
     def InvertClip(self, request, context):
         """melodic inversion (mirror pitches)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RatchetClip(self, request, context):
+        """subdivide notes into rapid same-pitch hits
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2297,6 +2309,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'InvertClip': grpc.unary_unary_rpc_method_handler(
                     servicer.InvertClip,
                     request_deserializer=gloopy__pb2.ClipRef.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'RatchetClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.RatchetClip,
+                    request_deserializer=gloopy__pb2.RatchetRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'ArpeggiateClip': grpc.unary_unary_rpc_method_handler(
@@ -4743,6 +4760,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/InvertClip',
             gloopy__pb2.ClipRef.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RatchetClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RatchetClip',
+            gloopy__pb2.RatchetRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

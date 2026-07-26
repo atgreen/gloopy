@@ -139,6 +139,28 @@ inline void scaleNoteTimes (std::vector<Note>& notes, double factor)
     for (auto& n : notes) { n.startBeat *= f; n.lengthBeats = juce::jmax (0.01, n.lengthBeats * f); }
 }
 
+/** Ratchet / roll: subdivide every note into `subdivisions` equal same-pitch hits filling
+    its original span (a drum roll / stutter). Each hit keeps the note's pitch and velocity;
+    its length is the subdivided step. Distinct from arpeggiate (which sequences a chord's
+    different pitches) — ratchet re-triggers the SAME note. Size-changing. */
+inline void ratchetNotes (std::vector<Note>& notes, int subdivisions)
+{
+    const int n = juce::jlimit (2, 16, subdivisions);
+    std::vector<Note> out;
+    for (const auto& note : notes)
+    {
+        const double step = note.lengthBeats / n;
+        for (int k = 0; k < n; ++k)
+        {
+            Note h = note;
+            h.startBeat   = note.startBeat + (double) k * step;
+            h.lengthBeats = juce::jmax (0.01, step);
+            out.push_back (h);
+        }
+    }
+    notes = std::move (out);
+}
+
 /** Melodic inversion: mirror every note's pitch around a pivot (the earliest-starting
     note's pitch), so intervals flip direction — an ascending line becomes descending. The
     pivot note stays put; `newPitch = 2·pivot − pitch`, clamped to 0..127. Timing, length and

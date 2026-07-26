@@ -361,6 +361,7 @@ MainComponent::MainComponent (bool headless)
                          a.fromLastOccurrenceOf (",", false, false).getIntValue(), 0.6f);
         }
         else if (cmd == "invert")       apiInvertClip (id, clip);   // melodic inversion
+        else if (cmd.startsWith ("ratchet:")) apiRatchetClip (id, clip, cmd.substring (8).getIntValue());
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")

@@ -1204,6 +1204,15 @@ each shipping with desktop UI + screenshot validation.
       (mirror pitches)" item on the MIDI-clip menu. `GloopyTests::NoteEdits` proves the mirror +
       double-invert restore; smoke drives InvertClip and checks GetClipNotes (60/64/67 → 60/56/53);
       screenshot-validated (the menu item).
+    - `[x]` **Ratchet / roll landed** (commit): a shared `ratchetNotes` transform (NoteEdits.h)
+      subdivides every note into `subdivisions` equal SAME-pitch hits filling its span (a drum
+      roll / stutter) — distinct from arpeggiate (which sequences a chord's *different* pitches).
+      Size-changing; pitch/velocity kept. `apiRatchetClip` (via GLOOPY_EDIT_CLIP_NOTES) +
+      RatchetClip RPC (`RatchetRequest`; handler defaults unset subdivisions to x2) + Python
+      `ratchet_clip`. **Desktop:** a "Ratchet ▸ x2/x3/x4" submenu on the MIDI-clip menu.
+      `GloopyTests::NoteEdits` proves the equal subdivision + chord case; smoke drives RatchetClip
+      x4 and checks GetClipNotes (a 1-beat note → 0/0.25/0.5/0.75 len 0.25); screenshot-validated
+      (the expanded submenu).
     - `[x]` **Arpeggiate (destructive one-shot) landed** (commit c90da23): shared arpeggiateNotes
       + apiArpeggiateClip + ArpeggiateClip RPC + ARP header button (Up/Down/Up-Down menu).
       Rewrites a chord clip into a note sequence in place. Smoke + screenshot.

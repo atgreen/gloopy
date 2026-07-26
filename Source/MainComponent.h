@@ -314,6 +314,7 @@ public:
     bool apiRampClipVelocity (int trackId, int index, float fromVel, float toVel);   // crescendo/decrescendo across the clip
     bool apiEchoClip (int trackId, int index, double delayBeats, int repeats, float feedback);   // MIDI echo: decaying repeats
     bool apiInvertClip (int trackId, int index);                    // melodic inversion (mirror pitches around a pivot)
+    bool apiRatchetClip (int trackId, int index, int subdivisions); // subdivide each note into rapid same-pitch hits
     bool apiSplitNotesAtBeat (int trackId, int index, double beat);   // knife: cut notes spanning a clip-relative beat
     // Live (non-destructive) arpeggiator per track. mode 0 up/1 down/2 updown/3 random.
     bool apiSetTrackArp (int trackId, bool enabled, double rate, int octaves, float gate, int mode,

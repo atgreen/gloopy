@@ -393,6 +393,11 @@ class Gloopy:
         intervals flip direction (ascending <-> descending). Timing/length/velocity kept."""
         self._ack(self.stub.InvertClip(pb.ClipRef(track_id=track_id, index=index)))
 
+    def ratchet_clip(self, track_id: int, index: int, subdivisions: int = 2) -> None:
+        """Ratchet/roll: subdivide each note into `subdivisions` equal same-pitch hits filling
+        its span (a drum roll / stutter). Pitch and velocity kept."""
+        self._ack(self.stub.RatchetClip(pb.RatchetRequest(track_id=track_id, index=index, subdivisions=subdivisions)))
+
     def split_notes_at_beat(self, track_id: int, index: int, beat: float) -> None:
         """Knife: cut every note spanning `beat` (clip-relative) into two abutting notes."""
         self._ack(self.stub.SplitNotesAtBeat(pb.SplitNotesRequest(

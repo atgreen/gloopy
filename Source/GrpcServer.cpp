@@ -823,6 +823,10 @@ namespace
         Status InvertClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
         { const bool ok = main.apiInvertClip (q->track_id(), q->index());
           r->set_ok (ok); if (! ok) r->set_error ("invert failed (clip not found or not MIDI)"); return Status::OK; }
+        Status RatchetClip (ServerContext*, const pb::RatchetRequest* q, pb::Ack* r) override
+        { const int sub = q->subdivisions() <= 1 ? 2 : q->subdivisions();   // proto3 omits 0; default to x2
+          const bool ok = main.apiRatchetClip (q->track_id(), q->index(), sub);
+          r->set_ok (ok); if (! ok) r->set_error ("ratchet failed (clip not found or not MIDI)"); return Status::OK; }
         Status StrumClip (ServerContext*, const pb::StrumRequest* q, pb::Ack* r) override
         { const bool ok = main.apiStrumClip (q->track_id(), q->index(), q->step_beats(), q->down());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }

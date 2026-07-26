@@ -596,6 +596,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             ec.addItem (745, "1/16 note x4");               // delay 0.25, 4 reps
             m.addSubMenu ("Echo", ec);
             m.addItem (746, "Invert (mirror pitches)");     // melodic inversion around the first note
+            juce::PopupMenu rt;                             // ratchet: subdivide each note into rapid hits
+            rt.addItem (750, "x2");
+            rt.addItem (751, "x3");
+            rt.addItem (752, "x4");
+            m.addSubMenu ("Ratchet", rt);
         }
         if (! isMidi)                                   // audio-clip level ops
         {
@@ -668,6 +673,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 return;
             }
             if (r == 746) { if (onClipCommand) onClipCommand (t, c, "invert"); return; }   // melodic inversion
+            if (r >= 750 && r <= 752)   // Ratchet: x2/x3/x4
+            {
+                if (onClipCommand) onClipCommand (t, c, "ratchet:" + juce::String (r - 748));
+                return;
+            }
             const char* cmd = r == 1  ? "split"
                             : r == 2  ? "duplicate"
                             : r == 3  ? "reverse"
