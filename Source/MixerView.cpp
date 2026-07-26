@@ -470,7 +470,29 @@ void MixerView::showGroupMenu (int insertIndex)
         m.addItem (4, "Delete group");
     }
 
-    m.showMenuAsync (juce::PopupMenu::Options(), [this, insertIndex, cur, groups] (int r)
+    // Aux sends: route this strip to any bus at a level. Only for non-bus strips.
+    std::vector<BusInfo> buses = onListBuses ? onListBuses() : std::vector<BusInfo>();
+    const bool thisIsBus = [&] { for (auto& b : buses) if (b.index == insertIndex) return true; return false; }();
+    std::vector<std::pair<int, float>> sends = (onInsertSends && ! thisIsBus) ? onInsertSends (insertIndex)
+                                                                              : std::vector<std::pair<int, float>>();
+    if (! thisIsBus && onSetSend)
+    {
+        m.addSeparator();
+        m.addItem (6, "New bus...");
+        const float lvls[] = { 0.0f, 0.25f, 0.5f, 0.75f, 1.0f };
+        const char* lblbl[] = { "Off", "25%", "50%", "75%", "100%" };
+        for (int bi = 0; bi < (int) buses.size(); ++bi)
+        {
+            float cual = 0.0f;                                        // this insert's current send to that bus
+            for (auto& s : sends) if (s.first == buses[(size_t) bi].index) cual = s.second;
+            juce::PopupMenu sm;
+            for (int li = 0; li < 5; ++li)
+                sm.addItem (400 + bi * 8 + li, lblbl[li], true, std::abs (cual - lvls[li]) < 0.01f);
+            m.addSubMenu ("Send to " + buses[(size_t) bi].name, sm);
+        }
+    }
+
+    m.showMenuAsync (juce::PopupMenu::Options(), [this, insertIndex, cur, groups, buses] (int r)
     {
         if (r == 0) return;
         if (r == 1) { promptNewGroup (insertIndex); return; }
@@ -490,13 +512,40 @@ void MixerView::showGroupMenu (int insertIndex)
             return;
         }
         if (r == 4 && onRemoveGroup) { onRemoveGroup (cur); return; }
+        if (r == 6) { promptNewBus(); return; }
         if (r >= 200 && r < 300) { onAssignGroup (insertIndex, groups[(size_t) (r - 200)].name); return; }
         if (r >= 300 && r < 305 && onGroupGain)
         {
             const float pct[] = { 0.0f, 0.25f, 0.5f, 0.75f, 1.0f };
             onGroupGain (cur, pct[r - 300]);
         }
+        if (r >= 400 && onSetSend)                                    // Send to bus <bi> at level <li>
+        {
+            const int bi = (r - 400) / 8, li = (r - 400) % 8;
+            if (bi < (int) buses.size() && li < 5)
+            {
+                const float lvls[] = { 0.0f, 0.25f, 0.5f, 0.75f, 1.0f };
+                onSetSend (insertIndex, buses[(size_t) bi].index, lvls[li]);
+            }
+        }
     });
+}
+
+void MixerView::promptNewBus()
+{
+    auto* aw = new juce::AlertWindow ("New bus", "Bus name", juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("name", "Bus");
+    aw->addButton ("Create", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw] (int r)
+    {
+        if (r == 1)
+        {
+            const juce::String name = aw->getTextEditorContents ("name").trim();
+            if (name.isNotEmpty() && onAddBus) onAddBus (name);
+        }
+        delete aw;
+    }), false);
 }
 
 void MixerView::promptNewGroup (int insertIndex)

@@ -61,6 +61,14 @@ public:
     std::function<void (const juce::String&, bool)>  onGroupSolo;  // set a group's VCA solo
     std::function<void (const juce::String&)>        onRemoveGroup;
 
+    // Aux sends / buses: route a strip's post-fx signal to a bus at a level. Wired to the
+    // apiAddBus / apiSetSend / apiListInserts calls so the bus routing has a desktop control.
+    struct BusInfo { int index; juce::String name; };
+    std::function<std::vector<BusInfo>()>            onListBuses;   // all bus mixer tracks
+    std::function<std::vector<std::pair<int, float>> (int)> onInsertSends;  // an insert's sends: (busIndex, level)
+    std::function<void (int, int, float)>            onSetSend;     // insert, busIndex, level (<=0 removes)
+    std::function<void (const juce::String&)>        onAddBus;      // create a bus by name
+
     // Plugin hooks (wired by the owner).
     std::function<void()>                                       ensurePlugins;
     std::function<juce::Array<juce::PluginDescription>()>       getEffectPlugins;
@@ -76,6 +84,7 @@ private:
     void promptAddLfo (const juce::String& target);                               // rate/depth/shape prompt
     void showGroupMenu (int insertIndex);                                         // VCA-lite: assign / gain / mute
     void promptNewGroup (int insertIndex);                                        // name entry -> assign
+    void promptNewBus();                                                          // name entry -> onAddBus
     void showFxMenu (int trackIndex);
     void selectEffect (int trackIndex, int effectIndex);
     void rebuildEditor();

@@ -537,8 +537,16 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      indices are the send address space). RemoveBus RPC (reuses TrackId as the index) +
      Python `remove_bus`. smoke.sh proves a send follows its bus down when a lower bus is
      removed, and a non-bus (master) is rejected. Sends-in-scenes done last tick.
-     **Not yet:** pre/post-fader send choice, send presets, control groups; the mixer
-     bus/send management UI (whole subsystem is API-only today).
+   - `[x]` **Bus/send desktop UI landed** (commit): the whole bus/send subsystem was API-only;
+     now the mixer strip's name right-click menu (showGroupMenu) gains a "New bus..." item (name
+     prompt → apiAddBus) and, per existing bus, a "Send to <bus> ▸ Off/25/50/75/100%" submenu that
+     reflects + sets the send level (apiSetSend), sourced from `apiListInserts` (isBus + the
+     insert's `sends`). New MixerView hooks onListBuses/onInsertSends/onSetSend/onAddBus wired to
+     the existing Buses.cpp API — no proto/API change (the routing is already headless-proven by
+     the reverb-bus smoke). Screenshot-validated (two buses created from the desktop, the strip
+     menu's New bus + "Send to Reverb Bus ▸ ✓Off/25/50/75/100%" submenu).
+     **Not yet:** pre/post-fader send choice, send presets; a dedicated send-level fader per
+     strip (menu presets for now).
 
    **✅ Wave 3 complete** (#6 clip ops, #7 buses/sends, #8 mixer scenes).
 

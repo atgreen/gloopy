@@ -495,6 +495,19 @@ MainComponent::MainComponent (bool headless)
     mixerView->onGroupMute   = [this] (const juce::String& grp, bool mute)  { apiSetControlGroupMute (grp, mute); };
     mixerView->onGroupSolo   = [this] (const juce::String& grp, bool solo)  { apiSetControlGroupSolo (grp, solo); };
     mixerView->onRemoveGroup = [this] (const juce::String& grp) { apiRemoveControlGroup (grp); };
+    mixerView->onListBuses   = [this]
+    {
+        std::vector<MixerView::BusInfo> out;
+        for (auto& ins : apiListInserts()) if (ins.isBus) out.push_back ({ ins.index, ins.name });
+        return out;
+    };
+    mixerView->onInsertSends = [this] (int insert) -> std::vector<std::pair<int, float>>
+    {
+        for (auto& ins : apiListInserts()) if (ins.index == insert) return ins.sends;
+        return {};
+    };
+    mixerView->onSetSend     = [this] (int insert, int bus, float level) { apiSetSend (insert, bus, level); if (mixerView) mixerView->rebuild(); };
+    mixerView->onAddBus      = [this] (const juce::String& name) { apiAddBus (name); if (mixerView) mixerView->rebuild(); };
 
     // Start with an EMPTY project — no default tracks. Use File -> New from Template
     // (or the browser sidebar) to seed a drum kit / starter beat / lead+bass.
