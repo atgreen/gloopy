@@ -92,22 +92,30 @@ JUCE is fetched automatically by CMake (`FetchContent`), pinned to `8.0.15`.
 The gRPC C++ is generated from [`proto/gloopy.proto`](proto/gloopy.proto) at
 build time using the system `protoc` / `grpc_cpp_plugin`.
 
-### Embedded Surge XT synth (optional)
+### Surge XT synth (optional, GPL-3.0)
 
-Gloopy can embed the **Surge XT** synth engine (its default instrument voice and
-the browser's *Presets* tab). The engine source is the `third_party/surge` git
-submodule. **Don't** `git clone --recursive` — that would pull Surge's own
-`libs/JUCE` (~500 MB), which the synth core doesn't use. Instead, after cloning,
-run the helper, which fetches only the libraries `surge-common` needs:
+Gloopy uses **Surge XT** in two forms, both from the `third_party/surge` git
+submodule:
+
+1. **Hosted Surge XT plugin** — the featured instrument. **+ Synth** adds a Surge XT
+   track with the *real, editable Surge editor* (its native UI). `scripts/build-surge-plugin.sh`
+   builds the full LV2 plugin and stages it (plus its first-party factory patches as
+   `SurgeXTData/`) into `third_party/surge-plugin/`; Gloopy finds and hosts it with no
+   external install. This is built in CI for the release packages — see
+   [`docs/surge-embed.md`](docs/surge-embed.md).
+2. **Embedded synth core** (`surge-common`, `GLOOPY_WITH_SURGE=ON` by default) — compiled
+   into the binary; it backs the browser's *Presets* tab. Its source needs only a subset of
+   Surge's sub-libraries (**not** Surge's own `libs/JUCE`, ~500 MB — so **don't**
+   `git clone --recursive`):
 
 ```sh
 scripts/init-surge.sh        # inits third_party/surge + just the needed sub-libs
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release   # GLOOPY_WITH_SURGE is ON by default
 ```
 
-The factory patches/wavetables are bundled in `third_party/surge-data/` (no extra
-download). To build **without** Surge (a lean, pure-AGPL, C++17 binary), configure
-with `-DGLOOPY_WITH_SURGE=OFF`. Surge XT is GPL-3.0 — see
+The embedded core's factory patches/wavetables are bundled in `third_party/surge-data/`
+(no extra download). To build **without** the embedded core (a lean, pure-AGPL, C++17
+binary), configure with `-DGLOOPY_WITH_SURGE=OFF`. Surge XT is GPL-3.0 — see
 [`THIRD-PARTY-LICENSES.md`](THIRD-PARTY-LICENSES.md).
 
 ## Quick start
