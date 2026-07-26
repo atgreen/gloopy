@@ -71,11 +71,11 @@ MainComponent::MainComponent (bool headless)
 
     // ---- add tracks ----
     addAndMakeVisible (addSynthBtn);
-    // "+ Synth" adds a Surge XT track — Gloopy's default instrument. Hosts the installed/bundled
-    // Surge XT plugin (LV2 preferred) for the real, editable Surge editor via its native UI (the
-    // Track/Mixer "Plugin UI" button). Other instrument types have their own toolbar buttons
+    // "+ Synth" -> a small menu: Surge XT (Gloopy's featured instrument — the hosted plugin's
+    // real, editable editor via the Track/Mixer "Plugin UI" button) first as the default, plus
+    // the built-in lightweight Basic synth. Other instrument types have their own toolbar buttons
     // (+ SFZ / + Sample / + Audio / + Plugin).
-    addSynthBtn.onClick = [this]
+    auto addSurgePlugin = [this]
     {
         juce::String id;
         for (auto& p : apiListPlugins())
@@ -90,6 +90,23 @@ MainComponent::MainComponent (bool headless)
         }
         busyOverlay.show ("Adding Surge XT…");
         juce::MessageManager::callAsync ([this, id] { apiAddPluginTrack (id); busyOverlay.hide(); });
+    };
+    auto addBasicSynth = [this]
+    {
+        addTrack (std::make_unique<Track> ("Synth", std::make_unique<SynthGenerator>(), 48,
+                      paletteColour ((int) tracks.size())));
+    };
+    addSynthBtn.onClick = [this, addSurgePlugin, addBasicSynth]
+    {
+        juce::PopupMenu m;
+        m.addItem (1, "Surge XT  (full editor)");   // featured default — hosted plugin, real Surge UI
+        m.addItem (2, "Basic synth");               // built-in lightweight synth
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (addSynthBtn),
+            [addSurgePlugin, addBasicSynth] (int r)
+            {
+                if      (r == 1) addSurgePlugin();
+                else if (r == 2) addBasicSynth();
+            });
     };
 
     addAndMakeVisible (loadSampleBtn);
