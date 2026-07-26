@@ -370,6 +370,35 @@ print('smoke: PASS — sampler fade-in ramps the start (fade early/late peak %d/
 " || { echo 'smoke: sampler fade-in wrong' >&2; exit 1; }
 g -d "{\"id\":$FT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
+# Sampler mono / choke: a LONG (2 s) tone under two hits at DIFFERENT pitches (60 then 67),
+# a beat apart. Polyphonic, both voices ring together after the 2nd hit (two tones summed);
+# mono chokes the 1st when the 2nd fires, so only one voice rings — lower RMS in the overlap
+# region. GetSamplerControls reports mono; it round-trips.
+python3 -c "
+import wave, struct, math
+w=wave.open('$WORK/longtone.wav','w'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(44100)
+w.writeframes(b''.join(struct.pack('<h',int(0.6*math.sin(2*math.pi*220*i/44100)*32767)) for i in range(88200))); w.close()
+"
+MT=$(g -d "{\"name\":\"choketone\",\"path\":\"$WORK/longtone.wav\",\"root_note\":60}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSamplerTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$MT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":1.0},{\"pitch\":67,\"start_beat\":1,\"length_beats\":1,\"velocity\":1.0}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/choke_poly.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$MT,\"start\":0,\"end\":1,\"reverse\":false,\"root_note\":0,\"fade_in\":0,\"fade_out\":0,\"loop\":false,\"mono\":true}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSamplerControls >/dev/null
+MONO=$(g -d "{\"id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetSamplerControls | python3 -c "import json,sys;print(json.load(sys.stdin).get('mono',False))")
+g -d "{\"path\":\"$WORK/choke_mono.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def rd(p):   # left channel (stereo 24-bit interleaved -> stride 6)
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),6)]
+def rms(x): return (sum(v*v for v in x)/max(1,len(x)))**0.5
+poly=rd('$WORK/choke_poly.wav');mono=rd('$WORK/choke_mono.wav');n=min(len(poly),len(mono))
+a,b=int(0.35*n),int(0.85*n)   # overlap window: after the 2nd hit, while both voices still ring
+assert '$MONO'=='True','GetSamplerControls did not report mono'
+rp,rm=rms(poly[a:b]),rms(mono[a:b])
+assert rp > rm*1.2, 'mono choke did not cut the first voice (poly RMS %.0f not > mono %.0f)'%(rp,rm)
+print('smoke: PASS — sampler mono choke: poly rings both voices (RMS %.0f) vs mono cuts the 1st (%.0f), mono round-trips'%(rp,rm))
+" || { echo 'smoke: sampler mono choke wrong' >&2; exit 1; }
+g -d "{\"id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
 # Sampler loop mode (Wave 6 #18): a SHORT sample (~45 ms) under a 1-beat note. As a one-shot
 # it plays once and is silent for the rest of the note; looped it sustains until the note-off,
 # then stops. So mid-note (~200 ms) the looped render has signal where the one-shot is silent,

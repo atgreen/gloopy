@@ -153,21 +153,23 @@ class Gloopy:
 
     def set_sampler_controls(self, track_id: int, start: float = 0.0, end: float = 1.0,
                              reverse: bool = False, root_note: int = 0,
-                             fade_in: float = 0.0, fade_out: float = 0.0, loop: bool = False) -> None:
+                             fade_in: float = 0.0, fade_out: float = 0.0, loop: bool = False,
+                             mono: bool = False) -> None:
         """Sampler playback controls: window [start,end] as fractions of the sample
         length, reverse plays the window back-to-front, root_note>0 sets the root
         (0 leaves it unchanged), fade_in/fade_out are per-voice fades in seconds
         (0 = off; de-click a mid-waveform trim). loop repeats the window until note-off
-        (fade_out then acts as the release time). Fails if not a Sampler."""
+        (fade_out then acts as the release time). mono chokes: a new hit cuts every
+        ringing voice (hi-hat choke / mono 808). Fails if not a Sampler."""
         self._ack(self.stub.SetSamplerControls(pb.SamplerControlsRequest(
             track_id=track_id, start=start, end=end, reverse=reverse, root_note=root_note,
-            fade_in=fade_in, fade_out=fade_out, loop=loop)))
+            fade_in=fade_in, fade_out=fade_out, loop=loop, mono=mono)))
 
     def get_sampler_controls(self, track_id: int) -> dict:
         r = self.stub.GetSamplerControls(pb.TrackId(id=track_id))
         return {"ok": r.ok, "start": r.start, "end": r.end, "reverse": r.reverse,
                 "root_note": r.root_note, "name": r.name,
-                "fade_in": r.fade_in, "fade_out": r.fade_out, "loop": r.loop}
+                "fade_in": r.fade_in, "fade_out": r.fade_out, "loop": r.loop, "mono": r.mono}
 
     def add_sfz_track(self, path: str, name: str = "") -> int:
         """Load a native SFZ instrument (samples preloaded) onto a new track."""

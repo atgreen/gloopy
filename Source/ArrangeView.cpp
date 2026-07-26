@@ -439,6 +439,9 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 juce::StringArray mode { "One-shot", "Loop" };
                 aw->addComboBox ("mode", mode, "Mode");
                 aw->getComboBoxComponent ("mode")->setSelectedItemIndex (sc.loop ? 1 : 0);
+                juce::StringArray voices { "Poly", "Mono (choke)" };
+                aw->addComboBox ("voices", voices, "Voices");
+                aw->getComboBoxComponent ("voices")->setSelectedItemIndex (sc.mono ? 1 : 0);
                 aw->addButton ("Apply",  1, juce::KeyPress (juce::KeyPress::returnKey));
                 aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
                 const int tk = track;
@@ -453,7 +456,8 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                         const int   rt  = aw->getTextEditorContents ("root").getIntValue();
                         const bool  rev = aw->getComboBoxComponent ("dir")->getSelectedItemIndex() == 1;
                         const bool  lp  = aw->getComboBoxComponent ("mode")->getSelectedItemIndex() == 1;
-                        onSetSamplerControls (tk, s, en, rev, rt, fi, fo, lp);
+                        const bool  mn  = aw->getComboBoxComponent ("voices")->getSelectedItemIndex() == 1;
+                        onSetSamplerControls (tk, s, en, rev, rt, fi, fo, lp, mn);
                     }
                     delete aw;
                 }), false);

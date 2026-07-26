@@ -71,6 +71,11 @@ public:
     void setLoop (bool shouldLoop) { loop = shouldLoop; }
     bool getLoop() const { return loop; }
 
+    // Mono / choke: a new note-on cuts every currently-ringing voice, so overlapping hits
+    // don't stack (classic hi-hat choke / mono 808). Off = polyphonic (voices ring out).
+    void setMono (bool m) { mono = m; }
+    bool getMono() const { return mono; }
+
     // Accessors for project serialization.
     const juce::AudioBuffer<float>& getSampleBuffer() const { return sample; }
     double getSourceRate() const { return sourceRate; }
@@ -204,6 +209,8 @@ private:
 
     void startVoice (int noteNumber, float velocity)
     {
+        if (mono)                                    // choke: cut every ringing voice first
+            for (auto& v : voices) v.active = false;
         Voice* slot = nullptr;
         for (auto& v : voices)
             if (! v.active) { slot = &v; break; }
@@ -243,6 +250,7 @@ private:
     float       fadeIn     { 0.0f };   // per-voice fade-in (seconds)
     float       fadeOut    { 0.0f };   // per-voice fade-out / release (seconds)
     bool        loop       { false };  // window repeats until note-off (vs one-shot)
+    bool        mono       { false };  // choke: a new note-on cuts all ringing voices
     juce::String sampleName;
 
     static constexpr int kNumVoices = 8;

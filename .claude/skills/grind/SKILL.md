@@ -1202,8 +1202,17 @@ each shipping with desktop UI + screenshot validation.
       SUSTAINS when looped, and goes silent again PAST the note-off (proving note-off releases
       the loop); the loop flag round-trips through a composition. Screenshot- and functionally-
       validated (GUI Mode=Loop -> GetSamplerControls loop=true).
-      **Not yet:** choke groups, root-note keyboard-mapped multisamples, loop crossfade,
-      interpolation quality, waveform thumbnails/peak cache.
+    - `[x]` **Sampler mono / choke landed** (commit): a `Sampler.mono` flag — a new note-on cuts
+      every currently-ringing voice (`startVoice` deactivates all voices first), so overlapping
+      hits don't stack (classic hi-hat choke / mono 808). Extended the SAME plumbing: `mono` on
+      apiSet/GetSamplerControls (+ default arg) + the SamplerControls proto (both messages) +
+      Python + ValueTree (`smono`, omitted when off) / composition (`groups`-style `mono` field)
+      serialisation + a "Voices" (Poly / Mono (choke)) combo on the header prompt. smoke: a long
+      2 s tone under two hits at DIFFERENT pitches a beat apart — polyphonic both ring in the
+      overlap window (RMS 769k) but mono chokes the first (492k); mono round-trips via
+      GetSamplerControls. Screenshot-validated (the Voices combo expanded to Poly / Mono (choke)).
+      **Not yet:** cross-track choke *groups*, root-note keyboard-mapped multisamples, loop
+      crossfade, interpolation quality, waveform thumbnails/peak cache.
 19. **Controller rack / MIDI-learn / parameter linking + MIDI device maps** — a
     source→target mapping view; MIDI-learn for any `ParamModel` id; OSC/API sources as
     mappable controllers; per-mapping scaling/inversion/smoothing/range/bypass;
