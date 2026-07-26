@@ -185,6 +185,7 @@ public:
                 {
                     inst->setPlayConfigDetails (0, 2, 44100.0, 512);
                     inst->prepareToPlay (44100.0, 512);
+                    juce::MemoryBlock stBefore; inst->getStateInformation (stBefore);   // INIT plugin state
                     // Render a held middle-C and return the energy (sum of squares) + peak. A patch that
                     // loads changes the timbre -> a different energy signature, which survives the LV2
                     // boundary even when the host-side param cache does NOT refresh on patch load.
@@ -217,13 +218,25 @@ public:
                         for (int blk = 0; blk < 8; ++blk)                     // pump silent blocks to apply the enqueued load
                         { juce::AudioBuffer<float> a (2, 512); a.clear(); juce::MidiBuffer m; inst->processBlock (a, m); }
 
+                        // Decisive: did the plugin's OWN state change, and does it now name the patch?
+                        juce::MemoryBlock stAfter; inst->getStateInformation (stAfter);
+                        const bool stateChanged = (stBefore.getSize() != stAfter.getSize())
+                                                  || (std::memcmp (stBefore.getData(), stAfter.getData(),
+                                                                   juce::jmin (stBefore.getSize(), stAfter.getSize())) != 0);
+                        const auto stem = juce::File (args[spx + 1]).getFileNameWithoutExtension();
+                        juce::String hay (static_cast<const char*> (stAfter.getData()),
+                                          (size_t) juce::jmin ((int) stAfter.getSize(), 1 << 20));
+                        const bool namesPatch = hay.contains (stem);
+
                         double eLoaded = 0.0; const float pLoaded = renderSig (eLoaded);
                         const double rel = (eInit > 0.0) ? std::abs (eLoaded - eInit) / eInit
                                                          : (eLoaded > 0.0 ? 1.0 : 0.0);
                         std::cout << "SURGEPATCH " << juce::File (args[spx + 1]).getFileName()
                                   << " format=" << surgeDesc.pluginFormatName << " chunk=" << useSize
-                                  << " initE=" << eInit << " loadedE=" << eLoaded << " relDiff=" << rel
-                                  << " peakInit=" << pInit << " peakLoaded=" << pLoaded
+                                  << " stBefore=" << stBefore.getSize() << " stAfter=" << stAfter.getSize()
+                                  << " stateChanged=" << (stateChanged ? 1 : 0)
+                                  << " namesPatch=" << (namesPatch ? 1 : 0)
+                                  << " relDiff=" << rel
                                   << (rel > 0.05 ? "  => PATCH LOADED" : "  => NO CHANGE") << "\n";
                     }
                 }

@@ -88,12 +88,17 @@ default synth — so users get **the real Surge XT editor** (via Gloopy's existi
     8 pump blocks. Fails on **LV2 AND VST3**. Root cause: JUCE's *hosted* get/setStateInformation
     wraps state in its own VST3/LV2 container, so a raw Surge chunk never reaches
     `enqueuePatchForLoad`. Passing the whole (unstripped) `.fxp` would fail the same way.
-  - **NEXT mechanisms to try** (reuse `--surgepatch` to verify — relDiff must be large AND differ
-    per patch): (a) **`patchid_file` dawExtraState** (SurgeSynthProcessor.cpp:1726) — figure out
-    Surge's DAW-state layout and build a host state that says "load /path/Bass 1.fxp"; (b) load a
-    patch through Surge's OWN path first, then `getStateInformation` to capture the JUCE-wrapped
-    blob and store THAT per track; (c) fallback: pick patches in the hosted Surge editor UI and
-    save the plugin state per track (manual, not automatable across 23 tracks).
+  - **State path via getStateInformation round-trip — CONFIRMED NO-OP (hard blocker).** Extended
+    `--surgepatch` to capture `getStateInformation` before/after: the plugin state is **byte-
+    identical** (`stateChanged=0`) after `setStateInformation(bareChunk)`, and the real state is an
+    opaque **78 KB JUCE-wrapped blob** (bare patch chunk was 27 KB). So the host silently ignores a
+    bare chunk. A JUCE-wrapped state DOES round-trip (getState→setState restores it) — the only
+    missing piece is getting a hosted instance INTO "patch X loaded" once, to capture its blob.
+    That needs Surge's own UI or an LV2 patch-load message, neither host-automatable easily.
+  - **⇒ Programmatic patch-baking is a hard blocker. STRATEGIC FORK raised to the user** (see
+    [[surge-is-the-synth]]): (A) migrate + author patches manually via Surge's UI (one-time);
+    (B) migrate to Surge-on-INIT + let users pick from the bundled browser (demos undesigned);
+    (C) keep `SynthGenerator` (reverse the removal). Awaiting the decision before any removal.
 
 Everything in the headless-embed sections below still works and is committed.
 
