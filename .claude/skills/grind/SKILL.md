@@ -784,14 +784,17 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       "Sync bt" param (LFO cycle length in beats; 0 = free Hz) via the setTempo hook. The
       sync->rate math is a pure header (`Source/EffectSync.h`, `effectSyncedRate(bpm,
       syncBeats, freeRate) = bpm/(60*beats)` clamped), unit-tested (`GloopyTests::EffectSync`).
-      Since the delay smoke already proves setTempo reaches effects in an offline render, the
-      chorus smoke just proves the Sync-bt param is wired and audibly active vs dry. **Gotcha
-      (pre-existing, logged):** modulation-effect offline bounces are NOT bit-reproducible
-      run-to-run (even the free path: two identical chorus renders differ ~0.026) — effect
-      state isn't reset before a bounce — so no exact render comparison for these (the delay
-      worked only because a fresh instance per render zeroes its buffer AND it has no LFO
-      phase). A future slice could reset effects before each offline render. **Not yet:**
-      dotted/triplet sync labels.
+      The chorus smoke now proves tempo-sync EXACTLY (Sync 1bt@120 == free 2 Hz, diff 0.00000)
+      once the reproducible-bounce fix below landed. **Not yet:** dotted/triplet sync labels.
+    - `[x]` **Reproducible offline bounces (effect reset) landed** (commit): `apiRenderToFile`
+      now calls `fx->reset()` on every insert/master effect before rendering (next to the
+      existing `resetModulationSmoothing`), so a bounce is bit-identical run-to-run. Fixes a
+      real pre-existing bug found while testing tempo-synced effects: modulation effects
+      (delay/chorus/flanger/phaser) carried their delay-line + LFO-phase state across renders,
+      so two renders of the same project differed (~0.026) — non-deterministic, violating the
+      composition-as-repo "reproducible render" principle. Verified: chorus, and chorus + a
+      0.7-feedback ping-pong delay (worst case), now render byte-identical twice (diff 0.0);
+      the tempo-synced-chorus smoke asserts sync==sync2 and the exact free-vs-synced match.
     - `[x]` **Stereo Widener landed** (commit): `StereoWidenerFx`, mid/side, one Width
       param (0 mono / 1 unchanged / 2 double-wide), as EffectType STEREO_WIDENER=9 (all
       four registries synced). The pure transform lives in `Source/StereoWiden.h`

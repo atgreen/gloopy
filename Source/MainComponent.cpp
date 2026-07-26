@@ -1591,6 +1591,10 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
 
     // Start at the range beginning, playing, ignoring any live seek/reset or loop region.
     resetModulationSmoothing();   // deterministic slew: each offline render seeds afresh
+    // Reset every insert/master effect's internal state (delay lines, LFO phase) so a
+    // bounce is bit-reproducible run-to-run — otherwise a delay/chorus/flanger/phaser
+    // carries state from a previous render (composition-as-repo wants deterministic renders).
+    for (auto& mt : mixerTracks) for (auto& fx : mt->effects) fx->reset();
     double dummy; transport.consumeSeek (dummy); transport.consumeReset();
     transport.setPlaying (true);
     transport.setPlayheadSamples (startSample);
