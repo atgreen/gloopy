@@ -215,7 +215,8 @@ class Gloopy:
     def list_tracks(self) -> list[dict]:
         r = self.stub.ListTracks(pb.Empty())
         return [{"id": t.id, "name": t.name, "type": t.type, "volume": t.volume,
-                 "pan": t.pan, "mute": t.mute, "clips": t.clips, "colour": t.colour} for t in r.tracks]
+                 "pan": t.pan, "mute": t.mute, "clips": t.clips, "colour": t.colour,
+                 "polarity": t.polarity} for t in r.tracks]
 
     def set_track_colour(self, track_id: int, colour: str) -> None:
         """Recolour a track. `colour` is an 8-hex ARGB string (e.g. 'ffef5350'), with or
@@ -226,6 +227,11 @@ class Gloopy:
         """Reorder a track: delta<0 moves it up (toward the top), delta>0 down. No-op (error)
         if the track is already at that edge."""
         self._ack(self.stub.MoveTrack(pb.MoveTrackRequest(track_id=track_id, delta=delta)))
+
+    def set_track_polarity(self, track_id: int, invert: bool) -> None:
+        """Phase-invert (polarity flip) a track's contribution to the mix — negates its
+        samples so it can cancel a correlated layer."""
+        self._ack(self.stub.SetTrackPolarity(pb.SetTrackPolarityRequest(track_id=track_id, invert=invert)))
 
     # -- clips ------------------------------------------------------------
     def add_clip(self, track_id: int, notes: Iterable[pb.Note] = (),

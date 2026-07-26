@@ -36,6 +36,7 @@ struct Track
     std::atomic<float> pan    { 0.0f };
     std::atomic<bool>  mute   { false };
     std::atomic<bool>  solo   { false };
+    std::atomic<bool>  polarity { false };   // phase invert: negate this track's contribution
     std::atomic<int>   mixerTrack { 0 };
 
     // Audio-recording state (project state, not global prefs).

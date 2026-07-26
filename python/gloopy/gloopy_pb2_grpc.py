@@ -205,6 +205,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.MoveTrackRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SetTrackPolarity = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetTrackPolarity',
+                request_serializer=gloopy__pb2.SetTrackPolarityRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.AddAudioTrack = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AddAudioTrack',
                 request_serializer=gloopy__pb2.AddAudioTrackRequest.SerializeToString,
@@ -1109,6 +1114,13 @@ class GloopyServicer:
 
     def MoveTrack(self, request, context):
         """reorder a track up/down
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetTrackPolarity(self, request, context):
+        """phase invert a track
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2181,6 +2193,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'MoveTrack': grpc.unary_unary_rpc_method_handler(
                     servicer.MoveTrack,
                     request_deserializer=gloopy__pb2.MoveTrackRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetTrackPolarity': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetTrackPolarity,
+                    request_deserializer=gloopy__pb2.SetTrackPolarityRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'AddAudioTrack': grpc.unary_unary_rpc_method_handler(
@@ -3782,6 +3799,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/MoveTrack',
             gloopy__pb2.MoveTrackRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetTrackPolarity(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetTrackPolarity',
+            gloopy__pb2.SetTrackPolarityRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

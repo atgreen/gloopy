@@ -468,10 +468,14 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             SamplerCtl sc {};
             if (getSamplerControls) sc = getSamplerControls (track);
             juce::String curName;
+            bool curPolarity = false;
             {
                 const juce::ScopedLock sl (engineLock);
                 if (juce::isPositiveAndBelow (track, (int) tracks.size()))
+                {
                     curName = tracks[(size_t) track]->name;
+                    curPolarity = tracks[(size_t) track]->polarity.load();
+                }
             }
             const int tk = track;
 
@@ -492,8 +496,9 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             m.addSeparator();
             m.addItem (3, "Move up",   tk > 0);
             m.addItem (4, "Move down", tk < numTracks - 1);
+            m.addItem (5, "Invert phase", true, curPolarity);   // checkable polarity flip
             if (sc.isSampler) { m.addSeparator(); m.addItem (2, "Sampler playback window..."); }
-            m.showMenuAsync (juce::PopupMenu::Options(), [this, tk, curName, sc] (int r)
+            m.showMenuAsync (juce::PopupMenu::Options(), [this, tk, curName, sc, curPolarity] (int r)
             {
                 if (r >= 10 && r < 10 + (int) numElementsInArray (kColours))
                 {
@@ -501,6 +506,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 }
                 else if (r == 3) { if (onMoveTrack) onMoveTrack (tk, -1); }   // up
                 else if (r == 4) { if (onMoveTrack) onMoveTrack (tk, +1); }   // down
+                else if (r == 5) { if (onSetTrackPolarity) onSetTrackPolarity (tk, ! curPolarity); }   // toggle phase
                 else if (r == 1)
                 {
                     auto* rw = new juce::AlertWindow ("Rename track", "New track name", juce::MessageBoxIconType::NoIcon);

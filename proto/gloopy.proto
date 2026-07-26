@@ -79,6 +79,7 @@ message TrackInfo {
   int32  id = 1; string name = 2; string type = 3;
   float  volume = 4; float pan = 5; bool mute = 6; int32 clips = 7;
   string colour = 8;   // 8-hex ARGB
+  bool   polarity = 9; // phase invert
 }
 message TrackList { repeated TrackInfo tracks = 1; }
 
@@ -193,6 +194,7 @@ message AddAudioTrackRequest   { string name = 1; }                             
 message RenameTrackRequest     { int32 track_id = 1; string name = 2; }         // rename an existing track
 message SetTrackColourRequest  { int32 track_id = 1; string colour = 2; }       // recolour a track (8-hex ARGB)
 message MoveTrackRequest       { int32 track_id = 1; int32 delta = 2; }         // reorder: delta<0 up, delta>0 down
+message SetTrackPolarityRequest{ int32 track_id = 1; bool invert = 2; }         // phase invert a track
 message AddSamplerTrackRequest { string name = 1; string path = 2; int32 root_note = 3; }
 message SamplerControlsRequest { int32 track_id = 1; float start = 2; float end = 3; bool reverse = 4; int32 root_note = 5; float fade_in = 6; float fade_out = 7; bool loop = 8; bool mono = 9; }
 message SamplerControls { bool ok = 1; float start = 2; float end = 3; bool reverse = 4; int32 root_note = 5; string name = 6; float fade_in = 7; float fade_out = 8; bool loop = 9; bool mono = 10; }
@@ -382,6 +384,7 @@ service Gloopy {
   rpc RenameTrack     (RenameTrackRequest)     returns (Ack);   // rename an existing track
   rpc SetTrackColour  (SetTrackColourRequest)  returns (Ack);   // recolour a track
   rpc MoveTrack       (MoveTrackRequest)       returns (Ack);   // reorder a track up/down
+  rpc SetTrackPolarity(SetTrackPolarityRequest) returns (Ack);  // phase invert a track
   rpc AddAudioTrack   (AddAudioTrackRequest)   returns (TrackId);
   rpc AddSamplerTrack (AddSamplerTrackRequest) returns (TrackId);
   rpc SetSamplerControls (SamplerControlsRequest) returns (Ack);

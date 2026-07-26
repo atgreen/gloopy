@@ -189,6 +189,7 @@ namespace
                 ti->set_mute (t.mute);
                 ti->set_clips (t.clips);
                 ti->set_colour (t.colour.toStdString());
+                ti->set_polarity (t.polarity);
             }
             return Status::OK;
         }
@@ -517,6 +518,7 @@ namespace
                 ti->set_id (tr.id); ti->set_name (tr.name.toStdString()); ti->set_type (tr.type.toStdString());
                 ti->set_volume (tr.volume); ti->set_pan (tr.pan); ti->set_mute (tr.mute); ti->set_clips (tr.clips);
                 ti->set_colour (tr.colour.toStdString());
+                ti->set_polarity (tr.polarity);
             }
             for (auto& ins : main.apiListInserts()) fillInsert (r->add_inserts(), ins);
             return Status::OK;
@@ -678,6 +680,10 @@ namespace
         Status MoveTrack (ServerContext*, const pb::MoveTrackRequest* q, pb::Ack* r) override
         { const bool ok = main.apiMoveTrack (q->track_id(), q->delta());
           r->set_ok (ok); if (! ok) r->set_error ("move failed (track not found or already at edge)"); return Status::OK; }
+
+        Status SetTrackPolarity (ServerContext*, const pb::SetTrackPolarityRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiSetTrackPolarity (q->track_id(), q->invert());
+          r->set_ok (ok); if (! ok) r->set_error ("polarity failed (track not found)"); return Status::OK; }
 
         Status AddAudioTrack (ServerContext*, const pb::AddAudioTrackRequest* q, pb::TrackId* r) override
         { r->set_id (main.apiAddAudioTrack (js (q->name()))); return Status::OK; }

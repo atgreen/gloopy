@@ -424,6 +424,12 @@ MainComponent::MainComponent (bool headless)
         apiMoveTrack (tracks[(size_t) trackIdx]->id, delta);     // map view index -> stable API id
     };
 
+    arrangeView->onSetTrackPolarity = [this] (int trackIdx, bool invert)
+    {
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+        apiSetTrackPolarity (tracks[(size_t) trackIdx]->id, invert);   // map view index -> stable API id
+    };
+
     arrangeView->onClipGain = [this] (int trackIdx, int clip, float db)
     {
         if (juce::isPositiveAndBelow (trackIdx, (int) tracks.size()))
@@ -979,7 +985,7 @@ std::vector<MainComponent::TrackSnap> MainComponent::apiListTracks()
             out.push_back ({ t->id, t->name,
                              t->type == TrackType::Instrument ? juce::String ("instrument") : juce::String ("audio"),
                              t->volume.load(), t->pan.load(), t->mute.load(), (int) t->clips.size(),
-                             t->colour.toString() });   // 8-hex ARGB
+                             t->colour.toString(), t->polarity.load() });   // 8-hex ARGB + phase-invert
         return out;
     });
 }
@@ -1453,6 +1459,20 @@ bool MainComponent::apiRenameTrack (int id, const juce::String& name)
         emitChange ("track_renamed", id);
         if (arrangeView) arrangeView->rebuild();
         resized();
+        return true;
+    });
+}
+
+bool MainComponent::apiSetTrackPolarity (int id, bool invert)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (id);
+        if (t == nullptr) return false;
+        pushUndoSnapshot();
+        t->polarity.store (invert);   // atomic; the audio thread reads it each block
+        emitChange ("track_polarity", id);
+        if (arrangeView) arrangeView->rebuild();
         return true;
     });
 }
@@ -2431,7 +2451,8 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         const bool audible = ! t->mute.load() && (! anySolo || t->solo.load());
         if (! audible) continue;
 
-        const float v = t->volume.load();
+        const float pol = t->polarity.load() ? -1.0f : 1.0f;   // phase invert
+        const float v = t->volume.load() * pol;
         const float pan = t->pan.load();
         const float theta = (pan + 1.0f) * 0.25f * juce::MathConstants<float>::pi;
         const int route = juce::jlimit (0, numTracks - 1, t->mixerTrack.load());
@@ -3226,6 +3247,7 @@ juce::ValueTree MainComponent::toValueTree()
         tr.setProperty ("pan", t->pan.load(), nullptr);
         tr.setProperty ("mute", t->mute.load(), nullptr);
         tr.setProperty ("solo", t->solo.load(), nullptr);
+        if (t->polarity.load()) tr.setProperty ("polarity", true, nullptr);   // omit when off, to keep files clean
         tr.setProperty ("mixerTrack", t->mixerTrack.load(), nullptr);
         tr.setProperty ("type", (int) t->type, nullptr);
         if (t->generator) tr.setProperty ("gen", t->generator->typeName(), nullptr);
@@ -3695,6 +3717,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
         t->pan.store    ((float) (double) tr.getProperty ("pan", 0.0));
         t->mute.store   ((bool) tr.getProperty ("mute", false));
         t->solo.store   ((bool) tr.getProperty ("solo", false));
+        t->polarity.store ((bool) tr.getProperty ("polarity", false));
         t->mixerTrack.store ((int) tr.getProperty ("mixerTrack", 0));
         t->arp.enabled = (bool) tr.getProperty ("arpOn", false);
         t->arp.rate    = (double) tr.getProperty ("arpRate", 0.25);

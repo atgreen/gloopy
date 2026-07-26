@@ -212,6 +212,45 @@ print('smoke: PASS — MoveTrack up x2 reordered mvA/mvB/mvC -> mvC/mvA/mvB')
 " || { echo 'smoke: move track wrong' >&2; exit 1; }
 for T in $MVA $MVB $MVC; do g -d "{\"id\":$T}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null; done   # isolate
 
+# Track polarity (phase invert): two IDENTICAL synth tracks (same note) sum LOUD; inverting
+# one cancels the other to near-silence (synth phase resets on note-on, so they're identical).
+# Snapshot+restore the session since this needs a clean two-track render.
+g -d "{\"path\":\"$WORK/pol_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+POLA=$(g -d '{"name":"polA","wave":"SAW","attack":0.005,"decay":0.05,"sustain":0.9,"release":0.05,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+POLB=$(g -d '{"name":"polB","wave":"SAW","attack":0.005,"decay":0.05,"sustain":0.9,"release":0.05,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+NOTES='"notes":[{"pitch":60,"start_beat":0,"length_beats":2,"velocity":0.9}]'
+g -d "{\"track_id\":$POLA,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":false,$NOTES}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"track_id\":$POLB,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":false,$NOTES}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/pol_sum.wav\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$POLB,\"invert\":true}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTrackPolarity >/dev/null
+g -d "{\"path\":\"$WORK/pol_cancel.wav\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave,struct,sys
+def peak(p):
+    w=wave.open(p,'rb'); n=w.getnframes(); ch=w.getnchannels(); sw=w.getsampwidth()
+    d=w.readframes(n); w.close()
+    if sw==3:
+        mx=0
+        for i in range(0,len(d),3):
+            v=int.from_bytes(d[i:i+3],'little',signed=True); mx=max(mx,abs(v))
+        return mx/(2**23)
+    fmt={1:'b',2:'h',4:'i'}[sw]; vals=struct.unpack('<%d%s'%(len(d)//sw,fmt),d)
+    return max(abs(v) for v in vals)/float(2**(8*sw-1))
+s=peak('$WORK/pol_sum.wav'); c=peak('$WORK/pol_cancel.wav')
+assert s>0.05, 'summed render too quiet (%.4f)'%s
+assert c < s*0.02, 'invert did not cancel: sum=%.4f cancel=%.4f'%(s,c)
+print('smoke: PASS — track phase invert cancels a correlated layer (sum peak %.3f -> %.5f)'%(s,c))
+" || { echo 'smoke: polarity wrong' >&2; exit 1; }
+# polarity also survives a project round-trip (serialised on the TRACK tree).
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "
+import json,sys
+pol=next(t.get('polarity') for t in json.load(sys.stdin)['tracks'] if t.get('name')=='polB')
+assert pol is True, 'polarity not reported: %s'%pol
+print('smoke: PASS — SetTrackPolarity reported on polB via GetState')
+" || { echo 'smoke: polarity report wrong' >&2; exit 1; }
+g -d "{\"path\":\"$WORK/pol_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+
 # Modulation matrix: an LFO on a synth cutoff must change the render vs a static
 # cutoff. Dedicated track + two renders, then cleaned up.
 MT=$(g -d '{"name":"modtest","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.2,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)

@@ -77,7 +77,7 @@ public:
 
     // ── gRPC control API (called from the server thread; plain types, no proto) ──
     struct TransportSnap { bool playing; double bpm; double positionBeats; bool loopEnabled; double loopStart, loopEnd; double swing; };
-    struct TrackSnap { int id; juce::String name; juce::String type; float volume; float pan; bool mute; int clips; juce::String colour; };
+    struct TrackSnap { int id; juce::String name; juce::String type; float volume; float pan; bool mute; int clips; juce::String colour; bool polarity; };
 
     void apiPlay();
     void apiStop();
@@ -333,6 +333,7 @@ public:
     bool apiRenameTrack (int id, const juce::String& name);   // rename an existing track
     bool apiSetTrackColour (int id, const juce::String& hexArgb);   // recolour a track (8-hex ARGB)
     bool apiMoveTrack (int id, int delta);   // reorder: delta<0 up (toward top), delta>0 down
+    bool apiSetTrackPolarity (int id, bool invert);   // phase invert a track's contribution
     int  apiAddAudioTrack (const juce::String& name);
     int  apiAddSamplerTrack (const juce::String& name, const juce::String& path, int rootNote);
     bool apiSetSamplerControls (int trackId, float startFrac, float endFrac, bool reverse, int rootNote, float fadeIn, float fadeOut, bool loop, bool mono = false);

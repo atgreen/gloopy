@@ -1095,6 +1095,17 @@ each shipping with desktop UI + screenshot validation.
   **Deferred (needs its own tick):** *Duplicate track* — a true clone needs the per-track
   save/load factored into a reusable helper AND its own mixer strip (each track gets a distinct
   `mixerTrack` strip, so a naive clone would share inserts/fader); not a clean single-tick slice.
+- `[x]` **Track polarity / phase invert landed** (commit): a per-track `polarity` flag negates
+  the track's contribution as it's summed into its mixer strip (`v *= pol` at the pan-law addFrom)
+  — a standard channel polarity/phase button, useful to cancel a correlated layer. `apiSetTrackPolarity(id,invert)`
+  (atomic, message-thread, undo) + SetTrackPolarity RPC (`SetTrackPolarityRequest`) + Python
+  `set_track_polarity`; also surfaced on `TrackInfo.polarity` (GetState/ListTracks + `list_tracks`).
+  Serialised on the TRACK ValueTree (`polarity`, omitted when off). **Desktop:** a checkable "Invert
+  phase" item on the track-header menu (reflects + toggles the flag). smoke is a decisive
+  cancellation proof — two IDENTICAL synth tracks (SynthVoice resets phase to 0 on note-on, so they're
+  sample-identical) sum LOUD (peak 0.41), then inverting one renders near-silent (peak 0.00000);
+  polarity also survives a SaveProject/LoadProject round-trip (GetState). Screenshot-validated
+  end-to-end (menu shows "Invert phase" → after clicking, re-opening shows it ✓ checked).
 
 16. **Browser sidebar + demo/template browser + `File → New From Template`** *(Idea
     #1/#2; absorbs remaining preset UI/work).* **L**
