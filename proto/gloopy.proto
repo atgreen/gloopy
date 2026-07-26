@@ -192,6 +192,8 @@ message SamplerControls { bool ok = 1; float start = 2; float end = 3; bool reve
 message AddSfzTrackRequest     { string name = 1; string path = 2; }   // native SFZ instrument
 message AddPluginTrackRequest  { string identifier = 1; }                        // PluginInfo.identifier
 message ClipRef            { int32 track_id = 1; int32 index = 2; }
+message NotesJson          { string json = 1; }
+message ImportNotesRequest { int32 track_id = 1; double start_beat = 2; string json = 3; }
 message MoveClipRequest    { int32 track_id = 1; int32 index = 2; double start_beat = 3; optional int32 to_track_id = 4; }
 message AddAudioClipRequest { int32 track_id = 1; double start_beat = 2; string path = 3; float gain = 4; }
 
@@ -379,6 +381,8 @@ service Gloopy {
   rpc NormalizeClip   (NormalizeClipRequest)   returns (Ack);      // gain so the clip peaks at target dBFS
   rpc SetClipFades    (ClipFadesRequest)       returns (Ack);      // audio clip fade-in / fade-out (beats)
   rpc GetClipNotes    (ClipRef)                returns (NoteList);
+  rpc ExportNotesJSON (ClipRef)                returns (NotesJson);
+  rpc ImportNotesJSON (ImportNotesRequest)     returns (ClipId);
   rpc QuantizeClip    (QuantizeRequest)        returns (Ack);
   rpc TransposeClip   (TransposeRequest)       returns (Ack);
   rpc HumanizeClip    (HumanizeRequest)        returns (Ack);

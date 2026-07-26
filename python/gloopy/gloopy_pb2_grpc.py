@@ -315,6 +315,16 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ClipRef.SerializeToString,
                 response_deserializer=gloopy__pb2.NoteList.FromString,
                 _registered_method=True)
+        self.ExportNotesJSON = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ExportNotesJSON',
+                request_serializer=gloopy__pb2.ClipRef.SerializeToString,
+                response_deserializer=gloopy__pb2.NotesJson.FromString,
+                _registered_method=True)
+        self.ImportNotesJSON = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ImportNotesJSON',
+                request_serializer=gloopy__pb2.ImportNotesRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.ClipId.FromString,
+                _registered_method=True)
         self.QuantizeClip = channel.unary_unary(
                 '/gloopy.v1.Gloopy/QuantizeClip',
                 request_serializer=gloopy__pb2.QuantizeRequest.SerializeToString,
@@ -1116,6 +1126,18 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def GetClipNotes(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ExportNotesJSON(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ImportNotesJSON(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1972,6 +1994,16 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.GetClipNotes,
                     request_deserializer=gloopy__pb2.ClipRef.FromString,
                     response_serializer=gloopy__pb2.NoteList.SerializeToString,
+            ),
+            'ExportNotesJSON': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExportNotesJSON,
+                    request_deserializer=gloopy__pb2.ClipRef.FromString,
+                    response_serializer=gloopy__pb2.NotesJson.SerializeToString,
+            ),
+            'ImportNotesJSON': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImportNotesJSON,
+                    request_deserializer=gloopy__pb2.ImportNotesRequest.FromString,
+                    response_serializer=gloopy__pb2.ClipId.SerializeToString,
             ),
             'QuantizeClip': grpc.unary_unary_rpc_method_handler(
                     servicer.QuantizeClip,
@@ -3922,6 +3954,60 @@ class Gloopy:
             '/gloopy.v1.Gloopy/GetClipNotes',
             gloopy__pb2.ClipRef.SerializeToString,
             gloopy__pb2.NoteList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ExportNotesJSON(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ExportNotesJSON',
+            gloopy__pb2.ClipRef.SerializeToString,
+            gloopy__pb2.NotesJson.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ImportNotesJSON(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ImportNotesJSON',
+            gloopy__pb2.ImportNotesRequest.SerializeToString,
+            gloopy__pb2.ClipId.FromString,
             options,
             channel_credentials,
             insecure,

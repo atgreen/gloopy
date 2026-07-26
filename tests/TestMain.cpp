@@ -10,6 +10,7 @@
 #include "Note.h"
 #include "NoteScheduler.h"
 #include "NoteEdits.h"
+#include "NotesJson.h"
 #include "Onsets.h"
 #include "ParamScale.h"
 #include "FileDrop.h"
@@ -578,6 +579,45 @@ struct ParamScaleTests : juce::UnitTest
     }
 };
 
+struct NotesJsonTests : juce::UnitTest
+{
+    NotesJsonTests() : juce::UnitTest ("NotesJson") {}
+    void runTest() override
+    {
+        beginTest ("notes round-trip through JSON");
+        {
+            std::vector<Note> ns { {60, 0.0, 1.0, 0.8f}, {64, 1.5, 0.5, 1.0f}, {67, 2.0, 0.25, 0.3f} };
+            const auto back = notesFromJson (notesToJson (ns));
+            expectEquals ((int) back.size(), 3);
+            for (size_t i = 0; i < back.size(); ++i)
+            {
+                expectEquals (back[i].pitch, ns[i].pitch);
+                expectWithinAbsoluteError (back[i].startBeat, ns[i].startBeat, 1e-9);
+                expectWithinAbsoluteError (back[i].lengthBeats, ns[i].lengthBeats, 1e-9);
+                expectWithinAbsoluteError ((double) back[i].velocity, (double) ns[i].velocity, 1e-6);
+            }
+        }
+        beginTest ("tolerant of missing keys, a {notes:[...]} wrapper, and clamps");
+        {
+            const auto a = notesFromJson ("[{\"pitch\":72}]");   // defaults for start/length/velocity
+            expectEquals ((int) a.size(), 1);
+            expectEquals (a[0].pitch, 72);
+            expectWithinAbsoluteError (a[0].lengthBeats, 1.0, 1e-9);   // default
+            const auto b = notesFromJson ("{\"notes\":[{\"pitch\":200,\"velocity\":9}]}");
+            expectEquals ((int) b.size(), 1);
+            expectEquals (b[0].pitch, 127);                            // clamped 0..127
+            expectWithinAbsoluteError ((double) b[0].velocity, 1.0, 1e-6);   // clamped 0..1
+        }
+        beginTest ("garbage / empty parses to no notes");
+        {
+            expect (notesFromJson ("not json").empty());
+            expect (notesFromJson ("").empty());
+            expect (notesFromJson ("[]").empty());
+        }
+    }
+};
+
+static NotesJsonTests    notesJsonTests;
 static ParamScaleTests   paramScaleTests;
 static NoteSchedulerTests noteSchedulerTests;
 static LfoTests          lfoTests;

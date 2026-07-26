@@ -282,6 +282,8 @@ public:
     float apiNormalizeClip (int trackId, int index, float targetDbfs); // gain so peak=target; applied gain or -1
     bool  apiSetClipFades (int trackId, int index, double fadeInBeats, double fadeOutBeats); // audio clip edges
     std::vector<Note> apiGetClipNotes (int trackId, int index);     // read-back for tooling/verification
+    juce::String apiExportClipNotesJson (int trackId, int index);   // clip notes -> JSON (copy / ExportNotesJSON)
+    int  apiImportClipNotesJson (int trackId, double startBeat, const juce::String& json);   // JSON -> new clip
     bool apiQuantizeClip (int trackId, int index, double grid);     // snap starts to a beat grid
     bool apiTransposeClip (int trackId, int index, int semitones);
     bool apiHumanizeClip (int trackId, int index, double timing, double velocity);

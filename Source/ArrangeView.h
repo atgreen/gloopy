@@ -49,6 +49,9 @@ public:
     /** Right-click clip menu command: (track, clip, command). Commands: "split",
         "duplicate", "reverse", "snapscale", "delete". Owner routes to the api* ops. */
     std::function<void (int, int, const juce::String&)> onClipCommand;
+    /** Right-click an empty part of a track -> "Paste notes here": (track, beat). The
+        owner reads JSON notes from the system clipboard and builds a clip at that beat. */
+    std::function<void (int, double)> onPasteNotes;
     std::function<void (int, int, float)> onClipGain;   // track, clip, gain dB (audio clips)
     std::function<void (int, int, double, double)> onClipFades;   // track, clip, fadeIn, fadeOut (beats)
     /** Tempo markers drawn on the ruler + edited by right-clicking it. Owner wires

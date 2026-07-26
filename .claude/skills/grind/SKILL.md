@@ -345,9 +345,19 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      `apiAddSynthTrack`/`apiAddClip`. RPCs `ExportMidi`/`ImportMidi` (FilePath) +
      Python `export_midi`/`import_midi`. Verified export→import→re-export round-trip
      (bpm + notes survive, renders); smoke.sh asserts SMF magic + reimport→clips→
-     non-silent. **Not yet:** bulk `ImportNotesJSON`/`ExportNotesJSON` (generative
-     helper — `AddClip` already takes structured notes), loop-expansion on export,
-     multi-channel/CC import, per-clip (not per-track) granularity.
+     non-silent. **Not yet:** loop-expansion on export, multi-channel/CC import,
+     per-clip (not per-track) granularity.
+   - `[x]` **Notes JSON + clipboard copy/paste landed** (commit): `ExportNotesJSON` emits a
+     clip's notes as a compact JSON array `[{pitch,start,length,velocity},...]`;
+     `ImportNotesJSON` builds a new clip on a track at a beat from that JSON (clip length =
+     furthest note end). The parse/format is a pure header (`Source/NotesJson.h`, tolerant of
+     missing keys / a `{notes:[...]}` wrapper / clamps, unit-tested `NotesJsonTests`) shared by
+     the RPCs + Python `export/import_notes_json`. **Desktop:** clip right-click "Copy notes
+     (JSON)" -> system clipboard; right-click empty track space -> "Paste notes here" builds a
+     clip at that beat from the clipboard. smoke proves an export->import round-trip preserves
+     pitch/start/length; the GUI copy->paste was screenshot- AND functionally-validated (paste
+     created a clip with the copied notes). Gotcha logged: proto3 omits index 0, so a
+     successful import (new clip idx 0) reads back as absent, not -1.
 
 ### Wave 3 — Editing + routing depth (still API-first)
 

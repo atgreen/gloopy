@@ -8,6 +8,7 @@
 
 #include "MainComponent.h"
 #include "NoteEdits.h"
+#include "NotesJson.h"
 #include "Onsets.h"
 #include <algorithm>
 
@@ -556,6 +557,26 @@ std::vector<Note> MainComponent::apiGetClipNotes (int trackId, int index)
         if (t == nullptr || ! juce::isPositiveAndBelow (index, (int) t->clips.size())) return {};
         return t->clips[(size_t) index].notes;
     });
+}
+
+// A clip's notes as a JSON array (see NotesJson.h) — for the ExportNotesJSON RPC and the
+// desktop "Copy notes" gesture. Empty string if the clip is missing / not a note clip.
+juce::String MainComponent::apiExportClipNotesJson (int trackId, int index)
+{
+    return notesToJson (apiGetClipNotes (trackId, index));
+}
+
+// Build a new clip on trackId at startBeat from a JSON note array (see NotesJson.h). The
+// clip length is the furthest note end (>= 1 beat). Returns the new clip index, or -1 if
+// the JSON has no usable notes / the track is missing. Backs ImportNotesJSON + "Paste notes".
+int MainComponent::apiImportClipNotesJson (int trackId, double startBeat, const juce::String& json)
+{
+    const auto notes = notesFromJson (json);
+    if (notes.empty()) return -1;
+    double len = 0.0;
+    for (const auto& n : notes) len = juce::jmax (len, n.startBeat + n.lengthBeats);
+    if (len <= 0.0) len = 1.0;
+    return apiAddClip (trackId, startBeat, len, len, false, notes, "pasted");
 }
 
 // Note-transform ops (piano-roll editing modes) — apply a shared NoteEdits transform

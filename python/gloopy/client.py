@@ -297,6 +297,16 @@ class Gloopy:
         return [{"pitch": n.pitch, "start_beat": n.start_beat,
                  "length_beats": n.length_beats, "velocity": n.velocity} for n in r.notes]
 
+    def export_notes_json(self, track_id: int, index: int) -> str:
+        """A clip's notes as a JSON array string [{pitch,start,length,velocity},...]."""
+        return self.stub.ExportNotesJSON(pb.ClipRef(track_id=track_id, index=index)).json
+
+    def import_notes_json(self, track_id: int, json_text: str, start_beat: float = 0.0) -> int:
+        """Build a new clip on track_id at start_beat from a JSON note array (the shape
+        export_notes_json emits). Returns the new clip index, or -1 if no usable notes."""
+        return self.stub.ImportNotesJSON(pb.ImportNotesRequest(
+            track_id=track_id, start_beat=start_beat, json=json_text)).index
+
     def quantize_clip(self, track_id: int, index: int, grid: float = 0.25) -> None:
         """Snap note starts to a beat grid (0.25 = 16ths)."""
         self._ack(self.stub.QuantizeClip(pb.QuantizeRequest(track_id=track_id, index=index, grid=grid)))

@@ -519,6 +519,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addItem (15, "Bounce to audio");                   // freeze clip -> audio on a new track
         m.addItem (17, "Mute clip", ! isTake, isMuted);      // disable/enable in the arrangement (takes use Use/Promote)
         m.addItem (18, "Loop this clip");                    // set the transport loop to this clip's span
+        m.addItem (19, "Copy notes (JSON)", isMidi);         // notes -> system clipboard as JSON
         if (! isMidi)                                   // audio-clip level ops
         {
             m.addItem (10, "Normalize");                // to -1 dBFS
@@ -546,6 +547,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             { if (onClipCommand) onClipCommand (t, c, "repeat:" + juce::String ((r - 600) - 1)); return; }
             if (r == 11) { promptClipGain (t, c); return; }        // "Gain..." -> dB prompt
             if (r == 12) { promptClipFades (t, c); return; }       // "Fades..." -> in/out prompt
+            if (r == 19) { if (onClipCommand) onClipCommand (t, c, "copynotes"); return; }   // notes -> clipboard
             const char* cmd = r == 1  ? "split"
                             : r == 2  ? "duplicate"
                             : r == 3  ? "reverse"
@@ -561,6 +563,21 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                             : r == 7  ? "cleanuptakes"
                             :           "delete";
             if (onClipCommand) onClipCommand (t, c, cmd);
+        });
+        return;
+    }
+
+    // Right-click empty track space -> "Paste notes here" (JSON clip notes from the clipboard).
+    if (hit < 0 && e.mods.isPopupMenu() && p.x >= headerWidth && p.y >= rulerHeight)
+    {
+        const double beat = juce::jmax (0.0, beatForX (p.x));
+        const bool haveClip = juce::SystemClipboard::getTextFromClipboard().trim().startsWithChar ('[');
+        juce::PopupMenu m;
+        m.addItem (1, "Paste notes here", haveClip);
+        const int tk = track;
+        m.showMenuAsync (juce::PopupMenu::Options(), [this, tk, beat] (int r)
+        {
+            if (r == 1 && onPasteNotes) onPasteNotes (tk, beat);
         });
         return;
     }

@@ -404,6 +404,34 @@ print('smoke: PASS — sampler loop sustains a short sample (mid off=%d on=%d), 
 " || { echo 'smoke: sampler loop wrong' >&2; exit 1; }
 g -d "{\"id\":$LT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
+# Notes copy/paste as JSON (Wave 2 #5): ExportNotesJSON emits a clip's notes as a JSON
+# array; ImportNotesJSON builds a new clip from that JSON on another track. Round-trip: the
+# pasted clip's notes match the source (pitch/start/length/velocity), verified via GetClipNotes.
+SRC=$(g -d '{"name":"jsrc","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.2,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$SRC,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":0.9},{\"pitch\":64,\"start_beat\":1,\"length_beats\":0.5,\"velocity\":0.7},{\"pitch\":67,\"start_beat\":2,\"length_beats\":0.25,\"velocity\":0.5}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+# Export the source clip's notes JSON to a file (avoids shell-quoting the JSON payload).
+g -d "{\"track_id\":$SRC,\"index\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/ExportNotesJSON | python3 -c "import json,sys;open('$WORK/notes.json','w').write(json.load(sys.stdin).get('json',''))"
+DST=$(g -d '{"name":"jdst","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.2,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+# Build the ImportNotesJSON request in python (embeds the JSON string safely) and send via -d @file.
+python3 -c "import json;open('$WORK/imp.json','w').write(json.dumps({'track_id':$DST,'start_beat':8,'json':open('$WORK/notes.json').read()}))"
+IDX=$(g -d @ 127.0.0.1:$PORT gloopy.v1.Gloopy/ImportNotesJSON < "$WORK/imp.json" | python3 -c "import json,sys;print(json.load(sys.stdin).get('index',0))")   # proto3 omits index 0
+g -d "{\"track_id\":$DST,\"index\":$IDX}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes > "$WORK/pasted.json" 2>/dev/null
+python3 -c "
+import json
+src=json.loads(open('$WORK/notes.json').read())
+assert len(src)==3, 'ExportNotesJSON did not emit 3 notes: %r'%src
+assert {n['pitch'] for n in src}=={60,64,67}, 'wrong pitches exported: %r'%src
+assert int('$IDX')>=0, 'ImportNotesJSON returned no clip (idx=$IDX)'
+notes=json.loads(open('$WORK/pasted.json').read()).get('notes',[])
+assert len(notes)==3, 'pasted clip has %d notes, expected 3'%len(notes)
+got=sorted((n['pitch'], round(n.get('startBeat',0),4), round(n.get('lengthBeats',0),4)) for n in notes)
+exp=[(60,0.0,1.0),(64,1.0,0.5),(67,2.0,0.25)]
+assert got==exp, 'pasted notes mismatch: %r vs %r'%(got,exp)
+print('smoke: PASS — notes export->import JSON round-trips (3 notes, pitch/start/length preserved), new clip idx $IDX')
+" || { echo 'smoke: notes JSON copy/paste wrong' >&2; exit 1; }
+g -d "{\"id\":$SRC}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+g -d "{\"id\":$DST}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
 # ParamModel keystone — automation-by-id: an automation lane addresses the SAME ParamModel
 # id a controller/LFO uses (track/<id>/synth/cutoff), written through the shared
 # applyParamValue. A ramp 300->8000 Hz over 0..4 beats brightens the render vs a static

@@ -313,6 +313,7 @@ MainComponent::MainComponent (bool headless)
         else if (cmd == "unmute")    apiSetClipMuted (id, clip, false);
         else if (cmd.startsWith ("repeat:")) apiRepeatClip (id, clip, cmd.substring (7).getIntValue());
         else if (cmd == "loopclip")  apiSetLoopToClip (id, clip);
+        else if (cmd == "copynotes") juce::SystemClipboard::copyTextToClipboard (apiExportClipNotesJson (id, clip));
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")
@@ -339,6 +340,14 @@ MainComponent::MainComponent (bool headless)
             emitChange ("clip_changed", id);
         }
         if (arrangeView) arrangeView->repaint();
+    };
+
+    arrangeView->onPasteNotes = [this] (int trackIdx, double beat)
+    {
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+        const int id = tracks[(size_t) trackIdx]->id;
+        if (apiImportClipNotesJson (id, beat, juce::SystemClipboard::getTextFromClipboard()) >= 0)
+            if (arrangeView) arrangeView->repaint();
     };
 
     arrangeView->onClipGain = [this] (int trackIdx, int clip, float db)
