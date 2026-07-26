@@ -57,16 +57,17 @@ default synth — so users get **the real Surge XT editor** (via Gloopy's existi
   API, not the UI lambda); other instrument types keep their own toolbar buttons (+SFZ/+Sample/
   +Audio/+Plugin). **Remaining in step 3:** the *Presets* browser tab still drives the headless
   `SurgeGenerator` / embedded core — point it at the hosted plugin and load `.fxp` into it.
-- **Removals + migration (do LAST, after the above).** User directive: **full removal + migrate
-  everything to Surge** ([[surge-is-the-synth]], confirmed 2026-07-26 with the downsides accepted).
-  Migrate both templates (Piano+Bass+Drums, Lead+Bass) + all **23 example synth tracks** off
-  `SynthGenerator` to hosted Surge XT plugin tracks with a hand-picked factory patch per voice,
-  THEN remove `SynthGenerator` entirely (code/proto/python/tests/`type="synth"` format) and the
-  embedded Surge (`SurgeGenerator` + `GLOOPY_WITH_SURGE` + `surge-common` link). Consequences
-  accepted: all melodic content becomes Surge-bundle-dependent; old `.gloopy` files with synth
-  tracks stop loading. Scope facts: templates use `SynthGenerator` for Lead/Bass/fallback-piano
-  only (drums = procedural `DrumSynth`+Sampler, real piano = Salamander SFZ — both survive);
-  no SFZ lead/bass content exists in-repo.
+- **Removals + migration — PAUSED / SHELVED (decided 2026-07-26).** The user first chose full
+  removal + migrate, then reversed to **"keep the old synth for now"** once the patch-baking
+  linchpin proved blocked (see below). Current standing decision ([[surge-is-the-synth]]): **KEEP
+  `SynthGenerator`** (fully intact — templates, all 23 examples, API, serialization) and **KEEP the
+  embedded Surge core** (the Presets tab uses it, and its `loadPatchByPath` is the only working
+  factory-patch loader — the hosted plugin can't). Surge XT plugin stays the featured "+ Synth"
+  with bundled presets. Do NOT remove either or migrate anything unless the user re-opens it.
+  The removal only becomes feasible if the hosted-plugin patch-load blocker below is solved.
+  (Historical scope facts, if ever revisited: templates use `SynthGenerator` for Lead/Bass/
+  fallback-piano only — drums = procedural `DrumSynth`+Sampler, real piano = Salamander SFZ,
+  both survive; no SFZ lead/bass content exists in-repo; 23 example synth tracks.)
 
   **LINCHPIN — load a named factory patch into a hosted Surge XT LV2 track (research 2026-07-26,
   NOT yet implemented; resume here).** So a migrated Bass sounds like a bass, each track needs a
