@@ -60,35 +60,44 @@ public:
         g.fillAll (Palette::bg);
         g.setColour (Palette::line);                          // right border + tab-bar underline
         g.drawVerticalLine (getWidth() - 1, 0.0f, (float) getHeight());
-        g.setColour (Palette::accent);                        // active-tab underline
+        g.setColour (Palette::accent);                        // active-tab underline (per its own row)
         if (active >= 0 && active < (int) tabButtons.size())
         {
             auto tb = tabButtons[(size_t) active]->getBounds();
-            g.fillRect (tb.getX(), headerH - 2, tb.getWidth(), 2);
+            g.fillRect (tb.getX(), tb.getBottom() - 2, tb.getWidth(), 2);
         }
         if (rows.empty())
         {
             g.setColour (Palette::textDim);
             g.setFont (12.0f);
-            g.drawText ("(empty)", getLocalBounds().withTrimmedTop (headerH).reduced (12, 8),
+            g.drawText ("(empty)", getLocalBounds().withTrimmedTop (tabBarHeight()).reduced (12, 8),
                         juce::Justification::centredTop);
         }
     }
 
     void resized() override
     {
-        auto hdr = getLocalBounds().removeFromTop (headerH);
-        const int n = juce::jmax (1, (int) tabButtons.size());
-        const int tw = (hdr.getWidth() - 1) / n;
+        // Grid the tabs: one row up to 4, two rows beyond, so labels stay readable
+        // instead of truncating ("Templates" -> "Te...") as categories are added.
+        const int n     = juce::jmax (1, (int) tabButtons.size());
+        const int nrows = tabRowCount();
+        const int cols  = (n + nrows - 1) / nrows;
+        const int tw    = (getWidth() - 1) / cols;
         for (int i = 0; i < (int) tabButtons.size(); ++i)
-            tabButtons[(size_t) i]->setBounds (i * tw, 0, tw, headerH);
+        {
+            const int row = i / cols, col = i % cols;
+            tabButtons[(size_t) i]->setBounds (col * tw, row * headerH, tw, headerH);
+        }
 
         auto r = getLocalBounds();
-        r.removeFromTop (headerH);
+        r.removeFromTop (tabBarHeight());
         r.removeFromRight (1);                                // border
         viewport.setBounds (r);
         layoutRows();
     }
+
+    int tabRowCount()  const { return (int) tabButtons.size() > 4 ? 2 : 1; }
+    int tabBarHeight() const { return headerH * tabRowCount(); }
 
 private:
     void setActive (int i)
