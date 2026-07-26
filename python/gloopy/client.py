@@ -118,6 +118,10 @@ class Gloopy:
     def list_audio_inputs(self) -> list[str]:
         return list(self.stub.ListAudioInputs(pb.Empty()).names)
 
+    def list_midi_inputs(self) -> list[str]:
+        """MIDI input sources Gloopy is listening to (it auto-opens all + hot-plugs)."""
+        return list(self.stub.ListMidiInputs(pb.Empty()).names)
+
     def arm_track(self, track_id: int, armed: bool = True, input: int = 0,
                   channels: int = 2, monitor: bool = False) -> None:
         """Arm an audio track for recording (input = first hardware channel)."""

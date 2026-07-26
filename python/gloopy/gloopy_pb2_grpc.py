@@ -135,6 +135,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
                 response_deserializer=gloopy__pb2.AudioInputs.FromString,
                 _registered_method=True)
+        self.ListMidiInputs = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ListMidiInputs',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.MidiInputs.FromString,
+                _registered_method=True)
         self.ArmTrack = channel.unary_unary(
                 '/gloopy.v1.Gloopy/ArmTrack',
                 request_serializer=gloopy__pb2.ArmRequest.SerializeToString,
@@ -1080,6 +1085,13 @@ class GloopyServicer:
 
     def ListAudioInputs(self, request, context):
         """audio recording
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListMidiInputs(self, request, context):
+        """live MIDI sources Gloopy is listening to
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2267,6 +2279,11 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.ListAudioInputs,
                     request_deserializer=gloopy__pb2.Empty.FromString,
                     response_serializer=gloopy__pb2.AudioInputs.SerializeToString,
+            ),
+            'ListMidiInputs': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListMidiInputs,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.MidiInputs.SerializeToString,
             ),
             'ArmTrack': grpc.unary_unary_rpc_method_handler(
                     servicer.ArmTrack,
@@ -3625,6 +3642,33 @@ class Gloopy:
             '/gloopy.v1.Gloopy/ListAudioInputs',
             gloopy__pb2.Empty.SerializeToString,
             gloopy__pb2.AudioInputs.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListMidiInputs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ListMidiInputs',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.MidiInputs.FromString,
             options,
             channel_credentials,
             insecure,

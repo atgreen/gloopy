@@ -874,6 +874,16 @@ void MainComponent::setupMidiInputs()
     });
 }
 
+std::vector<juce::String> MainComponent::apiListMidiInputs()
+{
+    // The MIDI input sources Gloopy can receive from. It auto-opens all of these (+ hot-plug), so
+    // this is effectively "what Gloopy is listening to". Static ALSA query — safe from any thread.
+    std::vector<juce::String> out;
+    for (const auto& d : juce::MidiInput::getAvailableDevices())
+        out.push_back (d.name);
+    return out;
+}
+
 void MainComponent::openAvailableMidiInputs()
 {
     for (const auto& d : juce::MidiInput::getAvailableDevices())

@@ -786,6 +786,7 @@ private:
                        std::vector<juce::String>& filesOut);     // false if unknown/failed
 
     std::vector<juce::String> apiListAudioInputs();
+    std::vector<juce::String> apiListMidiInputs();   // live MIDI sources Gloopy is listening to
     bool apiArmTrack (int trackId, bool armed, int input, int channels, bool monitor);
     bool apiSetPunchRange (bool enabled, double inBeat, double outBeat, double countIn);
     bool apiSetRecordSettings (int format, double latencyOffsetSeconds);

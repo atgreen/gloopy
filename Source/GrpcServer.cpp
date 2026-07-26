@@ -86,6 +86,9 @@ namespace
         Status ListAudioInputs (ServerContext*, const pb::Empty*, pb::AudioInputs* r) override
         { for (auto& n : main.apiListAudioInputs()) r->add_names (n.toStdString()); return Status::OK; }
 
+        Status ListMidiInputs (ServerContext*, const pb::Empty*, pb::MidiInputs* r) override
+        { for (auto& n : main.apiListMidiInputs()) r->add_names (n.toStdString()); return Status::OK; }
+
         Status ArmTrack (ServerContext*, const pb::ArmRequest* q, pb::Ack* r) override
         { const bool ok = main.apiArmTrack (q->track_id(), q->armed(), q->input(), q->channels(), q->monitor());
           r->set_ok (ok); if (! ok) r->set_error ("track not found"); return Status::OK; }
