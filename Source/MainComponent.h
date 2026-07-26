@@ -83,6 +83,7 @@ public:
 
     void apiPlay();
     void apiStop();
+    void apiPanic();   // all-notes-off across every track (clears stuck/hanging notes)
     void apiStartRecording();
     void apiStopRecording();
     void apiSetTempo (double bpm);
@@ -603,6 +604,7 @@ private:
     juce::TextButton addPluginBtn  { "+ Plugin" };
     juce::TextButton loopButton    { "Loop" };
     juce::TextButton metroButton   { "Metro" };
+    juce::TextButton panicButton   { "Panic" };
     juce::TextButton mixerButton   { "Mixer" };
     juce::TextButton mapsButton    { "Maps" };     // see + remove all controller/LFO mappings
     juce::TextButton browseButton  { juce::String::fromUTF8 ("\xe2\x98\xb0") };   // hamburger: toggle the left browser sidebar
@@ -637,6 +639,7 @@ private:
     // track that received it. Written on the MIDI thread, read on the message thread.
     std::atomic<double> midiActivityMs     { -1.0e12 };
     std::atomic<int>    midiActivityTrackId { -1 };
+    std::atomic<bool>   panicRequested { false };   // MIDI panic; the audio thread clears stuck notes
 
     struct ChangeSink { std::mutex m; std::vector<ChangeSnap> pending; };
     std::map<int, std::shared_ptr<ChangeSink>> changeSinks;

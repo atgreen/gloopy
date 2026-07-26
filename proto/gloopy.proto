@@ -350,6 +350,7 @@ service Gloopy {
   // transport
   rpc Play        (Empty)    returns (Ack);
   rpc Stop        (Empty)    returns (Ack);
+  rpc Panic       (Empty)    returns (Ack);   // all-notes-off across every track (clear stuck notes)
   rpc SetTempo    (Tempo)    returns (Ack);
   rpc SetSwing    (Swing)    returns (Ack);
   rpc Seek        (Position) returns (Ack);

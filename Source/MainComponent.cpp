@@ -205,6 +205,10 @@ MainComponent::MainComponent (bool headless)
     metroButton.setTooltip ("Metronome: a click on each beat (accented on the downbeat)");
     metroButton.onClick = [this] { apiSetMetronome (metroButton.getToggleState()); };
 
+    addAndMakeVisible (panicButton);
+    panicButton.setTooltip ("Panic: send all-notes-off to every track (clears stuck/hanging notes)");
+    panicButton.onClick = [this] { apiPanic(); };
+
     addAndMakeVisible (mixerButton);
     mixerButton.onClick = [this] { openMixer(); };
 
@@ -746,6 +750,7 @@ MainComponent::MainComponent (bool headless)
         h.mixerTracks  = &mixerTracks;
         h.engineLock   = &engineLock;
         h.transport    = &transport;
+        h.panic        = [this] { apiPanic(); };
         h.log          = [] (const juce::String& s) { std::cout << "[osc] " << s << std::endl; };
         osc = std::make_unique<OscControl> (h);
         const int oscPort = 9000;
@@ -1000,6 +1005,9 @@ void MainComponent::finalizeRecording()
 // ===========================================================================
 void MainComponent::apiPlay()  { clearClipIndicators(); transport.setPlaying (true); }
 void MainComponent::apiStop()  { if (recording.load()) finalizeRecording(); transport.setPlaying (false); transport.requestReset(); }
+// MIDI panic: request the audio thread to send all-notes-off to every generator (clears stuck
+// notes). Thread-safe from any caller (UI / gRPC / OSC) — just flips an atomic.
+void MainComponent::apiPanic() { panicRequested.store (true); }
 void MainComponent::apiStartRecording() { callOnMessageThread ([&] { startRecording(); return true; }); }
 void MainComponent::apiStopRecording()  { callOnMessageThread ([&] { finalizeRecording(); transport.setPlaying (false); return true; }); }
 void MainComponent::apiSetTempo (double bpm) { transport.setBpm (juce::jlimit (20.0, 400.0, bpm)); }
@@ -2562,6 +2570,9 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
 {
     auto* out = &outBuf;
 
+    if (panicRequested.exchange (false))                 // MIDI panic: kill any stuck/hanging notes
+        for (auto& t : tracks) if (t->generator) t->generator->allNotesOff();
+
     if (transport.consumeReset())
     {
         transport.setPlayheadSamples (0);
@@ -3338,7 +3349,8 @@ void MainComponent::resized()
     mixerButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (6);
     mapsButton   .setBounds (bar.removeFromRight (52)); bar.removeFromRight (6);
     loopButton   .setBounds (bar.removeFromRight (54)); bar.removeFromRight (6);
-    metroButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (12);
+    metroButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (6);
+    panicButton  .setBounds (bar.removeFromRight (54)); bar.removeFromRight (12);
     scaleNameBox .setBounds (bar.removeFromRight (128).reduced (0, 4)); bar.removeFromRight (4);
     scaleRootBox .setBounds (bar.removeFromRight (52).reduced (0, 4));
 

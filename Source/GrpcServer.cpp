@@ -65,6 +65,9 @@ namespace
         Status Stop (ServerContext*, const pb::Empty*, pb::Ack* r) override
         { main.apiStop(); r->set_ok (true); return Status::OK; }
 
+        Status Panic (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        { main.apiPanic(); r->set_ok (true); return Status::OK; }
+
         Status SetTempo (ServerContext*, const pb::Tempo* q, pb::Ack* r) override
         { main.apiSetTempo (q->bpm()); r->set_ok (true); return Status::OK; }
 

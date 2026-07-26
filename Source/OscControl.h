@@ -28,6 +28,7 @@ public:
         std::vector<std::unique_ptr<MixerTrack>>* mixerTracks = nullptr;
         juce::CriticalSection*                    engineLock = nullptr;
         Transport*                                transport = nullptr;
+        std::function<void ()>                    panic;          // all-notes-off (clear stuck notes)
         std::function<void (const juce::String&)> log;            // optional
     };
 
@@ -98,6 +99,7 @@ private:
         else if (cmd == "stop")  { t->setPlaying (false); t->requestReset(); }
         else if (cmd == "tempo" && m.size() >= 1) t->setBpm (argF (m[0]));
         else if (cmd == "seek"  && m.size() >= 1) t->requestSeek (argF (m[0]));
+        else if (cmd == "panic" && hooks.panic)   hooks.panic();
         if (hooks.log) hooks.log ("transport " + cmd);
     }
 

@@ -77,6 +77,10 @@ class Gloopy:
     def stop(self) -> None:
         self._ack(self.stub.Stop(pb.Empty()))
 
+    def panic(self) -> None:
+        """All-notes-off across every track — clears stuck/hanging notes."""
+        self._ack(self.stub.Panic(pb.Empty()))
+
     def set_tempo(self, bpm: float) -> None:
         self._ack(self.stub.SetTempo(pb.Tempo(bpm=bpm)))
 
