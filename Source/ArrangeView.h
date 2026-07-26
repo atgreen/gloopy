@@ -65,6 +65,7 @@ public:
         these to apiListTempoMarkers/apiAddTempoMarker/apiRemoveTempoMarker. */
     std::function<std::vector<std::pair<double, double>>()> getTempoMarkers;   // (beat, bpm)
     std::function<std::vector<std::pair<juce::String, double>>()> getMarkers;   // timeline locations (name, beat) for "Split at marker"
+    std::function<float(int trackId)> getMidiActivity;   // 0..1 input-LED brightness for a track (fades after a note)
     std::function<void (double, double)> onAddTempoMarker;                     // beat, bpm
     std::function<void (double)>         onRemoveTempoMarker;                  // beat
     std::function<void (const juce::String&, double)> onAddMarker;             // named timeline marker: name, beat

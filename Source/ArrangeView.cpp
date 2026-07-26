@@ -292,6 +292,15 @@ void ArrangeView::paint (juce::Graphics& g)
         g.setColour (t->colour);
         g.fillRect (0, y + 3, 4, trackHeight - 6);
 
+        // Live MIDI-input LED: pulses green in the left gutter on the track receiving notes, so
+        // you can see the keyboard is connected and which track will sound. Fades after each note.
+        if (getMidiActivity)
+            if (float act = getMidiActivity (t->id); act > 0.0f)
+            {
+                g.setColour (juce::Colour (0xff33dd66).withAlpha (juce::jlimit (0.0f, 1.0f, act)));
+                g.fillEllipse (5.5f, (float) y + 10.0f, 6.0f, 6.0f);
+            }
+
         // Default: track name over the type label. A hosted instrument with a known patch
         // (e.g. Surge XT) instead shows the patch name over the plugin name — "Distorted Bass"
         // / "Surge XT".

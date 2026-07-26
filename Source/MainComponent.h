@@ -633,6 +633,10 @@ private:
     // Live MIDI input: the instrument track id that receives played notes.
     std::atomic<int> midiInputTarget { -1 };
     std::atomic<int> firstInstrumentId { -1 };   // fallback when nothing is selected
+    // Live-MIDI input activity, for the track-header LED: the last note-on time (ms) and the
+    // track that received it. Written on the MIDI thread, read on the message thread.
+    std::atomic<double> midiActivityMs     { -1.0e12 };
+    std::atomic<int>    midiActivityTrackId { -1 };
 
     struct ChangeSink { std::mutex m; std::vector<ChangeSnap> pending; };
     std::map<int, std::shared_ptr<ChangeSink>> changeSinks;

@@ -205,7 +205,7 @@ public:
                         }
                         return peak;
                     };
-                    double eInit = 0.0; const float pInit = renderSig (eInit);   // INIT patch baseline
+                    double eInit = 0.0; renderSig (eInit);   // INIT patch baseline (energy via out-param)
 
                     juce::MemoryBlock raw; juce::File (args[spx + 1]).loadFileAsData (raw);
                     const int hdr = 60;   // sizeof fxChunkSetCustom (8 ints + prgName[28])
@@ -230,7 +230,7 @@ public:
                                           (size_t) juce::jmin ((int) stAfter.getSize(), 1 << 20));
                         const bool namesPatch = hay.contains (stem);
 
-                        double eLoaded = 0.0; const float pLoaded = renderSig (eLoaded);
+                        double eLoaded = 0.0; renderSig (eLoaded);
                         const double rel = (eInit > 0.0) ? std::abs (eLoaded - eInit) / eInit
                                                          : (eLoaded > 0.0 ? 1.0 : 0.0);
                         std::cout << "SURGEPATCH " << juce::File (args[spx + 1]).getFileName()

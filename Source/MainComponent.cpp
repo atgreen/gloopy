@@ -335,6 +335,22 @@ MainComponent::MainComponent (bool headless)
         for (auto& l : apiListLocations()) out.push_back ({ l.name, l.startBeat });
         return out;
     };
+    arrangeView->getMidiActivity = [this] (int trackId) -> float
+    {
+        if (trackId < 0) return 0.0f;
+        // Faint base on the current live-MIDI target — the track that will sound when you play.
+        int target = midiInputTarget.load();
+        if (target < 0) target = firstInstrumentId.load();
+        float level = (trackId == target) ? 0.22f : 0.0f;
+        // Brighten to a pulse on the track that just received a note, then fade out.
+        if (trackId == midiActivityTrackId.load())
+        {
+            const double dt = juce::Time::getMillisecondCounterHiRes() - midiActivityMs.load();
+            constexpr double fadeMs = 250.0;
+            if (dt >= 0.0 && dt < fadeMs) level = juce::jmax (level, (float) (1.0 - dt / fadeMs));
+        }
+        return level;
+    };
     arrangeView->onAddMarker = [this] (const juce::String& name, double beat)
     {
         apiAddLocation (name, "marker", beat, beat);
@@ -887,7 +903,14 @@ void MainComponent::handleIncomingMidiMessage (juce::MidiInput*, const juce::Mid
     if (id < 0) id = firstInstrumentId.load();
     if (Track* t = resolveTrack (id))
         if (t->generator != nullptr)
+        {
             t->liveMidi.addMessageToQueue (m);
+            if (m.isNoteOn())   // flash the input LED on the track that's receiving
+            {
+                midiActivityTrackId.store (id);
+                midiActivityMs.store (juce::Time::getMillisecondCounterHiRes());
+            }
+        }
 }
 
 void MainComponent::apiAuditionNote (int pitch, float velocity, bool noteOn)
@@ -3225,6 +3248,11 @@ void MainComponent::timerCallback()
             }
         if (changed && arrangeView != nullptr) arrangeView->repaint();
     }
+
+    // Keep repainting the header briefly after live MIDI so the input LED animates/fades.
+    if (arrangeView != nullptr
+          && juce::Time::getMillisecondCounterHiRes() - midiActivityMs.load() < 300.0)
+        arrangeView->repaint();
 }
 
 void MainComponent::paint (juce::Graphics& g)
