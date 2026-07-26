@@ -1153,4 +1153,26 @@ assert gs['VCA'].get('members',0)>=1, 'group membership lost after reload: %s'%g
 print('smoke: PASS — control group survived composition round-trip (gain 0.5, %d member)'%gs['VCA']['members'])
 " || { echo 'smoke: control group did not survive composition round-trip' >&2; exit 1; }
 
+# Metronome (last — clears the project): on an empty project a 4-beat render is silent
+# with the click off and emits a click per beat with it on.
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+g -d "{\"path\":\"$WORK/metro_off.wav\",\"tail_seconds\":0,\"start_beat\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"enabled":true}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetMetronome >/dev/null
+g -d "{\"path\":\"$WORK/metro_on.wav\",\"tail_seconds\":0,\"start_beat\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+METFLAG=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetTransport | python3 -c "import json,sys;print(json.load(sys.stdin).get('metronome'))")
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [abs(int.from_bytes(f[i:i+3],'little',signed=True))/(1<<23) for i in range(0,len(f),3)]
+off,on=rd('$WORK/metro_off.wav'),rd('$WORK/metro_on.wav')
+poff=max(off) if off else 0; pon=max(on) if on else 0
+step=int(0.05*44100)   # count 50 ms windows above threshold (each beat click spans ~1-2)
+bursts=sum(1 for i in range(0,len(on)-step,step) if max(on[i:i+step])>0.05)
+assert poff<0.01, 'empty project should be silent with the metronome off (peak %.4f)'%poff
+assert pon>0.1, 'metronome on should click (peak %.4f)'%pon
+assert bursts>=3, 'expected several beat clicks, got %d bursts'%bursts
+assert '$METFLAG'=='True', 'GetTransport did not report metronome on'
+print('smoke: PASS — metronome clicks each beat (off silent %.3f, on peak %.2f, %d bursts)'%(poff,pon,bursts))
+" || { echo 'smoke: metronome wrong' >&2; exit 1; }
+
 echo "smoke: OK"

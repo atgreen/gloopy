@@ -268,6 +268,8 @@ public:
     int  apiSliceClipAtTransients (int trackId, int index, float sensitivity);   // audio clip -> slices at detected onsets; slice count, or -1
     bool apiSetClipMuted (int trackId, int index, bool muted);       // mute/enable a clip in the arrangement (MIDI or audio)
     bool apiSetLoopToClip (int trackId, int index);                  // set the transport loop to a clip's [start,end) and enable it
+    bool apiSetMetronome (bool enabled);                             // toggle the beat click; -> new state
+    bool apiGetMetronome();
     int  apiDuplicateClip (int trackId, int index, double atBeat);  // atBeat<0 => right after; -> new index
     int  apiRepeatClip (int trackId, int index, int copies);        // tile N butted copies after the clip; -> copies added, or -1
     bool apiReverseClip (int trackId, int index);                   // reverse notes (MIDI) or audio buffer
@@ -531,6 +533,7 @@ private:
     juce::TextButton addAudioBtn   { "+ Audio" };
     juce::TextButton addPluginBtn  { "+ Plugin" };
     juce::TextButton loopButton    { "Loop" };
+    juce::TextButton metroButton   { "Metro" };
     juce::TextButton mixerButton   { "Mixer" };
     juce::ComboBox   scaleRootBox;                 // C..B    — project scale selector
     juce::ComboBox   scaleNameBox;                 // chromatic/major/minor/...
@@ -640,6 +643,13 @@ private:
     std::atomic<double> punchInBeat  { 0.0 };
     std::atomic<double> punchOutBeat { 1.0e12 };
     std::atomic<double> countInBeats { 0.0 };
+
+    // Metronome: a monitor click at each beat (audio-thread state; touched only in
+    // renderBlock, except the atomic enable flag). Not serialised (a session toggle).
+    std::atomic<bool> metronomeEnabled { false };
+    int    metroSamplesLeft { 0 };
+    double metroPhase { 0.0 }, metroInc { 0.0 };
+    float  metroAmp { 0.0f };
     // Phase 3: format, latency, loop recording
     std::atomic<int>    recordFormat        { 0 };   // 0 = WAV, 1 = FLAC
     std::atomic<double> recordLatencyOffset { 0.0 }; // manual, seconds (added to device latency)

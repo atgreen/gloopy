@@ -26,7 +26,9 @@ message BarBeat      { int32 bar = 1; double beat_in_bar = 2; }   // both 1-base
 message SecondsValue { double seconds = 1; }
 message Loop     { bool enabled = 1; double start_beat = 2; double end_beat = 3; }
 message TransportState { bool playing = 1; double bpm = 2; double position_beats = 3;
-                         bool loop_enabled = 4; double loop_start = 5; double loop_end = 6; }
+                         bool loop_enabled = 4; double loop_start = 5; double loop_end = 6;
+                         bool metronome = 7; }
+message MetronomeRequest { bool enabled = 1; }
 
 // ── notes / clips ──────────────────────────────────────────
 message Note {
@@ -362,6 +364,7 @@ service Gloopy {
   rpc SliceAtTransients(SliceTransientsRequest) returns (SliceResult);   // audio clip -> slices at detected onsets
   rpc SetClipMuted    (ClipMuteRequest)        returns (Ack);      // mute/enable a clip in the arrangement
   rpc SetLoopToClip   (ClipRef)                returns (Ack);      // loop the transport over a clip's span
+  rpc SetMetronome    (MetronomeRequest)       returns (Ack);      // toggle the beat-click metronome
   rpc DuplicateClip   (DuplicateClipRequest)   returns (ClipId);
   rpc RepeatClip      (RepeatClipRequest)      returns (SliceResult);   // SliceResult.slices = copies added
   rpc ReverseClip     (ClipRef)                returns (Ack);

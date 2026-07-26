@@ -116,6 +116,7 @@ namespace
             r->set_loop_enabled (s.loopEnabled);
             r->set_loop_start (s.loopStart);
             r->set_loop_end (s.loopEnd);
+            r->set_metronome (main.apiGetMetronome());
             return Status::OK;
         }
 
@@ -685,6 +686,8 @@ namespace
         Status SetLoopToClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
         { const bool ok = main.apiSetLoopToClip (q->track_id(), q->index());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
+        Status SetMetronome (ServerContext*, const pb::MetronomeRequest* q, pb::Ack* r) override
+        { main.apiSetMetronome (q->enabled()); r->set_ok (true); return Status::OK; }
         Status DuplicateClip (ServerContext*, const pb::DuplicateClipRequest* q, pb::ClipId* r) override
         {
             const int idx = main.apiDuplicateClip (q->track_id(), q->index(), q->at_beat());

@@ -166,6 +166,12 @@ MainComponent::MainComponent (bool headless)
     loopButton.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
     loopButton.onClick = [this] { transport.setLoopEnabled (loopButton.getToggleState()); };
 
+    addAndMakeVisible (metroButton);
+    metroButton.setClickingTogglesState (true);
+    metroButton.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
+    metroButton.setTooltip ("Metronome: a click on each beat (accented on the downbeat)");
+    metroButton.onClick = [this] { apiSetMetronome (metroButton.getToggleState()); };
+
     addAndMakeVisible (mixerButton);
     mixerButton.onClick = [this] { openMixer(); };
 
@@ -705,6 +711,9 @@ MainComponent::TransportSnap MainComponent::apiGetTransport()
     return { transport.isPlaying(), transport.getBpm(), transport.getPlayheadBeats(),
              transport.isLoopEnabled(), transport.getLoopStartBeats(), transport.getLoopEndBeats() };
 }
+
+bool MainComponent::apiSetMetronome (bool enabled) { metronomeEnabled.store (enabled); return enabled; }
+bool MainComponent::apiGetMetronome() { return metronomeEnabled.load(); }
 
 int MainComponent::apiAddSynthTrack (const juce::String& name, int wave, float a, float d, float s, float r, float g)
 {
@@ -2158,6 +2167,39 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     if (out->getNumChannels() > 0) out->addFrom (0, start, master.buffer, 0, 0, num, mv);
     if (out->getNumChannels() > 1) out->addFrom (1, start, master.buffer, 1, 0, num, mv);
 
+    // --- metronome: a short click at each beat, accented on bar downbeats. A monitor
+    // layer added on top of the master (allocation-free; state persists across blocks so
+    // a click can span a block boundary). Sounds whenever enabled + playing (so an offline
+    // bounce with it on captures it — disable before a clean bounce).
+    if (metronomeEnabled.load() && playing && out->getNumChannels() > 0)
+    {
+        const double rate = juce::jmax (1.0, currentSampleRate);
+        const int    clickLen = (int) (0.03 * rate);   // 30 ms
+        const int    bpb = juce::jmax (1, (int) std::llround (transport.beatsPerBar()));
+        int k = (int) std::ceil (tc.sampleToBeat (blockStartPlayhead) - 1.0e-6);
+        if (k < 0) k = 0;
+        juce::int64 nextBeat = tc.beatToSample (k);   // re-evaluated once per beat, not per sample
+        for (int i = 0; i < num; ++i)
+        {
+            if (blockStartPlayhead + i >= nextBeat)
+            {
+                const bool accent = (k % bpb) == 0;
+                metroSamplesLeft = clickLen; metroPhase = 0.0;
+                metroInc = 2.0 * juce::MathConstants<double>::pi * (accent ? 1600.0 : 1000.0) / rate;
+                metroAmp = accent ? 0.6f : 0.4f;
+                nextBeat = tc.beatToSample (++k);
+            }
+            if (metroSamplesLeft > 0)
+            {
+                const float s = std::sin ((float) metroPhase) * ((float) metroSamplesLeft / (float) clickLen) * metroAmp;
+                out->addSample (0, start + i, s);
+                if (out->getNumChannels() > 1) out->addSample (1, start + i, s);
+                metroPhase += metroInc;
+                --metroSamplesLeft;
+            }
+        }
+    }
+
     return loopLen;
 }
 
@@ -2526,7 +2568,8 @@ void MainComponent::resized()
     addAudioBtn  .setBounds (bar.removeFromLeft (68)); bar.removeFromLeft (5);
     addPluginBtn .setBounds (bar.removeFromLeft (72));
     mixerButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (6);
-    loopButton   .setBounds (bar.removeFromRight (54)); bar.removeFromRight (12);
+    loopButton   .setBounds (bar.removeFromRight (54)); bar.removeFromRight (6);
+    metroButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (12);
     scaleNameBox .setBounds (bar.removeFromRight (128).reduced (0, 4)); bar.removeFromRight (4);
     scaleRootBox .setBounds (bar.removeFromRight (52).reduced (0, 4));
 

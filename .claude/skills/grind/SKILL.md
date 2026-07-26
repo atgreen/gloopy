@@ -781,6 +781,14 @@ desktop control wiring the *same* api* op, screenshot-validated. Status:
 - `[x]` **Punch range** (SetPunchRange) — Alt-drag the ruler to set the punch in/out
   region; drawn in red (loop stays plain-drag/accent) (commit 71e31ef). Screenshot-
   validated (RPC-set bars 2-4 + Alt-drag bars 5-7).
+- `[x]` **Metronome / click track** (SetMetronome) — a beat click generated in `renderBlock`
+  (a 30 ms decaying sine per beat, higher/louder accent on bar downbeats, time-signature
+  aware; allocation-free, click state persists across blocks). A monitor layer on top of the
+  master that also lands in an offline bounce if left on. `GetTransport`/`TransportState`
+  gained a `metronome` flag (+ the `loop_*` fields from the loop-to-clip slice). SetMetronome
+  RPC + Python + `transport()` readback. **Desktop UI:** a "Metro" toolbar toggle next to Loop
+  — screenshot-validated (highlights when on). smoke proves an empty 4-beat render is silent
+  off and clicks each beat on. Session toggle (not serialised).
 - `[x]` **Take management** (PromoteTake/CleanupTakes) — right-click a recorded take clip
   → Use this take (comp: unmute this, mute siblings) / Promote take (keep) / Clean up
   unused takes (commit 805e4f0). Validated with a real loop+punch recording harness

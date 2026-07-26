@@ -88,7 +88,12 @@ class Gloopy:
     def transport(self) -> dict:
         t = self.stub.GetTransport(pb.Empty())
         return {"playing": t.playing, "bpm": t.bpm, "position_beats": t.position_beats,
-                "loop_enabled": t.loop_enabled, "loop_start": t.loop_start, "loop_end": t.loop_end}
+                "loop_enabled": t.loop_enabled, "loop_start": t.loop_start, "loop_end": t.loop_end,
+                "metronome": t.metronome}
+
+    def set_metronome(self, enabled: bool = True) -> None:
+        """Toggle the beat-click metronome (a monitor layer; included in a bounce if left on)."""
+        self._ack(self.stub.SetMetronome(pb.MetronomeRequest(enabled=enabled)))
 
     def start_recording(self) -> None:
         """Record armed MIDI + armed audio tracks from the playhead."""
