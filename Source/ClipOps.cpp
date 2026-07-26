@@ -179,6 +179,34 @@ int MainComponent::apiSplitClip (int trackId, int index, double beat)
     });
 }
 
+// Chop a clip into `pieces` equal-length clips (a loop chopper). Splits at each interior
+// boundary, walking the freshly-cut right remainder (apiSplitClip returns its index).
+int MainComponent::apiSplitClipEqual (int trackId, int index, int pieces)
+{
+    const int n = juce::jlimit (2, 32, pieces);
+    return callOnMessageThread ([&] () -> int
+    {
+        double start = 0.0, len = 0.0;
+        {
+            const juce::ScopedLock sl (engineLock);
+            Track* t = resolveTrack (trackId);
+            if (t == nullptr || ! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
+            start = t->clips[(size_t) index].startBeat;
+            len   = t->clips[(size_t) index].lengthBeats;
+        }
+        if (len <= 0.0) return -1;
+        const double piece = len / n;
+        int cur = index, made = 1;
+        for (int i = 1; i < n; ++i)
+        {
+            const int right = apiSplitClip (trackId, cur, start + (double) i * piece);
+            if (right < 0) break;                          // couldn't cut (too short) — stop
+            cur = right; ++made;
+        }
+        return made;                                       // number of pieces produced
+    });
+}
+
 int MainComponent::apiDuplicateClip (int trackId, int index, double atBeat)
 {
     return callOnMessageThread ([&] () -> int

@@ -1445,6 +1445,14 @@ starts=sorted(round(float(c.get('start')),3) for c in tr.iter('CLIP'))
 assert starts==[0.0,2.0,4.0,6.0], 'repeat tiled to wrong beats: %s'%starts
 print('smoke: PASS — RepeatClip tiled a 2-beat clip to 4 (starts 0/2/4/6)')
 " || { echo 'smoke: RepeatClip tiled wrong' >&2; exit 1; }
+# Split into N: a 4-beat clip (notes at 0/1/2/3) chopped into 4 -> 4 one-beat clips, each
+# carrying its own note (rebased to 0). Uses a fresh track to isolate the clip indices.
+SEQ=$(g -d '{"name":"spliteq","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$SEQ,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":0.8},{\"pitch\":62,\"start_beat\":1,\"length_beats\":1,\"velocity\":0.8},{\"pitch\":64,\"start_beat\":2,\"length_beats\":1,\"velocity\":0.8},{\"pitch\":65,\"start_beat\":3,\"length_beats\":1,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+MADE=$(g -d "{\"track_id\":$SEQ,\"index\":0,\"pieces\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SplitClipEqual | grep -o '[0-9]\+' | head -1)
+NC=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t.get('name')=='spliteq'))")
+[ "$MADE" = 4 ] && [ "$NC" = 4 ] && echo "smoke: PASS — SplitClipEqual chopped a 4-beat clip into 4 equal clips (made=$MADE, track clips=$NC)" || { echo "smoke: split-equal wrong (made=$MADE clips=$NC)" >&2; exit 1; }
+g -d "{\"id\":$SEQ}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   # isolate
 # Loop-to-clip: set the transport loop to a clip's [start,end); GetTransport now reports
 # the loop region (new fields), so we can assert it matches the clip.
 g -d "{\"track_id\":$RC,\"start_beat\":5,\"length_beats\":3,\"content_len_beats\":3,\"notes\":[]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null

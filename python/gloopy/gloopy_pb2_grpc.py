@@ -270,6 +270,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.SplitAtMarkerRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.ClipId.FromString,
                 _registered_method=True)
+        self.SplitClipEqual = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SplitClipEqual',
+                request_serializer=gloopy__pb2.SplitEqualRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.SliceResult.FromString,
+                _registered_method=True)
         self.SliceAtTransients = channel.unary_unary(
                 '/gloopy.v1.Gloopy/SliceAtTransients',
                 request_serializer=gloopy__pb2.SliceTransientsRequest.SerializeToString,
@@ -1241,6 +1246,13 @@ class GloopyServicer:
 
     def SplitClipAtMarker(self, request, context):
         """split at a named timeline location
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SplitClipEqual(self, request, context):
+        """chop a clip into N equal clips
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2367,6 +2379,11 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.SplitClipAtMarker,
                     request_deserializer=gloopy__pb2.SplitAtMarkerRequest.FromString,
                     response_serializer=gloopy__pb2.ClipId.SerializeToString,
+            ),
+            'SplitClipEqual': grpc.unary_unary_rpc_method_handler(
+                    servicer.SplitClipEqual,
+                    request_deserializer=gloopy__pb2.SplitEqualRequest.FromString,
+                    response_serializer=gloopy__pb2.SliceResult.SerializeToString,
             ),
             'SliceAtTransients': grpc.unary_unary_rpc_method_handler(
                     servicer.SliceAtTransients,
@@ -4304,6 +4321,33 @@ class Gloopy:
             '/gloopy.v1.Gloopy/SplitClipAtMarker',
             gloopy__pb2.SplitAtMarkerRequest.SerializeToString,
             gloopy__pb2.ClipId.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SplitClipEqual(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SplitClipEqual',
+            gloopy__pb2.SplitEqualRequest.SerializeToString,
+            gloopy__pb2.SliceResult.FromString,
             options,
             channel_credentials,
             insecure,

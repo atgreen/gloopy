@@ -272,6 +272,11 @@ class Gloopy:
         r = self.stub.SplitClip(pb.SplitClipRequest(track_id=track_id, index=index, beat=beat))
         return r.index
 
+    def split_clip_equal(self, track_id: int, index: int, pieces: int) -> int:
+        """Chop a clip into `pieces` equal-length clips (a loop chopper); returns the number
+        of pieces produced."""
+        return self.stub.SplitClipEqual(pb.SplitEqualRequest(track_id=track_id, index=index, pieces=pieces)).slices
+
     def split_clip_at_marker(self, track_id: int, index: int, marker: str) -> int:
         """Split a clip at a named timeline location; new (right) clip index, or -1."""
         r = self.stub.SplitClipAtMarker(pb.SplitAtMarkerRequest(track_id=track_id, index=index, marker=marker))

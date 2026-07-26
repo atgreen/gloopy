@@ -236,6 +236,7 @@ message LegatoRequest    { int32 track_id = 1; int32 index = 2; float amount = 3
 message VelRampRequest   { int32 track_id = 1; int32 index = 2; float from = 3; float to = 4; }   // crescendo/decrescendo velocities
 message EchoRequest      { int32 track_id = 1; int32 index = 2; double delay_beats = 3; int32 repeats = 4; float feedback = 5; }   // MIDI echo
 message RatchetRequest   { int32 track_id = 1; int32 index = 2; int32 subdivisions = 3; }   // subdivide notes into rapid hits
+message SplitEqualRequest{ int32 track_id = 1; int32 index = 2; int32 pieces = 3; }   // chop a clip into N equal clips
 message HarmonizeRequest { int32 track_id = 1; int32 index = 2; int32 semitones = 3; }   // add a parallel interval voice to each note
 message SwingClipRequest { int32 track_id = 1; int32 index = 2; double grid_beats = 3; float amount = 4; }   // bake a groove: delay off-beat notes
 message ChordifyRequest  { int32 track_id = 1; int32 index = 2; int32 chord_type = 3; }   // 0 major 1 minor 2 dom7 3 dim 4 sus4
@@ -403,6 +404,7 @@ service Gloopy {
   rpc AddAudioClip    (AddAudioClipRequest)    returns (ClipId);
   rpc SplitClip       (SplitClipRequest)       returns (ClipId);    // -> new (right) clip
   rpc SplitClipAtMarker(SplitAtMarkerRequest)  returns (ClipId);    // split at a named timeline location
+  rpc SplitClipEqual  (SplitEqualRequest)      returns (SliceResult);   // chop a clip into N equal clips
   rpc SliceAtTransients(SliceTransientsRequest) returns (SliceResult);   // audio clip -> slices at detected onsets
   rpc SetClipMuted    (ClipMuteRequest)        returns (Ack);      // mute/enable a clip in the arrangement
   rpc RenameClip      (RenameClipRequest)      returns (Ack);      // rename a clip (empty -> track name)

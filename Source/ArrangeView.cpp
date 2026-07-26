@@ -602,6 +602,14 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
 
         juce::PopupMenu m;
         m.addItem (1, "Split at playhead");
+        {
+            juce::PopupMenu se;                             // chop the clip into N equal pieces
+            se.addItem (830, "2");
+            se.addItem (831, "4");
+            se.addItem (832, "8");
+            se.addItem (833, "16");
+            m.addSubMenu ("Split into", se);
+        }
         if (! clipMarkers.empty())
         {
             juce::PopupMenu markerMenu;
@@ -805,6 +813,12 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             {
                 const float v = r == 820 ? 1.0f : r == 821 ? 0.75f : r == 822 ? 0.5f : 0.25f;
                 if (onClipCommand) onClipCommand (t, c, "flattenvel:" + juce::String (v));
+                return;
+            }
+            if (r >= 830 && r <= 833)   // Split into: 2 / 4 / 8 / 16 equal pieces
+            {
+                const int pieces = r == 830 ? 2 : r == 831 ? 4 : r == 832 ? 8 : 16;
+                if (onClipCommand) onClipCommand (t, c, "spliteq:" + juce::String (pieces));
                 return;
             }
             if (r == 742 || r == 743)   // Time-scale: double-time (0.5) / half-time (2)

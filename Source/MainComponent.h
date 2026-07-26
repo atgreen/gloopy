@@ -281,6 +281,7 @@ public:
 
     // --- clip / region operations (ClipOps.cpp) ---
     int  apiSplitClip (int trackId, int index, double beat);        // -> new (right) clip index, or -1
+    int  apiSplitClipEqual (int trackId, int index, int pieces);    // chop into N equal clips -> pieces made
     int  apiSplitClipAtMarker (int trackId, int index, const juce::String& marker);   // split at a named timeline location; -1 if no marker / outside clip
     int  apiSliceClipAtTransients (int trackId, int index, float sensitivity);   // audio clip -> slices at detected onsets; slice count, or -1
     bool apiSetClipMuted (int trackId, int index, bool muted);       // mute/enable a clip in the arrangement (MIDI or audio)

@@ -1206,6 +1206,14 @@ each shipping with desktop UI + screenshot validation.
   (right-click Lead -> Duplicate track -> a "Lead copy" track appears). Follow-up: the clone gets a
   fresh EMPTY mixer strip (its inserts aren't copied) — copying the source's insert chain is a later
   slice.
+- `[x]` **Split clip into N equal pieces landed** (commit): a loop-chopper. `apiSplitClipEqual(track,
+  index,pieces)` reads the clip's [start,len), then walks apiSplitClip at each interior boundary —
+  splitting the freshly-cut RIGHT remainder each time (apiSplitClip inserts the right half at
+  index+1 and returns it), so notes/audio distribute correctly. Clamped 2..32; returns pieces made.
+  SplitClipEqual RPC (`SplitEqualRequest` -> SliceResult) + Python `split_clip_equal`. **Desktop:** a
+  "Split into ▸ 2/4/8/16" submenu near "Split at playhead" on the clip menu. smoke: a 4-beat clip
+  (notes 0/1/2/3) chopped into 4 -> made=4 and the track has 4 clips. Screenshot-validated (the Kick
+  clip became four one-beat clips while other tracks stayed intact).
 
 16. **Browser sidebar + demo/template browser + `File → New From Template`** *(Idea
     #1/#2; absorbs remaining preset UI/work).* **L**
