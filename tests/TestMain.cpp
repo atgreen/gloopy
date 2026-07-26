@@ -389,6 +389,20 @@ struct NoteEditTests : juce::UnitTest
             expect (ch.size() == 4);
         }
 
+        beginTest ("flatten sets every velocity to one value, keeping pitch/timing");
+        {
+            std::vector<Note> ns { {60,0.0,1.0f,0.3f}, {64,1.0,0.5f,0.9f}, {67,2.0,0.5f,0.6f} };
+            flattenVelocities (ns, 0.5f);
+            for (auto& n : ns) expectWithinAbsoluteError (n.velocity, 0.5f, 1e-6f);
+            expect (ns[0].pitch == 60 && ns[1].pitch == 64 && ns[2].pitch == 67);   // pitch untouched
+            expectWithinAbsoluteError (ns[1].startBeat, 1.0, 1e-9);                  // timing untouched
+            expect (ns[1].lengthBeats == 0.5f);
+            // out-of-range value is clamped to 0..1.
+            std::vector<Note> hi { {60,0,1,0.5f} };
+            flattenVelocities (hi, 2.0f);
+            expectWithinAbsoluteError (hi[0].velocity, 1.0f, 1e-6f);
+        }
+
         beginTest ("gate scales note lengths, keeping starts (staccato/tenuto)");
         {
             std::vector<Note> ns { {60,0.0,1.0f,0.8f}, {62,1.0,0.5f,0.7f} };

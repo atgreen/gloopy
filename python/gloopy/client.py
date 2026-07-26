@@ -452,6 +452,11 @@ class Gloopy:
         0.5 = staccato (detached), 1.5 = tenuto (fuller). Rhythm is unchanged."""
         self._ack(self.stub.GateClip(pb.GateRequest(track_id=track_id, index=index, factor=factor)))
 
+    def flatten_clip_velocity(self, track_id: int, index: int, velocity: float = 0.8) -> None:
+        """Flatten dynamics: set every note's velocity to a single value (0..1) — make a part
+        mechanically even. Distinct from velocity-scale (multiply) and ramp (gradient)."""
+        self._ack(self.stub.FlattenClipVelocity(pb.FlattenVelRequest(track_id=track_id, index=index, velocity=velocity)))
+
     def split_notes_at_beat(self, track_id: int, index: int, beat: float) -> None:
         """Knife: cut every note spanning `beat` (clip-relative) into two abutting notes."""
         self._ack(self.stub.SplitNotesAtBeat(pb.SplitNotesRequest(

@@ -656,6 +656,12 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             vr.addItem (740, "Crescendo");                  // soft -> loud
             vr.addItem (741, "Decrescendo");                // loud -> soft
             m.addSubMenu ("Velocity ramp", vr);
+            juce::PopupMenu fv;                              // flatten all velocities to one value
+            fv.addItem (820, "Flat 100%");
+            fv.addItem (821, "Flat 75%");
+            fv.addItem (822, "Flat 50%");
+            fv.addItem (823, "Flat 25%");
+            m.addSubMenu ("Flatten velocity", fv);
             juce::PopupMenu ts;                             // time-scale the clip's rhythm
             ts.addItem (742, "Double-time (faster)");       // factor 0.5
             ts.addItem (743, "Half-time (slower)");         // factor 2
@@ -791,6 +797,12 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             if (r == 740 || r == 741)   // Velocity ramp: crescendo / decrescendo
             {
                 if (onClipCommand) onClipCommand (t, c, r == 740 ? "velramp:up" : "velramp:down");
+                return;
+            }
+            if (r >= 820 && r <= 823)   // Flatten velocity: 100/75/50/25%
+            {
+                const float v = r == 820 ? 1.0f : r == 821 ? 0.75f : r == 822 ? 0.5f : 0.25f;
+                if (onClipCommand) onClipCommand (t, c, "flattenvel:" + juce::String (v));
                 return;
             }
             if (r == 742 || r == 743)   // Time-scale: double-time (0.5) / half-time (2)

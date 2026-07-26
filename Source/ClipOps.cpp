@@ -785,6 +785,9 @@ bool MainComponent::apiSwingClip (int trackId, int index, double grid, float amo
 bool MainComponent::apiGateClip (int trackId, int index, double factor)
 { GLOOPY_EDIT_CLIP_NOTES (gateNotes (notes, factor)) }
 
+bool MainComponent::apiFlattenClipVelocity (int trackId, int index, float value)
+{ GLOOPY_EDIT_CLIP_NOTES (flattenVelocities (notes, value)) }
+
 bool MainComponent::apiChordifyClip (int trackId, int index, int chordType)
 {
     // 0 major, 1 minor, 2 dom7, 3 diminished, 4 sus4 (intervals in semitones above the root).

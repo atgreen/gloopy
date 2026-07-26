@@ -155,6 +155,16 @@ inline void rampVelocities (std::vector<Note>& notes, float fromVel, float toVel
     }
 }
 
+/** Flatten dynamics: set every note's velocity to a single `value` (0..1) — make a part
+    mechanically even, or reset dynamics before re-shaping. Distinct from velocity-scale
+    (multiply), ramp (gradient) and humanize (jitter): flatten makes them all identical.
+    Pure, size- and order-preserving. */
+inline void flattenVelocities (std::vector<Note>& notes, float value)
+{
+    const float v = juce::jlimit (0.0f, 1.0f, value);
+    for (auto& n : notes) n.velocity = v;
+}
+
 /** Time-scale: multiply every note's start and length by `factor` (0.5 = double-time /
     twice as fast, 2 = half-time / twice as slow). Preserves rhythm proportions, pitch and
     velocity; size- and order-preserving. The caller scales the clip's content/length bounds

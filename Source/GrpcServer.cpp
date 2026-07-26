@@ -881,6 +881,9 @@ namespace
         { const double factor = q->factor() <= 0.0 ? 1.0 : q->factor();   // proto3 omits 0; default to no-op
           const bool ok = main.apiGateClip (q->track_id(), q->index(), factor);
           r->set_ok (ok); if (! ok) r->set_error ("gate failed (clip not found or not MIDI)"); return Status::OK; }
+        Status FlattenClipVelocity (ServerContext*, const pb::FlattenVelRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiFlattenClipVelocity (q->track_id(), q->index(), q->velocity());
+          r->set_ok (ok); if (! ok) r->set_error ("flatten velocity failed (clip not found or not MIDI)"); return Status::OK; }
         Status StrumClip (ServerContext*, const pb::StrumRequest* q, pb::Ack* r) override
         { const bool ok = main.apiStrumClip (q->track_id(), q->index(), q->step_beats(), q->down());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }

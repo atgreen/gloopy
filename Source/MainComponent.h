@@ -322,6 +322,7 @@ public:
     bool apiRenameClip (int trackId, int index, const juce::String& name);   // rename a clip (empty -> track name)
     bool apiSetClipColour (int trackId, int index, const juce::String& hexArgb);   // per-clip colour override ("" clears)
     bool apiGateClip (int trackId, int index, double factor);       // scale note lengths (staccato/tenuto)
+    bool apiFlattenClipVelocity (int trackId, int index, float value);   // set all note velocities to a value
     bool apiSplitNotesAtBeat (int trackId, int index, double beat);   // knife: cut notes spanning a clip-relative beat
     // Live (non-destructive) arpeggiator per track. mode 0 up/1 down/2 updown/3 random.
     bool apiSetTrackArp (int trackId, bool enabled, double rate, int octaves, float gate, int mode,

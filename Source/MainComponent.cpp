@@ -372,6 +372,7 @@ MainComponent::MainComponent (bool headless)
         else if (cmd.startsWith ("chordify:")) apiChordifyClip (id, clip, cmd.substring (9).getIntValue());
         else if (cmd.startsWith ("gate:")) apiGateClip (id, clip, cmd.substring (5).getDoubleValue());
         else if (cmd.startsWith ("clipcolour:")) apiSetClipColour (id, clip, cmd.substring (11));
+        else if (cmd.startsWith ("flattenvel:")) apiFlattenClipVelocity (id, clip, (float) cmd.substring (11).getDoubleValue());
         else if (cmd.startsWith ("quantize:"))
         {
             auto a = cmd.substring (9);                          // "grid,strength"

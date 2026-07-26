@@ -1306,6 +1306,16 @@ st=round(json.load(sys.stdin)['notes'][0].get('startBeat',0),4)
 assert st==0.05, 'partial quantize wrong: %s'%st
 print('smoke: PASS — QuantizeClip 50%% moved a 0.1 start halfway to grid -> 0.05')
 " || { echo 'smoke: partial quantize wrong' >&2; exit 1; }
+# Flatten velocity: 3 notes at 0.3/0.9/0.6 -> all 0.5 after FlattenClipVelocity(0.5).
+g -d "{\"track_id\":$CO,\"start_beat\":0,\"length_beats\":3,\"content_len_beats\":3,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":0.3},{\"pitch\":64,\"start_beat\":1,\"length_beats\":1,\"velocity\":0.9},{\"pitch\":67,\"start_beat\":2,\"length_beats\":1,\"velocity\":0.6}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+FVC=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t.get('name')=='clipops')-1)")
+g -d "{\"track_id\":$CO,\"index\":$FVC,\"velocity\":0.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/FlattenClipVelocity >/dev/null
+g -d "{\"track_id\":$CO,\"index\":$FVC}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "
+import json,sys
+vs=sorted(round(n['velocity'],3) for n in json.load(sys.stdin)['notes'])
+assert vs==[0.5,0.5,0.5], 'flatten velocity wrong: %s'%vs
+print('smoke: PASS — FlattenClipVelocity set 0.3/0.9/0.6 all to 0.5')
+" || { echo 'smoke: flatten velocity wrong' >&2; exit 1; }
 # Gate: a 1-beat note with factor 0.5 (staccato) -> length 0.5, start unchanged.
 g -d "{\"track_id\":$CO,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0.5,\"length_beats\":1.0,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
 GTC=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t.get('name')=='clipops')-1)")

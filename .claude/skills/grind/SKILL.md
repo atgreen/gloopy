@@ -1184,6 +1184,14 @@ each shipping with desktop UI + screenshot validation.
   Python `gate_clip`. **Desktop:** a "Note length ▸ Staccato (50%) / Short (75%) / Tenuto (150%) /
   Double (200%)" submenu on the MIDI-clip menu. `GloopyTests::NoteEdits` pins the length scale with
   starts kept; smoke drives GateClip 0.5 → GetClipNotes len 0.5 start 0.5; screenshot-validated.
+- `[x]` **Flatten velocity landed** (commit): a shared `flattenVelocities(notes,value)` transform
+  sets every note's velocity to one value (0..1) — make a part mechanically even / reset dynamics
+  before re-shaping. Distinct from velocity-scale (multiply), ramp (gradient) and humanize (jitter):
+  flatten makes them all identical. `apiFlattenClipVelocity` (via GLOOPY_EDIT_CLIP_NOTES) +
+  FlattenClipVelocity RPC (`FlattenVelRequest`) + Python `flatten_clip_velocity`. **Desktop:** a
+  "Flatten velocity ▸ Flat 100%/75%/50%/25%" submenu on the MIDI-clip menu. `GloopyTests::NoteEdits`
+  pins it (0.3/0.9/0.6 → all 0.5, pitch/timing kept, out-of-range clamped); smoke drives
+  FlattenClipVelocity 0.5 → GetClipNotes velocities all 0.5; screenshot-validated (the submenu).
 - **Duplicate track — STILL DEFERRED (measured):** the loader per-track block is lines 3706-3871
   (~165 lines building generator + clips + automation), interwoven with device prep. Factoring it
   into a reusable `readTrackFromTree` helper risks ALL project loads, and a true clone also needs

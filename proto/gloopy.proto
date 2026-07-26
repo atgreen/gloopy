@@ -240,6 +240,7 @@ message HarmonizeRequest { int32 track_id = 1; int32 index = 2; int32 semitones 
 message SwingClipRequest { int32 track_id = 1; int32 index = 2; double grid_beats = 3; float amount = 4; }   // bake a groove: delay off-beat notes
 message ChordifyRequest  { int32 track_id = 1; int32 index = 2; int32 chord_type = 3; }   // 0 major 1 minor 2 dom7 3 dim 4 sus4
 message GateRequest      { int32 track_id = 1; int32 index = 2; double factor = 3; }   // scale note lengths (0.5 staccato, 1.5 tenuto)
+message FlattenVelRequest{ int32 track_id = 1; int32 index = 2; float velocity = 3; }   // set all velocities to one value
 message ArpeggiateRequest{ int32 track_id = 1; int32 index = 2; double step_beats = 3; int32 mode = 4; } // mode 0=up 1=down 2=updown
 message SplitNotesRequest{ int32 track_id = 1; int32 index = 2; double beat = 3; }   // knife: cut notes spanning this clip-relative beat
 // Live (non-destructive) per-track arpeggiator. mode 0=up 1=down 2=updown 3=random.
@@ -440,6 +441,7 @@ service Gloopy {
   rpc SwingClip       (SwingClipRequest)       returns (Ack);   // bake a groove: delay off-beat notes
   rpc ChordifyClip    (ChordifyRequest)        returns (Ack);   // turn each note into a named chord
   rpc GateClip        (GateRequest)            returns (Ack);   // scale note lengths (staccato/tenuto)
+  rpc FlattenClipVelocity (FlattenVelRequest)  returns (Ack);   // set all note velocities to one value
   rpc ArpeggiateClip  (ArpeggiateRequest)      returns (Ack);   // chord -> arpeggio (destructive)
   rpc SplitNotesAtBeat(SplitNotesRequest)      returns (Ack);   // knife: split notes crossing a clip-relative beat
   rpc SetTrackArp     (ArpSpec)                returns (Ack);   // live per-track arpeggiator
