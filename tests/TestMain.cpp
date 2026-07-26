@@ -13,6 +13,7 @@
 #include "NotesJson.h"
 #include "AllpassPhaser.h"
 #include "Biquad.h"
+#include "EffectSync.h"
 #include "Onsets.h"
 #include "ParamScale.h"
 #include "FileDrop.h"
@@ -689,6 +690,33 @@ struct BiquadEqTests : juce::UnitTest
     }
 };
 
+struct EffectSyncTests : juce::UnitTest
+{
+    EffectSyncTests() : juce::UnitTest ("EffectSync") {}
+    void runTest() override
+    {
+        beginTest ("synced rate = bpm / (60*beats); tracks tempo and beat division");
+        {
+            expectWithinAbsoluteError ((double) effectSyncedRate (120.0, 1.0f, 5.0f), 2.0, 1e-5);   // 1 beat @120 = 2 Hz
+            expectWithinAbsoluteError ((double) effectSyncedRate (120.0, 0.5f, 5.0f), 4.0, 1e-5);   // 1/8 @120 = 4 Hz
+            expectWithinAbsoluteError ((double) effectSyncedRate (120.0, 2.0f, 5.0f), 1.0, 1e-5);   // 2 beats = 1 Hz
+            expectWithinAbsoluteError ((double) effectSyncedRate (240.0, 1.0f, 5.0f), 4.0, 1e-5);   // faster tempo -> faster
+        }
+        beginTest ("syncBeats 0 uses the free rate (clamped to 0.05..8)");
+        {
+            expectWithinAbsoluteError ((double) effectSyncedRate (120.0, 0.0f, 3.0f), 3.0, 1e-5);
+            expectWithinAbsoluteError ((double) effectSyncedRate (120.0, 0.0f, 99.0f), 8.0, 1e-5);   // clamp high
+            expectWithinAbsoluteError ((double) effectSyncedRate (120.0, 0.0f, 0.0f), 0.05, 1e-5);   // clamp low
+        }
+        beginTest ("synced rate clamps to 0.01..20 Hz");
+        {
+            expect (effectSyncedRate (600.0, 0.1f, 1.0f) <= 20.0f);   // 600/(60*0.1)=100 -> clamped
+            expect (effectSyncedRate (1.0, 4.0f, 1.0f) >= 0.01f);
+        }
+    }
+};
+
+static EffectSyncTests   effectSyncTests;
 static BiquadEqTests     biquadEqTests;
 static AllpassPhaserTests allpassPhaserTests;
 static NotesJsonTests    notesJsonTests;

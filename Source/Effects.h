@@ -11,6 +11,7 @@
 #include "StereoWiden.h"
 #include "AllpassPhaser.h"
 #include "Biquad.h"
+#include "EffectSync.h"
 
 // ---------------------------------------------------------------------------
 // Gain
@@ -545,7 +546,7 @@ public:
     void process (juce::AudioBuffer<float>& b) override
     {
         if (bypassed.load() || bufLen <= 4) return;
-        const float rate  = juce::jlimit (0.05f, 8.0f, rateHz.load());
+        const float rate  = effectSyncedRate (bpm, syncBeats.load(), rateHz.load());   // tempo-sync when Sync bt > 0
         const float depth = juce::jlimit (0.0f, 10.0f, depthMs.load());
         const float mx    = juce::jlimit (0.0f, 1.0f, mix.load());
         const float baseMs = 12.0f;                                   // centre delay
@@ -579,23 +580,26 @@ public:
         }
     }
 
+    void setTempo (double b) override { bpm = juce::jmax (1.0, b); }
+
     juce::String name() const override { return "Chorus"; }
 
     std::vector<EffectParam> parameters() override
     {
         return {
             { "Rate",  0.05f, 8.0f, 1.0f,  [this] { return rateHz.load(); },  [this] (float v) { rateHz.store (v); } },
+            { "Sync bt", 0.0f, 4.0f, 0.0f, [this] { return syncBeats.load(); }, [this] (float v) { syncBeats.store (v); } },
             { "Depth", 0.0f, 10.0f, 3.0f,  [this] { return depthMs.load(); }, [this] (float v) { depthMs.store (v); } },
             { "Mix",   0.0f, 1.0f, 0.5f,   [this] { return mix.load(); },     [this] (float v) { mix.store (v); } }
         };
     }
 
 private:
-    double sr { 44100.0 };
+    double sr { 44100.0 }, bpm { 120.0 };
     int    bufLen { 0 }, writePos { 0 };
     float  phase { 0.0f };
     std::array<std::vector<float>, 2> buffers;
-    std::atomic<float> rateHz { 1.0f }, depthMs { 3.0f }, mix { 0.5f };
+    std::atomic<float> rateHz { 1.0f }, depthMs { 3.0f }, mix { 0.5f }, syncBeats { 0.0f };
 };
 
 // ---------------------------------------------------------------------------
@@ -623,7 +627,7 @@ public:
     void process (juce::AudioBuffer<float>& b) override
     {
         if (bypassed.load() || bufLen <= 4) return;
-        const float rate  = juce::jlimit (0.05f, 8.0f, rateHz.load());
+        const float rate  = effectSyncedRate (bpm, syncBeats.load(), rateHz.load());   // tempo-sync when Sync bt > 0
         const float depth = juce::jlimit (0.0f, 5.0f, depthMs.load());
         const float fb    = juce::jlimit (0.0f, 0.95f, feedback.load());
         const float mx    = juce::jlimit (0.0f, 1.0f, mix.load());
@@ -657,12 +661,15 @@ public:
         }
     }
 
+    void setTempo (double b) override { bpm = juce::jmax (1.0, b); }
+
     juce::String name() const override { return "Flanger"; }
 
     std::vector<EffectParam> parameters() override
     {
         return {
             { "Rate",   0.05f, 8.0f, 0.5f,  [this] { return rateHz.load(); },   [this] (float v) { rateHz.store (v); } },
+            { "Sync bt", 0.0f, 4.0f, 0.0f,  [this] { return syncBeats.load(); }, [this] (float v) { syncBeats.store (v); } },
             { "Depth",  0.0f, 5.0f, 2.0f,   [this] { return depthMs.load(); },  [this] (float v) { depthMs.store (v); } },
             { "Feedbk", 0.0f, 0.95f, 0.5f,  [this] { return feedback.load(); }, [this] (float v) { feedback.store (v); } },
             { "Mix",    0.0f, 1.0f, 0.5f,   [this] { return mix.load(); },      [this] (float v) { mix.store (v); } }
@@ -670,11 +677,11 @@ public:
     }
 
 private:
-    double sr { 44100.0 };
+    double sr { 44100.0 }, bpm { 120.0 };
     int    bufLen { 0 }, writePos { 0 };
     float  phase { 0.0f };
     std::array<std::vector<float>, 2> buffers;
-    std::atomic<float> rateHz { 0.5f }, depthMs { 2.0f }, feedback { 0.5f }, mix { 0.5f };
+    std::atomic<float> rateHz { 0.5f }, depthMs { 2.0f }, feedback { 0.5f }, mix { 0.5f }, syncBeats { 0.0f };
 };
 
 // ---------------------------------------------------------------------------
@@ -696,7 +703,7 @@ public:
     void process (juce::AudioBuffer<float>& b) override
     {
         if (bypassed.load()) return;
-        const float rate  = juce::jlimit (0.05f, 8.0f, rateHz.load());
+        const float rate  = effectSyncedRate (bpm, syncBeats.load(), rateHz.load());   // tempo-sync when Sync bt > 0
         const float depth = juce::jlimit (0.0f, 1.0f, depthAmt.load());
         const float fb    = juce::jlimit (0.0f, 0.95f, feedback.load());
         const float mx    = juce::jlimit (0.0f, 1.0f, mix.load());
@@ -725,12 +732,15 @@ public:
         }
     }
 
+    void setTempo (double b) override { bpm = juce::jmax (1.0, b); }
+
     juce::String name() const override { return "Phaser"; }
 
     std::vector<EffectParam> parameters() override
     {
         return {
             { "Rate",   0.05f, 8.0f, 0.4f,  [this] { return rateHz.load(); },   [this] (float v) { rateHz.store (v); } },
+            { "Sync bt", 0.0f, 4.0f, 0.0f,  [this] { return syncBeats.load(); }, [this] (float v) { syncBeats.store (v); } },
             { "Depth",  0.0f, 1.0f, 0.6f,   [this] { return depthAmt.load(); }, [this] (float v) { depthAmt.store (v); } },
             { "Feedbk", 0.0f, 0.95f, 0.5f,  [this] { return feedback.load(); }, [this] (float v) { feedback.store (v); } },
             { "Mix",    0.0f, 1.0f, 0.5f,   [this] { return mix.load(); },      [this] (float v) { mix.store (v); } }
@@ -739,11 +749,11 @@ public:
 
 private:
     static constexpr int kStages = 6;
-    double sr { 44100.0 };
+    double sr { 44100.0 }, bpm { 120.0 };
     float  phase { 0.0f };
     std::array<std::array<float, kStages>, 2> z {};
     std::array<float, 2> fbState {};
-    std::atomic<float> rateHz { 0.4f }, depthAmt { 0.6f }, feedback { 0.5f }, mix { 0.5f };
+    std::atomic<float> rateHz { 0.4f }, depthAmt { 0.6f }, feedback { 0.5f }, mix { 0.5f }, syncBeats { 0.0f };
 };
 
 // ---------------------------------------------------------------------------

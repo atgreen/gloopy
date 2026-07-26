@@ -779,7 +779,19 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       delay (diff 0.00000, re-adding a fresh delay per render so feedback tails don't bleed
       across renders — a gotcha), and a tempo change to 240 BPM halves it (render differs).
       The "Sync bt" knob auto-renders in the FX panel (screenshot-validated). The setTempo hook
-      generalises to future tempo-synced effects. **Not yet:** dotted/triplet sync labels.
+      generalises to future tempo-synced effects.
+    - `[x]` **Tempo-synced modulation effects** (commit): Chorus/Flanger/Phaser gained the same
+      "Sync bt" param (LFO cycle length in beats; 0 = free Hz) via the setTempo hook. The
+      sync->rate math is a pure header (`Source/EffectSync.h`, `effectSyncedRate(bpm,
+      syncBeats, freeRate) = bpm/(60*beats)` clamped), unit-tested (`GloopyTests::EffectSync`).
+      Since the delay smoke already proves setTempo reaches effects in an offline render, the
+      chorus smoke just proves the Sync-bt param is wired and audibly active vs dry. **Gotcha
+      (pre-existing, logged):** modulation-effect offline bounces are NOT bit-reproducible
+      run-to-run (even the free path: two identical chorus renders differ ~0.026) — effect
+      state isn't reset before a bounce — so no exact render comparison for these (the delay
+      worked only because a fresh instance per render zeroes its buffer AND it has no LFO
+      phase). A future slice could reset effects before each offline render. **Not yet:**
+      dotted/triplet sync labels.
     - `[x]` **Stereo Widener landed** (commit): `StereoWidenerFx`, mid/side, one Width
       param (0 mono / 1 unchanged / 2 double-wide), as EffectType STEREO_WIDENER=9 (all
       four registries synced). The pure transform lives in `Source/StereoWiden.h`

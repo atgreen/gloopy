@@ -1045,6 +1045,28 @@ assert dsync < 0.0005, 'synced 1/4 @120 did not match free 500ms (diff=%.5f)'%ds
 assert dtempo > 0.003, 'changing tempo did not change the synced delay (diff=%.5f)'%dtempo
 print('smoke: PASS — tempo-synced delay: 1/4@120 == free 500ms (diff %.5f), tempo change alters it (diff %.4f)'%(dsync,dtempo))
 " || { echo 'smoke: tempo-synced delay wrong' >&2; exit 1; }
+# Tempo-synced modulation effects (Chorus/Flanger/Phaser). The sync->rate math is
+# unit-tested (GloopyTests::EffectSync) and the setTempo hook reaching effects in an offline
+# render is already proven by the tempo-synced delay above; here just prove the "Sync bt"
+# param is wired and a synced chorus is audibly active vs dry. (Modulation-effect bounces
+# are not bit-reproducible run-to-run, so no exact render comparison here.)
+g -d '{"bpm":120}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTempo >/dev/null
+g -d "{\"path\":\"$WORK/ch_dry.wav\",\"tail_seconds\":0.5,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"insert":0,"type":"CHORUS"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Mix","value":1.0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Sync bt","value":1}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/ch_wet.wav\",\"tail_seconds\":0.5,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+dry=rd('$WORK/ch_dry.wav');wet=rd('$WORK/ch_wet.wav');m=min(len(dry),len(wet))
+d=sum(abs(dry[i]-wet[i]) for i in range(m))/m/(1<<23)
+assert any(dry[:m]), 'render silent'
+assert d>0.003, 'synced chorus (Sync bt=1) had no audible effect vs dry (diff=%.5f)'%d
+print('smoke: PASS — synced chorus (Sync bt=1) is active vs dry (diff %.4f); rate math unit-tested'%d)
+" || { echo 'smoke: tempo-synced modulation effect wrong' >&2; exit 1; }
 
 # Stereo Widener: prove the STEREO_WIDENER enum -> factory -> params wiring and a clean
 # render (the mid/side DSP itself is unit-tested in GloopyTests::StereoWidener).
