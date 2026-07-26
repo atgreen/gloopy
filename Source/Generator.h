@@ -31,4 +31,12 @@ public:
 
     /** Non-null for hosted plugins, so the UI can open their editor. */
     virtual juce::AudioProcessor* getPluginInstance() { return nullptr; }
+
+    /** Message-thread cache of a display name for hosted instruments — e.g. the current Surge XT
+        patch. Empty = the track uses its default name/type label. Read in paint (cheap);
+        refreshed sparingly by the host via refreshUiPatchName() (getStateInformation is heavy). */
+    juce::String uiPatchName;
+
+    /** Recompute uiPatchName from the live plugin state. Message thread only; may be costly. */
+    virtual void refreshUiPatchName() {}
 };

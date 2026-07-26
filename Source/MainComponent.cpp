@@ -3206,6 +3206,25 @@ void MainComponent::timerCallback()
     const int tick = (int) (std::fmod (beats, 1.0) * 100.0);
     posLabel.setText (juce::String::formatted ("%d . %d . %02d", bar, beat, tick),
                       juce::dontSendNotification);
+
+    // ~1x/sec (well below the 30 Hz tick): refresh hosted-instrument display names — e.g. the
+    // current Surge XT patch, which the user changes from Surge's own browser — and repaint the
+    // arrange header if any changed. Only Surge tracks pay getStateInformation (the helper bails
+    // on the plugin name first), so this stays cheap for everything else.
+    static int uiRefreshTick = 0;
+    if (++uiRefreshTick >= 30)
+    {
+        uiRefreshTick = 0;
+        bool changed = false;
+        for (auto& t : tracks)
+            if (t != nullptr && t->generator != nullptr)
+            {
+                const auto prev = t->generator->uiPatchName;
+                t->generator->refreshUiPatchName();
+                changed = changed || (t->generator->uiPatchName != prev);
+            }
+        if (changed && arrangeView != nullptr) arrangeView->repaint();
+    }
 }
 
 void MainComponent::paint (juce::Graphics& g)

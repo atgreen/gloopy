@@ -292,15 +292,26 @@ void ArrangeView::paint (juce::Graphics& g)
         g.setColour (t->colour);
         g.fillRect (0, y + 3, 4, trackHeight - 6);
 
+        // Default: track name over the type label. A hosted instrument with a known patch
+        // (e.g. Surge XT) instead shows the patch name over the plugin name — "Distorted Bass"
+        // / "Surge XT".
+        juce::String title = t->name;
+        juce::String subtitle = t->type == TrackType::Instrument ? "INSTRUMENT"
+                              : t->type == TrackType::Audio ? "AUDIO" : "MIDI OUT";
+        if (t->generator != nullptr && t->generator->uiPatchName.isNotEmpty())
+            if (auto* pi = t->generator->getPluginInstance())
+            {
+                title    = t->generator->uiPatchName;
+                subtitle = pi->getName();
+            }
+
         g.setColour (i == selTrack ? Palette::textBright : Palette::text);
         g.setFont (juce::FontOptions (13.5f, juce::Font::bold));
-        g.drawText (t->name, 12, y + 4, headerWidth - 70, 18, juce::Justification::centredLeft, true);
+        g.drawText (title, 12, y + 4, headerWidth - 70, 18, juce::Justification::centredLeft, true);
 
-        const char* typeName = t->type == TrackType::Instrument ? "INSTRUMENT"
-                             : t->type == TrackType::Audio ? "AUDIO" : "MIDI OUT";
         g.setColour (Palette::textDim);
         g.setFont (Palette::sectionFont());
-        g.drawText (typeName, 12, y + 22, headerWidth - 70, 12, juce::Justification::centredLeft, false);
+        g.drawText (subtitle, 12, y + 22, headerWidth - 70, 12, juce::Justification::centredLeft, false);
 
         // Clips.
         for (int ci = 0; ci < (int) t->clips.size(); ++ci)

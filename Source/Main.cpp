@@ -6,6 +6,7 @@
 #include <sstream>
 #include "MainComponent.h"
 #include "PluginHost.h"
+#include "SurgePatchName.h"
 
 // Redirects std::cout to a throwaway buffer for its lifetime, so the runtime's
 // diagnostic chatter (`[composition] loaded …`) during a CLI load/save doesn't
@@ -186,6 +187,7 @@ public:
                     inst->setPlayConfigDetails (0, 2, 44100.0, 512);
                     inst->prepareToPlay (44100.0, 512);
                     juce::MemoryBlock stBefore; inst->getStateInformation (stBefore);   // INIT plugin state
+                    std::cout << "PATCHNAME=[" << surgePatchName (*inst) << "]\n";       // regression check
                     // Render a held middle-C and return the energy (sum of squares) + peak. A patch that
                     // loads changes the timbre -> a different energy signature, which survives the LV2
                     // boundary even when the host-side param cache does NOT refresh on patch load.

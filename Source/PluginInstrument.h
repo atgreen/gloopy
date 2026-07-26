@@ -7,6 +7,7 @@
 #include <atomic>
 #include <bitset>
 #include "Generator.h"
+#include "SurgePatchName.h"
 
 /** A hosted instrument plugin (VST3/LV2) as a track generator: MIDI in → audio out. */
 class PluginInstrument : public Generator
@@ -52,6 +53,11 @@ public:
     void allNotesOff() override { panic = true; }
     juce::String typeName() const override { return "Plugin"; }
     juce::AudioProcessor* getPluginInstance() override { return plugin.get(); }
+
+    void refreshUiPatchName() override
+    {
+        if (plugin != nullptr) uiPatchName = surgePatchName (*plugin);
+    }
 
 private:
     /** Track which (channel,note) pairs are currently sounding, so a panic can
