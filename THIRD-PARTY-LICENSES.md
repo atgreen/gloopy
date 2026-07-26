@@ -46,27 +46,44 @@ Notes:
 
 ## Embedded synth (Surge XT) — GPL-3.0
 
-Gloopy can embed the **Surge XT** synthesizer engine as its default instrument
-voice (the `+ Synth → Surge XT` menu and the browser's *Presets* tab). It is built
-only when `GLOOPY_WITH_SURGE=ON` (the default), and only its synth core
-(`surge-common`) is compiled — no JUCE UI, plugin wrappers, or standalone.
+Gloopy incorporates **Surge XT** (GPL-3.0) in **two** distinct forms, both derived
+from the `third_party/surge` submodule:
+
+1. **Embedded synth core** — the `surge-common` DSP library is compiled *into* the
+   Gloopy binary as its default instrument voice, when `GLOOPY_WITH_SURGE=ON` (the
+   default). Only the synth core is compiled here — no JUCE UI, plugin wrappers, or
+   standalone.
+2. **Bundled Surge XT LV2 plugin** — the *full* Surge XT LV2 plugin (with its JUCE
+   editor UI) is built by `scripts/build-surge-plugin.sh`, staged at
+   `third_party/surge-plugin/Surge XT.lv2`, and **shipped beside the Gloopy binary**
+   (installed to `bin/plugins`, so it is included in the released RPM/DEB packages).
+   Gloopy hosts it for the real Surge editor via `+ Synth → Surge XT (full editor)`,
+   with no external Surge install required. This is a separate GPL-3.0 shared object
+   — it is loaded at runtime as an LV2 plugin, not linked into Gloopy's own binary.
 
 | Component | License | License text |
 |-----------|---------|--------------|
 | **Surge XT** (synth engine + factory patches/wavetables) | **GPL-3.0-or-later** | `third_party/surge/LICENSE` (+ `AUTHORS`) |
+| **Surge XT LV2 plugin** (bundled `.so`, incorporates JUCE + Surge's libs) | **GPL-3.0-or-later** | `third_party/surge/LICENSE` (+ `AUTHORS`) |
 
 Surge bundles its own third-party libraries (the `sst-*` DSP libs, fmt, LuaJIT,
 PEGTL, r8brain, airwindows, eurorack, zstd, sqlite, tuning-library, …); the license
 texts inside the vendored Surge tree are authoritative for those, and Surge's own
-`AUTHORS`/`LICENSE` cover the aggregate.
+`AUTHORS`/`LICENSE` cover the aggregate. The bundled LV2 plugin additionally statically
+links **JUCE** (used under its GPL terms — the same GPL/AGPL basis as the rest of the
+work); its combined binary is GPL-3.0.
 
 Notes:
-- **The shipped binary is a combined GPL-3.0 / AGPL-3.0 work.** GPLv3 §13 and the
-  GNU AGPLv3 are explicitly compatible for combination, so linking Surge (GPL-3.0)
-  into Gloopy (AGPL-3.0) is permitted; the combined result must be conveyed under
-  terms satisfying both (in practice, the AGPL for Gloopy's own code, the GPL for
-  Surge's, source available for the whole). Building with `-DGLOOPY_WITH_SURGE=OFF`
-  produces a lean binary with **no Surge code**, if a GPL-free build is desired.
+- **The shipped Gloopy binary is a combined GPL-3.0 / AGPL-3.0 work** (embedded
+  `surge-common`), and the **released packages additionally ship the GPL-3.0 Surge XT
+  LV2 plugin** beside it. GPLv3 §13 and the GNU AGPLv3 are explicitly compatible for
+  combination, so linking Surge (GPL-3.0) into Gloopy (AGPL-3.0) and shipping the Surge
+  plugin alongside it are both permitted; the conveyed result must satisfy both licenses
+  (in practice, the AGPL for Gloopy's own code, the GPL for Surge's, **source available
+  for the whole** — including the bundled plugin, whose source is the `third_party/surge`
+  submodule at the pinned commit). Building with `-DGLOOPY_WITH_SURGE=OFF` and without
+  running `build-surge-plugin.sh` produces a lean binary with **no Surge code**, if a
+  GPL-free build is desired.
 - **Factory content:** only Surge's **first-party** factory patches
   (`resources/data/patches_factory`) and wavetables are used/bundled — these ship
   under the repo's GPL-3.0. Third-party patch/wavetable packs

@@ -42,9 +42,10 @@ default synth — so users get **the real Surge XT editor** (via Gloopy's existi
   and point the bundled plugin at it (Surge XT LV2 resolves data via XDG/system paths, not
   `bin/assets`, so a plain copy is not enough — needs `SURGE_DATA`/symlink or equivalent). Verify
   in an isolated `HOME`.
-- **Licensing — record the bundled GPL-3 Surge in `THIRD-PARTY-LICENSES.md`.** We now *ship* the
-  Surge binary in the RPM/DEB packages (not just link the embedded core), so the "record this in
-  THIRD-PARTY-LICENSES.md" guardrail from the Licensing section below is now live and must be done.
+- **Licensing — ✅ DONE.** `THIRD-PARTY-LICENSES.md` now documents Surge XT in both forms
+  (embedded `surge-common` core *and* the bundled GPL-3 LV2 plugin `.so` shipped in the RPM/DEB
+  packages), the combined-work / source-availability obligation covering the shipped plugin, and
+  that JUCE is statically linked into it under GPL terms.
 - **Step 3.** Make `+ Synth → Surge XT` / the Presets tab drive the hosted bundled plugin (real
   UI) and load `.fxp` into it, instead of the headless `SurgeGenerator`.
 
