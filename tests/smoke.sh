@@ -293,6 +293,26 @@ print('smoke: PASS — ExportTrack stem A non-silent (%.3f), empty track B silen
 " || { echo 'smoke: export track wrong' >&2; exit 1; }
 g -d "{\"path\":\"$WORK/stem_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 
+# Rename mixer strip (insert): rename the highest-index strip -> ListInserts shows the new
+# name, and it survives a composition round-trip (MTRACK name serialises). Snapshot+restore.
+g -d "{\"path\":\"$WORK/insn_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+g -d '{"name":"insnT","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack >/dev/null
+IIX=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListInserts | python3 -c "import json,sys;print(max(i.get('index',0) for i in json.load(sys.stdin)['inserts']))")
+g -d "{\"index\":$IIX,\"name\":\"DrumBus\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetInsertName >/dev/null
+g -d "{\"index\":$IIX,\"name\":\"   \"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetInsertName >/dev/null 2>&1   # empty -> rejected
+INCOMP="$WORK/insncomp"
+g -d "{\"path\":\"$INCOMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+g -d "{\"path\":\"$INCOMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListInserts | python3 -c "
+import json,sys
+names=[i['name'] for i in json.load(sys.stdin)['inserts']]
+assert 'DrumBus' in names, 'insert rename lost: %s'%names
+print('smoke: PASS — SetInsertName renamed a mixer strip to DrumBus (survives composition round-trip)')
+" || { echo 'smoke: insert rename wrong' >&2; exit 1; }
+g -d "{\"path\":\"$WORK/insn_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+
 # Modulation matrix: an LFO on a synth cutoff must change the render vs a static
 # cutoff. Dedicated track + two renders, then cleaned up.
 MT=$(g -d '{"name":"modtest","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.2,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)

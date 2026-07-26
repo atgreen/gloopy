@@ -113,6 +113,7 @@ message InsertParams {
   optional bool   mute   = 4;
   optional bool   solo   = 5;
 }
+message InsertName  { int32 index = 1; string name = 2; }   // rename a mixer strip
 message EffectRef   { int32 insert = 1; int32 slot = 2; }
 message AddEffectRequest { int32 insert = 1; EffectType type = 2; }
 message EffectParamSet   { int32 insert = 1; int32 slot = 2; string name = 3; float value = 4; }
@@ -447,6 +448,7 @@ service Gloopy {
   // mixer & effects
   rpc ListInserts    (Empty)            returns (InsertList);
   rpc SetInsertParams(InsertParams)     returns (Ack);
+  rpc SetInsertName  (InsertName)       returns (Ack);   // rename a mixer strip
   rpc AddEffect      (AddEffectRequest) returns (EffectRef);
   rpc RemoveEffect   (EffectRef)        returns (Ack);
   rpc SetEffectParam (EffectParamSet)   returns (Ack);

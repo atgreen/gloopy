@@ -573,6 +573,7 @@ MainComponent::MainComponent (bool headless)
     };
     mixerView->onSetSend     = [this] (int insert, int bus, float level, bool post) { apiSetSend (insert, bus, level, post); if (mixerView) mixerView->rebuild(); };
     mixerView->onAddBus      = [this] (const juce::String& name) { apiAddBus (name); if (mixerView) mixerView->rebuild(); };
+    mixerView->onSetInsertName = [this] (int index, const juce::String& name) { apiSetInsertName (index, name); };
 
     // Start with an EMPTY project — no default tracks. Use File -> New from Template
     // (or the browser sidebar) to seed a drum kit / starter beat / lead+bass.
@@ -1073,6 +1074,19 @@ bool MainComponent::apiSetInsertParams (int index, bool hasVol, float vol, bool 
         if (hasMute) mt.mute.store (mute);
         if (hasSolo) mt.solo.store (solo);
         if (mixerView) mixerView->repaint();
+        return true;
+    });
+}
+
+bool MainComponent::apiSetInsertName (int index, const juce::String& name)
+{
+    if (name.trim().isEmpty()) return false;
+    return callOnMessageThread ([&] () -> bool
+    {
+        if (! juce::isPositiveAndBelow (index, (int) mixerTracks.size())) return false;
+        pushUndoSnapshot();
+        { const juce::ScopedLock sl (engineLock); mixerTracks[(size_t) index]->name = name.trim(); }
+        if (mixerView) { mixerView->rebuild(); mixerView->repaint(); }
         return true;
     });
 }

@@ -1124,6 +1124,15 @@ each shipping with desktop UI + screenshot validation.
   message thread via runBackground + busy overlay. smoke: a track with a note bounces non-silent
   (0.205) while an EMPTY track's stem is silent (0.00000) — proving the stem is isolated to its
   target, not the whole mix. Screenshot-validated (the menu item is present).
+- `[x]` **Rename mixer strip landed** (commit): first direct MixerView slice — mixer strips were
+  labelled generically ("Ins N") with no way to rename them. `apiSetInsertName(index,name)`
+  (message-thread, undo, rejects empty) + SetInsertName RPC (`InsertName`) + Python
+  `set_insert_name`; the MTRACK `name` already serialised so it round-trips. **Desktop:** a "Rename
+  strip..." item on the mixer strip-name right-click menu (the same menu as control groups / sends),
+  opening a name-prompt AlertWindow prefilled from the strip's current name (MixerView holds the
+  mixerTracks ref + engineLock). smoke: rename the highest-index strip → ListInserts shows "DrumBus"
+  and it survives a composition round-trip. Screenshot-validated end-to-end (strip menu → "Rename
+  strip..." → dialog → typed "DrumBus" → the strip header updates live from "Ins 1" to "DrumBus").
 
 16. **Browser sidebar + demo/template browser + `File → New From Template`** *(Idea
     #1/#2; absorbs remaining preset UI/work).* **L**

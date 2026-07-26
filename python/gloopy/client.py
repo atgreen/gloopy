@@ -476,6 +476,10 @@ class Gloopy:
                 kw[k] = v
         self._ack(self.stub.SetInsertParams(pb.InsertParams(**kw)))
 
+    def set_insert_name(self, index: int, name: str) -> None:
+        """Rename a mixer strip (insert). Empty/whitespace names are rejected."""
+        self._ack(self.stub.SetInsertName(pb.InsertName(index=index, name=name)))
+
     def add_effect(self, insert: int, type) -> tuple[int, int]:
         r = self.stub.AddEffect(pb.AddEffectRequest(insert=insert, type=_fx(type)))
         return (r.insert, r.slot)

@@ -495,6 +495,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.InsertParams.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SetInsertName = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetInsertName',
+                request_serializer=gloopy__pb2.InsertName.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.AddEffect = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AddEffect',
                 request_serializer=gloopy__pb2.AddEffectRequest.SerializeToString,
@@ -1512,6 +1517,13 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetInsertName(self, request, context):
+        """rename a mixer strip
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def AddEffect(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2507,6 +2519,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'SetInsertParams': grpc.unary_unary_rpc_method_handler(
                     servicer.SetInsertParams,
                     request_deserializer=gloopy__pb2.InsertParams.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetInsertName': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetInsertName,
+                    request_deserializer=gloopy__pb2.InsertName.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'AddEffect': grpc.unary_unary_rpc_method_handler(
@@ -5399,6 +5416,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/SetInsertParams',
             gloopy__pb2.InsertParams.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetInsertName(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetInsertName',
+            gloopy__pb2.InsertName.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

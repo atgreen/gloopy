@@ -228,6 +228,10 @@ namespace
             return Status::OK;
         }
 
+        Status SetInsertName (ServerContext*, const pb::InsertName* q, pb::Ack* r) override
+        { const bool ok = main.apiSetInsertName (q->index(), js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("rename failed (insert not found or empty name)"); return Status::OK; }
+
         Status AddEffect (ServerContext*, const pb::AddEffectRequest* q, pb::EffectRef* r) override
         {
             const int slot = main.apiAddEffect (q->insert(), (int) q->type());

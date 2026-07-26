@@ -447,6 +447,7 @@ void MixerView::showGroupMenu (int insertIndex)
 
     juce::PopupMenu m;
     m.addSectionHeader (cur.isNotEmpty() ? "Group: " + cur : "No control group");
+    if (onSetInsertName) { m.addItem (7, "Rename strip..."); m.addSeparator(); }
     m.addItem (1, "New group...");
 
     juce::PopupMenu assign;
@@ -498,6 +499,22 @@ void MixerView::showGroupMenu (int insertIndex)
     m.showMenuAsync (juce::PopupMenu::Options(), [this, insertIndex, cur, groups, buses, sends] (int r)
     {
         if (r == 0) return;
+        if (r == 7 && onSetInsertName)   // rename this mixer strip
+        {
+            juce::String curName;
+            { const juce::ScopedLock sl (engineLock);
+              if (juce::isPositiveAndBelow (insertIndex, (int) tracks.size())) curName = tracks[(size_t) insertIndex]->name; }
+            auto* aw = new juce::AlertWindow ("Rename strip", "New strip name", juce::MessageBoxIconType::NoIcon);
+            aw->addTextEditor ("name", curName, "Name");
+            aw->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
+            aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+            aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, insertIndex] (int rr)
+            {
+                if (rr == 1 && onSetInsertName) onSetInsertName (insertIndex, aw->getTextEditorContents ("name"));
+                delete aw;
+            }), false);
+            return;
+        }
         if (r == 1) { promptNewGroup (insertIndex); return; }
         if (r == 2) { onAssignGroup (insertIndex, {}); return; }
         if (r == 3 && onGroupMute)

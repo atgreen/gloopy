@@ -69,6 +69,7 @@ public:
     std::function<std::vector<SendState> (int)>      onInsertSends;  // an insert's sends: (busIndex, level, post-fader)
     std::function<void (int, int, float, bool)>      onSetSend;     // insert, busIndex, level (<=0 removes), post-fader
     std::function<void (const juce::String&)>        onAddBus;      // create a bus by name
+    std::function<void (int, const juce::String&)>   onSetInsertName;  // insert index, new strip name
 
     // Plugin hooks (wired by the owner).
     std::function<void()>                                       ensurePlugins;
