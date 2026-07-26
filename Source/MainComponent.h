@@ -213,6 +213,8 @@ public:
     // shape: 0 sine, 1 triangle, 2 saw, 3 square. rate in Hz. Upsert by target id.
     bool apiSetModulation (const juce::String& target, float rate, float depth, int shape, float center,
                            float syncBeats = 0.0f, float phase = 0.0f, bool unipolar = false, float slewMs = 0.0f);
+    bool apiAddModulation (const juce::String& target, float rate, float depth, int shape, float center,
+                           float syncBeats = 0.0f, float phase = 0.0f, bool unipolar = false, float slewMs = 0.0f);
     void resetModulationSmoothing();   // clear transient slew state (call before an offline render / on restart)
     bool apiRemoveModulation (const juce::String& target);
     struct ModSnap { juce::String target; float rate, depth, center; int shape; float syncBeats, phase; bool unipolar; float slewMs; };

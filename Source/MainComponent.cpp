@@ -383,6 +383,12 @@ MainComponent::MainComponent (bool headless)
         const float center = apiGetParameter (target, d) ? d.value : 0.0f;   // LFO centres on the current value
         apiSetModulation (target, rate, depth, shape, center, sync, phase, uni, slew);
     };
+    mixerView->onAddModulation      = [this] (const juce::String& target, float rate, float depth, int shape, float sync, float phase, bool uni, float slew)
+    {
+        ParamDesc d;
+        const float center = apiGetParameter (target, d) ? d.value : 0.0f;   // each stacked LFO centres on the current value
+        apiAddModulation (target, rate, depth, shape, center, sync, phase, uni, slew);
+    };
     mixerView->onRemoveModulation   = [this] (const juce::String& target) { apiRemoveModulation (target); };
     // Automation authored on the same ParamModel id: drop a keyframe (current value @ playhead) / clear.
     mixerView->onAutomatePoint      = [this] (const juce::String& target)

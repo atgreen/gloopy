@@ -525,6 +525,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ModRoute.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.AddModulation = channel.unary_unary(
+                '/gloopy.v1.Gloopy/AddModulation',
+                request_serializer=gloopy__pb2.ModRoute.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.RemoveModulation = channel.unary_unary(
                 '/gloopy.v1.Gloopy/RemoveModulation',
                 request_serializer=gloopy__pb2.ModTarget.SerializeToString,
@@ -1374,7 +1379,14 @@ class GloopyServicer:
 
     def SetModulation(self, request, context):
         """modulation matrix (LFO -> ParamModel target)
-        upsert by target
+        canonical single set (replaces any on the target)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AddModulation(self, request, context):
+        """append an additional source (sources on one target sum)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2146,6 +2158,11 @@ def add_GloopyServicer_to_server(servicer, server):
             ),
             'SetModulation': grpc.unary_unary_rpc_method_handler(
                     servicer.SetModulation,
+                    request_deserializer=gloopy__pb2.ModRoute.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'AddModulation': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddModulation,
                     request_deserializer=gloopy__pb2.ModRoute.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
@@ -5005,6 +5022,33 @@ class Gloopy:
             request,
             target,
             '/gloopy.v1.Gloopy/SetModulation',
+            gloopy__pb2.ModRoute.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AddModulation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/AddModulation',
             gloopy__pb2.ModRoute.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,

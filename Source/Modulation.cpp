@@ -13,6 +13,7 @@
 #include "Lfo.h"
 #include <cmath>
 
+// Canonical single set: replace ANY modulation(s) already on this target with one source.
 bool MainComponent::apiSetModulation (const juce::String& target, float rate, float depth, int shape, float center,
                                       float syncBeats, float phase, bool unipolar, float slewMs)
 {
@@ -21,17 +22,33 @@ bool MainComponent::apiSetModulation (const juce::String& target, float rate, fl
     {
         pushUndoSnapshot();
         const juce::ScopedLock sl (engineLock);
-        auto it = std::find_if (modulations.begin(), modulations.end(),
-                                [&] (const Mod& m) { return m.target == target; });
-        // phase wraps to [0,1): only the fractional cycle offset matters.
+        modulations.erase (std::remove_if (modulations.begin(), modulations.end(),
+                               [&] (const Mod& m) { return m.target == target; }),
+                           modulations.end());
         const float ph = phase - std::floor (phase);
-        Mod m { target, juce::jmax (0.0f, rate), depth, center, juce::jlimit (0, 4, shape),
-                juce::jmax (0.0f, syncBeats), ph, unipolar, juce::jmax (0.0f, slewMs) };
-        if (it != modulations.end()) *it = m;      // upsert (also clears transient slew state)
-        else                          modulations.push_back (m);
-        std::cout << "[mod] " << target << " rate=" << rate << " depth=" << depth
-                  << " center=" << center << " shape=" << shape << " sync=" << syncBeats
-                  << " phase=" << ph << " unipolar=" << (int) unipolar << " slew=" << slewMs << std::endl;
+        modulations.push_back ({ target, juce::jmax (0.0f, rate), depth, center, juce::jlimit (0, 4, shape),
+                                 juce::jmax (0.0f, syncBeats), ph, unipolar, juce::jmax (0.0f, slewMs) });
+        std::cout << "[mod set] " << target << " rate=" << rate << " depth=" << depth << " center=" << center
+                  << " shape=" << shape << " sync=" << syncBeats << " -> " << modulations.size() << " total" << std::endl;
+        return true;
+    });
+}
+
+// Append an ADDITIONAL modulation source on this target — multiple sources on the same
+// param sum in evaluateModulation (center + sum of depth*osc), so two LFOs stack.
+bool MainComponent::apiAddModulation (const juce::String& target, float rate, float depth, int shape, float center,
+                                      float syncBeats, float phase, bool unipolar, float slewMs)
+{
+    if (target.trim().isEmpty()) return false;
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        const juce::ScopedLock sl (engineLock);
+        const float ph = phase - std::floor (phase);
+        modulations.push_back ({ target, juce::jmax (0.0f, rate), depth, center, juce::jlimit (0, 4, shape),
+                                 juce::jmax (0.0f, syncBeats), ph, unipolar, juce::jmax (0.0f, slewMs) });
+        std::cout << "[mod add] " << target << " rate=" << rate << " depth=" << depth << " center=" << center
+                  << " shape=" << shape << " sync=" << syncBeats << " -> " << modulations.size() << " total" << std::endl;
         return true;
     });
 }
@@ -151,22 +168,42 @@ void MainComponent::applyParamValue (const juce::String& id, float v)
 void MainComponent::evaluateModulation (double timeSeconds, double beatPos)
 {
     // Called from renderBlock while holding engineLock — iterate the locked vector.
-    // A tempo-synced LFO (syncBeats>0) derives its phase from beatPos so its period
-    // tracks the tempo; a free LFO uses rate (Hz) against transport seconds.
+    // Multiple modulation sources may target the SAME ParamModel id: they SUM. The
+    // applied value is center(first source on the target) + Σ depth_i * osc_i, written
+    // ONCE per target (so two LFOs on one cutoff stack instead of the last one winning).
+    // A tempo-synced source (syncBeats>0) derives its phase from beatPos so its period
+    // tracks the tempo; a free source uses rate (Hz). Grouping is an allocation-free
+    // O(n^2) scan over the small mod vector (no heap on the audio thread — principle 4).
     const double blockDur = currentSampleRate > 0.0 ? (double) currentBlockSize / currentSampleRate : 0.0;
-    for (auto& m : modulations)
+    const size_t n = modulations.size();
+    for (size_t i = 0; i < n; ++i)
     {
-        if (m.syncBeats <= 0.0f && m.rate <= 0.0f && m.shape != 0) continue;   // constant, nothing to do
-        const double phase = lfoPhaseCycles (m.syncBeats, beatPos, m.rate, timeSeconds);
-        float value = m.center + m.depth * (float) lfoUnit (m.shape, phase, m.phase, m.unipolar);
-        // One-pole slew (per block): soften abrupt shape edges / avoid zipper noise.
-        if (m.slewMs > 0.0f && blockDur > 0.0)
+        // Process each distinct target once, at its first occurrence.
+        bool firstForTarget = true;
+        for (size_t k = 0; k < i; ++k) if (modulations[k].target == modulations[i].target) { firstForTarget = false; break; }
+        if (! firstForTarget) continue;
+
+        float sumDelta = 0.0f;
+        bool  anyActive = false;
+        for (size_t j = i; j < n; ++j)
         {
-            const float coeff = (float) (1.0 - std::exp (-blockDur / ((double) m.slewMs * 1.0e-3)));
-            if (! m.smoothInit) { m.smoothState = value; m.smoothInit = true; }   // seed, no jump on the first block
-            else                  m.smoothState += (value - m.smoothState) * coeff;
-            value = m.smoothState;
+            auto& m = modulations[j];
+            if (m.target != modulations[i].target) continue;
+            if (m.syncBeats <= 0.0f && m.rate <= 0.0f && m.shape != 0) continue;   // constant, contributes nothing
+            const double phase = lfoPhaseCycles (m.syncBeats, beatPos, m.rate, timeSeconds);
+            float delta = m.depth * (float) lfoUnit (m.shape, phase, m.phase, m.unipolar);
+            // One-pole slew (per source, per block): soften abrupt shape edges / zipper noise.
+            // Slewing the delta (center is constant) is identical to slewing center+delta.
+            if (m.slewMs > 0.0f && blockDur > 0.0)
+            {
+                const float coeff = (float) (1.0 - std::exp (-blockDur / ((double) m.slewMs * 1.0e-3)));
+                if (! m.smoothInit) { m.smoothState = delta; m.smoothInit = true; }   // seed, no jump on the first block
+                else                  m.smoothState += (delta - m.smoothState) * coeff;
+                delta = m.smoothState;
+            }
+            sumDelta += delta;
+            anyActive = true;
         }
-        applyParamValue (m.target, value);
+        if (anyActive) applyParamValue (modulations[i].target, modulations[i].center + sumDelta);
     }
 }

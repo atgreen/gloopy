@@ -488,11 +488,23 @@ class Gloopy:
     def set_modulation(self, target: str, rate: float, depth: float,
                        shape: int = 0, center: float = 0.0, sync_beats: float = 0.0,
                        phase: float = 0.0, unipolar: bool = False, slew_ms: float = 0.0) -> None:
-        """LFO on a ParamModel target: value = center + depth*unit(phase). shape 0=sine 1=tri 2=saw 3=square.
+        """LFO on a ParamModel target: value = center + depth*unit(phase). shape 0=sine 1=tri 2=saw 3=square 4=random(S&H).
+        Replaces any modulation already on the target (use add_modulation to stack a second source).
         sync_beats>0 tempo-syncs the LFO (one cycle per sync_beats beats); otherwise rate is in Hz.
         phase (0..1) offsets the waveform start; unipolar keeps the value on one side (center..center+depth);
         slew_ms>0 applies a one-pole slew (ms time constant) softening abrupt value changes."""
         self._ack(self.stub.SetModulation(pb.ModRoute(
+            target=target, rate=rate, depth=depth, center=center, shape=shape,
+            sync_beats=sync_beats, phase=phase, unipolar=unipolar, slew_ms=slew_ms)))
+
+    def add_modulation(self, target: str, rate: float, depth: float,
+                       shape: int = 0, center: float = 0.0, sync_beats: float = 0.0,
+                       phase: float = 0.0, unipolar: bool = False, slew_ms: float = 0.0) -> None:
+        """Append an ADDITIONAL modulation source on target. Multiple sources on the same
+        target sum (value = center + sum of depth*unit), so e.g. two LFOs at different rates
+        stack. Same args as set_modulation, which instead replaces any source on the target.
+        shape 4 = random/sample-and-hold. Remove them all with remove_modulation(target)."""
+        self._ack(self.stub.AddModulation(pb.ModRoute(
             target=target, rate=rate, depth=depth, center=center, shape=shape,
             sync_beats=sync_beats, phase=phase, unipolar=unipolar, slew_ms=slew_ms)))
 

@@ -396,6 +396,10 @@ namespace
         { const bool ok = main.apiSetModulation (js (q->target()), q->rate(), q->depth(), q->shape(), q->center(),
                                                  q->sync_beats(), q->phase(), q->unipolar(), q->slew_ms());
           r->set_ok (ok); if (! ok) r->set_error ("invalid modulation target"); return Status::OK; }
+        Status AddModulation (ServerContext*, const pb::ModRoute* q, pb::Ack* r) override
+        { const bool ok = main.apiAddModulation (js (q->target()), q->rate(), q->depth(), q->shape(), q->center(),
+                                                 q->sync_beats(), q->phase(), q->unipolar(), q->slew_ms());
+          r->set_ok (ok); if (! ok) r->set_error ("invalid modulation target"); return Status::OK; }
         Status RemoveModulation (ServerContext*, const pb::ModTarget* q, pb::Ack* r) override
         { const bool ok = main.apiRemoveModulation (js (q->target()));
           r->set_ok (ok); if (! ok) r->set_error ("modulation not found"); return Status::OK; }

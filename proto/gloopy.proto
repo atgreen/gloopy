@@ -434,7 +434,8 @@ service Gloopy {
   rpc GetAutomation  (Empty)            returns (AutomationList);
 
   // modulation matrix (LFO -> ParamModel target)
-  rpc SetModulation    (ModRoute)  returns (Ack);   // upsert by target
+  rpc SetModulation    (ModRoute)  returns (Ack);   // canonical single set (replaces any on the target)
+  rpc AddModulation    (ModRoute)  returns (Ack);   // append an additional source (sources on one target sum)
   rpc RemoveModulation (ModTarget) returns (Ack);
   rpc ListModulations  (Empty)     returns (ModList);
 

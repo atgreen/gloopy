@@ -407,7 +407,9 @@ void MixerView::promptAddLfo (const juce::String& target)
     aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
     aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, target] (int r)
     {
-        if (r == 1 && onSetModulation)
+        // "Add LFO..." stacks: each invocation appends another source on the target
+        // (multiple sources sum). Clear them all with "Remove LFO".
+        if (r == 1 && onAddModulation)
         {
             const float rate  = aw->getTextEditorContents ("rate").getFloatValue();
             const float depth = aw->getTextEditorContents ("depth").getFloatValue();
@@ -417,7 +419,7 @@ void MixerView::promptAddLfo (const juce::String& target)
             const int   shape = aw->getComboBoxComponent ("shape")->getSelectedItemIndex();
             const bool  uni   = aw->getComboBoxComponent ("polar")->getSelectedItemIndex() == 1;
             if (rate > 0.0f || sync > 0.0f)
-                onSetModulation (target, rate, depth, juce::jmax (0, shape), juce::jmax (0.0f, sync),
+                onAddModulation (target, rate, depth, juce::jmax (0, shape), juce::jmax (0.0f, sync),
                                  juce::jmax (0.0f, phase), uni, juce::jmax (0.0f, slew));
         }
         delete aw;

@@ -262,7 +262,33 @@ assert sh1==sh2, 'S&H render not deterministic (hash should make bounces reprodu
 assert int('$SHSHAPE')==4, 'shape 4 (random) not round-tripped: got $SHSHAPE'
 print('smoke: PASS — random/S&H LFO changes render (diff %.4f), deterministic across renders, shape=4 round-trips'%d)
 " || { echo 'smoke: modulation sample-and-hold wrong' >&2; exit 1; }
+# Multiple modulation sources per target (Wave 4 #9): SetModulation is a canonical single
+# set (one source on the target); AddModulation appends a SECOND source, and sources on the
+# same target SUM (center + depth1*osc1 + depth2*osc2). A slow LFO alone, then a fast LFO
+# stacked on top, must render differently (the 2nd source adds movement); ListModulations
+# shows 2 sources on the target and both survive a composition round-trip.
+g -d "{\"target\":\"track/$MT/synth/cutoff\",\"depth\":1000,\"center\":1500,\"shape\":0,\"sync_beats\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetModulation >/dev/null
+g -d "{\"path\":\"$WORK/mod_one.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"target\":\"track/$MT/synth/cutoff\",\"depth\":600,\"center\":1500,\"shape\":2,\"sync_beats\":0.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddModulation >/dev/null
+g -d "{\"path\":\"$WORK/mod_two.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+NMODS=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListModulations | python3 -c "import json,sys;m=json.load(sys.stdin).get('mods',[]);print(sum(1 for x in m if x.get('target')=='track/$MT/synth/cutoff'))")
+g -d "{\"path\":\"$WORK/stack.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+g -d "{\"path\":\"$WORK/stack.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+NMODS2=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListModulations | python3 -c "import json,sys;m=json.load(sys.stdin).get('mods',[]);print(sum(1 for x in m if x.get('target')=='track/$MT/synth/cutoff'))")
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+one=rd('$WORK/mod_one.wav');two=rd('$WORK/mod_two.wav');m=min(len(one),len(two))
+d=sum(abs(one[i]-two[i]) for i in range(m))/m/(1<<23)
+assert d>0.003, 'stacking a 2nd LFO did not change the render (diff=%.5f)'%d
+assert int('$NMODS')==2, 'expected 2 sources on the target after AddModulation, got $NMODS'
+assert int('$NMODS2')==2, 'the 2 stacked sources did not survive save/reload, got $NMODS2'
+print('smoke: PASS — 2nd LFO stacks + sums (render diff %.4f), 2 sources on target, round-trips'%d)
+" || { echo 'smoke: multiple modulation sources wrong' >&2; exit 1; }
 g -d "{\"target\":\"track/$MT/synth/cutoff\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveModulation >/dev/null
+NMODS3=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListModulations | python3 -c "import json,sys;m=json.load(sys.stdin).get('mods',[]);print(sum(1 for x in m if x.get('target')=='track/$MT/synth/cutoff'))")
+[ "$NMODS3" = "0" ] || { echo "smoke: RemoveModulation should clear ALL sources on the target (got $NMODS3)" >&2; exit 1; }
 g -d "{\"id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
 # ParamModel keystone — automation-by-id: an automation lane addresses the SAME ParamModel

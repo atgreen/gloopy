@@ -581,7 +581,21 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      deterministic across cycles, and stays in [-1,1); smoke proves a random-cutoff render
      differs from static AND is identical across two renders (reproducible), shape=4 round-
      trips; screenshot-validated (the expanded shape combo lists Random (S&H)).
-     **Not yet:** envelope sources, multiple LFOs per target, plugin-param targets.
+   - `[x]` **Multiple modulation sources per target (they sum) landed** (commit): more than one
+     LFO can target the SAME ParamModel id and they now SUM instead of the last one winning.
+     `evaluateModulation` groups by target (allocation-free O(n^2) scan, no audio-thread heap)
+     and writes `center(first source) + sum(depth_i*osc_i)` once per target. `apiSetModulation`
+     is now a canonical single-set (clears any sources already on the target); a new
+     `apiAddModulation`/`AddModulation` RPC APPENDS an additional source; `RemoveModulation`
+     clears them all. The single-source render is byte-identical (slewing the delta is
+     equivalent to slewing center+delta since center is constant). Serialisation already looped
+     the mod vector, so multiples round-trip with no schema change. UI: the mixer "Add LFO..."
+     now STACKS (each invocation appends). Python `add_modulation`. smoke proves a 2nd LFO
+     stacks + changes the render, 2 sources on the target survive a composition round-trip, and
+     Remove clears all; desktop-validated by driving "Add LFO..." twice via the GUI so
+     ListModulations reports 2 sources on the param.
+     **Not yet:** envelope sources, per-source edit/remove UI (needs a mod-matrix view, #19),
+     plugin-param targets.
 
 10. **Tempo & time-signature map.** ✦ **M**
     *Ardour #13.* Tempo / time-signature changes on the timeline, stored as tempo

@@ -33,7 +33,8 @@ public:
     std::function<void (const juce::String&)> onMidiLearn;
     /** "Add LFO..." on the same right-click menu -> owner resolves the target's current
         value as the LFO centre and calls apiSetModulation (target, rate, depth, shape). */
-    std::function<void (const juce::String&, float, float, int, float, float, bool, float)> onSetModulation;   // target, rate, depth, shape, syncBeats, phase, unipolar, slewMs
+    std::function<void (const juce::String&, float, float, int, float, float, bool, float)> onSetModulation;   // target, rate, depth, shape, syncBeats, phase, unipolar, slewMs (replaces any on target)
+    std::function<void (const juce::String&, float, float, int, float, float, bool, float)> onAddModulation;   // same args; APPENDS a source (sources on one target sum)
     std::function<void (const juce::String&)>                     onRemoveModulation;
     /** "Automate at playhead" / "Clear automation" — id-addressed automation (the same
         ParamModel id MIDI-learn and the LFO use), authored one keyframe at a time. */
