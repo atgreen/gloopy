@@ -223,3 +223,35 @@ if(GLOOPY_TESTS)
         juce::juce_recommended_warning_flags)
     add_test(NAME GloopyUnitTests COMMAND GloopyTests)
 endif()
+
+# ---------------------------------------------------------------------------
+# Packaging (CPack) — `cpack -G RPM` / `cpack -G DEB` build native packages from
+# the install() rules above. Driven by .github/workflows/release.yaml on a tag.
+# Shared-library dependencies are auto-detected (RPM AUTOREQ / DEB SHLIBDEPS).
+# ---------------------------------------------------------------------------
+set(CPACK_PACKAGE_NAME "gloopy")
+set(CPACK_PACKAGE_VENDOR "atgreen")
+set(CPACK_PACKAGE_CONTACT "Anthony Green <green@moxielogic.com>")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A scriptable, composition-as-repo DAW")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/atgreen/gloopy")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")   # -> /usr/bin/gloopy, /usr/bin/assets/...
+set(CPACK_STRIP_FILES ON)
+# With Surge embedded the binary is a combined AGPL-3.0 / GPL-3.0 work.
+if(GLOOPY_WITH_SURGE)
+    set(_gloopy_license "AGPL-3.0-only AND GPL-3.0-or-later")
+else()
+    set(_gloopy_license "AGPL-3.0-only")
+endif()
+# RPM
+set(CPACK_RPM_PACKAGE_LICENSE "${_gloopy_license}")
+set(CPACK_RPM_PACKAGE_GROUP "Applications/Multimedia")
+set(CPACK_RPM_PACKAGE_AUTOREQ ON)
+set(CPACK_RPM_FILE_NAME "RPM-DEFAULT")
+# DEB
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_CONTACT}")
+set(CPACK_DEBIAN_PACKAGE_SECTION "sound")
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
+include(CPack)
