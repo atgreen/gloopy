@@ -1,5 +1,6 @@
 build/
 build-surge-plugin/
+build-san/
 cmake-build-*/
 .cache/
 *.o

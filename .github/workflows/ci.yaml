@@ -47,6 +47,19 @@ jobs:
       - name: Render determinism
         run: bash scripts/check-render-determinism.sh
 
+      # Run the unit tests under ASan + UBSan (a separate Debug build with instrumentation) to
+      # catch memory errors and undefined behavior in the DSP/logic code. -fno-sanitize-recover
+      # makes UBSan fail the run on the first violation; leak detection is off (LSan needs ptrace
+      # the runner may deny, and static-init "leaks" are benign).
+      - name: Sanitized unit tests (ASan + UBSan)
+        run: |
+          cmake -B build-san -G Ninja -DCMAKE_BUILD_TYPE=Debug -DGLOOPY_WITH_SURGE=OFF -DGLOOPY_TESTS=ON \
+            -DCMAKE_CXX_FLAGS="-fsanitize=undefined,address -fno-omit-frame-pointer -fno-sanitize-recover=undefined" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=undefined,address"
+          cmake --build build-san --target GloopyTests
+          UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 ASAN_OPTIONS=detect_leaks=0 \
+            ctest --test-dir build-san --output-on-failure
+
       # Smoke drives the app over gRPC + renders audio offline. It needs grpcurl and
       # a virtual X server. Kept non-blocking (best-effort) since it depends on a
       # working headless audio/display stack in the runner.
