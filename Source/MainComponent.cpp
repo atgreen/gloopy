@@ -817,7 +817,9 @@ void MainComponent::addTrack (std::unique_ptr<Track> track)
     {
         const juce::ScopedLock sl (engineLock);
         track->mixerTrack.store (juce::jmin ((int) tracks.size() + 1, (int) mixerTracks.size() - 1));
+        ensureSlotCount (track->sessionSlots, (int) scenes.size());   // rectangular session grid
         tracks.push_back (std::move (track));
+        sessionLauncher.setTrackCount ((int) tracks.size());
     }
     refreshTrackIds();
     if (! undoSuppressed && ! tracks.empty()) emitChange ("track_added", tracks.back()->id);
@@ -1642,6 +1644,9 @@ bool MainComponent::apiRemoveTrack (int id)
             const juce::ScopedLock sl (engineLock);
             for (size_t i = 0; i < tracks.size(); ++i)
                 if (tracks[i]->id == id) { tracks.erase (tracks.begin() + (long) i); ok = true; break; }
+            // Track positions shifted — reset session playback and resize (transient state only).
+            sessionLauncher.reset();
+            sessionLauncher.setTrackCount ((int) tracks.size());
         }
         if (! ok) return false;
         refreshTrackIds();
@@ -2581,12 +2586,16 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     auto* out = &outBuf;
 
     if (panicRequested.exchange (false))                 // MIDI panic: kill any stuck/hanging notes
+    {
         for (auto& t : tracks) if (t->generator) { t->generator->allNotesOff(); t->liveArp.reset(); }
+        sessionLauncher.reset();                          // stop any launched session clips
+    }
 
     if (transport.consumeReset())
     {
         transport.setPlayheadSamples (0);
         for (auto& t : tracks) if (t->generator) { t->generator->allNotesOff(); t->liveArp.reset(); }
+        sessionLauncher.reset(); sessionBeat = 0.0;        // stop = clear session playback + clock
     }
 
     const bool        playing = transport.isPlaying();
@@ -2761,6 +2770,18 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     bool anySolo = false;
     for (auto& t : tracks) if (t->solo.load()) { anySolo = true; break; }
 
+    // Session-view launch clock: a monotonic beat (advanced only while playing) that drives
+    // launch quantization and clip loop phase, independent of the loopable arrangement playhead.
+    // Session clips play at the current tempo (constant-path TempoConv), not the tempo map — v1.
+    TempoConv sessionTc; sessionTc.setMarkers (nullptr, nullptr, 0, currentSampleRate, spb);
+    const double blockBeats            = spb > 0.0 ? (double) num / spb : 0.0;
+    const double blockStartSessionBeat = sessionBeat;
+    if (playing)
+    {
+        sessionLauncher.advance (sessionBeat, sessionBeat + blockBeats);   // apply pending at boundaries
+        sessionBeat += blockBeats;
+    }
+
     const int numTracks = (int) mixerTracks.size();
     if (mixBuffer.getNumSamples() < num) mixBuffer.setSize (2, num, false, false, true);
     for (auto& mt : mixerTracks)
@@ -2770,15 +2791,36 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     }
 
     // --- each track -> its mixer insert ---
-    for (auto& t : tracks)
+    for (int ti = 0; ti < (int) tracks.size(); ++ti)
     {
+        auto& t = tracks[(size_t) ti];
         mixBuffer.clear();
 
         if (t->generator != nullptr)   // instrument track
         {
             juce::MidiBuffer midi;
+            // Session view (per-track override): if this track has a launched session clip it plays
+            // that (looped from launchBeat) INSTEAD of its arrangement clips; -1 = play arrangement.
+            const int  sessionSlot = sessionLauncher.playingSlot (ti);
+            const auto& chg        = sessionLauncher.changedTracks();
+            const bool  transitioned = std::find (chg.begin(), chg.end(), ti) != chg.end();
             if (playing)
             {
+                // On a launch/stop this block, clear the outgoing content's tail. Block-granular
+                // for now; the sample-accurate split is the next slice (docs/session-view.md).
+                if (transitioned) midi.addEvent (juce::MidiMessage::allNotesOff (1), 0);
+
+                if (sessionSlot >= 0)   // session clip overrides the arrangement on this track
+                {
+                    if (auto clip = slotClip (t->sessionSlots, sessionSlot))
+                    {
+                        const double loopLen = clip->looped ? clip->contentLenBeats : clip->lengthBeats;
+                        collectSessionClip (clip->notes, midi, sessionTc, spb,
+                                            sessionLauncher.launchBeat (ti), blockStartSessionBeat,
+                                            0, num, loopLen, clip->transpose, clip->velocityScale);
+                    }
+                }
+                else                    // arrangement playback (the original path)
                 for (int s = 0; s < nseg; ++s)
                 {
                     for (auto& c : t->clips)
@@ -4280,11 +4322,15 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     tempoMap.clear();
     controllerMaps.clear();
     automationLanes.clear();
+    scenes.clear();                       // session grid persistence lands in the next slice
+    sessionLauncher.reset();
+    sessionBeat = 0.0;
     nextTrackId = 1;
 
     auto trks = root.getChildWithName ("TRACKS");
     for (int i = 0; i < trks.getNumChildren(); ++i)
         tracks.push_back (buildTrackFromTree (trks.getChild (i)));
+    sessionLauncher.setTrackCount ((int) tracks.size());
 
     auto mx = root.getChildWithName ("MIXER");
     if (mx.getNumChildren() > 0)

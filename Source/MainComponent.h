@@ -8,6 +8,7 @@
 #include <memory>
 #include "Transport.h"
 #include "Track.h"
+#include "SessionLauncher.h"
 #include "FileDrop.h"
 #include "Clip.h"
 #include "Time.h"
@@ -341,6 +342,20 @@ public:
     bool apiAddChord (int trackId, int index, int root, const juce::String& type,
                       double startBeat, double lengthBeats, float velocity, int inversion);   // stamp a chord
 
+    // Session view (clip-launch grid). Grid mutation + quantized launching; see docs/session-view.md.
+    int  apiAddScene (const juce::String& name = {});          // append a scene row; returns its index
+    bool apiRemoveScene (int scene);                           // remove a scene row (all tracks)
+    int  sceneCount() const { return (int) scenes.size(); }
+    bool apiSetSessionClip (int trackId, int scene, const Clip& clip);   // put a clip in a slot (grows scenes)
+    bool apiClearSessionSlot (int trackId, int scene);         // empty a slot
+    bool apiLaunchClip (int trackId, int scene);               // queue-launch a slot (quantized)
+    bool apiStopTrackClip (int trackId);                       // queue-stop a track (back to arrangement)
+    bool apiLaunchScene (int scene);                           // queue-launch a whole row
+    void apiStopAllClips();                                    // queue-stop every track
+    void apiSetLaunchQuantumBeats (double beats);              // 0 = immediate
+    double apiGetLaunchQuantumBeats() const { return sessionLauncher.quantumBeats(); }
+    void syncSessionTrackCount();   // resize sessionLauncher to tracks.size() (engineLock held)
+
     // track & clip management
     bool apiRemoveTrack (int id);
     bool apiRenameTrack (int id, const juce::String& name);   // rename an existing track
@@ -575,6 +590,14 @@ private:
     juce::CriticalSection engineLock;
     std::vector<std::unique_ptr<Track>>      tracks;
     std::vector<std::unique_ptr<MixerTrack>> mixerTracks;
+
+    // Session view (clip-launch grid). `scenes` are the global rows; each Track owns one slot
+    // per scene (Track::sessionSlots). `sessionLauncher` is the quantized launch state machine;
+    // `sessionBeat` is a monotonic clock (advanced while playing) that drives launch timing and
+    // clip loop phase, independent of the (loopable) arrangement playhead. See docs/session-view.md.
+    std::vector<Scene> scenes;
+    SessionLauncher    sessionLauncher;
+    double             sessionBeat { 0.0 };
 
     juce::AudioFormatManager formatManager;
     PluginHost pluginHost;

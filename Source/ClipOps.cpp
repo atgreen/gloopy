@@ -905,3 +905,169 @@ bool MainComponent::apiAddChord (int trackId, int index, int root, const juce::S
                              for (auto& n : ch) notes.push_back (n); } ) }
 
 #undef GLOOPY_EDIT_CLIP_NOTES
+
+//==============================================================================
+// Session view (clip-launch grid). Grid mutation runs on the message thread; the engineLock
+// excludes the audio thread while we touch scenes / sessionSlots / sessionLauncher. Launch
+// requests just set the launcher's pending state — renderBlock applies them at the next quantum
+// boundary (per-track override). See docs/session-view.md.
+
+// Position of a track in `tracks` (the index the sessionLauncher is keyed by), or -1.
+static int trackIndexOf (const std::vector<std::unique_ptr<Track>>& tracks, const Track* t)
+{
+    for (int i = 0; i < (int) tracks.size(); ++i) if (tracks[(size_t) i].get() == t) return i;
+    return -1;
+}
+
+void MainComponent::syncSessionTrackCount()
+{
+    sessionLauncher.setTrackCount ((int) tracks.size());   // engineLock held by caller
+}
+
+int MainComponent::apiAddScene (const juce::String& name)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        pushUndoSnapshot();
+        int idx;
+        {
+            const juce::ScopedLock sl (engineLock);
+            idx = (int) scenes.size();
+            scenes.push_back ({ name.isNotEmpty() ? name : ("Scene " + juce::String (idx + 1)), {} });
+            for (auto& t : tracks) insertSceneSlot (t->sessionSlots, idx);   // append an empty slot to each column
+        }
+        emitChange ("scene_added", idx);
+        return idx;
+    });
+}
+
+bool MainComponent::apiRemoveScene (int scene)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        if (scene < 0 || scene >= (int) scenes.size()) return false;
+        pushUndoSnapshot();
+        {
+            const juce::ScopedLock sl (engineLock);
+            scenes.erase (scenes.begin() + scene);
+            for (auto& t : tracks) removeSceneSlot (t->sessionSlots, scene);
+            sessionLauncher.reset();                        // scene indices shifted -> stop session playback
+        }
+        emitChange ("scene_removed", scene);
+        return true;
+    });
+}
+
+bool MainComponent::apiSetSessionClip (int trackId, int scene, const Clip& clip)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr || scene < 0) return false;
+        pushUndoSnapshot();
+        {
+            const juce::ScopedLock sl (engineLock);
+            while ((int) scenes.size() <= scene)            // grow the grid to reach this scene row
+            {
+                const int idx = (int) scenes.size();
+                scenes.push_back ({ "Scene " + juce::String (idx + 1), {} });
+                for (auto& tr : tracks) insertSceneSlot (tr->sessionSlots, idx);
+            }
+            ensureSlotCount (t->sessionSlots, (int) scenes.size());
+            t->sessionSlots[(size_t) scene] = std::make_shared<Clip> (clip);
+        }
+        emitChange ("session_clip", trackId);
+        return true;
+    });
+}
+
+bool MainComponent::apiClearSessionSlot (int trackId, int scene)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr || scene < 0) return false;
+        pushUndoSnapshot();
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (scene < (int) t->sessionSlots.size()) t->sessionSlots[(size_t) scene] = nullptr;
+        }
+        emitChange ("session_clip", trackId);
+        return true;
+    });
+}
+
+bool MainComponent::apiLaunchClip (int trackId, int scene)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            const int ti = trackIndexOf (tracks, t);
+            if (ti < 0 || scene < 0 || scene >= (int) t->sessionSlots.size()
+                || t->sessionSlots[(size_t) scene] == nullptr)
+                return false;                               // only launch a non-empty slot
+            sessionLauncher.requestClip (ti, scene);
+        }
+        if (! transport.isPlaying()) transport.setPlaying (true);   // launching rolls the transport (Ableton)
+        emitChange ("launch_clip", trackId);
+        return true;
+    });
+}
+
+bool MainComponent::apiStopTrackClip (int trackId)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            const int ti = trackIndexOf (tracks, t);
+            if (ti < 0) return false;
+            sessionLauncher.requestStop (ti);
+        }
+        emitChange ("stop_clip", trackId);
+        return true;
+    });
+}
+
+bool MainComponent::apiLaunchScene (int scene)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        if (scene < 0 || scene >= (int) scenes.size()) return false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            std::vector<bool> occupied ((size_t) tracks.size(), false);
+            for (int i = 0; i < (int) tracks.size(); ++i)
+                occupied[(size_t) i] = (slotClip (tracks[(size_t) i]->sessionSlots, scene) != nullptr);
+            sessionLauncher.requestScene (scene, occupied);
+        }
+        if (! transport.isPlaying()) transport.setPlaying (true);
+        emitChange ("launch_scene", scene);
+        return true;
+    });
+}
+
+void MainComponent::apiStopAllClips()
+{
+    callOnMessageThread ([&] () -> bool
+    {
+        { const juce::ScopedLock sl (engineLock); sessionLauncher.requestStopAll(); }
+        emitChange ("stop_all_clips", 0);
+        return true;
+    });
+}
+
+void MainComponent::apiSetLaunchQuantumBeats (double beats)
+{
+    callOnMessageThread ([&] () -> bool
+    {
+        { const juce::ScopedLock sl (engineLock); sessionLauncher.setQuantumBeats (beats); }
+        emitChange ("launch_quantum", 0);
+        return true;
+    });
+}

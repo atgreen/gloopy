@@ -956,6 +956,86 @@ struct SessionLauncherTests : juce::UnitTest
 };
 
 //==============================================================================
+// Session clip playback: a launched clip loops from its launch beat, phased into the block.
+struct SessionClipTests : juce::UnitTest
+{
+    SessionClipTests() : juce::UnitTest ("SessionClip") {}
+
+    static std::vector<int> noteOnOffsets (const juce::MidiBuffer& m)
+    {
+        std::vector<int> offs;
+        for (const auto meta : m) if (meta.getMessage().isNoteOn()) offs.push_back (meta.samplePosition);
+        std::sort (offs.begin(), offs.end());
+        return offs;
+    }
+
+    void runTest() override
+    {
+        TempoConv tc; tc.setMarkers (nullptr, nullptr, 0, 44100.0, 100.0);   // constant, 100 samples/beat
+        const double spb = 100.0;
+        std::vector<Note> oneNote { { 60, 0.0, 0.5, 0.8f } };                // pitch 60 @ beat 0, len 0.5
+
+        beginTest ("a 1-beat loop repeats across the block");
+        {
+            juce::MidiBuffer m;
+            // launchBeat 0, block [0, 2.5 beats) = 250 samples -> reps at beats 0,1,2.
+            collectSessionClip (oneNote, m, tc, spb, 0.0, 0.0, 0, 250, 1.0);
+            auto on = noteOnOffsets (m);
+            expect (on.size() == 3);
+            const int want[] = { 0, 100, 200 };
+            for (int i = 0; i < 3 && i < (int) on.size(); ++i) expectEquals (on[(size_t) i], want[i]);
+        }
+
+        beginTest ("phase follows the monotonic session beat across blocks");
+        {
+            juce::MidiBuffer m;
+            // Second block: session beat starts at 1.0; one beat wide -> the rep at beat 1 fires at offset 0.
+            collectSessionClip (oneNote, m, tc, spb, 0.0, 1.0, 0, 100, 1.0);
+            auto on = noteOnOffsets (m);
+            expect (on.size() == 1);
+            if (! on.empty()) expectEquals (on[0], 0);
+        }
+
+        beginTest ("a block starting mid-loop places the next rep correctly");
+        {
+            juce::MidiBuffer m;
+            // Block covers session beats [0.5, 1.5): rep at beat 0 already passed; rep at beat 1 -> offset 50.
+            collectSessionClip (oneNote, m, tc, spb, 0.0, 0.5, 0, 100, 1.0);
+            auto on = noteOnOffsets (m);
+            expect (on.size() == 1);
+            if (! on.empty()) expectEquals (on[0], 50);
+        }
+
+        beginTest ("firstSample sub-range offsets events into the back of the block (launch split)");
+        {
+            juce::MidiBuffer m;
+            // Render only [firstSample=40, +100) of a block whose session beat starts at 0.
+            // The rep at beat 1 (sample 100) lands in the sub-range at offset 100.
+            collectSessionClip (oneNote, m, tc, spb, 0.0, 0.0, 40, 100, 1.0);
+            auto on = noteOnOffsets (m);
+            // beat-0 rep (sample 0) is before the sub-range [40,140); beat-1 rep (sample 100) is inside.
+            expect (on.size() == 1);
+            if (! on.empty()) expectEquals (on[0], 100);
+        }
+
+        beginTest ("transpose and empty/degenerate inputs are handled");
+        {
+            juce::MidiBuffer m;
+            collectSessionClip (oneNote, m, tc, spb, 0.0, 0.0, 0, 100, 1.0, /*transpose*/ 12);
+            bool sawTransposed = false;
+            for (const auto meta : m) if (meta.getMessage().isNoteOn()) sawTransposed = (meta.getMessage().getNoteNumber() == 72);
+            expect (sawTransposed);
+
+            juce::MidiBuffer empty;
+            collectSessionClip ({}, empty, tc, spb, 0.0, 0.0, 0, 100, 1.0);         // no notes
+            collectSessionClip (oneNote, empty, tc, spb, 0.0, 0.0, 0, 0, 1.0);      // zero count
+            collectSessionClip (oneNote, empty, tc, spb, 0.0, 0.0, 0, 100, 0.0);    // zero loop len
+            expect (noteOnOffsets (empty).empty());
+        }
+    }
+};
+
+//==============================================================================
 // Drag-and-drop routing: the classifier decides which load op a dropped file gets.
 struct FileDropTests : juce::UnitTest
 {
@@ -1389,6 +1469,7 @@ static NoteEditTests     noteEditTests;
 static LiveArpTests      liveArpTests;
 static SessionModelTests sessionModelTests;
 static SessionLauncherTests sessionLauncherTests;
+static SessionClipTests  sessionClipTests;
 static FileDropTests     fileDropTests;
 static TimeTypesTests    timeTypesTests;
 

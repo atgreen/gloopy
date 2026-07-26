@@ -123,3 +123,43 @@ inline void collectNotes (const std::vector<Note>& notes, juce::MidiBuffer& midi
                            tsOffset + (int) (off - songStart));
     }
 }
+
+/** Session-view clip playback: emit a launched session clip's notes for the block sub-range
+    [firstSample, firstSample + count), phased from `launchBeat` in the monotonic *session-beat*
+    space and looping over `loopLenBeats`. Unlike collectClip (which anchors a clip on the
+    arrangement timeline), a session clip has no timeline position — it loops from where it was
+    launched. Constant tempo: session clips play at the current samples-per-beat (`spb`); they
+    don't follow tempo-map changes (a v1 simplification — pass a constant-path TempoConv built
+    with `spb`). Events land at block-sample offsets via the same songStart-reference trick as
+    collectNotes. See docs/session-view.md. */
+inline void collectSessionClip (const std::vector<Note>& notes, juce::MidiBuffer& midi,
+                                const TempoConv& tc, double spb,
+                                double launchBeat, double blockStartSessionBeat,
+                                int firstSample, int count,
+                                double loopLenBeats, int transpose = 0, float velocityScale = 1.0f)
+{
+    if (count <= 0 || loopLenBeats <= 0.0 || spb <= 0.0) return;
+
+    // Session-beat span of this sub-range, and the sample references collectNotes needs so its
+    // timestamps come out as block-sample offsets (songStart maps blockStartSessionBeat -> 0).
+    const double      aBeat     = blockStartSessionBeat + (double) firstSample / spb;
+    const double      bBeat     = blockStartSessionBeat + (double) (firstSample + count) / spb;
+    const juce::int64 songStart = tc.beatToSample (blockStartSessionBeat);
+    const juce::int64 winLo     = tc.beatToSample (aBeat);
+    const juce::int64 winHi     = tc.beatToSample (bBeat);
+    if (winLo >= winHi) return;
+
+    // Walk the loop repetitions that overlap the sub-range; each repetition anchors the clip's
+    // notes at launchBeat + k * loopLen (monotonic, so it never wraps — only the anchor tiles).
+    double elapsedA = aBeat - launchBeat;
+    if (elapsedA < 0.0) elapsedA = 0.0;                        // not started yet (shouldn't occur post-launch)
+    int repK = (int) std::floor (elapsedA / loopLenBeats);
+    if (repK < 0) repK = 0;
+    for (int guard = 0; guard < 100000; ++guard, ++repK)
+    {
+        const double repStartBeat = launchBeat + (double) repK * loopLenBeats;
+        if (tc.beatToSample (repStartBeat) >= winHi) break;
+        collectNotes (notes, midi, tc, repStartBeat, songStart, /*tsOffset*/ 0,
+                      winLo, winHi, /*swing (straight)*/ 0.5, transpose, velocityScale);
+    }
+}
