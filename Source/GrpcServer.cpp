@@ -113,6 +113,9 @@ namespace
             r->set_playing (s.playing);
             r->set_bpm (s.bpm);
             r->set_position_beats (s.positionBeats);
+            r->set_loop_enabled (s.loopEnabled);
+            r->set_loop_start (s.loopStart);
+            r->set_loop_end (s.loopEnd);
             return Status::OK;
         }
 
@@ -678,6 +681,9 @@ namespace
         { r->set_slices (main.apiSliceClipAtTransients (q->track_id(), q->index(), q->sensitivity())); return Status::OK; }
         Status SetClipMuted (ServerContext*, const pb::ClipMuteRequest* q, pb::Ack* r) override
         { const bool ok = main.apiSetClipMuted (q->track_id(), q->index(), q->muted());
+          r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
+        Status SetLoopToClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
+        { const bool ok = main.apiSetLoopToClip (q->track_id(), q->index());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
         Status DuplicateClip (ServerContext*, const pb::DuplicateClipRequest* q, pb::ClipId* r) override
         {

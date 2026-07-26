@@ -293,6 +293,7 @@ MainComponent::MainComponent (bool headless)
         else if (cmd == "mute")      apiSetClipMuted (id, clip, true);
         else if (cmd == "unmute")    apiSetClipMuted (id, clip, false);
         else if (cmd.startsWith ("repeat:")) apiRepeatClip (id, clip, cmd.substring (7).getIntValue());
+        else if (cmd == "loopclip")  apiSetLoopToClip (id, clip);
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")
@@ -701,7 +702,8 @@ void MainComponent::apiSetLoop (bool enabled, double startBeat, double endBeat)
 
 MainComponent::TransportSnap MainComponent::apiGetTransport()
 {
-    return { transport.isPlaying(), transport.getBpm(), transport.getPlayheadBeats() };
+    return { transport.isPlaying(), transport.getBpm(), transport.getPlayheadBeats(),
+             transport.isLoopEnabled(), transport.getLoopStartBeats(), transport.getLoopEndBeats() };
 }
 
 int MainComponent::apiAddSynthTrack (const juce::String& name, int wave, float a, float d, float s, float r, float g)

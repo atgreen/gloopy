@@ -373,6 +373,14 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      Python. **Desktop UI:** a "Repeat ▸ x2/x4/x8/x16" submenu on the clip menu (adds N-1
      copies for an N× total) — screenshot-validated. smoke proves a 2-beat clip repeated x4
      saves as 4 clips at beats 0/2/4/6.
+   - `[x]` **Loop-to-clip landed** (commit): `apiSetLoopToClip(trackId,index)` sets the
+     transport loop region to a clip's [start,end) and enables looping (audition a clip on
+     repeat). `TransportState`/`GetTransport` gained `loop_enabled`/`loop_start`/`loop_end`
+     so clients (and the smoke test) can read the loop back. SetLoopToClip RPC (ClipRef) +
+     Python; `transport()` now returns the loop fields. **Desktop UI:** "Loop this clip" on
+     the arrange-view clip menu — screenshot-validated (Loop button lights + the ruler draws
+     the region over the clip). smoke proves SetLoopToClip on a clip at [5,8) sets the loop
+     region there (verified via the new GetTransport loop fields).
    - `[x]` **Audio-clip split fixed** (commit): `apiSplitClip` on an audio clip previously
      copied the *shared* full buffer into both halves, so the right half REPLAYED from the
      buffer start at the cut instead of continuing. Now each half's buffer is trimmed to its

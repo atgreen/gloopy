@@ -465,6 +465,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addItem (14, "Consolidate loops", isLoopedMidi);   // bake looped repetitions into notes
         m.addItem (15, "Bounce to audio");                   // freeze clip -> audio on a new track
         m.addItem (17, "Mute clip", ! isTake, isMuted);      // disable/enable in the arrangement (takes use Use/Promote)
+        m.addItem (18, "Loop this clip");                    // set the transport loop to this clip's span
         if (! isMidi)                                   // audio-clip level ops
         {
             m.addItem (10, "Normalize");                // to -1 dBFS
@@ -499,6 +500,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                             : r == 13 ? "croploop"
                             : r == 14 ? "consolidate"
                             : r == 15 ? "bounce"
+                            : r == 18 ? "loopclip"
                             : r == 16 ? "slicetransients"
                             : r == 10 ? "normalize"
                             : r == 5  ? "usetake"

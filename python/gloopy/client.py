@@ -87,7 +87,8 @@ class Gloopy:
 
     def transport(self) -> dict:
         t = self.stub.GetTransport(pb.Empty())
-        return {"playing": t.playing, "bpm": t.bpm, "position_beats": t.position_beats}
+        return {"playing": t.playing, "bpm": t.bpm, "position_beats": t.position_beats,
+                "loop_enabled": t.loop_enabled, "loop_start": t.loop_start, "loop_end": t.loop_end}
 
     def start_recording(self) -> None:
         """Record armed MIDI + armed audio tracks from the playhead."""
@@ -225,6 +226,10 @@ class Gloopy:
     def set_clip_muted(self, track_id: int, index: int, muted: bool = True) -> None:
         """Mute (disable) or enable a clip in the arrangement without deleting it."""
         self._ack(self.stub.SetClipMuted(pb.ClipMuteRequest(track_id=track_id, index=index, muted=muted)))
+
+    def set_loop_to_clip(self, track_id: int, index: int) -> None:
+        """Set the transport loop to a clip's span and enable looping (audition on repeat)."""
+        self._ack(self.stub.SetLoopToClip(pb.ClipRef(track_id=track_id, index=index)))
 
     def duplicate_clip(self, track_id: int, index: int, at_beat: float = -1.0) -> int:
         """Copy a clip to at_beat (default -1 = butt up right after it); returns new index."""

@@ -75,7 +75,7 @@ public:
     bool isRenderFinished() const { return renderFinished.load(); }
 
     // ── gRPC control API (called from the server thread; plain types, no proto) ──
-    struct TransportSnap { bool playing; double bpm; double positionBeats; };
+    struct TransportSnap { bool playing; double bpm; double positionBeats; bool loopEnabled; double loopStart, loopEnd; };
     struct TrackSnap { int id; juce::String name; juce::String type; float volume; float pan; bool mute; int clips; };
 
     void apiPlay();
@@ -267,6 +267,7 @@ public:
     int  apiSplitClipAtMarker (int trackId, int index, const juce::String& marker);   // split at a named timeline location; -1 if no marker / outside clip
     int  apiSliceClipAtTransients (int trackId, int index, float sensitivity);   // audio clip -> slices at detected onsets; slice count, or -1
     bool apiSetClipMuted (int trackId, int index, bool muted);       // mute/enable a clip in the arrangement (MIDI or audio)
+    bool apiSetLoopToClip (int trackId, int index);                  // set the transport loop to a clip's [start,end) and enable it
     int  apiDuplicateClip (int trackId, int index, double atBeat);  // atBeat<0 => right after; -> new index
     int  apiRepeatClip (int trackId, int index, int copies);        // tile N butted copies after the clip; -> copies added, or -1
     bool apiReverseClip (int trackId, int index);                   // reverse notes (MIDI) or audio buffer

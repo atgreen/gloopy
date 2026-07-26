@@ -356,6 +356,27 @@ bool MainComponent::apiConsolidateClip (int trackId, int index)
     });
 }
 
+// Set the transport loop region to a clip's [start, end) span and enable looping — for
+// auditioning a clip on repeat. Delegates to apiSetLoop.
+bool MainComponent::apiSetLoopToClip (int trackId, int index)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        double s = 0.0, e = 0.0;
+        {
+            const juce::ScopedLock sl (engineLock);
+            Track* t = resolveTrack (trackId);
+            if (t == nullptr || ! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+            const Clip& c = t->clips[(size_t) index];
+            s = c.startBeat;
+            e = c.startBeat + c.lengthBeats;
+        }
+        if (e <= s) return false;
+        apiSetLoop (true, s, e);
+        return true;
+    });
+}
+
 // Tile a clip: append `copies` back-to-back duplicates after it (each one clip-length
 // further along), turning a one-bar loop into an N-bar run. Returns the number of copies
 // added, or -1. Copies share audio buffers (read-only) and duplicate MIDI notes.

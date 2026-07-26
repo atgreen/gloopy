@@ -643,6 +643,19 @@ starts=sorted(round(float(c.get('start')),3) for c in tr.iter('CLIP'))
 assert starts==[0.0,2.0,4.0,6.0], 'repeat tiled to wrong beats: %s'%starts
 print('smoke: PASS — RepeatClip tiled a 2-beat clip to 4 (starts 0/2/4/6)')
 " || { echo 'smoke: RepeatClip tiled wrong' >&2; exit 1; }
+# Loop-to-clip: set the transport loop to a clip's [start,end); GetTransport now reports
+# the loop region (new fields), so we can assert it matches the clip.
+g -d "{\"track_id\":$RC,\"start_beat\":5,\"length_beats\":3,\"content_len_beats\":3,\"notes\":[]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+LCI=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t['id']==$RC)-1)")
+g -d "{\"track_id\":$RC,\"index\":$LCI}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetLoopToClip >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetTransport | python3 -c "
+import json,sys
+t=json.load(sys.stdin)
+assert t.get('loopEnabled') is True, 'loop not enabled after SetLoopToClip: %s'%t
+assert abs(t.get('loopStart',0)-5)<1e-6 and abs(t.get('loopEnd',0)-8)<1e-6, 'loop region wrong: %s'%t
+print('smoke: PASS — SetLoopToClip set the transport loop to the clip [5,8)')
+" || { echo 'smoke: SetLoopToClip wrong' >&2; exit 1; }
+g -d '{"enabled":false,"start_beat":0,"end_beat":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetLoop >/dev/null   # restore
 g -d "{\"id\":$RC}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
 g -d "{\"path\":\"$WAV\",\"tail_seconds\":1.0,\"start_beat\":0,\"end_beat\":4}" \
