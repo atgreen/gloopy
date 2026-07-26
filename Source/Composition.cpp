@@ -151,12 +151,13 @@ juce::String buildNotes (const juce::ValueTree& clip)
         if (pa != pb) return pa < pb;
         return (double) a.getProperty ("nlen") < (double) b.getProperty ("nlen");
     });
-    juce::String out ("# pitch\tstart\tlength\tvelocity\n");
+    juce::String out ("# pitch\tstart\tlength\tvelocity\tprobability\n");
     for (auto& n : notes)
         out << (int) n.getProperty ("pitch") << "\t"
             << toml::Writer::num (n.getProperty ("start")) << "\t"
             << toml::Writer::num (n.getProperty ("nlen"))  << "\t"
-            << toml::Writer::num (n.getProperty ("vel"))   << "\n";
+            << toml::Writer::num (n.getProperty ("vel"))   << "\t"
+            << toml::Writer::num (n.getProperty ("prob", 1.0)) << "\n";
     return out;
 }
 
@@ -174,6 +175,7 @@ void readNotes (const juce::File& f, juce::ValueTree& clip)
         n.setProperty ("start", cols[1].getDoubleValue(), nullptr);
         n.setProperty ("nlen",  cols[2].getDoubleValue(), nullptr);
         n.setProperty ("vel",   (float) cols[3].getDoubleValue(), nullptr);
+        if (cols.size() >= 5) n.setProperty ("prob", (float) cols[4].getDoubleValue(), nullptr);   // optional 5th col
         clip.addChild (n, -1, nullptr);
     }
 }

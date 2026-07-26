@@ -200,7 +200,8 @@ namespace
             for (int i = 0; i < q->notes_size(); ++i)
             {
                 const auto& n = q->notes (i);
-                notes.push_back ({ n.pitch(), n.start_beat(), n.length_beats(), n.velocity() });
+                const float prob = n.probability() > 0.0f ? juce::jmin (1.0f, n.probability()) : 1.0f;   // proto3 omits 1.0? no; unset=0 -> full
+                notes.push_back ({ n.pitch(), n.start_beat(), n.length_beats(), n.velocity(), prob });
             }
             const int idx = main.apiAddClip (q->track_id(), q->start_beat(), q->length_beats(),
                                              q->content_len_beats(), q->looped(), notes, js (q->name()));
@@ -756,6 +757,7 @@ namespace
                 auto* o = r->add_notes();
                 o->set_pitch (n.pitch); o->set_start_beat (n.startBeat);
                 o->set_length_beats (n.lengthBeats); o->set_velocity (n.velocity);
+                o->set_probability (n.probability);
             }
             return Status::OK;
         }
@@ -769,6 +771,9 @@ namespace
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
         Status SetClipVelocity (ServerContext*, const pb::ClipVelocityRequest* q, pb::Ack* r) override
         { const bool ok = main.apiSetClipVelocity (q->track_id(), q->index(), q->scale());
+          r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
+        Status SetClipProbability (ServerContext*, const pb::ClipVelocityRequest* q, pb::Ack* r) override   // scale = probability
+        { const bool ok = main.apiSetClipProbability (q->track_id(), q->index(), q->scale());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
         Status QuantizeClip (ServerContext*, const pb::QuantizeRequest* q, pb::Ack* r) override
         { const bool ok = main.apiQuantizeClip (q->track_id(), q->index(), q->grid());

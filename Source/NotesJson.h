@@ -23,6 +23,7 @@ inline juce::String notesToJson (const std::vector<Note>& notes)
         o->setProperty ("start",    n.startBeat);
         o->setProperty ("length",   n.lengthBeats);
         o->setProperty ("velocity", (double) n.velocity);
+        if (n.probability < 1.0f) o->setProperty ("probability", (double) n.probability);
         arr.add (juce::var (o));
     }
     return juce::JSON::toString (juce::var (arr), true);   // one line (clipboard-friendly)
@@ -47,6 +48,7 @@ inline std::vector<Note> notesFromJson (const juce::String& json)
         n.startBeat   = (double) e.getProperty ("start",  e.getProperty ("startBeat", 0.0));
         n.lengthBeats = juce::jmax (0.0, (double) e.getProperty ("length", e.getProperty ("lengthBeats", 1.0)));
         n.velocity    = juce::jlimit (0.0f, 1.0f, (float) (double) e.getProperty ("velocity", 0.8));
+        n.probability = juce::jlimit (0.0f, 1.0f, (float) (double) e.getProperty ("probability", 1.0));
         out.push_back (n);
     }
     return out;

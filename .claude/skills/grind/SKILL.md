@@ -990,6 +990,20 @@ each shipping with desktop UI + screenshot validation.
       "Velocity" submenu on the clip right-click menu (25/50/75/100/125/150/200%). smoke proves
       0.5x exactly halves the render RMS (velocity->amplitude, 442239 vs 884477), 0x renders
       silent, and the stored note velocity stays 0.90 (via GetClipNotes); screenshot-validated.
+    - `[x]` **Per-note probability (generative gate) landed** (commit): each `Note` gains a
+      `probability` (0..1); `collectNotes` fires it only when a DETERMINISTIC per-note-
+      per-repetition hash (`noteFires` in NoteScheduler.h — a fixed integer bit-mix of pitch +
+      quantised note-start + quantised repetition-start) falls below the probability. So
+      renders stay bit-reproducible while each looped repetition rolls independently — a
+      generative sequencer staple, fitting the scriptable/generative north star. Serialised
+      everywhere a note is (NOTE ValueTree, composition `.notes` 5th column, proto `Note.
+      probability`, GetClipNotes, NotesJson). `apiSetClipProbability` (bulk, all notes) +
+      SetClipProbability RPC + Python `set_clip_probability`; per-note via AddClip. **Desktop:**
+      a "Probability" submenu on the clip menu (100/75/50/25/10%). smoke proves 1.0 = full,
+      0.0 = silent, 0.5 = partial (rms between), and the 0.5 render is byte-identical across a
+      composition round-trip (deterministic); screenshot-validated. Gotcha: proto3 omits 0.0,
+      so an unset `Note.probability` (=0) is read as 1.0 in AddClip (a 0% note is meaningless).
+      **Not yet:** probability on the live-arp path (arpNotes default to 1.0).
     - `[x]` **Scale highlighting landed + screenshot-validated** (commit): `PianoRoll::
       setScale(root,intervals)` builds a 12-pitch-class mask; `paint()` tints in-scale
       rows (chromatic ⇒ off); wired from `apiSetScale` + `refreshUiAfterLoad`. Verified

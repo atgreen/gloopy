@@ -533,6 +533,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 { "25%", 25 }, { "50%", 50 }, { "75%", 75 }, { "100% (reset)", 100 }, { "125%", 125 }, { "150%", 150 }, { "200%", 200 } };
             for (int i = 0; i < 7; ++i) vel.addItem (710 + i, vopts[i].first);
             m.addSubMenu ("Velocity", vel);
+            juce::PopupMenu prob;                            // generative per-note fire probability
+            const std::pair<const char*, int> popts[] = {
+                { "100% (always)", 100 }, { "75%", 75 }, { "50%", 50 }, { "25%", 25 }, { "10%", 10 } };
+            for (int i = 0; i < 5; ++i) prob.addItem (720 + i, popts[i].first);
+            m.addSubMenu ("Probability", prob);
         }
         if (! isMidi)                                   // audio-clip level ops
         {
@@ -572,6 +577,12 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             {
                 const int pcts[] = { 25, 50, 75, 100, 125, 150, 200 };
                 if (onClipCommand) onClipCommand (t, c, "velscale:" + juce::String (pcts[r - 710]));
+                return;
+            }
+            if (r >= 720 && r <= 724)   // Note fire probability <percent>
+            {
+                const int pcts[] = { 100, 75, 50, 25, 10 };
+                if (onClipCommand) onClipCommand (t, c, "prob:" + juce::String (pcts[r - 720]));
                 return;
             }
             const char* cmd = r == 1  ? "split"

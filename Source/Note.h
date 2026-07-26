@@ -12,4 +12,5 @@ struct Note
     double startBeat   { 0.0 };   // start position in beats from loop start
     double lengthBeats { 1.0 };   // duration in beats
     float  velocity    { 0.8f };  // 0..1
+    float  probability { 1.0f };  // 0..1 chance the note fires (generative; deterministic per repetition)
 };

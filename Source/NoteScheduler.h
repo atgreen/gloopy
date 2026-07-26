@@ -84,6 +84,21 @@ struct TempoConv
 // position via @p tc, so per-repetition tempo variation is honoured; timestamps are
 // tsOffset + (sample - songStart). Half-open on both endpoints, matching the loop-
 // window semantics (a note-off past the window is dropped, as before).
+// Deterministic per-note-per-repetition gate for note probability. A fixed integer bit-mix
+// of (pitch, quantised note start, quantised repetition start) -> [0,1); the note fires when
+// that is below its probability. Deterministic => renders are reproducible, yet each looped
+// repetition rolls independently. (Same hash family as Lfo.h's sample-and-hold.)
+inline bool noteFires (int pitch, double startBeat, double repStartBeat, float probability)
+{
+    if (probability >= 1.0f) return true;
+    if (probability <= 0.0f) return false;
+    unsigned long long h = (unsigned long long) (pitch * 2654435761u)
+                         ^ ((unsigned long long) std::llround (startBeat    * 960.0) * 0x9E3779B97F4A7C15ULL)
+                         ^ ((unsigned long long) std::llround (repStartBeat * 960.0) * 0xC2B2AE3D27D4EB4FULL);
+    h ^= h >> 30; h *= 0xBF58476D1CE4E5B9ULL; h ^= h >> 27; h *= 0x94D049BB133111EBULL; h ^= h >> 31;
+    return (double) (h >> 11) / (double) (1ULL << 53) < (double) probability;   // [0,1) < p
+}
+
 inline void collectNotes (const std::vector<Note>& notes, juce::MidiBuffer& midi,
                           const TempoConv& tc, double repStartBeat,
                           juce::int64 songStart, int tsOffset,
@@ -92,6 +107,7 @@ inline void collectNotes (const std::vector<Note>& notes, juce::MidiBuffer& midi
 {
     for (const auto& n : notes)
     {
+        if (! noteFires (n.pitch, n.startBeat, repStartBeat, n.probability)) continue;   // generative gate
         const double startSw = swingBeat (n.startBeat, swing);
         const juce::int64 on  = tc.beatToSample (repStartBeat + startSw);
         const juce::int64 off = tc.beatToSample (repStartBeat + startSw + n.lengthBeats);

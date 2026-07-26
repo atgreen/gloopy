@@ -36,6 +36,7 @@ message Note {
   double start_beat   = 2;   // within the clip
   double length_beats = 3;
   float  velocity     = 4;   // 0..1
+  float  probability  = 5;   // 0..1 chance the note fires (default 1 = always); proto3 omits 1.0? no, only 0
 }
 
 enum Waveform { SINE = 0; SAW = 1; SQUARE = 2; TRIANGLE = 3; }
@@ -390,6 +391,7 @@ service Gloopy {
   rpc ImportNotesJSON (ImportNotesRequest)     returns (ClipId);
   rpc SetClipTranspose(ClipTransposeRequest)   returns (Ack);   // non-destructive playback pitch offset
   rpc SetClipVelocity (ClipVelocityRequest)    returns (Ack);   // non-destructive playback velocity scale
+  rpc SetClipProbability (ClipVelocityRequest) returns (Ack);   // set every note's fire probability (scale = prob)
   rpc QuantizeClip    (QuantizeRequest)        returns (Ack);
   rpc TransposeClip   (TransposeRequest)       returns (Ack);
   rpc HumanizeClip    (HumanizeRequest)        returns (Ack);

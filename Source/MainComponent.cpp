@@ -326,6 +326,7 @@ MainComponent::MainComponent (bool headless)
         else if (cmd == "copynotes") juce::SystemClipboard::copyTextToClipboard (apiExportClipNotesJson (id, clip));
         else if (cmd.startsWith ("transpose:")) apiSetClipTranspose (id, clip, cmd.substring (10).getIntValue());
         else if (cmd.startsWith ("velscale:")) apiSetClipVelocity (id, clip, cmd.substring (9).getIntValue() / 100.0f);
+        else if (cmd.startsWith ("prob:")) apiSetClipProbability (id, clip, cmd.substring (5).getIntValue() / 100.0f);
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")
@@ -3133,6 +3134,7 @@ juce::ValueTree MainComponent::toValueTree()
                     nt.setProperty ("start", n.startBeat, nullptr);
                     nt.setProperty ("nlen", n.lengthBeats, nullptr);
                     nt.setProperty ("vel", n.velocity, nullptr);
+                    if (n.probability < 1.0f) nt.setProperty ("prob", n.probability, nullptr);
                     cl.addChild (nt, -1, nullptr);
                 }
             }
@@ -3557,7 +3559,8 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
                     c.notes.push_back ({ (int) nt.getProperty ("pitch", 60),
                                          (double) nt.getProperty ("start", 0.0),
                                          (double) nt.getProperty ("nlen", 0.25),
-                                         (float) (double) nt.getProperty ("vel", 0.85) });
+                                         (float) (double) nt.getProperty ("vel", 0.85),
+                                         (float) (double) nt.getProperty ("prob", 1.0) });
                 }
             }
             t->clips.push_back (std::move (c));

@@ -664,6 +664,36 @@ print('smoke: PASS — microtuning +1200c doubles pitch (ZCR %.3f), round-trips,
 g -d '{"cents":[0,0,0,0,0,0,0,0,0,0,0,0]}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTuning >/dev/null
 g -d "{\"id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
+# Note probability (generative): a 16-note clip. At probability 1.0 all notes fire; at 0.0
+# none do (silent); at 0.5 roughly half fire — quieter than full, louder than silent — and
+# the gate is DETERMINISTIC (two 0.5 renders are byte-identical) so it round-trips.
+PT=$(g -d '{"name":"prob","wave":"SAW","attack":0.005,"decay":0.05,"sustain":0.9,"release":0.05,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+NOTES=$(python3 -c "import json;print(json.dumps([{'pitch':60,'start_beat':i*0.25,'length_beats':0.2,'velocity':0.9} for i in range(16)]))")
+g -d "{\"track_id\":$PT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":$NOTES}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"track_id\":$PT,\"index\":0,\"scale\":1.0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipProbability >/dev/null
+g -d "{\"path\":\"$WORK/pr_full.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$PT,\"index\":0,\"scale\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipProbability >/dev/null
+g -d "{\"path\":\"$WORK/pr_zero.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$PT,\"index\":0,\"scale\":0.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipProbability >/dev/null
+g -d "{\"path\":\"$WORK/pr_half.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"path\":\"$WORK/prob.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+g -d "{\"path\":\"$WORK/prob.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+g -d "{\"path\":\"$WORK/pr_half2.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+def rms(x): return (sum(v*v for v in x)/max(1,len(x)))**0.5
+full=rd('$WORK/pr_full.wav');zero=rd('$WORK/pr_zero.wav');half=rd('$WORK/pr_half.wav');half2=rd('$WORK/pr_half2.wav')
+rf,rz,rh=rms(full),rms(zero),rms(half)
+assert rf>0, 'probability 1.0 render silent'
+assert rz < rf*0.02, 'probability 0.0 should be silent (full=%.0f zero=%.0f)'%(rf,rz)
+assert rf*0.15 < rh < rf*0.85, 'probability 0.5 should be partial (full=%.0f half=%.0f)'%(rf,rh)
+assert half==half2, 'probability gate is not deterministic / did not survive round-trip (renders differ)'
+print('smoke: PASS — note probability: 1.0 full (rms %.0f), 0.0 silent (%.0f), 0.5 partial (%.0f) + deterministic round-trip'%(rf,rz,rh))
+" || { echo 'smoke: note probability wrong' >&2; exit 1; }
+g -d "{\"id\":$PT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
 # Live arpeggiator: a held chord renders differently with the arp on, and GetTrackArp
 # round-trips. Dedicated track, two renders (chord vs arp), cleaned up.
 AT=$(g -d '{"name":"arptest","wave":"SAW","attack":0.005,"decay":0.05,"sustain":0.9,"release":0.05,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)

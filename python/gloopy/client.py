@@ -310,6 +310,13 @@ class Gloopy:
         self._ack(self.stub.SetClipVelocity(pb.ClipVelocityRequest(
             track_id=track_id, index=index, scale=scale)))
 
+    def set_clip_probability(self, track_id: int, index: int, probability: float) -> None:
+        """Set every note's fire probability in a MIDI clip (0..1). A generative gate: each
+        note (per looped repetition) fires with this chance, deterministically (reproducible
+        renders). Per-note probabilities can also be set via add_clip's Note.probability."""
+        self._ack(self.stub.SetClipProbability(pb.ClipVelocityRequest(
+            track_id=track_id, index=index, scale=probability)))
+
     def export_notes_json(self, track_id: int, index: int) -> str:
         """A clip's notes as a JSON array string [{pitch,start,length,velocity},...]."""
         return self.stub.ExportNotesJSON(pb.ClipRef(track_id=track_id, index=index)).json

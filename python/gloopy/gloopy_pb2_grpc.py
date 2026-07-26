@@ -335,6 +335,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ClipVelocityRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SetClipProbability = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetClipProbability',
+                request_serializer=gloopy__pb2.ClipVelocityRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.QuantizeClip = channel.unary_unary(
                 '/gloopy.v1.Gloopy/QuantizeClip',
                 request_serializer=gloopy__pb2.QuantizeRequest.SerializeToString,
@@ -1187,6 +1192,13 @@ class GloopyServicer:
 
     def SetClipVelocity(self, request, context):
         """non-destructive playback velocity scale
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetClipProbability(self, request, context):
+        """set every note's fire probability (scale = prob)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2095,6 +2107,11 @@ def add_GloopyServicer_to_server(servicer, server):
             ),
             'SetClipVelocity': grpc.unary_unary_rpc_method_handler(
                     servicer.SetClipVelocity,
+                    request_deserializer=gloopy__pb2.ClipVelocityRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetClipProbability': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetClipProbability,
                     request_deserializer=gloopy__pb2.ClipVelocityRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
@@ -4178,6 +4195,33 @@ class Gloopy:
             request,
             target,
             '/gloopy.v1.Gloopy/SetClipVelocity',
+            gloopy__pb2.ClipVelocityRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetClipProbability(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetClipProbability',
             gloopy__pb2.ClipVelocityRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,

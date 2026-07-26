@@ -602,6 +602,28 @@ bool MainComponent::apiSetClipVelocity (int trackId, int index, float scale)
     });
 }
 
+// Set every note's fire probability in a MIDI clip (0..1) — the bulk generative control.
+// Per-note probabilities can be set individually via AddClip; this is the clip-wide op.
+bool MainComponent::apiSetClipProbability (int trackId, int index, float prob)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        pushUndoSnapshot();
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+            auto& c = t->clips[(size_t) index];
+            if (c.isAudio()) return false;                       // MIDI clips only
+            const float p = juce::jlimit (0.0f, 1.0f, prob);
+            for (auto& n : c.notes) n.probability = p;
+        }
+        emitChange ("clip_changed", trackId);
+        return true;
+    });
+}
+
 // A clip's notes as a JSON array (see NotesJson.h) — for the ExportNotesJSON RPC and the
 // desktop "Copy notes" gesture. Empty string if the clip is missing / not a note clip.
 juce::String MainComponent::apiExportClipNotesJson (int trackId, int index)
