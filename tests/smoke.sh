@@ -181,16 +181,20 @@ g -d "{\"path\":\"$WORK/rename_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloo
 RNT=$(g -d '{"name":"renme-orig","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
 g -d "{\"track_id\":$RNT,\"name\":\"renme-new\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenameTrack >/dev/null
 g -d "{\"track_id\":$RNT,\"name\":\"   \"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenameTrack >/dev/null 2>&1   # empty -> rejected, no-op
+g -d "{\"track_id\":$RNT,\"colour\":\"ffab47bc\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTrackColour >/dev/null   # purple
 RNCOMP="$WORK/renamecomp"
 g -d "{\"path\":\"$RNCOMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
 g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
 g -d "{\"path\":\"$RNCOMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
 g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "
 import json,sys
-names=[t.get('name') for t in json.load(sys.stdin)['tracks']]
+ts=json.load(sys.stdin)['tracks']
+names=[t.get('name') for t in ts]
 assert 'renme-new' in names and 'renme-orig' not in names, 'rename lost: %s'%names
-print('smoke: PASS — RenameTrack renme-orig->renme-new (survives composition round-trip)')
-" || { echo 'smoke: rename track wrong' >&2; exit 1; }
+col=next(t.get('colour') for t in ts if t.get('name')=='renme-new')
+assert col.lower()=='ffab47bc', 'colour lost: %s'%col
+print('smoke: PASS — RenameTrack + SetTrackColour (renme-new / ffab47bc survive composition round-trip)')
+" || { echo 'smoke: rename/colour track wrong' >&2; exit 1; }
 g -d "{\"path\":\"$WORK/rename_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 
 # Modulation matrix: an LFO on a synth cutoff must change the render vs a static

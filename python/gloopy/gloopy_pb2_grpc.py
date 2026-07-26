@@ -195,6 +195,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.RenameTrackRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SetTrackColour = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetTrackColour',
+                request_serializer=gloopy__pb2.SetTrackColourRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.AddAudioTrack = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AddAudioTrack',
                 request_serializer=gloopy__pb2.AddAudioTrackRequest.SerializeToString,
@@ -1085,6 +1090,13 @@ class GloopyServicer:
 
     def RenameTrack(self, request, context):
         """rename an existing track
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetTrackColour(self, request, context):
+        """recolour a track
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2147,6 +2159,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'RenameTrack': grpc.unary_unary_rpc_method_handler(
                     servicer.RenameTrack,
                     request_deserializer=gloopy__pb2.RenameTrackRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetTrackColour': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetTrackColour,
+                    request_deserializer=gloopy__pb2.SetTrackColourRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'AddAudioTrack': grpc.unary_unary_rpc_method_handler(
@@ -3694,6 +3711,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/RenameTrack',
             gloopy__pb2.RenameTrackRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetTrackColour(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetTrackColour',
+            gloopy__pb2.SetTrackColourRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

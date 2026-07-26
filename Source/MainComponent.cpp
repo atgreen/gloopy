@@ -412,6 +412,12 @@ MainComponent::MainComponent (bool headless)
         apiRenameTrack (tracks[(size_t) trackIdx]->id, name);    // map view index -> stable API id
     };
 
+    arrangeView->onSetTrackColour = [this] (int trackIdx, const juce::String& hex)
+    {
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+        apiSetTrackColour (tracks[(size_t) trackIdx]->id, hex);  // map view index -> stable API id
+    };
+
     arrangeView->onClipGain = [this] (int trackIdx, int clip, float db)
     {
         if (juce::isPositiveAndBelow (trackIdx, (int) tracks.size()))
@@ -966,7 +972,8 @@ std::vector<MainComponent::TrackSnap> MainComponent::apiListTracks()
         for (auto& t : tracks)
             out.push_back ({ t->id, t->name,
                              t->type == TrackType::Instrument ? juce::String ("instrument") : juce::String ("audio"),
-                             t->volume.load(), t->pan.load(), t->mute.load(), (int) t->clips.size() });
+                             t->volume.load(), t->pan.load(), t->mute.load(), (int) t->clips.size(),
+                             t->colour.toString() });   // 8-hex ARGB
         return out;
     });
 }
@@ -1440,6 +1447,25 @@ bool MainComponent::apiRenameTrack (int id, const juce::String& name)
         emitChange ("track_renamed", id);
         if (arrangeView) arrangeView->rebuild();
         resized();
+        return true;
+    });
+}
+
+bool MainComponent::apiSetTrackColour (int id, const juce::String& hexArgb)
+{
+    const auto col = juce::Colour::fromString (hexArgb.startsWith ("#") ? hexArgb.substring (1) : hexArgb);
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (id);
+        if (t == nullptr) return false;
+        pushUndoSnapshot();
+        {
+            const juce::ScopedLock sl (engineLock);
+            t->colour = col;
+        }
+        emitChange ("track_coloured", id);
+        if (arrangeView) arrangeView->rebuild();
+        repaint();
         return true;
     });
 }

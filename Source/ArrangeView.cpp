@@ -475,12 +475,26 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             }
             const int tk = track;
 
+            // Preset track colours (label -> 8-hex ARGB), menu ids 10..17.
+            static const std::pair<const char*, const char*> kColours[] = {
+                { "Red",    "ffef5350" }, { "Orange", "ffffa726" }, { "Yellow", "ffffee58" },
+                { "Green",  "ff66bb6a" }, { "Teal",   "ff26a69a" }, { "Blue",   "ff42a5f5" },
+                { "Purple", "ffab47bc" }, { "Grey",   "ff90a4ae" } };
+
             juce::PopupMenu m;
             m.addItem (1, "Rename track...");
+            juce::PopupMenu cm;
+            for (int i = 0; i < (int) numElementsInArray (kColours); ++i)
+                cm.addItem (10 + i, kColours[i].first);
+            m.addSubMenu ("Colour", cm);
             if (sc.isSampler) m.addItem (2, "Sampler playback window...");
             m.showMenuAsync (juce::PopupMenu::Options(), [this, tk, curName, sc] (int r)
             {
-                if (r == 1)
+                if (r >= 10 && r < 10 + (int) numElementsInArray (kColours))
+                {
+                    if (onSetTrackColour) onSetTrackColour (tk, kColours[r - 10].second);
+                }
+                else if (r == 1)
                 {
                     auto* rw = new juce::AlertWindow ("Rename track", "New track name", juce::MessageBoxIconType::NoIcon);
                     rw->addTextEditor ("name", curName, "Name");

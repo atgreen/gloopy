@@ -188,6 +188,7 @@ namespace
                 ti->set_pan (t.pan);
                 ti->set_mute (t.mute);
                 ti->set_clips (t.clips);
+                ti->set_colour (t.colour.toStdString());
             }
             return Status::OK;
         }
@@ -515,6 +516,7 @@ namespace
                 auto* ti = r->add_tracks();
                 ti->set_id (tr.id); ti->set_name (tr.name.toStdString()); ti->set_type (tr.type.toStdString());
                 ti->set_volume (tr.volume); ti->set_pan (tr.pan); ti->set_mute (tr.mute); ti->set_clips (tr.clips);
+                ti->set_colour (tr.colour.toStdString());
             }
             for (auto& ins : main.apiListInserts()) fillInsert (r->add_inserts(), ins);
             return Status::OK;
@@ -668,6 +670,10 @@ namespace
         Status RenameTrack (ServerContext*, const pb::RenameTrackRequest* q, pb::Ack* r) override
         { const bool ok = main.apiRenameTrack (q->track_id(), js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("rename failed (track not found or empty name)"); return Status::OK; }
+
+        Status SetTrackColour (ServerContext*, const pb::SetTrackColourRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiSetTrackColour (q->track_id(), js (q->colour()));
+          r->set_ok (ok); if (! ok) r->set_error ("recolour failed (track not found)"); return Status::OK; }
 
         Status AddAudioTrack (ServerContext*, const pb::AddAudioTrackRequest* q, pb::TrackId* r) override
         { r->set_id (main.apiAddAudioTrack (js (q->name()))); return Status::OK; }

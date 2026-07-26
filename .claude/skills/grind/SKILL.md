@@ -1074,6 +1074,15 @@ each shipping with desktop UI + screenshot validation.
   LoadComposition round-trip (wrapped in a SaveProject/LoadProject session snapshot so the
   destructive reload doesn't disturb later blocks). Screenshot-validated end-to-end: header
   menu → dialog (prefilled "Kick") → typed "Boom" → the track header updates live to "Boom".
+- `[x]` **Track colour landed** (commit): the per-track `colour` already serialised but was
+  auto-assigned at creation with no way to change it. `apiSetTrackColour(id,hexArgb)` (parses
+  8-hex ARGB, message-thread, undo) + SetTrackColour RPC (`SetTrackColourRequest`) + Python
+  `set_track_colour`; the colour is now also exposed on `TrackInfo.colour` (GetState/ListTracks
+  + Python `list_tracks`) so it's inspectable. **Desktop:** a "Colour ▸ Red/Orange/Yellow/Green/
+  Teal/Blue/Purple/Grey" preset palette on the track-header menu (next to Rename). smoke folds
+  it into the rename block (set purple ffab47bc → survives the composition round-trip in
+  GetState); screenshot-validated end-to-end (picked Green → the Kick clip + header accent turn
+  green live).
 
 16. **Browser sidebar + demo/template browser + `File → New From Template`** *(Idea
     #1/#2; absorbs remaining preset UI/work).* **L**

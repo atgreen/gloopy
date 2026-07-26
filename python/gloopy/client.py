@@ -215,7 +215,12 @@ class Gloopy:
     def list_tracks(self) -> list[dict]:
         r = self.stub.ListTracks(pb.Empty())
         return [{"id": t.id, "name": t.name, "type": t.type, "volume": t.volume,
-                 "pan": t.pan, "mute": t.mute, "clips": t.clips} for t in r.tracks]
+                 "pan": t.pan, "mute": t.mute, "clips": t.clips, "colour": t.colour} for t in r.tracks]
+
+    def set_track_colour(self, track_id: int, colour: str) -> None:
+        """Recolour a track. `colour` is an 8-hex ARGB string (e.g. 'ffef5350'), with or
+        without a leading '#'."""
+        self._ack(self.stub.SetTrackColour(pb.SetTrackColourRequest(track_id=track_id, colour=colour)))
 
     # -- clips ------------------------------------------------------------
     def add_clip(self, track_id: int, notes: Iterable[pb.Note] = (),
