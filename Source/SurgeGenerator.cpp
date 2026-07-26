@@ -49,9 +49,13 @@ juce::File SurgeGenerator::dataDir()
     auto env = juce::SystemStats::getEnvironmentVariable ("GLOOPY_SURGE_DATA", {});
     if (env.isNotEmpty()) return juce::File (env);
    #ifdef GLOOPY_ASSETS_DIR
-    auto bundled = juce::File (GLOOPY_ASSETS_DIR).getChildFile ("surge-data");   // curated (slice 4)
+    auto bundled = juce::File (GLOOPY_ASSETS_DIR).getChildFile ("surge-data");   // vendored factory data (dev tree)
     if (bundled.isDirectory()) return bundled;
    #endif
+    // Installed layout: <exeDir>/assets/surge-data (see the install rule + Salamander piano).
+    auto exeAdj = juce::File::getSpecialLocation (juce::File::currentExecutableFile)
+                      .getParentDirectory().getChildFile ("assets").getChildFile ("surge-data");
+    if (exeAdj.isDirectory()) return exeAdj;
     return {};
 }
 

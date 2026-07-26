@@ -201,6 +201,12 @@ install(TARGETS Gloopy
     BUNDLE  DESTINATION .)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/SalamanderGrandPiano
     DESTINATION bin/assets)
+# Bundled Surge factory content (patches + wavetables) for the Presets tab / factory
+# sounds out of the box; installed beside the binary and found by SurgeGenerator::dataDir().
+if(GLOOPY_WITH_SURGE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-data")
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-data
+        DESTINATION bin/assets)
+endif()
 
 option(GLOOPY_TESTS "Build the Gloopy unit-test target" OFF)
 if(GLOOPY_TESTS)

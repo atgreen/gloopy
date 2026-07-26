@@ -54,9 +54,18 @@ great out of the box, self-contained, no external plugin install required.
 
 ## Vendoring mechanism
 
-- **Do NOT copy Surge's 1.2 GB tree into the repo.** Add Surge as a **git submodule**
-  under `third_party/surge` pinned to a known-good commit (mirrors how sfizz is embedded,
-  but by-reference given the size). `.gitmodules` gets its first entry.
+- **DECIDED (2026-07-26, user): git submodule** for the *source* (the two options were a
+  pruned source copy vs. a submodule vs. external-only; user chose submodule). Add Surge as a
+  **git submodule** under `third_party/surge` pinned to the known-good commit
+  `9e73f42cc8908ebb7e1ff8a62a1c7d474655568e` (upstream `https://github.com/surge-synthesizer/surge.git`).
+  `.gitmodules` gets its first entry.
+  - **Caveat to handle in 2b:** a naive `git clone --recursive` of Gloopy would pull Surge's
+    *own* submodules recursively, incl. `libs/JUCE` (~500 MB) which surge-common doesn't need.
+    Ship a `scripts/init-surge.sh` that inits ONLY the needed sub-submodules (the slice-1 list:
+    simde fmt luajitlib pffft airwindows binn eurorack sst oddsound-mts tuning-library PEGTL
+    zstd r8brain-free-src) and document "don't use --recursive; run the script." The Surge
+    *source* submodule is for building surge-common only — its `resources/data` is NOT used at
+    runtime (the factory content ships separately in `third_party/surge-data`, slice 4).
 - CMake: `add_subdirectory(third_party/surge/... )` to build `surge::surge-common` (or a
   reduced target list — Surge's CMake is large; scope down to the synth core, no UI/plugin
   wrappers), `target_link_libraries(Gloopy PRIVATE surge::surge-common)`.
@@ -135,8 +144,14 @@ great out of the box, self-contained, no external plugin install required.
    the consumer's standard. Repro: build with `-DGLOOPY_SURGE_DIR=~/git/surge`, set
    `GLOOPY_SURGE_DATA=~/git/surge/resources/data`, `grpcurl … AddSurgeTrack`. Smoke block is
    gated behind `GLOOPY_SMOKE_SURGE=1` until this is fixed.
-4. **Curated patch bundle + curation script.** Select ~150–300 first-party patches + the
-   wavetables they need; install into the data dir; document the selection.
+4. **Factory data bundle — ✅ DONE (2026-07-26).** Per the user's choice, bundle **ALL 639
+   first-party factory patches + all first-party wavetables** (`patches_factory` 24 MB +
+   `wavetables` 6.7 MB ≈ 31 MB) into `third_party/surge-data/` — NOT the `*_3rdparty` packs.
+   `SurgeGenerator::dataDir()` resolves `$GLOOPY_SURGE_DATA` → `GLOOPY_ASSETS_DIR/surge-data`
+   (dev tree) → `<exeDir>/assets/surge-data` (installed, via the new install rule). Verified:
+   the Presets tab populates + a Surge track renders **without** `$GLOOPY_SURGE_DATA` (screenshot
+   + smoke). Vendoring decision: **git submodule** for the *source* (see #2b) — kept separate from
+   this data copy (source builds surge-common; this dir is runtime content; no duplication in use).
 5. **Default-synth wiring + preset browser.** `+ Synth` defaults to Surge; patches
    browsable/loadable from the desktop (Presets browser tab) — the required desktop control.
 6. **THIRD-PARTY-LICENSES.md + docs.** Record the GPL-3 vendored engine + AGPL/GPL combined

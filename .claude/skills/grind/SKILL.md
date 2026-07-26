@@ -1729,8 +1729,11 @@ prior-art references to *read*, not to lift.
     scans `<surge-data>/patches_factory`) — clicking one adds a Surge track loaded with that .fxp
     (via a shared `addSurgeTrackAsync` off-thread helper). Screenshot-validated (Presets tab lists
     patches; clicking "Basses/Bass 1" → a "Bass 1" instrument track). Only present when
-    GLOOPY_WITH_SURGE + a data dir. (4) curated
-    patch/wavetable bundle + curation script; (5) default-synth wiring + preset browser (the
+    GLOOPY_WITH_SURGE + a data dir. (4) **factory data bundle — ✅ DONE (commit)**: per the user's
+    choice, ALL 639 first-party patches + first-party wavetables (~31 MB) bundled into
+    `third_party/surge-data/`; `dataDir()` resolves env → `GLOOPY_ASSETS_DIR/surge-data` → exe-adjacent
+    (+ install rule); Presets tab populates + renders WITHOUT `$GLOOPY_SURGE_DATA` (screenshot + smoke).
+    (5) default-synth wiring + preset browser (the
     desktop control); (6) **license/docs — ✅ DONE (commit)**: THIRD-PARTY-LICENSES.md gained an
     "Embedded synth (Surge XT) — GPL-3.0" section (combined GPL/AGPL work; GLOOPY_WITH_SURGE=OFF
     for a Surge-free build; first-party factory content only) + documented the sfizz Tunings→
