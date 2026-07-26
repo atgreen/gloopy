@@ -933,8 +933,8 @@ void MainComponent::finalizeRecording()
     // Tempo-aware: recorded positions are absolute song samples; map them through the
     // tempo map to beats (identical to /spb when the map is empty). Notes are stored
     // clip-relative, so subtract the clip's own absolute start beat.
-    const double startBeatAbs = samplesToBeats (recordStartSample);
-    const auto toBeat = [&] (juce::int64 s) { return juce::jmax (0.0, samplesToBeats (s) - startBeatAbs); };
+    const double startBeatAbs = samplesToBeats (recordStartSample).inBeats();
+    const auto toBeat = [&] (juce::int64 s) { return juce::jmax (0.0, samplesToBeats (s).inBeats() - startBeatAbs); };
 
     struct Pending { bool on = false; double startBeat = 0.0; float vel = 0.8f; };
     std::array<Pending, 128> pend;
@@ -2079,7 +2079,7 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
 
     // Tempo-aware range: a named/explicit range is in beats; map it through the tempo
     // map (identical to beat*spb when the map is empty).
-    const juce::int64 startSample = beatToSamples (juce::jmax (0.0, startBeat));
+    const juce::int64 startSample = beatToSamples (gloopy::time::BeatPosition { juce::jmax (0.0, startBeat) });
 
     // Start at the range beginning, playing, ignoring any live seek/reset or loop region.
     resetModulationSmoothing();   // deterministic slew: each offline render seeds afresh
@@ -2117,7 +2117,7 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
         const juce::int64 songLen = renderBlock (buf, 0, block, /*ignoreLoopWindow*/ true);
         if (target == 0)   // known after the first block
         {
-            const juce::int64 endSample = endBeat > startBeat ? beatToSamples (endBeat) : songLen;
+            const juce::int64 endSample = endBeat > startBeat ? beatToSamples (gloopy::time::BeatPosition { endBeat }) : songLen;
             bodyLen = juce::jmax ((juce::int64) 1, endSample - startSample);
             target  = bodyLen + tailSamples;
         }

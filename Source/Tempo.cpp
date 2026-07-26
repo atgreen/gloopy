@@ -157,12 +157,13 @@ std::vector<MainComponent::TempoMarker> MainComponent::apiListTempoMarkers()
 // Tempo-aware conversions built on the (already-tested) beat<->seconds integration.
 // With an empty map these reduce to beat*spb / samples/spb exactly, so wiring them
 // into the render path is a no-op until a tempo map is set.
-juce::int64 MainComponent::beatToSamples (double beat)
+juce::int64 MainComponent::beatToSamples (gloopy::time::BeatPosition beat)
 {
-    return (juce::int64) std::llround (apiBeatsToSeconds (beat) * currentSampleRate);
+    return (juce::int64) std::llround (apiBeatsToSeconds (beat.inBeats()) * currentSampleRate);
 }
 
-double MainComponent::samplesToBeats (juce::int64 samples)
+gloopy::time::BeatPosition MainComponent::samplesToBeats (juce::int64 samples)
 {
-    return currentSampleRate > 0.0 ? apiSecondsToBeats ((double) samples / currentSampleRate) : 0.0;
+    return gloopy::time::BeatPosition { currentSampleRate > 0.0
+        ? apiSecondsToBeats ((double) samples / currentSampleRate) : 0.0 };
 }

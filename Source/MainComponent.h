@@ -10,6 +10,7 @@
 #include "Track.h"
 #include "FileDrop.h"
 #include "Clip.h"
+#include "Time.h"
 #include "ArrangeView.h"
 #include "BusyOverlay.h"
 #include "PianoRoll.h"
@@ -219,8 +220,8 @@ public:
     // Tempo-aware sample<->beat conversion (the foundation for the render-path
     // integration). Byte-identical to beat*spb / samples/spb when the map is empty.
     // engineLock is recursive, so these are safe to call from renderBlock.
-    juce::int64 beatToSamples (double beat);
-    double      samplesToBeats (juce::int64 samples);
+    juce::int64                beatToSamples  (gloopy::time::BeatPosition beat);
+    gloopy::time::BeatPosition samplesToBeats (juce::int64 samples);
 
     // --- modulation matrix (Modulation.cpp) ---
     // shape: 0 sine, 1 triangle, 2 saw, 3 square. rate in Hz. Upsert by target id.
