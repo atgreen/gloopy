@@ -226,7 +226,7 @@ message ClipFadesRequest     { int32 track_id = 1; int32 index = 2; double fade_
 message ClipFadeShapeRequest { int32 track_id = 1; int32 index = 2; int32 shape = 3; }   // 0 linear, 1 equal-power, 2 exponential
 message NoteList             { repeated Note notes = 1; }
 // piano-roll note-edit ops
-message QuantizeRequest  { int32 track_id = 1; int32 index = 2; double grid = 3; }        // grid in beats
+message QuantizeRequest  { int32 track_id = 1; int32 index = 2; double grid = 3; double strength = 4; }   // grid in beats; strength 0..1 (0/unset -> full)
 message TransposeRequest { int32 track_id = 1; int32 index = 2; int32 semitones = 3; }
 message HumanizeRequest  { int32 track_id = 1; int32 index = 2; double timing = 3; double velocity = 4; }
 message StrumRequest     { int32 track_id = 1; int32 index = 2; double step_beats = 3; bool down = 4; }   // fan out chord voices

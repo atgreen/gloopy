@@ -824,7 +824,8 @@ namespace
         { const bool ok = main.apiSetClipProbability (q->track_id(), q->index(), q->scale());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
         Status QuantizeClip (ServerContext*, const pb::QuantizeRequest* q, pb::Ack* r) override
-        { const bool ok = main.apiQuantizeClip (q->track_id(), q->index(), q->grid());
+        { const double strength = q->strength() <= 0.0 ? 1.0 : q->strength();   // proto3 omits 0; default to full
+          const bool ok = main.apiQuantizeClip (q->track_id(), q->index(), q->grid(), strength);
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
         Status TransposeClip (ServerContext*, const pb::TransposeRequest* q, pb::Ack* r) override
         { const bool ok = main.apiTransposeClip (q->track_id(), q->index(), q->semitones());

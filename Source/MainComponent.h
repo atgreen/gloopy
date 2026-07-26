@@ -306,7 +306,7 @@ public:
     bool apiSetClipProbability (int trackId, int index, float prob);    // set every note's fire probability (0..1)
     juce::String apiExportClipNotesJson (int trackId, int index);   // clip notes -> JSON (copy / ExportNotesJSON)
     int  apiImportClipNotesJson (int trackId, double startBeat, const juce::String& json);   // JSON -> new clip
-    bool apiQuantizeClip (int trackId, int index, double grid);     // snap starts to a beat grid
+    bool apiQuantizeClip (int trackId, int index, double grid, double strength = 1.0);   // snap starts toward a beat grid
     bool apiTransposeClip (int trackId, int index, int semitones);
     bool apiHumanizeClip (int trackId, int index, double timing, double velocity);
     bool apiStrumClip (int trackId, int index, double stepBeats, bool down);   // fan out chord voices

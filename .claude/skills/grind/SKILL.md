@@ -1133,6 +1133,20 @@ each shipping with desktop UI + screenshot validation.
   mixerTracks ref + engineLock). smoke: rename the highest-index strip → ListInserts shows "DrumBus"
   and it survives a composition round-trip. Screenshot-validated end-to-end (strip menu → "Rename
   strip..." → dialog → typed "DrumBus" → the strip header updates live from "Ins 1" to "DrumBus").
+- `[x]` **Partial / strength quantize landed** (commit): `quantizeNotes` gained a `strength` (0..1)
+  arg — each note moves `strength` of the way toward the nearest grid line (1 = full snap, the
+  default and existing behavior; 0.5 = halfway = tighten-without-robotizing; 0 = no move). Existing
+  callers (PianoRoll Q, apiQuantizeClip) are unchanged (default 1.0). `apiQuantizeClip` +
+  QuantizeRequest gained `strength` (handler defaults unset 0 → full, back-compat). Python
+  `quantize_clip(strength=1.0)`. **Desktop:** a "Quantize ▸ 1/16 · 1/16 soft (50%) · 1/8 · 1/8 soft
+  · 1/4 · 1/4 soft" submenu on the MIDI-clip menu (routed via onClipCommand "quantize:grid,strength").
+  `GloopyTests::NoteEdits` pins the partial move (0.1@grid0.25 → 0.05 at 50%, 0.0 at full, 0.1 at 0);
+  smoke drives QuantizeClip 50% → GetClipNotes 0.05; screenshot-validated (the expanded submenu).
+- **Duplicate track — STILL DEFERRED (measured):** the loader per-track block is lines 3706-3871
+  (~165 lines building generator + clips + automation), interwoven with device prep. Factoring it
+  into a reusable `readTrackFromTree` helper risks ALL project loads, and a true clone also needs
+  its own mixer strip. This is a legitimate multi-session slice — do the save/load helper extraction
+  carefully with the round-trip smoke as the net; don't rush it into a short tick.
 
 16. **Browser sidebar + demo/template browser + `File → New From Template`** *(Idea
     #1/#2; absorbs remaining preset UI/work).* **L**

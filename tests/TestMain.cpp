@@ -389,6 +389,22 @@ struct NoteEditTests : juce::UnitTest
             expect (ch.size() == 4);
         }
 
+        beginTest ("partial quantize moves note starts toward the grid by strength");
+        {
+            std::vector<Note> ns { {60,0.10,1.0f,0.8f}, {62,0.40,1.0f,0.8f} };
+            quantizeNotes (ns, 0.25, 0.5);                   // grid 0.25, halfway
+            // 0.10 -> nearest 0.0, halfway = 0.05; 0.40 -> nearest 0.5, halfway = 0.45.
+            expectWithinAbsoluteError (ns[0].startBeat, 0.05, 1e-9);
+            expectWithinAbsoluteError (ns[1].startBeat, 0.45, 1e-9);
+            // strength 1.0 = full snap; strength 0.0 = no move.
+            std::vector<Note> full { {60,0.10,1.0f,0.8f} };
+            quantizeNotes (full, 0.25, 1.0);
+            expectWithinAbsoluteError (full[0].startBeat, 0.0, 1e-9);
+            std::vector<Note> none { {60,0.10,1.0f,0.8f} };
+            quantizeNotes (none, 0.25, 0.0);
+            expectWithinAbsoluteError (none[0].startBeat, 0.10, 1e-9);
+        }
+
         beginTest ("harmonize adds a parallel interval voice, keeping the originals");
         {
             std::vector<Note> ns { {60,0,1,0.8f}, {64,1,0.5f,0.7f} };

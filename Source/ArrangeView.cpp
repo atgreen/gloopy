@@ -679,6 +679,14 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             cd.addItem (783, "Diminished");
             cd.addItem (784, "Sus4");
             m.addSubMenu ("Chord", cd);
+            juce::PopupMenu qz;                            // quantize note starts (full or 50% soft)
+            qz.addItem (790, "1/16");
+            qz.addItem (791, "1/16 soft (50%)");
+            qz.addItem (792, "1/8");
+            qz.addItem (793, "1/8 soft (50%)");
+            qz.addItem (794, "1/4");
+            qz.addItem (795, "1/4 soft (50%)");
+            m.addSubMenu ("Quantize", qz);
         }
         if (! isMidi)                                   // audio-clip level ops
         {
@@ -772,6 +780,13 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             if (r >= 780 && r <= 784)   // Chord: major/minor/dom7/dim/sus4
             {
                 if (onClipCommand) onClipCommand (t, c, "chordify:" + juce::String (r - 780));
+                return;
+            }
+            if (r >= 790 && r <= 795)   // Quantize: 1/16, 1/8, 1/4 — full or 50% soft (odd ids)
+            {
+                const double grid = r <= 791 ? 0.25 : r <= 793 ? 0.5 : 1.0;
+                const double str  = (r % 2 == 1) ? 0.5 : 1.0;   // 791/793/795 = soft
+                if (onClipCommand) onClipCommand (t, c, "quantize:" + juce::String (grid) + "," + juce::String (str));
                 return;
             }
             const char* cmd = r == 1  ? "split"

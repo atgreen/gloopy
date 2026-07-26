@@ -368,9 +368,10 @@ class Gloopy:
         return self.stub.ImportNotesJSON(pb.ImportNotesRequest(
             track_id=track_id, start_beat=start_beat, json=json_text)).index
 
-    def quantize_clip(self, track_id: int, index: int, grid: float = 0.25) -> None:
-        """Snap note starts to a beat grid (0.25 = 16ths)."""
-        self._ack(self.stub.QuantizeClip(pb.QuantizeRequest(track_id=track_id, index=index, grid=grid)))
+    def quantize_clip(self, track_id: int, index: int, grid: float = 0.25, strength: float = 1.0) -> None:
+        """Snap note starts toward a beat grid (0.25 = 16ths). strength 0..1: 1 = full snap,
+        0.5 = halfway (tighten without robotizing)."""
+        self._ack(self.stub.QuantizeClip(pb.QuantizeRequest(track_id=track_id, index=index, grid=grid, strength=strength)))
 
     def transpose_clip(self, track_id: int, index: int, semitones: int) -> None:
         self._ack(self.stub.TransposeClip(pb.TransposeRequest(track_id=track_id, index=index, semitones=semitones)))

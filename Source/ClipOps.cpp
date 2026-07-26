@@ -707,8 +707,8 @@ int MainComponent::apiImportClipNotesJson (int trackId, double startBeat, const 
         return true;                                                          \
     });
 
-bool MainComponent::apiQuantizeClip (int trackId, int index, double grid)
-{ GLOOPY_EDIT_CLIP_NOTES (quantizeNotes (notes, grid)) }
+bool MainComponent::apiQuantizeClip (int trackId, int index, double grid, double strength)
+{ GLOOPY_EDIT_CLIP_NOTES (quantizeNotes (notes, grid, strength)) }
 
 bool MainComponent::apiTransposeClip (int trackId, int index, int semitones)
 { GLOOPY_EDIT_CLIP_NOTES (transposeNotes (notes, semitones)) }

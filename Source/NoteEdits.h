@@ -13,12 +13,18 @@
 // Pure piano-roll note transforms, shared by the control API (apiQuantizeClip etc.,
 // ClipOps.cpp) and the PianoRoll UI so both do exactly the same edit.
 
-/** Snap each note's start to the nearest multiple of `grid` beats (e.g. 0.25 = 16ths). */
-inline void quantizeNotes (std::vector<Note>& notes, double grid)
+/** Snap each note's start toward the nearest multiple of `grid` beats (e.g. 0.25 = 16ths).
+    `strength` 0..1 is how far to move it: 1 = full snap (the default), 0.5 = halfway to the
+    grid (tighten without robotizing — the classic "iterative"/partial quantize), 0 = no move. */
+inline void quantizeNotes (std::vector<Note>& notes, double grid, double strength = 1.0)
 {
     if (grid <= 0.0) return;
+    const double s = juce::jlimit (0.0, 1.0, strength);
     for (auto& n : notes)
-        n.startBeat = juce::jmax (0.0, std::round (n.startBeat / grid) * grid);
+    {
+        const double target = std::round (n.startBeat / grid) * grid;
+        n.startBeat = juce::jmax (0.0, n.startBeat + (target - n.startBeat) * s);
+    }
 }
 
 /** Swing / groove: delay every off-beat note by `amount` of a `grid` step, baking a shuffle
