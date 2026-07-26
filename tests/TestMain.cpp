@@ -12,6 +12,7 @@
 #include "NoteEdits.h"
 #include "LiveArp.h"
 #include "SessionModel.h"
+#include "SessionLauncher.h"
 #include "NotesJson.h"
 #include "AllpassPhaser.h"
 #include "Biquad.h"
@@ -843,6 +844,118 @@ struct SessionModelTests : juce::UnitTest
 };
 
 //==============================================================================
+// Session launch engine: quantized clip/scene launching, per-track override, back-to-arrangement.
+struct SessionLauncherTests : juce::UnitTest
+{
+    SessionLauncherTests() : juce::UnitTest ("SessionLauncher") {}
+
+    static bool contains (const std::vector<int>& v, int x)
+    {
+        return std::find (v.begin(), v.end(), x) != v.end();
+    }
+
+    void runTest() override
+    {
+        beginTest ("a launch fires at the next quantum boundary, not before");
+        {
+            SessionLauncher L; L.setTrackCount (2); L.setQuantumBeats (4.0);
+            L.requestClip (0, 2);
+            L.advance (1.0, 1.05);                         // mid-bar: nothing yet
+            expectEquals (L.playingSlot (0), -1);          // still arrangement
+            expect (L.changedTracks().empty());
+            expectEquals (L.pendingSlot (0), 2);           // queued
+            L.advance (3.98, 4.02);                        // crosses the bar line
+            expectEquals (L.playingSlot (0), 2);
+            expectWithinAbsoluteError (L.launchBeat (0), 4.0, 1e-9);
+            expect (contains (L.changedTracks(), 0));
+            expectEquals (L.pendingSlot (0), (int) SessionLauncher::kNone);
+        }
+
+        beginTest ("quantum 0 launches immediately");
+        {
+            SessionLauncher L; L.setTrackCount (1); L.setQuantumBeats (0.0);
+            L.requestClip (0, 1);
+            L.advance (1.0, 1.05);
+            expectEquals (L.playingSlot (0), 1);
+            expectWithinAbsoluteError (L.launchBeat (0), 1.0, 1e-9);
+        }
+
+        beginTest ("a boundary exactly at the block start still fires");
+        {
+            SessionLauncher L; L.setTrackCount (1); L.setQuantumBeats (4.0);
+            L.requestClip (0, 3);
+            L.advance (8.0, 8.05);                         // block begins on a bar line
+            expectEquals (L.playingSlot (0), 3);
+            expectWithinAbsoluteError (L.launchBeat (0), 8.0, 1e-9);
+        }
+
+        beginTest ("the latest request before the boundary wins (one clip per track)");
+        {
+            SessionLauncher L; L.setTrackCount (1); L.setQuantumBeats (4.0);
+            L.requestClip (0, 0);
+            L.requestClip (0, 1);                          // overwrites the queued launch
+            L.advance (3.9, 4.1);
+            expectEquals (L.playingSlot (0), 1);
+        }
+
+        beginTest ("re-launching the same slot retriggers (new launchBeat)");
+        {
+            SessionLauncher L; L.setTrackCount (1); L.setQuantumBeats (4.0);
+            L.requestClip (0, 0); L.advance (3.9, 4.1);
+            expectWithinAbsoluteError (L.launchBeat (0), 4.0, 1e-9);
+            L.requestClip (0, 0);                          // same slot again
+            L.advance (7.9, 8.1);
+            expectWithinAbsoluteError (L.launchBeat (0), 8.0, 1e-9);   // phase reset
+            expect (contains (L.changedTracks(), 0));
+        }
+
+        beginTest ("stop returns a track to arrangement; stopping arrangement is a no-op");
+        {
+            SessionLauncher L; L.setTrackCount (1); L.setQuantumBeats (4.0);
+            L.requestClip (0, 2); L.advance (3.9, 4.1);
+            expectEquals (L.playingSlot (0), 2);
+            L.requestStop (0); L.advance (7.9, 8.1);
+            expectEquals (L.playingSlot (0), -1);
+            expect (contains (L.changedTracks(), 0));
+            L.requestStop (0); L.advance (11.9, 12.1);     // already arrangement
+            expect (L.changedTracks().empty());
+        }
+
+        beginTest ("scene launch fires occupied slots only, leaving empty ones alone");
+        {
+            SessionLauncher L; L.setTrackCount (3); L.setQuantumBeats (4.0);
+            std::vector<bool> occupied { true, false, true };
+            L.requestScene (1, occupied);
+            L.advance (3.9, 4.1);
+            expectEquals (L.playingSlot (0), 1);
+            expectEquals (L.playingSlot (1), -1);          // empty slot: unchanged
+            expectEquals (L.playingSlot (2), 1);
+        }
+
+        beginTest ("stopAll and reset clear all tracks");
+        {
+            SessionLauncher L; L.setTrackCount (2); L.setQuantumBeats (4.0);
+            L.requestClip (0, 0); L.requestClip (1, 1); L.advance (3.9, 4.1);
+            expect (L.anyPlaying());
+            L.requestStopAll(); L.advance (7.9, 8.1);
+            expect (! L.anyPlaying());
+            L.requestClip (0, 0); L.advance (11.9, 12.1);
+            expect (L.anyPlaying());
+            L.reset();                                     // immediate, no advance needed
+            expect (! L.anyPlaying());
+        }
+
+        beginTest ("advance with nothing pending does nothing");
+        {
+            SessionLauncher L; L.setTrackCount (1); L.setQuantumBeats (4.0);
+            L.advance (0.0, 100.0);
+            expectEquals (L.playingSlot (0), -1);
+            expect (L.changedTracks().empty());
+        }
+    }
+};
+
+//==============================================================================
 // Drag-and-drop routing: the classifier decides which load op a dropped file gets.
 struct FileDropTests : juce::UnitTest
 {
@@ -1275,6 +1388,7 @@ static SerializationTests serializationTests;
 static NoteEditTests     noteEditTests;
 static LiveArpTests      liveArpTests;
 static SessionModelTests sessionModelTests;
+static SessionLauncherTests sessionLauncherTests;
 static FileDropTests     fileDropTests;
 static TimeTypesTests    timeTypesTests;
 
