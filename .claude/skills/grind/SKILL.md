@@ -1718,7 +1718,13 @@ prior-art references to *read*, not to lift.
     vendored sfizz ships its own *older* `Tunings::` tuning-library (strong global symbol) that
     the linker preferred over surge-common's *newer inline* one, so surge called sfizz's
     incompatible-layout impl → SIGSEGV. Fixed by renaming sfizz's private copy `namespace Tunings`
-    → `TuningsSfz` (3 files). Full detail in docs/surge-embed.md. (4) curated
+    → `TuningsSfz` (3 files). Full detail in docs/surge-embed.md. (5a) **default-synth desktop
+    control — ✅ DONE (commit)**: the toolbar **"+ Synth" now offers "Surge XT (default)" / "Basic
+    synth"** (a menu when GLOOPY_WITH_SURGE, else one-click built-in) — Surge is the default voice
+    while the built-in step-synth stays one click away; no toolbar overflow (rejected a separate
+    "+ Surge" button that pushed Metro off). Screenshot-validated end-to-end (menu → Surge XT → a
+    "Surge" instrument track). Built off the message thread behind the busy overlay (patch scan).
+    (4) curated
     patch/wavetable bundle + curation script; (5) default-synth wiring + preset browser (the
     desktop control); (6) license/docs. Curate ONLY from `patches_factory`/`wavetables` (skip
     `*_3rdparty` without per-pack review).

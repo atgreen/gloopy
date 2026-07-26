@@ -71,12 +71,50 @@ MainComponent::MainComponent (bool headless)
 
     // ---- add tracks ----
     addAndMakeVisible (addSynthBtn);
-    addSynthBtn.onClick = [this]
+    // Add a built-in step-synth track.
+    auto addBasicSynth = [this]
     {
         addTrack (std::make_unique<Track> ("Synth",
                       std::make_unique<SynthGenerator>(), 48,
                       paletteColour ((int) tracks.size())));
     };
+    // Add an embedded Surge XT track (built off the message thread — constructing the
+    // synth scans its patch library — behind the busy overlay, then installed).
+    auto addSurge = [this]
+    {
+        auto slot = std::make_shared<std::unique_ptr<SurgeGenerator>>();
+        const double sr = currentSampleRate; const int bs = currentBlockSize;
+        runBackground ("Adding Surge…",
+            [slot, sr, bs]
+            {
+                auto g = std::make_unique<SurgeGenerator>();
+                g->prepare (sr, bs);
+                *slot = std::move (g);
+            },
+            [this, slot]
+            {
+                if (*slot)
+                    addTrack (std::make_unique<Track> ("Surge", std::move (*slot), 48,
+                                  paletteColour ((int) tracks.size())));   // addTrack pushes undo
+            });
+    };
+   #ifdef GLOOPY_WITH_SURGE
+    // Surge is the embedded default synth; the built-in step-synth stays one click away.
+    addSynthBtn.onClick = [this, addBasicSynth, addSurge]
+    {
+        juce::PopupMenu m;
+        m.addItem (1, "Surge XT  (default)");
+        m.addItem (2, "Basic synth");
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (addSynthBtn),
+            [addBasicSynth, addSurge] (int r)
+            {
+                if      (r == 1) addSurge();
+                else if (r == 2) addBasicSynth();
+            });
+    };
+   #else
+    addSynthBtn.onClick = [addBasicSynth] { addBasicSynth(); };
+   #endif
 
     addAndMakeVisible (loadSampleBtn);
     loadSampleBtn.onClick = [this]
