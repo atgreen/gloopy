@@ -313,6 +313,28 @@ struct NoteEditTests : juce::UnitTest
             expectWithinAbsoluteError (ns[2].lengthBeats, 1.0, 1e-9);
         }
 
+        beginTest ("legato stretches each note to the next onset; last unchanged");
+        {
+            std::vector<Note> ns { {60,0,1,0.8f}, {62,2,1,0.7f}, {64,4,1,0.6f} };
+            legatoNotes (ns, 1.0f);
+            expectWithinAbsoluteError (ns[0].lengthBeats, 2.0, 1e-9);   // 0->2
+            expectWithinAbsoluteError (ns[1].lengthBeats, 2.0, 1e-9);   // 2->4
+            expectWithinAbsoluteError (ns[2].lengthBeats, 1.0, 1e-9);   // last: unchanged
+            expect (ns.size() == 3 && ns[0].pitch == 60 && ns[2].pitch == 64);   // size + order preserved
+        }
+        beginTest ("legato amount blends length; chords extend together");
+        {
+            std::vector<Note> ns { {60,0,1,0.8f}, {62,2,1,0.7f} };
+            legatoNotes (ns, 0.5f);                                     // halfway from 1 -> 2
+            expectWithinAbsoluteError (ns[0].lengthBeats, 1.5, 1e-9);
+            // a two-note chord at 0, next onset at 2 -> both extend to length 2
+            std::vector<Note> ch { {60,0,1,0.8f}, {64,0,1,0.8f}, {67,2,1,0.7f} };
+            legatoNotes (ch, 1.0f);
+            expectWithinAbsoluteError (ch[0].lengthBeats, 2.0, 1e-9);
+            expectWithinAbsoluteError (ch[1].lengthBeats, 2.0, 1e-9);
+            expectWithinAbsoluteError (ch[2].lengthBeats, 1.0, 1e-9);   // last onset: unchanged
+        }
+
         beginTest ("arpeggiate up sequences a chord");
         {
             std::vector<Note> ns { {60,0,1,0.8f}, {64,0,1,0.8f}, {67,0,1,0.8f} };

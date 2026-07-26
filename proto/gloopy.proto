@@ -219,6 +219,7 @@ message QuantizeRequest  { int32 track_id = 1; int32 index = 2; double grid = 3;
 message TransposeRequest { int32 track_id = 1; int32 index = 2; int32 semitones = 3; }
 message HumanizeRequest  { int32 track_id = 1; int32 index = 2; double timing = 3; double velocity = 4; }
 message StrumRequest     { int32 track_id = 1; int32 index = 2; double step_beats = 3; bool down = 4; }   // fan out chord voices
+message LegatoRequest    { int32 track_id = 1; int32 index = 2; float amount = 3; }   // stretch each note to the next onset (0..1)
 message ArpeggiateRequest{ int32 track_id = 1; int32 index = 2; double step_beats = 3; int32 mode = 4; } // mode 0=up 1=down 2=updown
 message SplitNotesRequest{ int32 track_id = 1; int32 index = 2; double beat = 3; }   // knife: cut notes spanning this clip-relative beat
 // Live (non-destructive) per-track arpeggiator. mode 0=up 1=down 2=updown 3=random.
@@ -401,6 +402,7 @@ service Gloopy {
   rpc HumanizeClip    (HumanizeRequest)        returns (Ack);
   rpc AddChord        (ChordRequest)           returns (Ack);   // stamp a chord into a clip
   rpc StrumClip       (StrumRequest)           returns (Ack);   // fan out a chord's voices
+  rpc LegatoClip      (LegatoRequest)          returns (Ack);   // stretch notes to the next onset
   rpc ArpeggiateClip  (ArpeggiateRequest)      returns (Ack);   // chord -> arpeggio (destructive)
   rpc SplitNotesAtBeat(SplitNotesRequest)      returns (Ack);   // knife: split notes crossing a clip-relative beat
   rpc SetTrackArp     (ArpSpec)                returns (Ack);   // live per-track arpeggiator

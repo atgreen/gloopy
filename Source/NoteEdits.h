@@ -87,6 +87,30 @@ inline void strumNotes (std::vector<Note>& notes, double stepBeats, bool down)
     }
 }
 
+/** Legato: stretch (or shrink) each note's length so its end reaches the NEXT distinct
+    onset in the clip, blended by `amount` (0 = unchanged, 1 = notes exactly touch the next
+    onset). Notes sharing the last onset keep their length. Chords are handled by using the
+    next *distinct* start beat, so a whole chord extends to the next event together. Pure,
+    size- and order-preserving (so the piano-roll selection write-back works). */
+inline void legatoNotes (std::vector<Note>& notes, float amount)
+{
+    if (notes.size() < 2) return;
+    const double a = juce::jlimit (0.0f, 1.0f, amount);
+    std::vector<double> starts;                            // distinct onsets, ascending
+    for (const auto& n : notes) starts.push_back (n.startBeat);
+    std::sort (starts.begin(), starts.end());
+    starts.erase (std::unique (starts.begin(), starts.end(),
+                    [] (double x, double y) { return std::abs (x - y) < 1e-6; }), starts.end());
+    for (auto& n : notes)
+    {
+        double next = -1.0;                                // next onset strictly after this note
+        for (double s : starts) if (s > n.startBeat + 1e-6) { next = s; break; }
+        if (next < 0.0) continue;                          // last onset group: length unchanged
+        const double target = next - n.startBeat;          // length that just reaches the next onset
+        n.lengthBeats = juce::jmax (0.01, n.lengthBeats + a * (target - n.lengthBeats));
+    }
+}
+
 /** Arpeggiate: turn each chord (notes sharing a start beat) into a sequence of single
     notes, each `stepBeats` long, played in order. mode 0 = up, 1 = down, 2 = up-down.
     Single notes pass through unchanged. Note lengths become the step (classic arp gate). */

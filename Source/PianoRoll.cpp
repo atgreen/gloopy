@@ -32,6 +32,8 @@ bool PianoRoll::keyPressed (const juce::KeyPress& key)
     { transformSelectionOrAll ([&] (std::vector<Note>& v) { juce::Random rng; humanizeNotes (v, 0.02, 0.1, rng); }); changed = true; }
     else if (key.getTextCharacter() == 's' || key.getTextCharacter() == 'S')
     { transformSelectionOrAll ([&] (std::vector<Note>& v) { strumNotes (v, 0.05, ! shift); }); changed = true; }
+    else if (key.getTextCharacter() == 'l' || key.getTextCharacter() == 'L')
+    { legatoNotes (notes, shift ? 0.5f : 1.0f); changed = true; }   // full clip (needs all onsets); Shift = half
     else if (key == juce::KeyPress::upKey)
     { transformSelectionOrAll ([&] (std::vector<Note>& v) { transposeNotes (v, shift ? 12 : 1); }); changed = true; }
     else if (key == juce::KeyPress::downKey)
@@ -67,6 +69,14 @@ void PianoRoll::strumRollNotes (double stepBeats, bool down)
 {
     if (! editable || notes.empty()) return;
     strumNotes (notes, stepBeats, down);
+    if (onNotesChanged) onNotesChanged();
+    repaint();
+}
+
+void PianoRoll::legatoRollNotes (float amount)
+{
+    if (! editable || notes.empty()) return;
+    legatoNotes (notes, amount);            // stretch each note to the next onset (full clip)
     if (onNotesChanged) onNotesChanged();
     repaint();
 }

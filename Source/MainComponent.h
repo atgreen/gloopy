@@ -305,6 +305,7 @@ public:
     bool apiHumanizeClip (int trackId, int index, double timing, double velocity);
     bool apiStrumClip (int trackId, int index, double stepBeats, bool down);   // fan out chord voices
     bool apiArpeggiateClip (int trackId, int index, double stepBeats, int mode);   // chord -> arp (0 up/1 down/2 updown)
+    bool apiLegatoClip (int trackId, int index, float amount);      // stretch each note to the next onset (0..1 blend)
     bool apiSplitNotesAtBeat (int trackId, int index, double beat);   // knife: cut notes spanning a clip-relative beat
     // Live (non-destructive) arpeggiator per track. mode 0 up/1 down/2 updown/3 random.
     bool apiSetTrackArp (int trackId, bool enabled, double rate, int octaves, float gate, int mode,
@@ -371,6 +372,11 @@ private:
             strumBtn.onClick = [this] { roll.strumRollNotes (0.05, ! juce::ModifierKeys::getCurrentModifiers().isShiftDown()); };
             addAndMakeVisible (strumBtn);
 
+            // Legato: stretch every note to the next onset (one-click; keyboard L / Shift+L half).
+            legatoBtn.setTooltip ("Legato: stretch each note to the next onset (Shift-click = half)");
+            legatoBtn.onClick = [this] { roll.legatoRollNotes (juce::ModifierKeys::getCurrentModifiers().isShiftDown() ? 0.5f : 1.0f); };
+            addAndMakeVisible (legatoBtn);
+
             // Snap-to-scale: constrain drawn/moved pitches to the project scale.
             scaleLockBtn.setClickingTogglesState (true);
             scaleLockBtn.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
@@ -430,6 +436,7 @@ private:
             stepBtn .setBounds (h.removeFromRight (58).reduced (2, 0));
             chordCombo.setBounds (h.removeFromRight (74).reduced (2, 0));
             strumBtn.setBounds (h.removeFromRight (52).reduced (2, 0));
+            legatoBtn.setBounds (h.removeFromRight (58).reduced (2, 0));
             arpBtn.setBounds (h.removeFromRight (46).reduced (2, 0));
             knifeBtn.setBounds (h.removeFromRight (52).reduced (2, 0));
             scaleLockBtn.setBounds (h.removeFromRight (52).reduced (2, 0));
@@ -443,6 +450,7 @@ private:
         juce::TextButton pianoBtn { "PIANO" };
         juce::TextButton auditionBtn { "AUDITION" };
         juce::TextButton strumBtn { "STRUM" };
+        juce::TextButton legatoBtn { "LEGATO" };
         juce::TextButton arpBtn { "ARP" };
         juce::TextButton scaleLockBtn { "SCALE" };
         juce::TextButton knifeBtn { "KNIFE" };

@@ -355,6 +355,12 @@ class Gloopy:
         self._ack(self.stub.ArpeggiateClip(pb.ArpeggiateRequest(
             track_id=track_id, index=index, step_beats=step_beats, mode=mode)))
 
+    def legato_clip(self, track_id: int, index: int, amount: float = 1.0) -> None:
+        """Legato: stretch each note's length so it reaches the next distinct onset, blended by
+        amount (0 = unchanged, 1 = notes exactly touch the next onset). Chords extend together."""
+        self._ack(self.stub.LegatoClip(pb.LegatoRequest(
+            track_id=track_id, index=index, amount=amount)))
+
     def split_notes_at_beat(self, track_id: int, index: int, beat: float) -> None:
         """Knife: cut every note spanning `beat` (clip-relative) into two abutting notes."""
         self._ack(self.stub.SplitNotesAtBeat(pb.SplitNotesRequest(

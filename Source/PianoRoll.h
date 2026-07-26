@@ -76,6 +76,9 @@ public:
     /** Fan out chord voices (notes sharing a start beat). Uses the same strumNotes
         transform as apiStrumClip, then fires onNotesChanged. */
     void strumRollNotes (double stepBeats, bool down);
+    /** Legato the selection (or all notes): stretch each to the next onset. Uses the same
+        legatoNotes transform as apiLegatoClip. */
+    void legatoRollNotes (float amount);
 
     /** Arpeggiate chords into sequences (mode 0=up, 1=down, 2=up-down). Same
         arpeggiateNotes transform as apiArpeggiateClip. */

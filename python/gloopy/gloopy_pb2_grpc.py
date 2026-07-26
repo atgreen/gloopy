@@ -370,6 +370,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.StrumRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.LegatoClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/LegatoClip',
+                request_serializer=gloopy__pb2.LegatoRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.ArpeggiateClip = channel.unary_unary(
                 '/gloopy.v1.Gloopy/ArpeggiateClip',
                 request_serializer=gloopy__pb2.ArpeggiateRequest.SerializeToString,
@@ -1248,6 +1253,13 @@ class GloopyServicer:
 
     def StrumClip(self, request, context):
         """fan out a chord's voices
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def LegatoClip(self, request, context):
+        """stretch notes to the next onset
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2167,6 +2179,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'StrumClip': grpc.unary_unary_rpc_method_handler(
                     servicer.StrumClip,
                     request_deserializer=gloopy__pb2.StrumRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'LegatoClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.LegatoClip,
+                    request_deserializer=gloopy__pb2.LegatoRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'ArpeggiateClip': grpc.unary_unary_rpc_method_handler(
@@ -4419,6 +4436,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/StrumClip',
             gloopy__pb2.StrumRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def LegatoClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/LegatoClip',
+            gloopy__pb2.LegatoRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

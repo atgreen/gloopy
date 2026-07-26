@@ -977,6 +977,17 @@ ns=sorted((n['pitch'],round(n.get('startBeat',0),3),round(n['lengthBeats'],3)) f
 assert ns==[(60,0.0,1.0),(60,1.0,1.0),(64,1.0,1.0)], 'knife split wrong: %s'%ns
 print('smoke: PASS — SplitNotesAtBeat cut the spanning note into halves (60@0/60@1), left 64@1')
 " || { echo 'smoke: knife split wrong' >&2; exit 1; }
+# Legato: three notes at 0/2/4 (length 1 each) stretch so each reaches the next onset —
+# [0,2)+[2,4) and the last note unchanged. Verified via GetClipNotes.
+g -d "{\"track_id\":$CO,\"start_beat\":0,\"length_beats\":6,\"content_len_beats\":6,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":0.8},{\"pitch\":62,\"start_beat\":2,\"length_beats\":1,\"velocity\":0.8},{\"pitch\":64,\"start_beat\":4,\"length_beats\":1,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+LC=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t.get('name')=='clipops')-1)")
+g -d "{\"track_id\":$CO,\"index\":$LC,\"amount\":1.0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LegatoClip >/dev/null
+g -d "{\"track_id\":$CO,\"index\":$LC}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "
+import json,sys
+ns=sorted((n['pitch'],round(n.get('startBeat',0),3),round(n['lengthBeats'],3)) for n in json.load(sys.stdin)['notes'])
+assert ns==[(60,0.0,2.0),(62,2.0,2.0),(64,4.0,1.0)], 'legato lengths wrong: %s'%ns
+print('smoke: PASS — LegatoClip stretched notes to the next onset (60->2, 62->2, last 64 unchanged)')
+" || { echo 'smoke: legato wrong' >&2; exit 1; }
 g -d "{\"id\":$CO}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   # isolate: drop the scratch track
 # Split-at-named-marker: a marker at beat 2 splits a [0,4) clip (notes 0/1/2/3) into
 # [0,2)+[2,4); the right clip's notes rebase to 0/1. Reuses the locations model.

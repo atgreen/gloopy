@@ -1013,8 +1013,8 @@ each shipping with desktop UI + screenshot validation.
       API (`apiQuantizeClip`/`apiTransposeClip`/`apiHumanizeClip`, verifiable via
       GetClipNotes) and the PianoRoll UI (keyboard: Q/Shift+Q quantize 1/16·1/8, ↑/↓
       ±1 & Shift ±12 transpose, H humanize). RPCs + Python client. Verified headless
-      (0.1→0.0, 60→72, jitter ≤±0.02). **UI needs visual eval.** **Not yet:**
-      knife/strum tools, ghost notes, step recording, velocity-tool
+      (0.1→0.0, 60→72, jitter ≤±0.02). **UI needs visual eval.** (knife, strum, and legato
+      tools have since landed as their own slices.) **Not yet:** step recording, velocity-tool
       drag, per-note selection ops.
     - `[x]` **Non-destructive per-clip transpose landed** (commit): a `Clip.transpose`
       (semitones, +/-48) applied at render time in `collectNotes` (clamped, same value on
@@ -1066,6 +1066,16 @@ each shipping with desktop UI + screenshot validation.
     - `[x]` **Strum landed** (commit a4e353e): shared strumNotes transform + apiStrumClip +
       StrumClip RPC + STRUM header button (Shift-click = up) + S/Shift+S keys. Smoke +
       screenshot validated.
+    - `[x]` **Legato landed** (commit): shared `legatoNotes` transform (NoteEdits.h) stretches
+      each note's length so it reaches the NEXT distinct onset, blended by amount (0 unchanged,
+      1 = notes exactly touch); chords extend together (uses the next *distinct* start), the last
+      onset group is unchanged, size/order preserved. `apiLegatoClip` + LegatoClip RPC
+      (`LegatoRequest`; the handler maps an unset amount 0→1 like arp probability) + Python
+      `legato_clip`; PianoRoll `legatoRollNotes` + a "LEGATO" header button (Shift-click = half)
+      + L/Shift+L keys. `GloopyTests::NoteEdits` proves the length math (0/2/4 → 0..2/2..4/last
+      unchanged, the amount blend, and chord-together); smoke proves LegatoClip via GetClipNotes;
+      screenshot-validated (before/after in the piano roll: the LEGATO button stretches the notes
+      to the next onset).
     - `[x]` **Arpeggiate (destructive one-shot) landed** (commit c90da23): shared arpeggiateNotes
       + apiArpeggiateClip + ArpeggiateClip RPC + ARP header button (Up/Down/Up-Down menu).
       Rewrites a chord clip into a note sequence in place. Smoke + screenshot.
