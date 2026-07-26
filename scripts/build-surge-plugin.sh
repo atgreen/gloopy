@@ -46,4 +46,24 @@ while IFS= read -r lv2; do
     cp -r "$lv2" third_party/surge-plugin/ && { echo "staged: $lv2"; found=1; }
 done < <(find "$BUILD" -name '*.lv2' -type d)
 [ "$found" = 1 ] || { echo "no .lv2 produced under $BUILD" >&2; exit 1; }
+
+# 5) Stage Surge's factory data as SurgeXTData/ beside the .lv2. Surge XT finds it via
+#    "portable mode": at construction it walks UP from its own .so directory looking for a
+#    SurgeXTData/ dir (SurgeStorage.cpp), so bundling it here -> installed to bin/plugins/
+#    SurgeXTData -> the factory patch/wavetable browser is populated with NO external install.
+#    First-party content ONLY: the *_3rdparty packs carry their own licenses and are excluded
+#    (keeps the bundle GPL-3-clean; see THIRD-PARTY-LICENSES.md). configuration.xml is NOT here
+#    — Surge compiles it in as a binary resource.
+DATASRC="$SURGE/resources/data"
+DATADST=third_party/surge-plugin/SurgeXTData
+if [ -d "$DATASRC" ]; then
+    rm -rf "$DATADST"; mkdir -p "$DATADST"
+    # tar is portable across the CI containers (rsync is not guaranteed installed).
+    ( cd "$DATASRC" && tar -cf - \
+        --exclude=patches_3rdparty --exclude=wavetables_3rdparty --exclude=impulses_3rdparty . ) \
+      | ( cd "$DATADST" && tar -xf - )
+    echo "staged data: $DATADST ($(du -sh "$DATADST" | cut -f1), first-party only)"
+else
+    echo "WARNING: $DATASRC not found — Surge patch/wavetable browser will be empty" >&2
+fi
 echo "build-surge-plugin: done -> third_party/surge-plugin/"

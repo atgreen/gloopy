@@ -36,12 +36,16 @@ default synth — so users get **the real Surge XT editor** (via Gloopy's existi
   the GL/Xrender dev deps the GUI build needs.
 
 **⏳ Remaining follow-ups:**
-- **Step 2b — factory patch/wavetable library (not yet bundled).** The plugin loads, renders its
-  UI, and the init patch makes sound — but the on-disk factory *patch/wavetable library* (the
-  browser) is NOT shipped, so on a clean machine the patch browser is empty. Ship Surge's data dir
-  and point the bundled plugin at it (Surge XT LV2 resolves data via XDG/system paths, not
-  `bin/assets`, so a plain copy is not enough — needs `SURGE_DATA`/symlink or equivalent). Verify
-  in an isolated `HOME`.
+- **Step 2b — factory patch/wavetable library — ✅ DONE.** `build-surge-plugin.sh` now stages
+  Surge's first-party `resources/data` (excluding the `*_3rdparty` packs) as
+  `third_party/surge-plugin/SurgeXTData/` (~62 MB, 639 factory patches). Surge XT finds it via
+  **portable mode** — at construction it walks UP from its own `.so` dir looking for a
+  `SurgeXTData/` dir (`SurgeStorage.cpp`), so installing to `bin/plugins/SurgeXTData` (beside the
+  `.lv2`) is auto-found with NO env var / NO Gloopy code / NO CMake change (the existing
+  `install(DIRECTORY surge-plugin/)` rule ships it; gitignore already covers it). Verified by
+  `strace` in an isolated `HOME` (no `~/.lv2`, no system Surge): **558 opens under the bundled
+  `SurgeXTData`** — wavetables + all factory patch categories load. (`configuration.xml` is NOT in
+  the data dir — Surge compiles it in as a binary resource.)
 - **Licensing — ✅ DONE.** `THIRD-PARTY-LICENSES.md` now documents Surge XT in both forms
   (embedded `surge-common` core *and* the bundled GPL-3 LV2 plugin `.so` shipped in the RPM/DEB
   packages), the combined-work / source-availability obligation covering the shipped plugin, and
