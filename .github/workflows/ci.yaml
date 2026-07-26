@@ -41,6 +41,12 @@ jobs:
       - name: Unit tests (ctest)
         run: ctest --test-dir build --output-on-failure
 
+      # Composition-as-repo relies on bit-reproducible renders. Render an example twice and
+      # fail if the output isn't byte-identical (catches run-to-run nondeterminism). Headless
+      # (offline bounce), so no X server needed.
+      - name: Render determinism
+        run: bash scripts/check-render-determinism.sh
+
       # Smoke drives the app over gRPC + renders audio offline. It needs grpcurl and
       # a virtual X server. Kept non-blocking (best-effort) since it depends on a
       # working headless audio/display stack in the runner.
