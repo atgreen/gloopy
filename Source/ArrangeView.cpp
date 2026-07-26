@@ -520,6 +520,15 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addItem (17, "Mute clip", ! isTake, isMuted);      // disable/enable in the arrangement (takes use Use/Promote)
         m.addItem (18, "Loop this clip");                    // set the transport loop to this clip's span
         m.addItem (19, "Copy notes (JSON)", isMidi);         // notes -> system clipboard as JSON
+        if (isMidi)                                          // non-destructive playback transpose
+        {
+            juce::PopupMenu tr;
+            const std::pair<const char*, int> opts[] = {
+                { "-12 (octave)", -12 }, { "-7 (fifth)", -7 }, { "-5 (fourth)", -5 }, { "-2", -2 },
+                { "Reset (0)", 0 }, { "+2", 2 }, { "+5 (fourth)", 5 }, { "+7 (fifth)", 7 }, { "+12 (octave)", 12 } };
+            for (int i = 0; i < 9; ++i) tr.addItem (700 + i, opts[i].first);
+            m.addSubMenu ("Transpose", tr);
+        }
         if (! isMidi)                                   // audio-clip level ops
         {
             m.addItem (10, "Normalize");                // to -1 dBFS
@@ -548,6 +557,12 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             if (r == 11) { promptClipGain (t, c); return; }        // "Gain..." -> dB prompt
             if (r == 12) { promptClipFades (t, c); return; }       // "Fades..." -> in/out prompt
             if (r == 19) { if (onClipCommand) onClipCommand (t, c, "copynotes"); return; }   // notes -> clipboard
+            if (r >= 700 && r <= 708)   // Transpose <semitones> (non-destructive)
+            {
+                const int vals[] = { -12, -7, -5, -2, 0, 2, 5, 7, 12 };
+                if (onClipCommand) onClipCommand (t, c, "transpose:" + juce::String (vals[r - 700]));
+                return;
+            }
             const char* cmd = r == 1  ? "split"
                             : r == 2  ? "duplicate"
                             : r == 3  ? "reverse"

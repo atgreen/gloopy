@@ -925,6 +925,16 @@ each shipping with desktop UI + screenshot validation.
       (0.1→0.0, 60→72, jitter ≤±0.02). **UI needs visual eval.** **Not yet:**
       knife/strum tools, ghost notes, step recording, velocity-tool
       drag, per-note selection ops.
+    - `[x]` **Non-destructive per-clip transpose landed** (commit): a `Clip.transpose`
+      (semitones, +/-48) applied at render time in `collectNotes` (clamped, same value on
+      note-on/off so pairs match) — the stored notes are untouched, distinct from the
+      destructive `apiTransposeClip`. So a clip can be re-pitched live (and A/B'd) without
+      editing its notes; the arp path inherits it. `apiSetClipTranspose` + SetClipTranspose
+      RPC + Python; serialised in the CLIP ValueTree + composition TOML (omitted when 0).
+      **Desktop:** a "Transpose" submenu on the clip right-click menu (-12/-7/-5/-2/Reset/
+      +2/+5/+7/+12, with interval labels). smoke proves +12 doubles a sine's zero-crossing
+      rate (1.999), leaves the stored pitch at 69, and survives a composition round-trip;
+      screenshot-validated (the submenu).
     - `[x]` **Scale highlighting landed + screenshot-validated** (commit): `PianoRoll::
       setScale(root,intervals)` builds a 12-pitch-class mask; `paint()` tints in-scale
       rows (chromatic ⇒ off); wired from `apiSetScale` + `refreshUiAfterLoad`. Verified

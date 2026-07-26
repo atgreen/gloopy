@@ -298,6 +298,12 @@ class Gloopy:
         return [{"pitch": n.pitch, "start_beat": n.start_beat,
                  "length_beats": n.length_beats, "velocity": n.velocity} for n in r.notes]
 
+    def set_clip_transpose(self, track_id: int, index: int, semitones: int) -> None:
+        """Non-destructive playback transpose of a MIDI clip (semitones, +/-48). The stored
+        notes are untouched — the offset is applied at render time (unlike transpose_clip)."""
+        self._ack(self.stub.SetClipTranspose(pb.ClipTransposeRequest(
+            track_id=track_id, index=index, semitones=semitones)))
+
     def export_notes_json(self, track_id: int, index: int) -> str:
         """A clip's notes as a JSON array string [{pitch,start,length,velocity},...]."""
         return self.stub.ExportNotesJSON(pb.ClipRef(track_id=track_id, index=index)).json

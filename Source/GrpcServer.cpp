@@ -750,6 +750,9 @@ namespace
         Status ImportNotesJSON (ServerContext*, const pb::ImportNotesRequest* q, pb::ClipId* r) override
         { const int idx = main.apiImportClipNotesJson (q->track_id(), q->start_beat(), js (q->json()));
           r->set_track_id (q->track_id()); r->set_index (idx); return Status::OK; }
+        Status SetClipTranspose (ServerContext*, const pb::ClipTransposeRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiSetClipTranspose (q->track_id(), q->index(), q->semitones());
+          r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
         Status QuantizeClip (ServerContext*, const pb::QuantizeRequest* q, pb::Ack* r) override
         { const bool ok = main.apiQuantizeClip (q->track_id(), q->index(), q->grid());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }

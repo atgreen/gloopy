@@ -25,6 +25,7 @@ struct Clip
     std::vector<Note> arpNotes;    // transient: live-arp expansion of `notes`, played when the track's arp is on
     double contentLenBeats { 4.0 };
     bool   looped          { true };
+    int    transpose       { 0 };    // non-destructive playback pitch offset (semitones)
 
     // Audio content (shared so copies are cheap).
     std::shared_ptr<juce::AudioBuffer<float>> audio;

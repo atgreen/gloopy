@@ -87,20 +87,22 @@ struct TempoConv
 inline void collectNotes (const std::vector<Note>& notes, juce::MidiBuffer& midi,
                           const TempoConv& tc, double repStartBeat,
                           juce::int64 songStart, int tsOffset,
-                          juce::int64 winLo, juce::int64 winHi, double swing = 0.5)
+                          juce::int64 winLo, juce::int64 winHi, double swing = 0.5,
+                          int transpose = 0)
 {
     for (const auto& n : notes)
     {
         const double startSw = swingBeat (n.startBeat, swing);
         const juce::int64 on  = tc.beatToSample (repStartBeat + startSw);
         const juce::int64 off = tc.beatToSample (repStartBeat + startSw + n.lengthBeats);
+        const int pitch = juce::jlimit (0, 127, n.pitch + transpose);   // non-destructive clip transpose
 
         if (on >= winLo && on < winHi)
-            midi.addEvent (juce::MidiMessage::noteOn (1, n.pitch, n.velocity),
+            midi.addEvent (juce::MidiMessage::noteOn (1, pitch, n.velocity),
                            tsOffset + (int) (on - songStart));
 
         if (off >= winLo && off < winHi)
-            midi.addEvent (juce::MidiMessage::noteOff (1, n.pitch),
+            midi.addEvent (juce::MidiMessage::noteOff (1, pitch),
                            tsOffset + (int) (off - songStart));
     }
 }

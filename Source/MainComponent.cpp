@@ -314,6 +314,7 @@ MainComponent::MainComponent (bool headless)
         else if (cmd.startsWith ("repeat:")) apiRepeatClip (id, clip, cmd.substring (7).getIntValue());
         else if (cmd == "loopclip")  apiSetLoopToClip (id, clip);
         else if (cmd == "copynotes") juce::SystemClipboard::copyTextToClipboard (apiExportClipNotesJson (id, clip));
+        else if (cmd.startsWith ("transpose:")) apiSetClipTranspose (id, clip, cmd.substring (10).getIntValue());
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")
@@ -2090,7 +2091,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
                                 && tc.beatToSample (clip.startBeat + repBeats) - clipStart >= 1;
         if (! tiled)   // single pass over the whole clip window (degenerate/one-shot)
         {
-            collectNotes (src, midi, tc, clip.startBeat, songStart, tsOffset, lo, hi, swing);
+            collectNotes (src, midi, tc, clip.startBeat, songStart, tsOffset, lo, hi, swing, clip.transpose);
             return;
         }
 
@@ -2106,7 +2107,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
             const juce::int64 winLo  = juce::jmax (lo, repStart);
             const juce::int64 winHi  = juce::jmin (hi, repEnd);
             if (winLo < winHi)
-                collectNotes (src, midi, tc, repStartBeat, songStart, tsOffset, winLo, winHi, swing);
+                collectNotes (src, midi, tc, repStartBeat, songStart, tsOffset, winLo, winHi, swing, clip.transpose);
         }
     };
 
@@ -2999,6 +3000,7 @@ juce::ValueTree MainComponent::toValueTree()
             cl.setProperty ("len", c.lengthBeats, nullptr);
             cl.setProperty ("content", c.contentLenBeats, nullptr);
             cl.setProperty ("looped", c.looped, nullptr);
+            if (c.transpose != 0) cl.setProperty ("transpose", c.transpose, nullptr);
             if (c.muted) cl.setProperty ("muted", true, nullptr);
             if (c.fadeInBeats  > 0.0) cl.setProperty ("fadein",  c.fadeInBeats,  nullptr);
             if (c.fadeOutBeats > 0.0) cl.setProperty ("fadeout", c.fadeOutBeats, nullptr);
@@ -3403,6 +3405,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             c.lengthBeats = (double) cl.getProperty ("len", 4.0);
             c.contentLenBeats = (double) cl.getProperty ("content", 4.0);
             c.looped = (bool) cl.getProperty ("looped", true);
+            c.transpose = (int) cl.getProperty ("transpose", 0);
             c.muted  = (bool) cl.getProperty ("muted", false);
             c.fadeInBeats  = (double) cl.getProperty ("fadein", 0.0);
             c.fadeOutBeats = (double) cl.getProperty ("fadeout", 0.0);

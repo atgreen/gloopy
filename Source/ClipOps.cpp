@@ -559,6 +559,28 @@ std::vector<Note> MainComponent::apiGetClipNotes (int trackId, int index)
     });
 }
 
+// Non-destructive playback transpose (semitones) on a MIDI clip — the stored notes are
+// untouched; collectNotes offsets each pitch at render time. Distinct from apiTransposeClip
+// (which edits the notes). Clamped to +/-48 semitones.
+bool MainComponent::apiSetClipTranspose (int trackId, int index, int semitones)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        pushUndoSnapshot();
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+            auto& c = t->clips[(size_t) index];
+            if (c.isAudio()) return false;                       // MIDI clips only
+            c.transpose = juce::jlimit (-48, 48, semitones);
+        }
+        emitChange ("clip_changed", trackId);
+        return true;
+    });
+}
+
 // A clip's notes as a JSON array (see NotesJson.h) — for the ExportNotesJSON RPC and the
 // desktop "Copy notes" gesture. Empty string if the clip is missing / not a note clip.
 juce::String MainComponent::apiExportClipNotesJson (int trackId, int index)

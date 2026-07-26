@@ -568,6 +568,29 @@ print('smoke: PASS — per-track detune +1200c doubles pitch (ZCR ratio %.3f), p
 " || { echo "smoke: per-track detune did not shift pitch" >&2; exit 1; }
 g -d "{\"id\":$DT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
+# Non-destructive per-clip transpose (Wave 4 / editing): a +12 clip transpose raises a sine
+# note one octave at render time (zero-crossing rate doubles), the stored notes are unchanged,
+# and the transpose survives a composition round-trip. Reuses the zcr() helper above.
+CT=$(g -d '{"name":"ctr","wave":"SINE","attack":0.005,"decay":0.05,"sustain":0.95,"release":0.05,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$CT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":69,\"start_beat\":0,\"length_beats\":3.5,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/ctr0.wav\",\"tail_seconds\":0,\"end_beat\":3.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$CT,\"index\":0,\"semitones\":12}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipTranspose >/dev/null
+g -d "{\"path\":\"$WORK/ctr12.wav\",\"tail_seconds\":0,\"end_beat\":3.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+# Stored notes untouched (still pitch 69, not 81).
+STILL69=$(g -d "{\"track_id\":$CT,\"index\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "import json,sys;print(json.load(sys.stdin)['notes'][0]['pitch'])")
+g -d "{\"path\":\"$WORK/ctr.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+g -d "{\"path\":\"$WORK/ctr.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+g -d "{\"path\":\"$WORK/ctr12b.wav\",\"tail_seconds\":0,\"end_beat\":3.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+z0=$(zcr "$WORK/ctr0.wav"); z12=$(zcr "$WORK/ctr12.wav"); z12b=$(zcr "$WORK/ctr12b.wav")
+r=z12/max(1,z0); rb=z12b/max(1,z0)
+assert 1.8 < r < 2.2, 'clip transpose +12 should double the pitch (ZCR ratio %.3f)'%r
+assert int('$STILL69')==69, 'transpose must not edit the stored notes (pitch became $STILL69)'
+assert 1.8 < rb < 2.2, 'clip transpose did not survive composition round-trip (ZCR ratio %.3f)'%rb
+print('smoke: PASS — non-destructive clip transpose +12 doubles pitch (ZCR %.3f), notes untouched, round-trips (%.3f)'%(r,rb))
+" || { echo 'smoke: clip transpose wrong' >&2; exit 1; }
+g -d "{\"id\":$CT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
 # Live arpeggiator: a held chord renders differently with the arp on, and GetTrackArp
 # round-trips. Dedicated track, two renders (chord vs arp), cleaned up.
 AT=$(g -d '{"name":"arptest","wave":"SAW","attack":0.005,"decay":0.05,"sustain":0.9,"release":0.05,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
