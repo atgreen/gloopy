@@ -796,6 +796,24 @@ assert rms(p50[:m])<rms(p100[:m])*0.9,'probability 0.5 not quieter than 1.0 (p50
 assert p50==p50b,'probability 0.5 not reproducible across a project round-trip (re-render differs)'
 print('smoke: PASS — arp probability: 1.0=full(=default), 0.5 drops steps (quieter, non-silent), reproducible + round-trips')
 " || { echo "smoke: arp probability wrong" >&2; exit 1; }
+# Arp gate: the gate is each arp note's length as a fraction of the step. A legato gate (1.0)
+# on a sustaining synth rings the full step; a staccato gate (0.25) plays 1/4 as long, so the
+# render carries far less sustained energy. GetTrackArp reports the gate back.
+g -d "{\"track_id\":$AT,\"enabled\":true,\"rate\":0.25,\"octaves\":1,\"gate\":1.0,\"mode\":0,\"probability\":1.0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTrackArp >/dev/null
+g -d "{\"path\":\"$WORK/arp_g100.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$AT,\"enabled\":true,\"rate\":0.25,\"octaves\":1,\"gate\":0.25,\"mode\":0,\"probability\":1.0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTrackArp >/dev/null
+ARPGATE=$(g -d "{\"track_id\":$AT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetTrackArp | python3 -c "import json,sys;print(round(json.load(sys.stdin).get('gate',0),3))")
+g -d "{\"path\":\"$WORK/arp_g25.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+def rms(x): return (sum(v*v for v in x)/max(1,len(x)))**0.5
+assert '$ARPGATE'=='0.25','GetTrackArp did not report gate 0.25 (got $ARPGATE)'
+g100=rd('$WORK/arp_g100.wav');g25=rd('$WORK/arp_g25.wav');m=min(len(g100),len(g25))
+assert rms(g100[:m]) > rms(g25[:m])*1.3, 'legato gate not louder than staccato (g100 %.0f vs g25 %.0f)'%(rms(g100[:m]),rms(g25[:m]))
+print('smoke: PASS — arp gate: legato(1.0) rings fuller than staccato(0.25) (rms %.0f vs %.0f), gate round-trips'%(rms(g100[:m]),rms(g25[:m])))
+" || { echo "smoke: arp gate wrong" >&2; exit 1; }
 g -d "{\"id\":$AT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
 g -d "{\"track_id\":$TID,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\

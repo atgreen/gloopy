@@ -1105,6 +1105,15 @@ each shipping with desktop UI + screenshot validation.
       project round-trip; screenshot-validated (the expanded Chance submenu, 100% checked). Same
       proto3 gotcha as note probability: the SetTrackArp handler maps an unset (0.0) probability
       to 1.0 so existing clients aren't silenced.
+    - `[x]` **Arp Gate menu landed** (commit): closed a desktop gap — the live arp's `gate` (each
+      arp note's length as a fraction of the step, which `expandArp` already applied) was set
+      only via the API; the ARP config menu passed the existing gate through unchanged. Added a
+      "Gate ▸ 25% (staccato) / 50% / 75% / 100% (legato)" submenu, reflecting + setting the gate.
+      Pure desktop wiring of the existing ArpSpec.gate / apiSetTrackArp param (no proto/API
+      change). smoke proves a legato gate (1.0) renders fuller than staccato (0.25) — rms 937k vs
+      411k on a sustaining synth — and the gate round-trips via GetTrackArp; screenshot-validated
+      (the expanded Gate submenu, 50% checked). The arp's desktop controls are now complete
+      (Rate/Octaves/Mode/Swing/Chance/Gate/Hold).
     - `[x]` **Scale highlighting landed + screenshot-validated** (commit): `PianoRoll::
       setScale(root,intervals)` builds a 12-pitch-class mask; `paint()` tints in-scale
       rows (chromatic ⇒ off); wired from `apiSetScale` + `refreshUiAfterLoad`. Verified

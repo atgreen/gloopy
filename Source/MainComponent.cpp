@@ -305,11 +305,15 @@ MainComponent::MainComponent (bool headless)
         const std::pair<const char*, float> chances[] = { {"100%", 1.0f}, {"75%", 0.75f}, {"50%", 0.5f}, {"25%", 0.25f} };
         for (int i = 0; i < 4; ++i) chanceM.addItem (50 + i, chances[i].first, true, std::abs (prob - chances[i].second) < 0.01f);
         m.addSubMenu ("Chance", chanceM);
+        juce::PopupMenu gateM;                                        // note length as a fraction of the step
+        const std::pair<const char*, float> gates[] = { {"25% (staccato)", 0.25f}, {"50%", 0.5f}, {"75%", 0.75f}, {"100% (legato)", 1.0f} };
+        for (int i = 0; i < 4; ++i) gateM.addItem (60 + i, gates[i].first, true, std::abs (gate - gates[i].second) < 0.01f);
+        m.addSubMenu ("Gate", gateM);
 
         m.showMenuAsync (juce::PopupMenu::Options(), [this, id, en, rate, oct, gate, mode, swing, hold, prob] (int r)
         {
             if (r == 0) return;
-            bool nen = en, nhold = hold; double nrate = rate; int noct = oct, nmode = mode; float nswing = swing, nprob = prob;
+            bool nen = en, nhold = hold; double nrate = rate; int noct = oct, nmode = mode; float nswing = swing, nprob = prob, ngate = gate;
             if      (r == 1)                nen = ! en;
             else if (r == 2)                { nhold = ! hold; nen = true; }
             else if (r >= 10 && r <= 13)    { nrate = (const double[]){1.0,0.5,0.25,0.125}[r-10]; nen = true; }
@@ -317,7 +321,8 @@ MainComponent::MainComponent (bool headless)
             else if (r >= 30 && r <= 33)    { nmode = r - 30; nen = true; }
             else if (r >= 40 && r <= 43)    { nswing = (const float[]){0.0f,0.2f,0.4f,0.6f}[r-40]; nen = true; }
             else if (r >= 50 && r <= 53)    { nprob = (const float[]){1.0f,0.75f,0.5f,0.25f}[r-50]; nen = true; }
-            apiSetTrackArp (id, nen, nrate, noct, gate, nmode, nswing, nhold, nprob);
+            else if (r >= 60 && r <= 63)    { ngate = (const float[]){0.25f,0.5f,0.75f,1.0f}[r-60]; nen = true; }
+            apiSetTrackArp (id, nen, nrate, noct, ngate, nmode, nswing, nhold, nprob);
             if (arrangeView) arrangeView->rebuild();                   // refresh the ARP button lit-state
         });
     };
