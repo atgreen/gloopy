@@ -573,6 +573,58 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+// Auto-pan — the stereo companion to the tremolo: one sine LFO drives the two
+// channels in ANTIPHASE, so the signal sweeps L<->R at Rate Hz (or tempo-synced
+// when Sync bt > 0). Left gain = 1 - Depth*(0.5+0.5*sin), right = 1 - Depth*(0.5-0.5*sin);
+// Depth 0 = identity, Depth 1 = full ping-pong (one channel silent at each extreme).
+// Needs a stereo buffer; mono passes through. reset() zeroes the phase for reproducible
+// bounces.
+// ---------------------------------------------------------------------------
+class AutoPanFx : public Effect
+{
+public:
+    void prepare (double sampleRate, int, int) override { sr = sampleRate; phase = 0.0f; }
+    void reset() override { phase = 0.0f; }
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        if (bypassed.load() || b.getNumChannels() < 2) return;        // nothing to pan in mono
+        const float depth = juce::jlimit (0.0f, 1.0f, depthAmt.load());
+        if (depth <= 0.0f) return;                                    // identity
+        const float rate  = effectSyncedRate (bpm, syncBeats.load(), rateHz.load());   // tempo-sync when Sync bt > 0
+        const float twoPi = juce::MathConstants<float>::twoPi;
+        const float inc   = twoPi * rate / (float) sr;
+        auto* L = b.getWritePointer (0);
+        auto* R = b.getWritePointer (1);
+        for (int i = 0; i < b.getNumSamples(); ++i)
+        {
+            const float s = std::sin (phase);
+            L[i] *= 1.0f - depth * (0.5f + 0.5f * s);                 // channels move in antiphase
+            R[i] *= 1.0f - depth * (0.5f - 0.5f * s);
+            phase += inc; if (phase >= twoPi) phase -= twoPi;
+        }
+    }
+
+    void setTempo (double bt) override { bpm = juce::jmax (1.0, bt); }
+
+    juce::String name() const override { return "Auto-pan"; }
+
+    std::vector<EffectParam> parameters() override
+    {
+        return {
+            { "Rate",  0.05f, 20.0f, 2.0f, [this] { return rateHz.load(); },    [this] (float v) { rateHz.store (v); } },
+            { "Sync bt", 0.0f, 4.0f, 0.0f, [this] { return syncBeats.load(); }, [this] (float v) { syncBeats.store (v); } },
+            { "Depth", 0.0f, 1.0f, 0.7f,   [this] { return depthAmt.load(); },  [this] (float v) { depthAmt.store (v); } }
+        };
+    }
+
+private:
+    double sr { 44100.0 }, bpm { 120.0 };
+    float  phase { 0.0f };
+    std::atomic<float> rateHz { 2.0f }, depthAmt { 0.7f }, syncBeats { 0.0f };
+};
+
+// ---------------------------------------------------------------------------
 // Chorus — a short LFO-modulated delay (no feedback) mixed with the dry signal.
 // The delay time sweeps base..base+Depth ms at Rate Hz; the right channel's LFO is a
 // quarter-cycle ahead for stereo width. Mix 0 = dry (identity), 1 = fully wet.
@@ -812,7 +864,7 @@ private:
 // ---------------------------------------------------------------------------
 namespace EffectFactory
 {
-    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser" }; }
+    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan" }; }
 
     inline std::unique_ptr<Effect> create (const juce::String& type)
     {
@@ -830,6 +882,7 @@ namespace EffectFactory
         if (type == "Chorus")     return std::make_unique<ChorusFx>();
         if (type == "Flanger")    return std::make_unique<FlangerFx>();
         if (type == "Phaser")     return std::make_unique<PhaserFx>();
+        if (type == "Auto-pan")   return std::make_unique<AutoPanFx>();
         return nullptr;
     }
 }

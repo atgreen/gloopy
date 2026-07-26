@@ -1169,6 +1169,44 @@ assert sync[:m]==free[:m], 'tempo-synced 1-beat != free bpm/60 Hz (sync law mism
 print('smoke: PASS — Tremolo: depth0=identity, depth1 swings RMS %.0f..%.0f, sync(1bt)==free(%.3fHz)'%(min(wr),max(wr),float('$FREERATE')))
 " || { echo 'smoke: tremolo wrong' >&2; exit 1; }
 g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+# Auto-pan (new effect): a sine LFO drives L/R in antiphase. Depth 0 is identity; depth 1
+# on a centre-panned tone (L==R) makes the two channels diverge — across the render there
+# is a window where L hard-pans (L >> R) AND one where R hard-pans (R >> L). A tempo-synced
+# 1-beat cycle matches a free LFO at bpm/60 Hz exactly. Reuses the $TRT tone track.
+g -d "{\"path\":\"$WORK/ap_base.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$TRT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"insert":0,"type":"AUTOPAN"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Depth","value":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/ap_d0.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$TRT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Depth","value":1.0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Rate","value":0.5}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/ap_d1.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$TRT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Sync bt","value":1.0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/ap_sync.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$TRT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Sync bt","value":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"insert\":0,\"slot\":0,\"name\":\"Rate\",\"value\":$FREERATE}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/ap_free.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$TRT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def chans(p):
+    w=wave.open(p);f=w.readframes(w.getnframes())
+    L=[int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),6)]
+    R=[int.from_bytes(f[i+3:i+6],'little',signed=True) for i in range(0,len(f),6)]
+    return L,R
+def raw(p):
+    w=wave.open(p);return w.readframes(w.getnframes())
+def rms(x): return (sum(v*v for v in x)/max(1,len(x)))**0.5
+assert raw('$WORK/ap_d0.wav')==raw('$WORK/ap_base.wav'), 'Auto-pan depth 0 is not identity'
+L,R=chans('$WORK/ap_d1.wav'); n=min(len(L),len(R)); W=16; w=n//W
+lgtr=rgtl=False
+for k in range(W):
+    rl=rms(L[k*w:(k+1)*w]); rr=rms(R[k*w:(k+1)*w])
+    if rl>3*max(1.0,rr): lgtr=True       # a window where L hard-pans
+    if rr>3*max(1.0,rl): rgtl=True       # a window where R hard-pans
+assert lgtr and rgtl, 'auto-pan did not sweep L<->R (L-dominant window=%s, R-dominant window=%s)'%(lgtr,rgtl)
+assert raw('$WORK/ap_sync.wav')==raw('$WORK/ap_free.wav'), 'auto-pan synced(1bt) != free(bpm/60) — sync law mismatch'
+print('smoke: PASS — Auto-pan: depth0=identity, depth1 sweeps L<->R (both hard-pan extremes), sync(1bt)==free(%.3fHz)'%float('$FREERATE'))
+" || { echo 'smoke: auto-pan wrong' >&2; exit 1; }
+g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
 g -d "{\"id\":$TRT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 arms() { g -d "{\"path\":\"$1\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AnalyzeFile | python3 -c "import json,sys;print(json.load(sys.stdin).get('rmsDbfs',-99.0))"; }
 # EQ: a wide boost vs cut at a band shifts RMS.

@@ -883,6 +883,17 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       lookup). smoke proves depth 0 = bit-exact identity, depth 1 swings windowed RMS ~40× (a
       near-silent trough), and a synced 1-beat cycle == a free LFO at bpm/60 Hz byte-for-byte;
       screenshot-validated (Tremolo in the add-effect menu + its 3 auto-rendered knobs).
+    - `[x]` **Auto-pan landed** (commit): `AutoPanFx`, the stereo companion to the tremolo — one
+      sine LFO drives the two channels in ANTIPHASE (L gain = 1 - Depth·(0.5+0.5·sin), R uses
+      -sin), sweeping the signal L↔R at Rate Hz or tempo-synced (Sync bt), reusing
+      `effectSyncedRate` + `setTempo`. Depth 0 = identity; Depth 1 = full ping-pong; mono passes
+      through (needs a stereo buffer); reset() zeroes the phase. Rate/Sync bt/Depth params;
+      EffectType AUTOPAN=14 — this time **appended** at the end of all four registries (proto enum,
+      `types()`, `create()`, names[], Python EFFECTS) so no existing enum values shifted. smoke
+      proves depth 0 = bit-exact identity, depth 1 sweeps L↔R (a window where L hard-pans AND one
+      where R hard-pans, each >3× the other channel), and synced(1bt)==free(bpm/60 Hz) byte-for-
+      byte; screenshot-validated (Auto-pan in the add-effect menu + its 3 knobs). Completes the
+      tremolo/auto-pan amplitude-LFO pair.
       **Not yet:** analyzers (scope/spectrum/vectorscope) with API snapshots.
 
 ### Wave 6 — Product surface & UI (deferred: harder to verify headless; keep layout simple)

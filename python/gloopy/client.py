@@ -28,7 +28,8 @@ from . import gloopy_pb2_grpc as rpc
 WAVEFORMS = {"SINE": 0, "SAW": 1, "SQUARE": 2, "TRIANGLE": 3}
 EFFECTS = {"GAIN": 0, "FILTER": 1, "DELAY": 2, "REVERB": 3, "LIMITER": 4,
            "BITCRUSHER": 5, "COMPRESSOR": 6, "EQ": 7, "WAVESHAPER": 8,
-           "STEREO_WIDENER": 9, "TREMOLO": 10, "CHORUS": 11, "FLANGER": 12, "PHASER": 13}
+           "STEREO_WIDENER": 9, "TREMOLO": 10, "CHORUS": 11, "FLANGER": 12, "PHASER": 13,
+           "AUTOPAN": 14}
 AUTO_TARGETS = {"TRACK_VOL": 0, "TRACK_PAN": 1, "INSERT_VOL": 2,
                 "INSERT_PAN": 3, "EFFECT_PARAM": 4}
 
