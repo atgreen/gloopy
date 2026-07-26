@@ -353,6 +353,9 @@ public:
     SamplerSnap apiGetSamplerControls (int trackId);
     int  apiAddSfzTrack (const juce::String& name, const juce::String& path);   // native SFZ, or -1
     int  apiAddSurgeTrack (const juce::String& name, const juce::String& patch); // embedded Surge XT, or -1
+    void addSurgeTrackAsync (const juce::String& patchPath, const juce::String& name);  // build off-thread + install
+    std::vector<juce::String> listSurgePatches() const;   // "Category/Name" labels for the factory .fxp set
+    std::map<juce::String, juce::String> browserSurgePatches;   // preset label -> full .fxp path
     juce::File resolveSamplePath (const juce::String& stored) const;            // portable path resolution
     juce::String portableSamplePath (const juce::String& absolute) const;       // inverse, for saving
     juce::StringArray sampleSearchRoots() const;

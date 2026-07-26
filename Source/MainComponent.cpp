@@ -78,26 +78,8 @@ MainComponent::MainComponent (bool headless)
                       std::make_unique<SynthGenerator>(), 48,
                       paletteColour ((int) tracks.size())));
     };
-    // Add an embedded Surge XT track (built off the message thread — constructing the
-    // synth scans its patch library — behind the busy overlay, then installed).
-    auto addSurge = [this]
-    {
-        auto slot = std::make_shared<std::unique_ptr<SurgeGenerator>>();
-        const double sr = currentSampleRate; const int bs = currentBlockSize;
-        runBackground ("Adding Surge…",
-            [slot, sr, bs]
-            {
-                auto g = std::make_unique<SurgeGenerator>();
-                g->prepare (sr, bs);
-                *slot = std::move (g);
-            },
-            [this, slot]
-            {
-                if (*slot)
-                    addTrack (std::make_unique<Track> ("Surge", std::move (*slot), 48,
-                                  paletteColour ((int) tracks.size())));   // addTrack pushes undo
-            });
-    };
+    // Add an embedded Surge XT track (default init patch).
+    auto addSurge = [this] { addSurgeTrackAsync ({}, "Surge"); };
    #ifdef GLOOPY_WITH_SURGE
     // Surge is the embedded default synth; the built-in step-synth stays one click away.
     addSynthBtn.onClick = [this, addBasicSynth, addSurge]
@@ -217,7 +199,7 @@ MainComponent::MainComponent (bool headless)
 
     // Collapsible left browser: tabbed categories that seed / open projects on click.
     browser = std::make_unique<BrowserSidebar>();
-    browser->setCategories ({
+    std::vector<BrowserSidebar::Category> cats {
         { "Templates",
           [this] { return apiListTemplates(); },
           [this] (const juce::String& name)
@@ -263,11 +245,23 @@ MainComponent::MainComponent (bool headless)
               busyOverlay.show ("Importing " + name + "…");
               juce::MessageManager::callAsync ([this, f] { apiImportAudio (f.getFullPathName()); busyOverlay.hide(); });
           } },
-    });
+    };
+   #ifdef GLOOPY_WITH_SURGE
+    // Surge factory patches — click a preset to add a Surge track loaded with it.
+    cats.push_back ({ "Presets",
+        [this] { return listSurgePatches(); },
+        [this] (const juce::String& label)
+        {
+            const auto it = browserSurgePatches.find (label);
+            if (it != browserSurgePatches.end())
+                addSurgeTrackAsync (it->second, label);   // runs off-thread behind the busy overlay
+        } });
+   #endif
+    browser->setCategories (std::move (cats));
     addChildComponent (*browser);   // hidden until toggled
     browseButton.setClickingTogglesState (true);
     browseButton.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
-    browseButton.setTooltip ("Browser: templates, demos, plugins & samples (toggle the left panel)");
+    browseButton.setTooltip ("Browser: templates, demos, plugins, samples & presets (toggle the left panel)");
     browseButton.onClick = [this]
     {
         browserVisible = browseButton.getToggleState();
@@ -1826,6 +1820,53 @@ int MainComponent::apiAddSurgeTrack (const juce::String& name, const juce::Strin
         return raw->id;
     });
    #endif
+}
+
+// Build a Surge track off the message thread (constructing the synth scans its patch
+// library, and loading a patch is not instant) behind the busy overlay, then install it.
+// Shared by the "+ Synth -> Surge XT" menu and the Presets browser tab.
+void MainComponent::addSurgeTrackAsync (const juce::String& patchPath, const juce::String& name)
+{
+    auto slot = std::make_shared<std::unique_ptr<SurgeGenerator>>();
+    const double sr = currentSampleRate; const int bs = currentBlockSize;
+    const juce::String label = name.isNotEmpty() ? name : "Surge";
+    runBackground ("Adding " + label + "…",
+        [slot, sr, bs, patchPath]
+        {
+            auto g = std::make_unique<SurgeGenerator>();
+            g->prepare (sr, bs);
+            if (patchPath.isNotEmpty())
+            {
+                juce::String err;
+                if (! g->loadPatch (juce::File (patchPath), err))
+                    std::cout << "[surge] patch load: " << err << std::endl;
+            }
+            *slot = std::move (g);
+        },
+        [this, slot, label]
+        {
+            if (*slot)
+                addTrack (std::make_unique<Track> ((*slot)->getName().isNotEmpty() ? (*slot)->getName() : label,
+                              std::move (*slot), 48, paletteColour ((int) tracks.size())));   // addTrack pushes undo
+        });
+}
+
+// The first-party Surge factory patches under <surge-data>/patches_factory, as
+// "Category/Name" labels; also fills browserSurgePatches (label -> full .fxp path).
+std::vector<juce::String> MainComponent::listSurgePatches() const
+{
+    std::vector<juce::String> out;
+    const auto root = SurgeGenerator::dataDir().getChildFile ("patches_factory");
+    if (! root.isDirectory()) return out;
+    for (const auto& e : juce::RangedDirectoryIterator (root, true, "*.fxp", juce::File::findFiles))
+    {
+        const auto f = e.getFile();
+        const auto label = f.getParentDirectory().getFileName() + "/" + f.getFileNameWithoutExtension();
+        const_cast<MainComponent*> (this)->browserSurgePatches[label] = f.getFullPathName();
+        out.push_back (label);
+    }
+    std::sort (out.begin(), out.end());
+    return out;
 }
 
 int MainComponent::apiAddPluginTrack (const juce::String& identifier)

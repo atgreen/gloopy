@@ -1724,7 +1724,12 @@ prior-art references to *read*, not to lift.
     while the built-in step-synth stays one click away; no toolbar overflow (rejected a separate
     "+ Surge" button that pushed Metro off). Screenshot-validated end-to-end (menu → Surge XT → a
     "Surge" instrument track). Built off the message thread behind the busy overlay (patch scan).
-    (4) curated
+    (5b) **Presets browser tab — ✅ DONE (commit)**: a 5th browser tab "Presets" lists the **639
+    first-party factory patches** (category-prefixed "Basses/Bass 1", sorted; `listSurgePatches`
+    scans `<surge-data>/patches_factory`) — clicking one adds a Surge track loaded with that .fxp
+    (via a shared `addSurgeTrackAsync` off-thread helper). Screenshot-validated (Presets tab lists
+    patches; clicking "Basses/Bass 1" → a "Bass 1" instrument track). Only present when
+    GLOOPY_WITH_SURGE + a data dir. (4) curated
     patch/wavetable bundle + curation script; (5) default-synth wiring + preset browser (the
     desktop control); (6) license/docs. Curate ONLY from `patches_factory`/`wavetables` (skip
     `*_3rdparty` without per-pack review).
