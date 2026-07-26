@@ -225,6 +225,7 @@ if(GLOOPY_TESTS)
     target_link_libraries(GloopyTests PRIVATE
         juce::juce_audio_basics
         juce::juce_data_structures
+        juce::juce_graphics          # juce::Colour, used by Clip.h (SessionModel.h) / Track model
         PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags)

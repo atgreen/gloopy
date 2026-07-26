@@ -10,6 +10,7 @@
 #include "Generator.h"
 #include "Clip.h"
 #include "LiveArp.h"
+#include "SessionModel.h"
 
 enum class TrackType { Instrument, Audio, MidiOut };
 
@@ -66,5 +67,10 @@ struct Track
     // state; reset() on arp-off / panic. (The clip arp above is the non-destructive playback one.)
     LiveArp liveArp;
 
-    std::vector<Clip> clips;   // guarded by the engine lock
+    std::vector<Clip> clips;   // arrangement clips on the timeline; guarded by the engine lock
+
+    // Session view (clip-launch grid): one launchable slot per global scene (null = empty).
+    // Kept the same length as MainComponent's scene list (see SessionModel.h). Guarded by the
+    // engine lock; the launch engine (later slice) reads it on the audio thread.
+    SessionSlots sessionSlots;
 };

@@ -11,6 +11,7 @@
 #include "NoteScheduler.h"
 #include "NoteEdits.h"
 #include "LiveArp.h"
+#include "SessionModel.h"
 #include "NotesJson.h"
 #include "AllpassPhaser.h"
 #include "Biquad.h"
@@ -751,6 +752,97 @@ struct LiveArpTests : juce::UnitTest
 };
 
 //==============================================================================
+// Session view model: the clip-launch grid stays rectangular (every track's slot column
+// matches the scene count) as scenes are inserted/removed.
+struct SessionModelTests : juce::UnitTest
+{
+    SessionModelTests() : juce::UnitTest ("SessionModel") {}
+
+    static std::shared_ptr<Clip> namedClip (const juce::String& n)
+    {
+        auto c = std::make_shared<Clip>();
+        c->name = n;
+        return c;
+    }
+
+    void runTest() override
+    {
+        beginTest ("ensureSlotCount null-pads and truncates");
+        {
+            SessionSlots s;
+            ensureSlotCount (s, 3);
+            expectEquals ((int) s.size(), 3);
+            for (auto& c : s) expect (c == nullptr);       // new slots are empty
+            s[1] = namedClip ("keep");
+            ensureSlotCount (s, 5);
+            expectEquals ((int) s.size(), 5);
+            expect (s[1] != nullptr && s[1]->name == "keep");   // existing slots preserved
+            ensureSlotCount (s, 2);
+            expectEquals ((int) s.size(), 2);
+            expect (s[1] != nullptr && s[1]->name == "keep");
+        }
+
+        beginTest ("insertSceneSlot shifts later slots down, adds an empty");
+        {
+            SessionSlots s { namedClip ("A"), namedClip ("B"), namedClip ("C") };
+            insertSceneSlot (s, 1);                        // A _ B C
+            expectEquals ((int) s.size(), 4);
+            expect (s[0]->name == "A");
+            expect (s[1] == nullptr);
+            expect (s[2]->name == "B");
+            expect (s[3]->name == "C");
+        }
+
+        beginTest ("insertSceneSlot clamps out-of-range index to the end");
+        {
+            SessionSlots s { namedClip ("A") };
+            insertSceneSlot (s, 99);
+            expectEquals ((int) s.size(), 2);
+            expect (s[0]->name == "A");
+            expect (s[1] == nullptr);
+        }
+
+        beginTest ("removeSceneSlot drops the right slot (and no-ops out of range)");
+        {
+            SessionSlots s { namedClip ("A"), namedClip ("B"), namedClip ("C") };
+            removeSceneSlot (s, 1);                         // A C
+            expectEquals ((int) s.size(), 2);
+            expect (s[0]->name == "A");
+            expect (s[1]->name == "C");
+            removeSceneSlot (s, 42);                        // out of range -> unchanged
+            expectEquals ((int) s.size(), 2);
+        }
+
+        beginTest ("a scene op keeps every track column rectangular");
+        {
+            std::vector<Scene> scenes { {"Intro", {}}, {"Verse", {}} };
+            std::vector<SessionSlots> tracks (3);
+            for (auto& t : tracks) ensureSlotCount (t, (int) scenes.size());
+            for (auto& t : tracks) expectEquals ((int) t.size(), 2);
+
+            // Add a scene at the end -> insert a slot in every track column.
+            scenes.push_back ({ "Chorus", {} });
+            for (auto& t : tracks) insertSceneSlot (t, (int) scenes.size() - 1);
+            for (auto& t : tracks) expectEquals ((int) t.size(), 3);
+
+            // Delete the middle scene -> remove that slot in every track column.
+            scenes.erase (scenes.begin() + 1);
+            for (auto& t : tracks) removeSceneSlot (t, 1);
+            for (auto& t : tracks) expectEquals ((int) t.size(), (int) scenes.size());
+        }
+
+        beginTest ("slotClip is bounds-safe");
+        {
+            SessionSlots s { namedClip ("A"), nullptr };
+            expect (slotClip (s, 0) != nullptr && slotClip (s, 0)->name == "A");
+            expect (slotClip (s, 1) == nullptr);           // empty slot
+            expect (slotClip (s, -1) == nullptr);          // out of range
+            expect (slotClip (s, 5) == nullptr);
+        }
+    }
+};
+
+//==============================================================================
 // Drag-and-drop routing: the classifier decides which load op a dropped file gets.
 struct FileDropTests : juce::UnitTest
 {
@@ -1182,6 +1274,7 @@ static TomlTests         tomlTests;
 static SerializationTests serializationTests;
 static NoteEditTests     noteEditTests;
 static LiveArpTests      liveArpTests;
+static SessionModelTests sessionModelTests;
 static FileDropTests     fileDropTests;
 static TimeTypesTests    timeTypesTests;
 
