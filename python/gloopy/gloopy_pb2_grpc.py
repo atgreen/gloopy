@@ -445,6 +445,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ChordifyRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.GateClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GateClip',
+                request_serializer=gloopy__pb2.GateRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.ArpeggiateClip = channel.unary_unary(
                 '/gloopy.v1.Gloopy/ArpeggiateClip',
                 request_serializer=gloopy__pb2.ArpeggiateRequest.SerializeToString,
@@ -1452,6 +1457,13 @@ class GloopyServicer:
 
     def ChordifyClip(self, request, context):
         """turn each note into a named chord
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GateClip(self, request, context):
+        """scale note lengths (staccato/tenuto)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2481,6 +2493,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'ChordifyClip': grpc.unary_unary_rpc_method_handler(
                     servicer.ChordifyClip,
                     request_deserializer=gloopy__pb2.ChordifyRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GateClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.GateClip,
+                    request_deserializer=gloopy__pb2.GateRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'ArpeggiateClip': grpc.unary_unary_rpc_method_handler(
@@ -5163,6 +5180,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/ChordifyClip',
             gloopy__pb2.ChordifyRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GateClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GateClip',
+            gloopy__pb2.GateRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

@@ -871,6 +871,10 @@ namespace
         Status ChordifyClip (ServerContext*, const pb::ChordifyRequest* q, pb::Ack* r) override
         { const bool ok = main.apiChordifyClip (q->track_id(), q->index(), q->chord_type());   // 0 (major) is the proto3 default
           r->set_ok (ok); if (! ok) r->set_error ("chordify failed (clip not found or not MIDI)"); return Status::OK; }
+        Status GateClip (ServerContext*, const pb::GateRequest* q, pb::Ack* r) override
+        { const double factor = q->factor() <= 0.0 ? 1.0 : q->factor();   // proto3 omits 0; default to no-op
+          const bool ok = main.apiGateClip (q->track_id(), q->index(), factor);
+          r->set_ok (ok); if (! ok) r->set_error ("gate failed (clip not found or not MIDI)"); return Status::OK; }
         Status StrumClip (ServerContext*, const pb::StrumRequest* q, pb::Ack* r) override
         { const bool ok = main.apiStrumClip (q->track_id(), q->index(), q->step_beats(), q->down());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }

@@ -1150,6 +1150,14 @@ each shipping with desktop UI + screenshot validation.
   · 1/4 · 1/4 soft" submenu on the MIDI-clip menu (routed via onClipCommand "quantize:grid,strength").
   `GloopyTests::NoteEdits` pins the partial move (0.1@grid0.25 → 0.05 at 50%, 0.0 at full, 0.1 at 0);
   smoke drives QuantizeClip 50% → GetClipNotes 0.05; screenshot-validated (the expanded submenu).
+- `[x]` **Note-length gate (staccato/tenuto) landed** (commit): a shared `gateNotes(notes,factor)`
+  transform scales every note's LENGTH by `factor` keeping its start — 0.5 = staccato (detached),
+  1.5 = tenuto (fuller). Distinct from legato (stretch to the NEXT onset) and time-scale (scales
+  start AND length): gate reshapes only articulation, rhythm unchanged. `apiGateClip` (via
+  GLOOPY_EDIT_CLIP_NOTES) + GateClip RPC (`GateRequest`; handler defaults unset 0 → 1.0 no-op) +
+  Python `gate_clip`. **Desktop:** a "Note length ▸ Staccato (50%) / Short (75%) / Tenuto (150%) /
+  Double (200%)" submenu on the MIDI-clip menu. `GloopyTests::NoteEdits` pins the length scale with
+  starts kept; smoke drives GateClip 0.5 → GetClipNotes len 0.5 start 0.5; screenshot-validated.
 - **Duplicate track — STILL DEFERRED (measured):** the loader per-track block is lines 3706-3871
   (~165 lines building generator + clips + automation), interwoven with device prep. Factoring it
   into a reusable `readTrackFromTree` helper risks ALL project loads, and a true clone also needs

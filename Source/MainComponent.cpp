@@ -370,6 +370,7 @@ MainComponent::MainComponent (bool headless)
                           (float) a.fromFirstOccurrenceOf (",", false, false).getDoubleValue());
         }
         else if (cmd.startsWith ("chordify:")) apiChordifyClip (id, clip, cmd.substring (9).getIntValue());
+        else if (cmd.startsWith ("gate:")) apiGateClip (id, clip, cmd.substring (5).getDoubleValue());
         else if (cmd.startsWith ("quantize:"))
         {
             auto a = cmd.substring (9);                          // "grid,strength"

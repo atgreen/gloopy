@@ -389,6 +389,21 @@ struct NoteEditTests : juce::UnitTest
             expect (ch.size() == 4);
         }
 
+        beginTest ("gate scales note lengths, keeping starts (staccato/tenuto)");
+        {
+            std::vector<Note> ns { {60,0.0,1.0f,0.8f}, {62,1.0,0.5f,0.7f} };
+            gateNotes (ns, 0.5);                             // staccato: halve lengths
+            expectWithinAbsoluteError (ns[0].lengthBeats, 0.5, 1e-6);
+            expectWithinAbsoluteError (ns[1].lengthBeats, 0.25, 1e-6);
+            expectWithinAbsoluteError (ns[0].startBeat, 0.0, 1e-9);   // starts untouched
+            expectWithinAbsoluteError (ns[1].startBeat, 1.0, 1e-9);
+            expect (ns[0].pitch == 60 && ns[1].pitch == 62);
+            // tenuto: lengthen; and the 0.01 floor holds for a tiny factor.
+            std::vector<Note> tn { {60,0.0,1.0f,0.8f} };
+            gateNotes (tn, 1.5);
+            expectWithinAbsoluteError (tn[0].lengthBeats, 1.5, 1e-6);
+        }
+
         beginTest ("partial quantize moves note starts toward the grid by strength");
         {
             std::vector<Note> ns { {60,0.10,1.0f,0.8f}, {62,0.40,1.0f,0.8f} };

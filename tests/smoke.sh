@@ -1287,6 +1287,17 @@ st=round(json.load(sys.stdin)['notes'][0].get('startBeat',0),4)
 assert st==0.05, 'partial quantize wrong: %s'%st
 print('smoke: PASS — QuantizeClip 50%% moved a 0.1 start halfway to grid -> 0.05')
 " || { echo 'smoke: partial quantize wrong' >&2; exit 1; }
+# Gate: a 1-beat note with factor 0.5 (staccato) -> length 0.5, start unchanged.
+g -d "{\"track_id\":$CO,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0.5,\"length_beats\":1.0,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+GTC=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t.get('name')=='clipops')-1)")
+g -d "{\"track_id\":$CO,\"index\":$GTC,\"factor\":0.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GateClip >/dev/null
+g -d "{\"track_id\":$CO,\"index\":$GTC}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "
+import json,sys
+n=json.load(sys.stdin)['notes'][0]
+st=round(n.get('startBeat',0),4); ln=round(n['lengthBeats'],4)
+assert st==0.5 and ln==0.5, 'gate wrong: start=%s len=%s'%(st,ln)
+print('smoke: PASS — GateClip 0.5 halved note length to 0.5, start kept at 0.5 (staccato)')
+" || { echo 'smoke: gate wrong' >&2; exit 1; }
 g -d "{\"id\":$CO}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   # isolate: drop the scratch track
 # Split-at-named-marker: a marker at beat 2 splits a [0,4) clip (notes 0/1/2/3) into
 # [0,2)+[2,4); the right clip's notes rebase to 0/1. Reuses the locations model.

@@ -687,6 +687,12 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             qz.addItem (794, "1/4");
             qz.addItem (795, "1/4 soft (50%)");
             m.addSubMenu ("Quantize", qz);
+            juce::PopupMenu gt;                            // gate: scale note lengths (articulation)
+            gt.addItem (800, "Staccato (50%)");
+            gt.addItem (801, "Short (75%)");
+            gt.addItem (802, "Tenuto (150%)");
+            gt.addItem (803, "Double (200%)");
+            m.addSubMenu ("Note length", gt);
         }
         if (! isMidi)                                   // audio-clip level ops
         {
@@ -787,6 +793,12 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 const double grid = r <= 791 ? 0.25 : r <= 793 ? 0.5 : 1.0;
                 const double str  = (r % 2 == 1) ? 0.5 : 1.0;   // 791/793/795 = soft
                 if (onClipCommand) onClipCommand (t, c, "quantize:" + juce::String (grid) + "," + juce::String (str));
+                return;
+            }
+            if (r >= 800 && r <= 803)   // Note length (gate): staccato/short/tenuto/double
+            {
+                const double factor = r == 800 ? 0.5 : r == 801 ? 0.75 : r == 802 ? 1.5 : 2.0;
+                if (onClipCommand) onClipCommand (t, c, "gate:" + juce::String (factor));
                 return;
             }
             const char* cmd = r == 1  ? "split"

@@ -743,6 +743,9 @@ bool MainComponent::apiHarmonizeClip (int trackId, int index, int semitones)
 bool MainComponent::apiSwingClip (int trackId, int index, double grid, float amount)
 { GLOOPY_EDIT_CLIP_NOTES (swingNotes (notes, grid, amount)) }
 
+bool MainComponent::apiGateClip (int trackId, int index, double factor)
+{ GLOOPY_EDIT_CLIP_NOTES (gateNotes (notes, factor)) }
+
 bool MainComponent::apiChordifyClip (int trackId, int index, int chordType)
 {
     // 0 major, 1 minor, 2 dom7, 3 diminished, 4 sus4 (intervals in semitones above the root).

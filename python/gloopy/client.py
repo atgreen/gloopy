@@ -437,6 +437,11 @@ class Gloopy:
         {+3,+6}, 4 sus4 {+5,+7}. Originals kept as roots; off-keyboard voices dropped."""
         self._ack(self.stub.ChordifyClip(pb.ChordifyRequest(track_id=track_id, index=index, chord_type=chord_type)))
 
+    def gate_clip(self, track_id: int, index: int, factor: float = 0.5) -> None:
+        """Gate/articulation: scale every note's length by `factor` (keeping its start) —
+        0.5 = staccato (detached), 1.5 = tenuto (fuller). Rhythm is unchanged."""
+        self._ack(self.stub.GateClip(pb.GateRequest(track_id=track_id, index=index, factor=factor)))
+
     def split_notes_at_beat(self, track_id: int, index: int, beat: float) -> None:
         """Knife: cut every note spanning `beat` (clip-relative) into two abutting notes."""
         self._ack(self.stub.SplitNotesAtBeat(pb.SplitNotesRequest(

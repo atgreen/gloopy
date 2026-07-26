@@ -165,6 +165,16 @@ inline void scaleNoteTimes (std::vector<Note>& notes, double factor)
     for (auto& n : notes) { n.startBeat *= f; n.lengthBeats = juce::jmax (0.01, n.lengthBeats * f); }
 }
 
+/** Gate / articulation: scale every note's LENGTH by `factor`, keeping its start (so the
+    rhythm is unchanged) — 0.5 = staccato (detached), 1.5 = tenuto (fuller). Distinct from
+    legato (which stretches each note to the NEXT onset) and from time-scale (which scales
+    start AND length): gate reshapes only articulation. Length floored at 0.01. */
+inline void gateNotes (std::vector<Note>& notes, double factor)
+{
+    const double f = juce::jlimit (0.05, 8.0, factor);
+    for (auto& n : notes) n.lengthBeats = juce::jmax (0.01, n.lengthBeats * f);
+}
+
 /** Ratchet / roll: subdivide every note into `subdivisions` equal same-pitch hits filling
     its original span (a drum roll / stutter). Each hit keeps the note's pitch and velocity;
     its length is the subdivided step. Distinct from arpeggiate (which sequences a chord's
