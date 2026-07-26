@@ -647,14 +647,14 @@ namespace
         { r->set_id (main.apiAddSamplerTrack (js (q->name()), js (q->path()), q->root_note())); return Status::OK; }
 
         Status SetSamplerControls (ServerContext*, const pb::SamplerControlsRequest* q, pb::Ack* r) override
-        { const bool ok = main.apiSetSamplerControls (q->track_id(), q->start(), q->end(), q->reverse(), q->root_note(), q->fade_in(), q->fade_out());
+        { const bool ok = main.apiSetSamplerControls (q->track_id(), q->start(), q->end(), q->reverse(), q->root_note(), q->fade_in(), q->fade_out(), q->loop());
           r->set_ok (ok); if (! ok) r->set_error ("not a sampler track"); return Status::OK; }
 
         Status GetSamplerControls (ServerContext*, const pb::TrackId* q, pb::SamplerControls* r) override
         { const auto s = main.apiGetSamplerControls (q->id());
           r->set_ok (s.ok); r->set_start (s.start); r->set_end (s.end); r->set_reverse (s.reverse);
           r->set_root_note (s.rootNote); r->set_name (s.name.toStdString());
-          r->set_fade_in (s.fadeIn); r->set_fade_out (s.fadeOut); return Status::OK; }
+          r->set_fade_in (s.fadeIn); r->set_fade_out (s.fadeOut); r->set_loop (s.loop); return Status::OK; }
 
         Status AddSfzTrack (ServerContext*, const pb::AddSfzTrackRequest* q, pb::TrackId* r) override
         { r->set_id (main.apiAddSfzTrack (js (q->name()), js (q->path()))); return Status::OK; }

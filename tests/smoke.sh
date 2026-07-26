@@ -368,6 +368,42 @@ print('smoke: PASS — sampler fade-in ramps the start (fade early/late peak %d/
 " || { echo 'smoke: sampler fade-in wrong' >&2; exit 1; }
 g -d "{\"id\":$FT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
+# Sampler loop mode (Wave 6 #18): a SHORT sample (~45 ms) under a 1-beat note. As a one-shot
+# it plays once and is silent for the rest of the note; looped it sustains until the note-off,
+# then stops. So mid-note (~200 ms) the looped render has signal where the one-shot is silent,
+# and past the note-off (~600 ms) the looped render is silent again (note-off released it).
+python3 -c "
+import wave, struct, math
+w=wave.open('$WORK/short.wav','w'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(44100)
+w.writeframes(b''.join(struct.pack('<h',int(0.7*math.sin(2*math.pi*330*i/44100)*32767)) for i in range(2000))); w.close()
+"
+LT=$(g -d "{\"name\":\"loopsmp\",\"path\":\"$WORK/short.wav\",\"root_note\":60}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSamplerTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$LT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":1.0}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/loop_off.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$LT,\"start\":0,\"end\":1,\"reverse\":false,\"root_note\":0,\"fade_in\":0,\"fade_out\":0,\"loop\":true}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSamplerControls >/dev/null
+g -d "{\"path\":\"$WORK/loop_on.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+LOOPRB=$(g -d "{\"id\":$LT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetSamplerControls | python3 -c "import json,sys;print(json.load(sys.stdin).get('loop',False))")
+g -d "{\"path\":\"$WORK/loop.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+g -d "{\"path\":\"$WORK/loop.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+LOOPRB2=$(g -d "{\"id\":$LT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetSamplerControls | python3 -c "import json,sys;print(json.load(sys.stdin).get('loop',False))")
+python3 -c "
+import wave
+def rdL(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [abs(int.from_bytes(f[i:i+3],'little',signed=True)) for i in range(0,len(f),6)]
+off=rdL('$WORK/loop_off.wav');on=rdL('$WORK/loop_on.wav')
+def e(x,a,b): return sum(x[a:b])
+# ~200 ms in (past the 45 ms sample, inside the 1-beat note ~469 ms): looped sustains, one-shot silent.
+mid_off,mid_on=e(off,8000,9000),e(on,8000,9000)
+assert mid_on > mid_off*20, 'loop did not sustain past the one-shot length (off=%d on=%d)'%(mid_off,mid_on)
+# ~600 ms in (past the note-off at ~469 ms): the loop released, so it is quiet again.
+rel=e(on,26000,27000)
+assert rel < mid_on*0.1, 'note-off did not stop the loop (sustaining=%d after-noteoff=%d)'%(mid_on,rel)
+assert '$LOOPRB'=='True', 'loop flag not read back: got $LOOPRB'
+assert '$LOOPRB2'=='True', 'loop flag did not survive composition round-trip: got $LOOPRB2'
+print('smoke: PASS — sampler loop sustains a short sample (mid off=%d on=%d), note-off releases it (after=%d), loop round-trips'%(mid_off,mid_on,rel))
+" || { echo 'smoke: sampler loop wrong' >&2; exit 1; }
+g -d "{\"id\":$LT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
 # ParamModel keystone — automation-by-id: an automation lane addresses the SAME ParamModel
 # id a controller/LFO uses (track/<id>/synth/cutoff), written through the shared
 # applyParamValue. A ramp 300->8000 Hz over 0..4 beats brightens the render vs a static

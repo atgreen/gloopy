@@ -323,6 +323,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
              .boolean ("reverse", (bool) sm.getProperty ("srev", false))
              .number ("fade_in", (double) sm.getProperty ("sfadein", 0.0))
              .number ("fade_out", (double) sm.getProperty ("sfadeout", 0.0))
+             .boolean ("loop", (bool) sm.getProperty ("sloop", false))
              .str ("sample_name", sm.getProperty ("sname").toString())
              .number ("rate", sm.getProperty ("rate", 44100.0));
         }
@@ -754,6 +755,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                     s.setProperty ("srev", g->getBool ("reverse", false), nullptr);
                     s.setProperty ("sfadein", g->getDouble ("fade_in", 0.0), nullptr);
                     s.setProperty ("sfadeout", g->getDouble ("fade_out", 0.0), nullptr);
+                    s.setProperty ("sloop", g->getBool ("loop", false), nullptr);
                     s.setProperty ("sname", g->getString ("sample_name"), nullptr);
                     tr.addChild (s, -1, nullptr);
                 }

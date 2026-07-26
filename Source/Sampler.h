@@ -60,10 +60,16 @@ public:
     float getEndFrac()   const { return endFrac; }
     bool  getReverse()   const { return reverse; }
 
-    // Per-voice amplitude fades, in seconds (0 = off).
+    // Per-voice amplitude fades, in seconds (0 = off). In loop mode fadeOut is the
+    // release time applied on note-off (see render); otherwise it fades the window end.
     void  setFades (float in, float out) { fadeIn = juce::jmax (0.0f, in); fadeOut = juce::jmax (0.0f, out); }
     float getFadeIn()  const { return fadeIn; }
     float getFadeOut() const { return fadeOut; }
+
+    // Loop mode: the playback window repeats (sustained) until a note-off releases it,
+    // instead of playing once. Note-offs still ring out for a one-shot (loop off).
+    void setLoop (bool shouldLoop) { loop = shouldLoop; }
+    bool getLoop() const { return loop; }
 
     // Accessors for project serialization.
     const juce::AudioBuffer<float>& getSampleBuffer() const { return sample; }
@@ -84,15 +90,22 @@ public:
         {
             const int framePos = startSample + i;
 
-            // Trigger any voices whose event lands on this frame.
+            // Trigger any voices whose event lands on this frame. In loop mode a note-off
+            // starts the release (fadeOut, or an immediate stop when fadeOut is 0); a
+            // one-shot ignores note-offs (drums ring out), unchanged.
             while (midiIt != midiEnd && (*midiIt).samplePosition <= framePos)
             {
                 const auto msg = (*midiIt).getMessage();
-                if (msg.isNoteOn())
+                if (msg.isNoteOn() && msg.getFloatVelocity() > 0.0f)
                     startVoice (msg.getNoteNumber(), msg.getFloatVelocity());
+                else if (loop && (msg.isNoteOff() || msg.isNoteOn()))     // note-on vel 0 == note-off
+                    for (auto& v : voices)
+                        if (v.active && v.note == msg.getNoteNumber() && ! v.releasing)
+                            { v.releasing = true; v.relAge = 0.0; }
                 ++midiIt;
             }
 
+            const double span = (double) (hi - 1 - lo);
             float mono = 0.0f;
             for (auto& v : voices)
             {
@@ -102,7 +115,20 @@ public:
                 mono += readInterpolated (v.pos) * v.gain * envelopeGain (v);
                 v.pos += v.rate;                          // rate is signed (negative = reverse)
                 v.age += 1.0;                             // output samples since trigger
-                if (v.rate >= 0.0 ? (v.pos >= (double) hi) : (v.pos <= (double) lo))
+
+                if (loop)
+                {
+                    // Wrap at the window edges and keep playing until note-off releases it.
+                    if (v.rate >= 0.0) { if (v.pos >= (double) (hi - 1)) v.pos -= span; }
+                    else               { if (v.pos <= (double) lo)       v.pos += span; }
+                    if (v.releasing)
+                    {
+                        v.relAge += 1.0;
+                        if (fadeOut <= 0.0f || v.relAge >= (double) fadeOut * deviceRate)
+                            v.active = false;
+                    }
+                }
+                else if (v.rate >= 0.0 ? (v.pos >= (double) hi) : (v.pos <= (double) lo))
                     v.active = false;
             }
 
@@ -122,12 +148,15 @@ public:
 private:
     struct Voice
     {
-        bool   active { false };
-        double pos    { 0.0 };
-        double rate   { 1.0 };
-        float  gain   { 1.0f };
-        double age    { 0.0 };    // output samples since the note-on
-        double life   { 0.0 };    // total output samples the voice will play (window / |rate|)
+        bool   active    { false };
+        double pos       { 0.0 };
+        double rate      { 1.0 };
+        float  gain      { 1.0f };
+        double age       { 0.0 };    // output samples since the note-on
+        double life      { 0.0 };    // total output samples the voice will play (window / |rate|)
+        int    note      { -1 };     // MIDI note this voice plays (for loop-mode note-off matching)
+        bool   releasing { false };  // loop mode: note-off received, releasing
+        double relAge    { 0.0 };    // output samples since the note-off
     };
 
     // Amplitude envelope for a voice: a linear fade-in from the note-on and a linear
@@ -141,7 +170,16 @@ private:
             const double fadeSamples = (double) fadeIn * deviceRate;
             if (v.age < fadeSamples) g *= (float) (v.age / fadeSamples);
         }
-        if (fadeOut > 0.0f)
+        if (loop)
+        {
+            // Release fade on note-off (fadeOut = release time). No window-end fade while looping.
+            if (v.releasing && fadeOut > 0.0f)
+            {
+                const double fadeSamples = (double) fadeOut * deviceRate;
+                g *= (float) juce::jmax (0.0, 1.0 - v.relAge / fadeSamples);
+            }
+        }
+        else if (fadeOut > 0.0f)
         {
             const double fadeSamples = (double) fadeOut * deviceRate;
             const double remaining   = v.life - v.age;
@@ -181,6 +219,9 @@ private:
         slot->gain   = velocity;
         slot->age    = 0.0;
         slot->life   = baseRate > 0.0 ? (double) (hi - 1 - lo) / baseRate : 0.0;   // output samples to traverse the window
+        slot->note   = noteNumber;
+        slot->releasing = false;
+        slot->relAge = 0.0;
     }
 
     float readInterpolated (double pos) const
@@ -200,7 +241,8 @@ private:
     float       endFrac    { 1.0f };   // playback window end
     bool        reverse    { false };  // play the window back-to-front
     float       fadeIn     { 0.0f };   // per-voice fade-in (seconds)
-    float       fadeOut    { 0.0f };   // per-voice fade-out (seconds)
+    float       fadeOut    { 0.0f };   // per-voice fade-out / release (seconds)
+    bool        loop       { false };  // window repeats until note-off (vs one-shot)
     juce::String sampleName;
 
     static constexpr int kNumVoices = 8;

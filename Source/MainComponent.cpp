@@ -236,12 +236,12 @@ MainComponent::MainComponent (bool headless)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return {};
         const auto s = apiGetSamplerControls (tracks[(size_t) trackIdx]->id);
-        return { s.ok, s.start, s.end, s.reverse, s.rootNote, s.fadeIn, s.fadeOut };
+        return { s.ok, s.start, s.end, s.reverse, s.rootNote, s.fadeIn, s.fadeOut, s.loop };
     };
-    arrangeView->onSetSamplerControls = [this] (int trackIdx, float start, float end, bool reverse, int root, float fadeIn, float fadeOut)
+    arrangeView->onSetSamplerControls = [this] (int trackIdx, float start, float end, bool reverse, int root, float fadeIn, float fadeOut, bool loop)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
-        apiSetSamplerControls (tracks[(size_t) trackIdx]->id, start, end, reverse, root, fadeIn, fadeOut);
+        apiSetSamplerControls (tracks[(size_t) trackIdx]->id, start, end, reverse, root, fadeIn, fadeOut, loop);
     };
     arrangeView->getPunchRange = [this] (double& in, double& out) -> bool
     {
@@ -1312,7 +1312,7 @@ int MainComponent::apiAddSamplerTrack (const juce::String& name, const juce::Str
 // Live playback controls for a one-shot Sampler track: window [start,end] (fractions of
 // the sample), reverse, and root note. rootNote <= 0 leaves the root unchanged. Set under
 // engineLock (the audio thread reads these fields in render/startVoice).
-bool MainComponent::apiSetSamplerControls (int trackId, float startFrac, float endFrac, bool reverse, int rootNote, float fadeIn, float fadeOut)
+bool MainComponent::apiSetSamplerControls (int trackId, float startFrac, float endFrac, bool reverse, int rootNote, float fadeIn, float fadeOut, bool loop)
 {
     return callOnMessageThread ([&] () -> bool
     {
@@ -1324,6 +1324,7 @@ bool MainComponent::apiSetSamplerControls (int trackId, float startFrac, float e
                 {
                     sm->setPlaybackWindow (startFrac, endFrac, reverse);
                     sm->setFades (fadeIn, fadeOut);
+                    sm->setLoop (loop);
                     if (rootNote > 0) sm->setRootNote (rootNote);
                     return true;
                 }
@@ -1340,7 +1341,7 @@ MainComponent::SamplerSnap MainComponent::apiGetSamplerControls (int trackId)
             if (t->id == trackId)
                 if (auto* sm = dynamic_cast<Sampler*> (t->generator.get()))
                     return { true, sm->getStartFrac(), sm->getEndFrac(), sm->getReverse(), sm->getRootNote(),
-                             sm->getFadeIn(), sm->getFadeOut(), sm->getName() };
+                             sm->getFadeIn(), sm->getFadeOut(), sm->getLoop(), sm->getName() };
         return {};
     });
 }
@@ -2883,6 +2884,7 @@ juce::ValueTree MainComponent::toValueTree()
             s.setProperty ("srev", sm->getReverse(), nullptr);
             s.setProperty ("sfadein", sm->getFadeIn(), nullptr);
             s.setProperty ("sfadeout", sm->getFadeOut(), nullptr);
+            s.setProperty ("sloop", sm->getLoop(), nullptr);
             s.setProperty ("sname", sm->getName(), nullptr);
             juce::MemoryBlock mb ((size_t) buf.getNumChannels() * (size_t) buf.getNumSamples() * sizeof (float));
             auto* dst = (float*) mb.getData();
@@ -3293,6 +3295,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
                                    (bool) s.getProperty ("srev", false));
             sm->setFades ((float) (double) s.getProperty ("sfadein", 0.0),
                           (float) (double) s.getProperty ("sfadeout", 0.0));
+            sm->setLoop ((bool) s.getProperty ("sloop", false));
             gen = std::move (sm);
         }
         if (gen) gen->prepare (currentSampleRate, currentBlockSize);

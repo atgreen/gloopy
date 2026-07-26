@@ -958,7 +958,18 @@ each shipping with desktop UI + screenshot validation.
       (early peak far below the post-fade level, while the no-fade render stays flat) and
       `fade_in` round-trips; screenshot-validated. Gotcha logged: the render WAV is stereo
       interleaved (read one channel), and grpcurl emits camelCase JSON keys (`fadeIn`).
-      **Not yet:** loop mode, choke groups, root-note keyboard-mapped multisamples,
+    - `[~]` **Loop mode landed** (commit): a Sampler voice can loop its playback window
+      (sustained) until a note-off releases it, instead of playing once. A one-shot still
+      ignores note-offs (drums ring out) — loop mode is the only path that tracks the voice's
+      note number and handles note-off; on release it uses `fadeOut` as the release time (an
+      immediate stop when 0). The window-end fade is suppressed while looping. Extended the
+      SAME plumbing: `loop` on apiSet/GetSamplerControls + the SamplerControls proto + Python +
+      ValueTree/composition serialisation + a "Mode" (One-shot/Loop) combo on the header prompt.
+      smoke: a short (~45 ms) sample under a 1-beat note is silent mid-note as a one-shot but
+      SUSTAINS when looped, and goes silent again PAST the note-off (proving note-off releases
+      the loop); the loop flag round-trips through a composition. Screenshot- and functionally-
+      validated (GUI Mode=Loop -> GetSamplerControls loop=true).
+      **Not yet:** choke groups, root-note keyboard-mapped multisamples, loop crossfade,
       interpolation quality, waveform thumbnails/peak cache.
 19. **Controller rack / MIDI-learn / parameter linking + MIDI device maps** — a
     source→target mapping view; MIDI-learn for any `ParamModel` id; OSC/API sources as

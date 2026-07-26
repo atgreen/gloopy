@@ -43,9 +43,9 @@ public:
     /** Right-click a Sampler track header -> playback-window menu. getSamplerControls
         returns {isSampler, start, end, reverse, root} for the track (index); the owner
         opens the prompt and routes the result to onSetSamplerControls. */
-    struct SamplerCtl { bool isSampler { false }; float start { 0.0f }, end { 1.0f }; bool reverse { false }; int root { 60 }; float fadeIn { 0.0f }, fadeOut { 0.0f }; };
-    std::function<SamplerCtl (int)>                              getSamplerControls;
-    std::function<void (int, float, float, bool, int, float, float)> onSetSamplerControls;   // track, start, end, reverse, root, fadeIn, fadeOut
+    struct SamplerCtl { bool isSampler { false }; float start { 0.0f }, end { 1.0f }; bool reverse { false }; int root { 60 }; float fadeIn { 0.0f }, fadeOut { 0.0f }; bool loop { false }; };
+    std::function<SamplerCtl (int)>                                        getSamplerControls;
+    std::function<void (int, float, float, bool, int, float, float, bool)> onSetSamplerControls;   // track, start, end, reverse, root, fadeIn, fadeOut, loop
     /** Right-click clip menu command: (track, clip, command). Commands: "split",
         "duplicate", "reverse", "snapscale", "delete". Owner routes to the api* ops. */
     std::function<void (int, int, const juce::String&)> onClipCommand;
