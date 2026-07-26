@@ -194,14 +194,20 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
 After studying **Tracktion Engine** (the production JUCE DAW engine; see Wave 7), the
 highest-value gaps it surfaced jump the queue. The next slices, in order:
 
-1. **Undo / redo** (Wave 7 #2) — Gloopy's single biggest *missing* DAW feature, and
-   Tracktion shows it's nearly free once every mutation routes through the ValueTree +
-   `UndoManager`. Fits "every feature needs a desktop control" literally (Ctrl-Z / menu).
-2. **Strong time types** (Wave 7 #1) — mechanical, compile-time-checked, kills a whole
+1. ~~Undo/redo~~ **DONE** — turned out to already exist (snapshot stack over
+   toValueTree/loadFromTree, 69 mutation sites, Ctrl+Z/Ctrl+Shift+Z/Ctrl+Y, RPCs).
+   The 2026-07-26 slice (commit c3eedf0) closed its two real gaps: surfaced Undo/Redo in
+   the File menu (discoverability) + added a headless round-trip test (0->1->0->1). The
+   *fine-grained* Tracktion-style CachedValue/UndoManager rework (Wave 7 #22) remains
+   optional/deferred — snapshot undo already works.
+2. **Surge XT as the default synth** (Wave 7 #28) — user-requested (2026-07-26): embed
+   the Surge engine (like sfizz) + a curated ~150–300 patch bundle. Large multi-session
+   slice; plan in `docs/surge-embed.md`. **Now the active front.**
+3. **Strong time types** (Wave 7 #21) — mechanical, compile-time-checked, kills a whole
    bug class; no audio-thread risk. Do it before more timeline/tempo work.
-3. **`AudioBufferPool`** (Wave 7 #4) — kill audio-thread allocations; prerequisite for
+4. **`AudioBufferPool`** (Wave 7 #24) — kill audio-thread allocations; prerequisite for
    any graph rework, and cheap on its own.
-4. Then resume the **browser sidebar** tail (Wave 6 #1: Presets/Favorites tabs +
+5. Then resume the **browser sidebar** tail (Wave 6 #1: Presets/Favorites tabs +
    first-class drag-and-drop) and the rest of Waves 2–5.
 
 The heavy engine items (off-thread graph swap #5, **multicore rendering #6**) stay
@@ -1619,8 +1625,12 @@ prior-art references to *read*, not to lift.
     `GloopyTests` case proves the illegal combinations don't compile (or are rejected).
     Low risk, no audio-thread danger, big safety win — **near-term (priority #2).**
 
-22. **Undo / redo via ValueTree + `UndoManager`.** ✦ **L** — **near-term (priority #1).**
-    Gloopy's biggest missing DAW feature. Route *all* model mutations through the
+22. **Undo / redo — fine-grained (ValueTree + `UndoManager`).** ✦ **L** — *deferred/optional.*
+    NOTE: snapshot-based undo **already ships** and works (see the reprioritization banner;
+    commit c3eedf0 surfaced it in the menu + added a test). This item is the *optional*
+    Tracktion-style refinement — finer granularity + lower memory than full-project
+    snapshots. Only worth it if snapshot undo proves too coarse/heavy. Route *all* model
+    mutations through the
     ValueTree with an `UndoManager` (Tracktion binds each property with
     `CachedValue<T>.referTo(state, id, um)` and manages Track/Clip C++ objects with a
     `ValueTreeObjectList` listener — child added → create wrapper, removed → destroy).
@@ -1682,6 +1692,23 @@ prior-art references to *read*, not to lift.
     and CMake gains `asan`/`tsan` presets wired into a CI matrix. High value precisely
     because we're about to touch audio-thread code (#24/#25) — sanitizers catch the bugs
     that only bite under load.
+
+28. **Surge XT as the embedded default synth + curated presets.** ✦ **L (multi-session)**
+    *User-requested (2026-07-26).* Embed the Surge XT synth **engine** into Gloopy's build
+    (mirroring the vendored sfizz `Generator`) and bundle a curated ~150–300 first-party
+    patch set, so new synth tracks default to Surge and Gloopy sounds great out of the box,
+    self-contained. **Full plan + licensing analysis + sliced sequence in
+    `docs/surge-embed.md`.** Key facts: Surge is **GPL-3.0** (compatible to combine with
+    Gloopy's AGPL-3.0 per GPLv3/AGPLv3 §13 — record in THIRD-PARTY-LICENSES.md; the shipped
+    binary becomes a combined GPL/AGPL work); synth core is the `surge::surge-common` CMake
+    lib driven headless via `createSurge()` + `HeadlessPluginLayerProxy` (already known-good
+    — Surge is installed + hosted here); vendor by **submodule** under `third_party/surge`
+    (NOT a 1.2 GB copy) + a curated data subset (~few MB). Slices: (1) **isolation probe** —
+    build `surge-common` alone + headless render, assert non-silent (NEXT); (2) submodule +
+    CMake link; (3) `SurgeGenerator` + one patch (smoke render); (4) curated patch/wavetable
+    bundle + curation script; (5) default-synth wiring + preset browser (the desktop
+    control); (6) license/docs. Curate ONLY from `patches_factory`/`wavetables` (skip
+    `*_3rdparty` without per-pack review).
 
 ## Explicitly NOT doing (the guardrails, made concrete)
 
