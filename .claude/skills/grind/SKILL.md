@@ -904,8 +904,15 @@ each shipping with desktop UI + screenshot validation.
       (keyed by source+target) + `SetControllerBypass` RPC + Python; `apiSetController`
       skips bypassed maps; serialised in CONTROLLERS + `controllers.toml`; ListController
       Maps returns the flag. smoke proves an inverted map (cc value 1 → low cutoff) and
-      that bypass freezes the param while un-bypass re-applies. **Not yet:** OSC-lane
-      wiring, per-map smoothing (slew), device-map files, the mapping-rack UI.
+      that bypass freezes the param while un-bypass re-applies.
+    - `[x]` **Desktop see/remove of a mapping landed** (commit): the mixer param right-click
+      menu (the same one with MIDI Learn / LFO / Automate) now shows the CC/OSC source bound
+      to that param in its header (`Ins 1 volume (cc:20)`) and offers "Remove mapping (cc:20)"
+      when mapped — so a MIDI-learned binding can be *seen and cleared* from the desktop, not
+      only via the API. Pure UI wiring on the tested controller backend (`onControllerSourceFor`
+      / `onRemoveControllerMap` iterate `apiListControllerMaps` by target) — screenshot-
+      validated. **Not yet:** a full mapping-rack VIEW (list all maps, edit range/bypass,
+      device-map files), OSC-lane wiring, per-map smoothing (slew).
 20. **Product-surface tier** — in-app markdown **project notes** under `notes/`
     (Idea #10); a static-file **localhost web control surface** for transport/mixer/
     markers/live notes, doubling as an API test client (Ardour #7); an **MCP tool

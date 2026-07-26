@@ -382,6 +382,16 @@ MainComponent::MainComponent (bool headless)
         apiAddAutomationPointById (target, transport.getPlayheadBeats(), value);
     };
     mixerView->onClearAutomation    = [this] (const juce::String& target) { apiSetAutomationById (target, {}); };
+    // Controller mapping: surface the CC/OSC source bound to a target and clear it from the desktop.
+    mixerView->onControllerSourceFor = [this] (const juce::String& target) -> juce::String
+    {
+        for (auto& m : apiListControllerMaps()) if (m.target == target) return m.source;
+        return {};
+    };
+    mixerView->onRemoveControllerMap = [this] (const juce::String& target)
+    {
+        for (auto& m : apiListControllerMaps()) if (m.target == target) apiRemoveControllerMap (m.source);
+    };
 
     // Control groups (VCA-lite): the mixer strip name menu drives the apiControlGroup* calls.
     mixerView->onListGroups  = [this]

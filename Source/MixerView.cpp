@@ -366,9 +366,12 @@ void MixerView::mouseDown (const juce::MouseEvent& e)
 // Shared right-click menu for any ParamModel target: MIDI Learn, add/remove an LFO.
 void MixerView::showParamMenu (const juce::String& target, const juce::String& label)
 {
+    const juce::String mappedSrc = onControllerSourceFor ? onControllerSourceFor (target) : juce::String();
+
     juce::PopupMenu m;
-    m.addSectionHeader (label);
+    m.addSectionHeader (mappedSrc.isNotEmpty() ? label + "  (" + mappedSrc + ")" : label);
     m.addItem (1, "MIDI Learn");
+    if (mappedSrc.isNotEmpty()) m.addItem (6, "Remove mapping (" + mappedSrc + ")");
     m.addItem (2, "Add LFO...");
     m.addItem (3, "Remove LFO");
     m.addSeparator();
@@ -377,11 +380,12 @@ void MixerView::showParamMenu (const juce::String& target, const juce::String& l
     const juce::String tgt = target;
     m.showMenuAsync (juce::PopupMenu::Options(), [this, tgt] (int r)
     {
-        if      (r == 1 && onMidiLearn)        onMidiLearn (tgt);
-        else if (r == 2)                       promptAddLfo (tgt);
-        else if (r == 3 && onRemoveModulation) onRemoveModulation (tgt);
-        else if (r == 4 && onAutomatePoint)    onAutomatePoint (tgt);
-        else if (r == 5 && onClearAutomation)  onClearAutomation (tgt);
+        if      (r == 1 && onMidiLearn)          onMidiLearn (tgt);
+        else if (r == 6 && onRemoveControllerMap) onRemoveControllerMap (tgt);
+        else if (r == 2)                         promptAddLfo (tgt);
+        else if (r == 3 && onRemoveModulation)   onRemoveModulation (tgt);
+        else if (r == 4 && onAutomatePoint)      onAutomatePoint (tgt);
+        else if (r == 5 && onClearAutomation)    onClearAutomation (tgt);
     });
 }
 

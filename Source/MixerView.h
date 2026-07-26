@@ -39,6 +39,11 @@ public:
         ParamModel id MIDI-learn and the LFO use), authored one keyframe at a time. */
     std::function<void (const juce::String&)>                     onAutomatePoint;
     std::function<void (const juce::String&)>                     onClearAutomation;
+    /** Controller mapping: report the CC/OSC source bound to this target (empty if none)
+        and remove that binding — so a MIDI-learned mapping can be seen and cleared from
+        the desktop, not only the API. */
+    std::function<juce::String (const juce::String&)>            onControllerSourceFor;   // "" if unmapped
+    std::function<void (const juce::String&)>                    onRemoveControllerMap;
 
     // Control groups (VCA-lite): the strip name's right-click menu creates/assigns
     // groups and rides the group fader. Wired by the owner to the apiControlGroup* calls.
