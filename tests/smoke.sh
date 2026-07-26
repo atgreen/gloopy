@@ -611,6 +611,24 @@ assert n==s, 'clip count (%d) != reported slices (%d)'%(n,s)
 print('smoke: PASS — SliceAtTransients cut 4 hits into %d slices'%s)
 " || { echo 'smoke: slice-at-transients wrong' >&2; exit 1; }
 g -d "{\"id\":$TRT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+# Per-clip mute: a muted MIDI clip is skipped by the collector, so a soloed render goes
+# silent; unmuting restores it. (MIDI collectClip previously ignored clip.muted.)
+MU=$(g -d '{"name":"mutetk","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.8,"release":0.2,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$MU,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+mupk() { g -d "{\"path\":\"$1\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$MU}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null; g -d "{\"path\":\"$1\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AnalyzeFile | python3 -c "import json,sys;print(json.load(sys.stdin).get('peakDbfs',-120))"; }
+MON=$(mupk "$WORK/mu_on.wav")
+g -d "{\"track_id\":$MU,\"index\":0,\"muted\":true}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipMuted >/dev/null
+MMUTE=$(mupk "$WORK/mu_mute.wav")
+g -d "{\"track_id\":$MU,\"index\":0,\"muted\":false}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipMuted >/dev/null
+MBACK=$(mupk "$WORK/mu_back.wav")
+python3 -c "
+on,mute,back=float('$MON'),float('$MMUTE'),float('$MBACK')
+assert on>-40, 'clip should sound before mute (%.1f dBFS)'%on
+assert mute<-80, 'muted clip should be silent (%.1f dBFS)'%mute
+assert back>-40, 'unmuted clip should sound again (%.1f dBFS)'%back
+print('smoke: PASS — clip mute silences a MIDI clip (%.0f -> %.0f -> %.0f dBFS)'%(on,mute,back))
+" || { echo 'smoke: clip mute wrong' >&2; exit 1; }
+g -d "{\"id\":$MU}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
 g -d "{\"path\":\"$WAV\",\"tail_seconds\":1.0,\"start_beat\":0,\"end_beat\":4}" \
     127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null

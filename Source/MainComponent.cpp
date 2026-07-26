@@ -290,6 +290,8 @@ MainComponent::MainComponent (bool headless)
         else if (cmd == "consolidate") apiConsolidateClip (id, clip);
         else if (cmd == "bounce")    apiBounceClip (id, clip);
         else if (cmd == "slicetransients") apiSliceClipAtTransients (id, clip, 1.0f);
+        else if (cmd == "mute")      apiSetClipMuted (id, clip, true);
+        else if (cmd == "unmute")    apiSetClipMuted (id, clip, false);
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")
@@ -1939,7 +1941,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     auto collectClip = [&tc, swing] (juce::MidiBuffer& midi, const Clip& clip,
                               juce::int64 songStart, int chunk, int tsOffset, bool useArp)
     {
-        if (clip.type != ClipType::Midi) return;
+        if (clip.type != ClipType::Midi || clip.muted) return;   // muted = disabled clip / inactive take
         // Live arp: play the precomputed expansion instead of the raw chord (both under the lock).
         const std::vector<Note>& src = (useArp && ! clip.arpNotes.empty()) ? clip.arpNotes : clip.notes;
         const juce::int64 songEnd   = songStart + chunk;

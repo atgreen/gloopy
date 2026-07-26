@@ -676,6 +676,9 @@ namespace
         }
         Status SliceAtTransients (ServerContext*, const pb::SliceTransientsRequest* q, pb::SliceResult* r) override
         { r->set_slices (main.apiSliceClipAtTransients (q->track_id(), q->index(), q->sensitivity())); return Status::OK; }
+        Status SetClipMuted (ServerContext*, const pb::ClipMuteRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiSetClipMuted (q->track_id(), q->index(), q->muted());
+          r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
         Status DuplicateClip (ServerContext*, const pb::DuplicateClipRequest* q, pb::ClipId* r) override
         {
             const int idx = main.apiDuplicateClip (q->track_id(), q->index(), q->at_beat());

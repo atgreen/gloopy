@@ -383,6 +383,13 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      (→SliceResult) + Python. **Desktop UI:** "Slice at transients" on the audio-clip menu —
      screenshot-validated. smoke proves 4 staccato hits slice into ~4 clips; the detector
      itself is unit-tested (hits at 0/4000/8000/12000 → 3 interior onsets; silence → none).
+   - `[x]` **Per-clip mute landed** (commit): `apiSetClipMuted(trackId,index,muted)` disables a
+     clip in the arrangement without deleting it. Fixed a real gap: the MIDI `collectClip`
+     ignored `clip.muted` (only the audio renderer honoured it), so muting a MIDI clip was a
+     no-op — now both skip muted clips. `clip.muted` already serialises. SetClipMuted RPC +
+     Python. **Desktop UI:** "Mute clip" (checkable) on the arrange-view clip menu, for
+     non-take clips (takes use Use/Promote) — screenshot-validated. smoke proves a muted MIDI
+     clip renders silent (-13 -> -144 dBFS) and unmuting restores it.
    - `[x]` **Clip gain + normalize landed** (commit): `apiSetClipGain` (audio clip gain
      in dB) and `apiNormalizeClip` (scan the clip buffer's peak, set gain so it hits a
      target dBFS; returns the applied gain). Audio clips only (MIDI dynamics = velocity);

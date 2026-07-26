@@ -222,6 +222,10 @@ class Gloopy:
         r = self.stub.SliceAtTransients(pb.SliceTransientsRequest(track_id=track_id, index=index, sensitivity=sensitivity))
         return r.slices
 
+    def set_clip_muted(self, track_id: int, index: int, muted: bool = True) -> None:
+        """Mute (disable) or enable a clip in the arrangement without deleting it."""
+        self._ack(self.stub.SetClipMuted(pb.ClipMuteRequest(track_id=track_id, index=index, muted=muted)))
+
     def duplicate_clip(self, track_id: int, index: int, at_beat: float = -1.0) -> int:
         """Copy a clip to at_beat (default -1 = butt up right after it); returns new index."""
         r = self.stub.DuplicateClip(pb.DuplicateClipRequest(track_id=track_id, index=index, at_beat=at_beat))

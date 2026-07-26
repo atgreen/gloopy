@@ -240,6 +240,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.SliceTransientsRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.SliceResult.FromString,
                 _registered_method=True)
+        self.SetClipMuted = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetClipMuted',
+                request_serializer=gloopy__pb2.ClipMuteRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.DuplicateClip = channel.unary_unary(
                 '/gloopy.v1.Gloopy/DuplicateClip',
                 request_serializer=gloopy__pb2.DuplicateClipRequest.SerializeToString,
@@ -981,6 +986,13 @@ class GloopyServicer:
 
     def SliceAtTransients(self, request, context):
         """audio clip -> slices at detected onsets
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetClipMuted(self, request, context):
+        """mute/enable a clip in the arrangement
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1815,6 +1827,11 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.SliceAtTransients,
                     request_deserializer=gloopy__pb2.SliceTransientsRequest.FromString,
                     response_serializer=gloopy__pb2.SliceResult.SerializeToString,
+            ),
+            'SetClipMuted': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetClipMuted,
+                    request_deserializer=gloopy__pb2.ClipMuteRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'DuplicateClip': grpc.unary_unary_rpc_method_handler(
                     servicer.DuplicateClip,
@@ -3400,6 +3417,33 @@ class Gloopy:
             '/gloopy.v1.Gloopy/SliceAtTransients',
             gloopy__pb2.SliceTransientsRequest.SerializeToString,
             gloopy__pb2.SliceResult.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetClipMuted(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetClipMuted',
+            gloopy__pb2.ClipMuteRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,
             insecure,

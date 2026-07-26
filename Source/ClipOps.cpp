@@ -356,6 +356,26 @@ bool MainComponent::apiConsolidateClip (int trackId, int index)
     });
 }
 
+// Mute (disable) or enable a clip in the arrangement without deleting it — a muted clip
+// is skipped by both the MIDI collector and the audio renderer. Works for any clip.
+bool MainComponent::apiSetClipMuted (int trackId, int index, bool muted)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+            t->clips[(size_t) index].muted = muted;
+        }
+        emitChange ("clip_changed", trackId);
+        if (arrangeView) arrangeView->repaint();
+        return true;
+    });
+}
+
 // Bounce (freeze) a clip to audio: render just this track over the clip's [start,end)
 // region — offline and soloed, so only its instrument + inserts print — then load the
 // result back as an embedded audio clip on a fresh "(bounce)" track. Non-destructive:

@@ -419,7 +419,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         if (onClipSelected) onClipSelected (track, hit);
         repaint();
 
-        bool isMidi = false, isTake = false, isMutedTake = false, isLoopedMidi = false;
+        bool isMidi = false, isTake = false, isMutedTake = false, isLoopedMidi = false, isMuted = false;
         double clipStart = 0.0, clipEnd = 0.0;
         {
             const juce::ScopedLock sl (engineLock);
@@ -428,6 +428,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 const auto& cl = tracks[(size_t) track]->clips[(size_t) hit];
                 isMidi = ! cl.isAudio();
                 isTake = cl.takeId.isNotEmpty();
+                isMuted = cl.muted;
                 isMutedTake = isTake && cl.muted;
                 isLoopedMidi = isMidi && cl.looped && cl.contentLenBeats > 0.0
                                && cl.contentLenBeats < cl.lengthBeats - 1.0e-9;   // actually tiles
@@ -458,6 +459,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addItem (13, "Crop to loop region", transport.isLoopEnabled());   // MIDI notes or audio buffer
         m.addItem (14, "Consolidate loops", isLoopedMidi);   // bake looped repetitions into notes
         m.addItem (15, "Bounce to audio");                   // freeze clip -> audio on a new track
+        m.addItem (17, "Mute clip", ! isTake, isMuted);      // disable/enable in the arrangement (takes use Use/Promote)
         if (! isMidi)                                   // audio-clip level ops
         {
             m.addItem (10, "Normalize");                // to -1 dBFS
@@ -475,11 +477,12 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addSeparator();
         m.addItem (9, "Delete");
         const int t = track, c = hit;
-        m.showMenuAsync (juce::PopupMenu::Options(), [this, t, c, clipMarkers] (int r)
+        m.showMenuAsync (juce::PopupMenu::Options(), [this, t, c, clipMarkers, isMuted] (int r)
         {
             if (r == 0) return;
             if (r >= 500 && r - 500 < (int) clipMarkers.size())    // "Split at marker <name>"
             { if (onClipCommand) onClipCommand (t, c, "splitmarker:" + clipMarkers[(size_t) (r - 500)].first); return; }
+            if (r == 17) { if (onClipCommand) onClipCommand (t, c, isMuted ? "unmute" : "mute"); return; }
             if (r == 11) { promptClipGain (t, c); return; }        // "Gain..." -> dB prompt
             if (r == 12) { promptClipFades (t, c); return; }       // "Fades..." -> in/out prompt
             const char* cmd = r == 1  ? "split"
