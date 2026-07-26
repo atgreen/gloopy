@@ -268,6 +268,7 @@ public:
     int  apiSliceClipAtTransients (int trackId, int index, float sensitivity);   // audio clip -> slices at detected onsets; slice count, or -1
     bool apiSetClipMuted (int trackId, int index, bool muted);       // mute/enable a clip in the arrangement (MIDI or audio)
     int  apiDuplicateClip (int trackId, int index, double atBeat);  // atBeat<0 => right after; -> new index
+    int  apiRepeatClip (int trackId, int index, int copies);        // tile N butted copies after the clip; -> copies added, or -1
     bool apiReverseClip (int trackId, int index);                   // reverse notes (MIDI) or audio buffer
     bool apiCropClip (int trackId, int index, double startBeat, double endBeat);   // trim a MIDI clip to a beat range
     bool apiConsolidateClip (int trackId, int index);               // flatten a looped MIDI clip's repetitions into explicit notes

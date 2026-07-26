@@ -685,6 +685,8 @@ namespace
             r->set_track_id (q->track_id()); r->set_index (idx);
             return Status::OK;
         }
+        Status RepeatClip (ServerContext*, const pb::RepeatClipRequest* q, pb::SliceResult* r) override
+        { r->set_slices (main.apiRepeatClip (q->track_id(), q->index(), q->copies())); return Status::OK; }
         Status ReverseClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
         { const bool ok = main.apiReverseClip (q->track_id(), q->index());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }

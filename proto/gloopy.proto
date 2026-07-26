@@ -197,6 +197,7 @@ message SliceTransientsRequest { int32 track_id = 1; int32 index = 2; float sens
 message ClipMuteRequest      { int32 track_id = 1; int32 index = 2; bool muted = 3; }   // mute/enable a clip in the arrangement
 message SliceResult          { int32 slices = 1; }   // number of resulting slices
 message DuplicateClipRequest { int32 track_id = 1; int32 index = 2; double at_beat = 3; }   // at_beat<0 => right after
+message RepeatClipRequest    { int32 track_id = 1; int32 index = 2; int32 copies = 3; }   // tile N butted copies after the clip
 message CropClipRequest      { int32 track_id = 1; int32 index = 2; double start_beat = 3; double end_beat = 4; }  // trim to [start,end)
 message ClipGainRequest      { int32 track_id = 1; int32 index = 2; float gain_db = 3; }     // audio clip gain (dB)
 message NormalizeClipRequest { int32 track_id = 1; int32 index = 2; float target_dbfs = 3; } // gain so peak=target (0=full scale)
@@ -360,6 +361,7 @@ service Gloopy {
   rpc SliceAtTransients(SliceTransientsRequest) returns (SliceResult);   // audio clip -> slices at detected onsets
   rpc SetClipMuted    (ClipMuteRequest)        returns (Ack);      // mute/enable a clip in the arrangement
   rpc DuplicateClip   (DuplicateClipRequest)   returns (ClipId);
+  rpc RepeatClip      (RepeatClipRequest)      returns (SliceResult);   // SliceResult.slices = copies added
   rpc ReverseClip     (ClipRef)                returns (Ack);
   rpc CropClip        (CropClipRequest)        returns (Ack);      // trim a MIDI clip to a beat range
   rpc ConsolidateClip (ClipRef)                returns (Ack);      // flatten a looped MIDI clip's repetitions into notes

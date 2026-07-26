@@ -454,6 +454,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             m.addSubMenu ("Split at marker", markerMenu);
         }
         m.addItem (2, "Duplicate");
+        {
+            juce::PopupMenu rep;   // tile the clip N times total (adds N-1 butted copies)
+            rep.addItem (602, "x2"); rep.addItem (604, "x4"); rep.addItem (608, "x8"); rep.addItem (616, "x16");
+            m.addSubMenu ("Repeat", rep);
+        }
         m.addItem (3, "Reverse");
         m.addItem (4, "Snap to scale", isMidi);
         m.addItem (13, "Crop to loop region", transport.isLoopEnabled());   // MIDI notes or audio buffer
@@ -483,6 +488,8 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             if (r >= 500 && r - 500 < (int) clipMarkers.size())    // "Split at marker <name>"
             { if (onClipCommand) onClipCommand (t, c, "splitmarker:" + clipMarkers[(size_t) (r - 500)].first); return; }
             if (r == 17) { if (onClipCommand) onClipCommand (t, c, isMuted ? "unmute" : "mute"); return; }
+            if (r >= 602 && r <= 616)    // Repeat xN -> add N-1 copies
+            { if (onClipCommand) onClipCommand (t, c, "repeat:" + juce::String ((r - 600) - 1)); return; }
             if (r == 11) { promptClipGain (t, c); return; }        // "Gain..." -> dB prompt
             if (r == 12) { promptClipFades (t, c); return; }       // "Fades..." -> in/out prompt
             const char* cmd = r == 1  ? "split"

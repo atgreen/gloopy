@@ -231,6 +231,10 @@ class Gloopy:
         r = self.stub.DuplicateClip(pb.DuplicateClipRequest(track_id=track_id, index=index, at_beat=at_beat))
         return r.index
 
+    def repeat_clip(self, track_id: int, index: int, copies: int) -> int:
+        """Tile `copies` back-to-back duplicates after a clip; returns copies added."""
+        return self.stub.RepeatClip(pb.RepeatClipRequest(track_id=track_id, index=index, copies=copies)).slices
+
     def reverse_clip(self, track_id: int, index: int) -> None:
         self._ack(self.stub.ReverseClip(pb.ClipRef(track_id=track_id, index=index)))
 

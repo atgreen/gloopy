@@ -366,6 +366,13 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      serialise, so no new persistence. Verified precisely via GetClipNotes (split
      8→4+4 with correct offsets; reverse 60→beat3/63→beat0; duplicate→3 clips) +
      smoke.sh.
+   - `[x]` **Repeat clip (tile) landed** (commit): `apiRepeatClip(trackId,index,copies)` appends
+     N back-to-back duplicates after a clip (each one clip-length further along), turning a
+     1-bar loop into an N-bar run — the "duplicate-to-grid" variant from #6. Copies share
+     audio buffers (read-only) and duplicate MIDI notes. RepeatClip RPC (→SliceResult) +
+     Python. **Desktop UI:** a "Repeat ▸ x2/x4/x8/x16" submenu on the clip menu (adds N-1
+     copies for an N× total) — screenshot-validated. smoke proves a 2-beat clip repeated x4
+     saves as 4 clips at beats 0/2/4/6.
    - `[x]` **Audio-clip split fixed** (commit): `apiSplitClip` on an audio clip previously
      copied the *shared* full buffer into both halves, so the right half REPLAYED from the
      buffer start at the cut instead of continuing. Now each half's buffer is trimmed to its

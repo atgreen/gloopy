@@ -629,6 +629,21 @@ assert back>-40, 'unmuted clip should sound again (%.1f dBFS)'%back
 print('smoke: PASS — clip mute silences a MIDI clip (%.0f -> %.0f -> %.0f dBFS)'%(on,mute,back))
 " || { echo 'smoke: clip mute wrong' >&2; exit 1; }
 g -d "{\"id\":$MU}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+# Repeat clip: tile a 2-beat clip with 3 butted copies -> 4 clips at beats 0/2/4/6.
+RC=$(g -d '{"name":"reptk","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$RC,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":0.5,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+ADDED=$(g -d "{\"track_id\":$RC,\"index\":0,\"copies\":3}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RepeatClip | python3 -c "import json,sys;print(json.load(sys.stdin).get('slices',0))")
+[ "$ADDED" = 3 ] || { echo "smoke: RepeatClip added wrong count ($ADDED, expected 3)" >&2; exit 1; }
+g -d "{\"path\":\"$WORK/rep.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+python3 -c "
+import xml.etree.ElementTree as ET
+r=ET.parse('$WORK/rep.gloopy').getroot()
+tr=[t for t in r.iter('TRACK') if t.get('name')=='reptk'][0]
+starts=sorted(round(float(c.get('start')),3) for c in tr.iter('CLIP'))
+assert starts==[0.0,2.0,4.0,6.0], 'repeat tiled to wrong beats: %s'%starts
+print('smoke: PASS — RepeatClip tiled a 2-beat clip to 4 (starts 0/2/4/6)')
+" || { echo 'smoke: RepeatClip tiled wrong' >&2; exit 1; }
+g -d "{\"id\":$RC}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
 g -d "{\"path\":\"$WAV\",\"tail_seconds\":1.0,\"start_beat\":0,\"end_beat\":4}" \
     127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null

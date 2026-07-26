@@ -292,6 +292,7 @@ MainComponent::MainComponent (bool headless)
         else if (cmd == "slicetransients") apiSliceClipAtTransients (id, clip, 1.0f);
         else if (cmd == "mute")      apiSetClipMuted (id, clip, true);
         else if (cmd == "unmute")    apiSetClipMuted (id, clip, false);
+        else if (cmd.startsWith ("repeat:")) apiRepeatClip (id, clip, cmd.substring (7).getIntValue());
         else if (cmd == "delete")    apiRemoveClip (id, clip);
         else if (cmd == "cleanuptakes") apiCleanupTakes();
         else if (cmd == "promotetake")

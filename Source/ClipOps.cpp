@@ -356,6 +356,37 @@ bool MainComponent::apiConsolidateClip (int trackId, int index)
     });
 }
 
+// Tile a clip: append `copies` back-to-back duplicates after it (each one clip-length
+// further along), turning a one-bar loop into an N-bar run. Returns the number of copies
+// added, or -1. Copies share audio buffers (read-only) and duplicate MIDI notes.
+int MainComponent::apiRepeatClip (int trackId, int index, int copies)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        copies = juce::jlimit (0, 256, copies);
+        if (copies == 0) return 0;
+        pushUndoSnapshot();
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return -1;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
+            const Clip base = t->clips[(size_t) index];   // copy before the vector grows/reallocates
+            const double len = juce::jmax (0.0625, base.lengthBeats);
+            for (int k = 1; k <= copies; ++k)
+            {
+                Clip c = base;
+                c.startBeat = base.startBeat + (double) k * len;
+                c.name = base.name + " " + juce::String (k + 1);
+                t->clips.push_back (std::move (c));
+            }
+        }
+        emitChange ("clip_changed", trackId);
+        if (arrangeView) arrangeView->repaint();
+        return copies;
+    });
+}
+
 // Mute (disable) or enable a clip in the arrangement without deleting it — a muted clip
 // is skipped by both the MIDI collector and the audio renderer. Works for any clip.
 bool MainComponent::apiSetClipMuted (int trackId, int index, bool muted)
