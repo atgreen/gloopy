@@ -12,6 +12,7 @@
 #include "NoteEdits.h"
 #include "NotesJson.h"
 #include "AllpassPhaser.h"
+#include "Biquad.h"
 #include "Onsets.h"
 #include "ParamScale.h"
 #include "FileDrop.h"
@@ -654,6 +655,41 @@ struct AllpassPhaserTests : juce::UnitTest
     }
 };
 
+struct BiquadEqTests : juce::UnitTest
+{
+    BiquadEqTests() : juce::UnitTest ("BiquadEq") {}
+    void runTest() override
+    {
+        const double sr = 44100.0;
+        beginTest ("low shelf hits its gain in the bass and is flat up high");
+        {
+            const auto c = eqLowShelf (200.0, 12.0, sr);
+            expectWithinAbsoluteError (biquadMagnitudeDb (c, 30.0, sr),   12.0, 0.6);   // deep bass ~ +12 dB
+            expectWithinAbsoluteError (biquadMagnitudeDb (c, 8000.0, sr),  0.0, 0.6);   // highs untouched
+        }
+        beginTest ("high shelf hits its gain up high and is flat in the bass");
+        {
+            const auto c = eqHighShelf (5000.0, -12.0, sr);
+            expectWithinAbsoluteError (biquadMagnitudeDb (c, 18000.0, sr), -12.0, 0.8);  // top ~ -12 dB
+            expectWithinAbsoluteError (biquadMagnitudeDb (c, 100.0, sr),     0.0, 0.6);  // bass untouched
+        }
+        beginTest ("peaking band boosts at its centre and is flat far away");
+        {
+            const auto c = eqPeak (1000.0, 12.0, 2.0, sr);
+            expectWithinAbsoluteError (biquadMagnitudeDb (c, 1000.0, sr), 12.0, 0.3);   // +12 dB at centre
+            expectWithinAbsoluteError (biquadMagnitudeDb (c, 60.0, sr),    0.0, 0.6);   // flat well below
+            expect (biquadMagnitudeDb (c, 16000.0, sr) < 1.0);                          // flat well above
+        }
+        beginTest ("0 dB is a flat unity response");
+        {
+            const auto c = eqLowShelf (200.0, 0.0, sr);
+            expectWithinAbsoluteError (biquadMagnitudeDb (c, 100.0, sr), 0.0, 1e-6);
+            expectWithinAbsoluteError (biquadMagnitudeDb (c, 5000.0, sr), 0.0, 1e-6);
+        }
+    }
+};
+
+static BiquadEqTests     biquadEqTests;
 static AllpassPhaserTests allpassPhaserTests;
 static NotesJsonTests    notesJsonTests;
 static ParamScaleTests   paramScaleTests;

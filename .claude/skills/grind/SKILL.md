@@ -760,6 +760,17 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       as EffectType EQ=7 / WAVESHAPER=8 (all four registries kept in sync). Verified via
       render: EQ ±18 dB @ 500 Hz shifts band RMS ~17 dB (boost vs cut); waveshaper drive
       25 raises RMS ~17 dB (saturation). smoke covers both.
+    - `[x]` **EQ upgraded to 3 bands** (commit): `EqFx` is now a low shelf + mid peak +
+      high shelf chained per channel (Low Freq/Low dB, the original Freq/Gain dB/Q mid,
+      High Freq/High dB — 7 params). **Backward-compatible**: the mid band keeps the old
+      param names so projects that stored the single-band EQ still load, with the new
+      shelves defaulting flat. The RBJ peak/low-shelf/high-shelf coefficient math moved to a
+      pure header `Source/Biquad.h` (with a transfer-function magnitude evaluator),
+      unit-tested (`GloopyTests::BiquadEq`: each shelf hits its target gain in-band and is
+      flat out-of-band; 0 dB is unity). smoke proves both shelves shift RMS (added a bright
+      saw track so the master has HF content for the high shelf); the 7 knobs auto-render in
+      the generic FX param panel (screenshot-validated). No proto change (effects serialise
+      generically by param name).
     - `[x]` **Stereo Widener landed** (commit): `StereoWidenerFx`, mid/side, one Width
       param (0 mono / 1 unchanged / 2 double-wide), as EffectType STEREO_WIDENER=9 (all
       four registries synced). The pure transform lives in `Source/StereoWiden.h`
@@ -791,8 +802,7 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       magnitude-preservation property across a 6-stage cascade) without the audio-processor
       dep. smoke proves the enum→factory→params wiring (waveform diff 0.13 vs dry, stays
       level-matched within ~1.4 dB); screenshot-validated (Phaser in the add-effect menu).
-      **Not yet:** multi-band EQ; analyzers (scope/spectrum/vectorscope) with API
-      snapshots.
+      **Not yet:** analyzers (scope/spectrum/vectorscope) with API snapshots.
 
 ### Wave 6 — Product surface & UI (deferred: harder to verify headless; keep layout simple)
 

@@ -10,6 +10,7 @@
 #include "Effect.h"
 #include "StereoWiden.h"
 #include "AllpassPhaser.h"
+#include "Biquad.h"
 
 // ---------------------------------------------------------------------------
 // Gain
@@ -375,34 +376,40 @@ private:
 // ---------------------------------------------------------------------------
 // Parametric EQ (single peaking band, RBJ biquad)
 // ---------------------------------------------------------------------------
+// Three-band EQ: a low shelf, a mid peaking band, and a high shelf, chained per channel.
+// The mid band keeps the original Freq/Gain dB/Q names so projects that stored the old
+// single-band EQ still load (the shelves default flat). RBJ coefficients live in Biquad.h.
 class EqFx : public Effect
 {
 public:
     void prepare (double sampleRate, int, int) override { sr = sampleRate; reset(); }
-    void reset() override { for (auto& s : st) s = {}; }
+    void reset() override { for (auto& band : st) for (auto& s : band) s = {}; }
 
     void process (juce::AudioBuffer<float>& b) override
     {
         if (bypassed.load()) return;
-        // Recompute the peaking coefficients from the current params (per block).
-        const double A  = std::pow (10.0, juce::jlimit (-24.0f, 24.0f, gainDb.load()) / 40.0);
-        const double w0 = 2.0 * juce::MathConstants<double>::pi * juce::jlimit (20.0f, 18000.0f, freq.load()) / sr;
-        const double cw = std::cos (w0), sw = std::sin (w0);
-        const double alpha = sw / (2.0 * juce::jmax (0.1f, q.load()));
-        const double a0 = 1.0 + alpha / A;
-        const double b0 = (1.0 + alpha * A) / a0, b1 = (-2.0 * cw) / a0, b2 = (1.0 - alpha * A) / a0;
-        const double a1 = (-2.0 * cw) / a0,       a2 = (1.0 - alpha / A) / a0;
+        const BiquadCoeffs c[3] = {
+            eqLowShelf  (juce::jlimit (20.0f, 2000.0f, lowFreq.load()),   juce::jlimit (-24.0f, 24.0f, lowDb.load()),  sr),
+            eqPeak      (juce::jlimit (20.0f, 18000.0f, freq.load()),     juce::jlimit (-24.0f, 24.0f, gainDb.load()),
+                         juce::jmax (0.1f, q.load()), sr),
+            eqHighShelf (juce::jlimit (1000.0f, 20000.0f, highFreq.load()), juce::jlimit (-24.0f, 24.0f, highDb.load()), sr)
+        };
         const int n = b.getNumSamples(), ch = juce::jmin (2, b.getNumChannels());
-        for (int c = 0; c < ch; ++c)
+        for (int chan = 0; chan < ch; ++chan)
         {
-            auto& s = st[(size_t) c]; auto* d = b.getWritePointer (c);
+            auto* d = b.getWritePointer (chan);
             for (int i = 0; i < n; ++i)
             {
-                const double in = d[i];
-                const double out = b0 * in + s.z1;                 // transposed direct form II
-                s.z1 = b1 * in - a1 * out + s.z2;
-                s.z2 = b2 * in - a2 * out;
-                d[i] = (float) out;
+                double x = d[i];
+                for (int band = 0; band < 3; ++band)               // low shelf -> peak -> high shelf
+                {
+                    auto& s = st[(size_t) band][(size_t) chan];
+                    const double out = c[band].b0 * x + s.z1;       // transposed direct form II
+                    s.z1 = c[band].b1 * x - c[band].a1 * out + s.z2;
+                    s.z2 = c[band].b2 * x - c[band].a2 * out;
+                    x = out;
+                }
+                d[i] = (float) x;
             }
         }
     }
@@ -412,16 +419,22 @@ public:
     std::vector<EffectParam> parameters() override
     {
         return {
-            { "Freq",    20.0f, 18000.0f, 1000.0f, [this] { return freq.load(); },   [this] (float v) { freq.store (v); } },
-            { "Gain dB", -24.0f, 24.0f, 0.0f,      [this] { return gainDb.load(); }, [this] (float v) { gainDb.store (v); } },
-            { "Q",       0.1f, 10.0f, 1.0f,        [this] { return q.load(); },      [this] (float v) { q.store (v); } }
+            { "Low Freq",  20.0f, 2000.0f, 120.0f,   [this] { return lowFreq.load(); },  [this] (float v) { lowFreq.store (v); } },
+            { "Low dB",    -24.0f, 24.0f, 0.0f,      [this] { return lowDb.load(); },    [this] (float v) { lowDb.store (v); } },
+            { "Freq",      20.0f, 18000.0f, 1000.0f, [this] { return freq.load(); },     [this] (float v) { freq.store (v); } },
+            { "Gain dB",   -24.0f, 24.0f, 0.0f,      [this] { return gainDb.load(); },   [this] (float v) { gainDb.store (v); } },
+            { "Q",         0.1f, 10.0f, 1.0f,        [this] { return q.load(); },        [this] (float v) { q.store (v); } },
+            { "High Freq", 1000.0f, 20000.0f, 6000.0f, [this] { return highFreq.load(); }, [this] (float v) { highFreq.store (v); } },
+            { "High dB",   -24.0f, 24.0f, 0.0f,      [this] { return highDb.load(); },   [this] (float v) { highDb.store (v); } }
         };
     }
 
 private:
     struct St { double z1 { 0 }, z2 { 0 }; };
-    std::atomic<float> freq { 1000.0f }, gainDb { 0.0f }, q { 1.0f };
-    std::array<St, 2> st;
+    std::atomic<float> lowFreq { 120.0f }, lowDb { 0.0f },
+                       freq { 1000.0f }, gainDb { 0.0f }, q { 1.0f },
+                       highFreq { 6000.0f }, highDb { 0.0f };
+    std::array<std::array<St, 2>, 3> st;   // [band][channel]
     double sr { 44100.0 };
 };
 

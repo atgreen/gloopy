@@ -907,7 +907,35 @@ EQC=$(arms "$WORK/eqc.wav")
 python3 -c "assert float('$EQB') > float('$EQC')+3, 'EQ boost/cut did not shift RMS (%s vs %s)'%('$EQB','$EQC')" \
     || { echo "smoke: EQ did not shift band energy" >&2; exit 1; }
 echo "smoke: PASS — EQ boost vs cut shifted RMS ($EQB vs $EQC dBFS)"
+# 3-band EQ shelves: with the mid band flat, a low-shelf boost vs cut and a high-shelf boost
+# vs cut each shift RMS. Add a bright saw track (high note + open cutoff) so the master has
+# both low and high content for the shelves to act on; remove it afterwards.
+BR=$(g -d '{"name":"bright","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.2,"gain":0.7}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"id\":\"track/$BR/synth/cutoff\",\"value\":16000}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null
+g -d "{\"track_id\":$BR,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":93,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Gain dB","value":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Low Freq","value":250}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Low dB","value":18}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/eq_lb.wav\",\"tail_seconds\":0.5,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+LB=$(arms "$WORK/eq_lb.wav")
+g -d '{"insert":0,"slot":0,"name":"Low dB","value":-18}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/eq_lc.wav\",\"tail_seconds\":0.5,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+LC=$(arms "$WORK/eq_lc.wav")
+g -d '{"insert":0,"slot":0,"name":"Low dB","value":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"High Freq","value":5000}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"High dB","value":18}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/eq_hb.wav\",\"tail_seconds\":0.5,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+HB=$(arms "$WORK/eq_hb.wav")
+g -d '{"insert":0,"slot":0,"name":"High dB","value":-18}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/eq_hc.wav\",\"tail_seconds\":0.5,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+HC=$(arms "$WORK/eq_hc.wav")
+python3 -c "
+assert float('$LB') > float('$LC')+2, 'low shelf boost/cut did not shift RMS (%s vs %s)'%('$LB','$LC')
+assert float('$HB') > float('$HC')+2, 'high shelf boost/cut did not shift RMS (%s vs %s)'%('$HB','$HC')
+print('smoke: PASS — 3-band EQ shelves shift RMS (low %s vs %s, high %s vs %s dBFS)'%('$LB','$LC','$HB','$HC'))
+" || { echo 'smoke: EQ shelves wrong' >&2; exit 1; }
 g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+g -d "{\"id\":$BR}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 # Waveshaper: drive raises RMS (soft-clip saturation).
 BASE_RMS=$(arms "$WAV")
 g -d '{"insert":0,"type":"WAVESHAPER"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
