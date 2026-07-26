@@ -406,6 +406,23 @@ struct NoteEditTests : juce::UnitTest
             expect (hi.size() == 1 && hi[0].pitch == 125);
         }
 
+        beginTest ("swing delays off-beat notes only, preserving length/pitch");
+        {
+            // grid 0.5 (1/8): notes at 0, 0.5, 1.0, 1.5 -> off-beats (0.5, 1.5) shift by 0.33*0.5=0.165.
+            std::vector<Note> ns { {60,0.0,0.5f,0.8f}, {62,0.5,0.5f,0.8f}, {64,1.0,0.5f,0.8f}, {65,1.5,0.5f,0.8f} };
+            swingNotes (ns, 0.5, 0.33f);
+            std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b) { return a.startBeat < b.startBeat; });
+            expectWithinAbsoluteError (ns[0].startBeat, 0.0, 1e-9);      // on-beat: unmoved
+            expectWithinAbsoluteError (ns[1].startBeat, 0.665, 1e-6);    // 0.5 + 0.165
+            expectWithinAbsoluteError (ns[2].startBeat, 1.0, 1e-9);      // on-beat: unmoved
+            expectWithinAbsoluteError (ns[3].startBeat, 1.665, 1e-6);    // 1.5 + 0.165
+            for (auto& n : ns) expect (n.lengthBeats == 0.5f);           // length preserved
+            // amount 0 = straight (no move).
+            std::vector<Note> st { {60,0.5,0.5f,0.8f} };
+            swingNotes (st, 0.5, 0.0f);
+            expectWithinAbsoluteError (st[0].startBeat, 0.5, 1e-9);
+        }
+
         beginTest ("melodic inversion mirrors pitches around the earliest note; timing kept");
         {
             std::vector<Note> ns { {60,0,1,0.8f}, {64,1,1,0.7f}, {67,2,0.5f,0.6f} };

@@ -21,6 +21,26 @@ inline void quantizeNotes (std::vector<Note>& notes, double grid)
         n.startBeat = juce::jmax (0.0, std::round (n.startBeat / grid) * grid);
 }
 
+/** Swing / groove: delay every off-beat note by `amount` of a `grid` step, baking a shuffle
+    into the clip. A note sitting on an ODD grid line (the &-of-the-beat at that resolution —
+    e.g. grid 0.5 = the off-8ths) is pushed later by `amount·grid`; on-beat notes stay put.
+    `amount` 0 = straight, ~0.33 = a triplet shuffle, up to 0.9. Length and pitch/velocity are
+    preserved (the onset moves). Distinct from the *live* transport swing (global, non-baked) —
+    this writes the groove into the notes, so a clip can carry its own feel and export it. */
+inline void swingNotes (std::vector<Note>& notes, double grid, float amount)
+{
+    if (grid <= 0.0) return;
+    const double amt   = juce::jlimit (0.0, 0.9, (double) amount);
+    const double delay = amt * grid;
+    for (auto& n : notes)
+    {
+        const double pos = n.startBeat / grid;
+        const long   idx = (long) std::llround (pos);
+        if (std::abs (pos - (double) idx) < 1e-6 && (idx & 1L))   // on an odd grid line -> off-beat
+            n.startBeat += delay;
+    }
+}
+
 /** Shift every note by `semitones`, clamped to the MIDI range. */
 inline void transposeNotes (std::vector<Note>& notes, int semitones)
 {

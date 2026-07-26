@@ -608,6 +608,14 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             hm.addItem (763, "Octave (+12)");
             hm.addItem (764, "Octave down (-12)");
             m.addSubMenu ("Harmonize", hm);
+            juce::PopupMenu sw;                            // swing: bake a groove (delay off-beats)
+            sw.addItem (770, "1/8 light");
+            sw.addItem (771, "1/8 medium");
+            sw.addItem (772, "1/8 heavy");
+            sw.addItem (773, "1/16 light");
+            sw.addItem (774, "1/16 medium");
+            sw.addItem (775, "1/16 heavy");
+            m.addSubMenu ("Swing", sw);
         }
         if (! isMidi)                                   // audio-clip level ops
         {
@@ -689,6 +697,13 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             {
                 const int semis = r == 760 ? 3 : r == 761 ? 4 : r == 762 ? 7 : r == 763 ? 12 : -12;
                 if (onClipCommand) onClipCommand (t, c, "harmonize:" + juce::String (semis));
+                return;
+            }
+            if (r >= 770 && r <= 775)   // Swing: 1/8 (grid 0.5) or 1/16 (grid 0.25), light/medium/heavy
+            {
+                const double grid = r <= 772 ? 0.5 : 0.25;
+                const float  amt  = (r == 770 || r == 773) ? 0.2f : (r == 771 || r == 774) ? 0.33f : 0.5f;
+                if (onClipCommand) onClipCommand (t, c, "swing:" + juce::String (grid) + "," + juce::String (amt));
                 return;
             }
             const char* cmd = r == 1  ? "split"

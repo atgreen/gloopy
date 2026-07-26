@@ -1223,6 +1223,17 @@ each shipping with desktop UI + screenshot validation.
       Octave down (-12)" submenu on the MIDI-clip menu. `GloopyTests::NoteEdits` proves the +7 voice
       (60/64 → 60/64/67/71, timing/vel kept) and the off-keyboard drop; smoke drives HarmonizeClip +7
       and checks GetClipNotes; screenshot-validated (the expanded submenu).
+    - `[x]` **Swing / groove (destructive per-clip) landed** (commit): a shared `swingNotes`
+      transform (NoteEdits.h) delays every OFF-beat note (one sitting on an odd `grid` line — the
+      &-of-the-beat) by `amount·grid`, baking a shuffle into the clip; on-beats stay, length/pitch/
+      velocity kept. Distinct from the existing *live* transport swing (`SetSwing`, global +
+      non-baked) — this writes the groove into the notes so a clip carries its own feel and can
+      export it. `apiSwingClip` (via GLOOPY_EDIT_CLIP_NOTES) + SwingClip RPC (`SwingClipRequest`;
+      handler defaults unset grid to 1/8) + Python `swing_clip`. **Desktop:** a "Swing ▸ 1/8
+      light/medium/heavy · 1/16 light/medium/heavy" submenu on the MIDI-clip menu (grid 0.5/0.25,
+      amount 0.2/0.33/0.5). `GloopyTests::NoteEdits` proves off-beats shift while on-beats/length
+      hold (0/0.5/1/1.5 @ 1/8 0.33 → 0/0.665/1/1.665) and amount 0 = straight; smoke drives
+      SwingClip and checks GetClipNotes; screenshot-validated (the expanded submenu).
     - `[x]` **Arpeggiate (destructive one-shot) landed** (commit c90da23): shared arpeggiateNotes
       + apiArpeggiateClip + ArpeggiateClip RPC + ARP header button (Up/Down/Up-Down menu).
       Rewrites a chord clip into a note sequence in place. Smoke + screenshot.

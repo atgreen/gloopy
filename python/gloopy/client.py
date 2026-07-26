@@ -404,6 +404,12 @@ class Gloopy:
         Voices that fall off the 0..127 keyboard are dropped."""
         self._ack(self.stub.HarmonizeClip(pb.HarmonizeRequest(track_id=track_id, index=index, semitones=semitones)))
 
+    def swing_clip(self, track_id: int, index: int, grid_beats: float = 0.5, amount: float = 0.33) -> None:
+        """Swing/groove: delay every off-beat note (one sitting on an odd `grid_beats` line) by
+        `amount` of a grid step, baking a shuffle into the clip. amount 0=straight, ~0.33=triplet
+        feel. On-beat notes stay; length/pitch/velocity preserved."""
+        self._ack(self.stub.SwingClip(pb.SwingClipRequest(track_id=track_id, index=index, grid_beats=grid_beats, amount=amount)))
+
     def split_notes_at_beat(self, track_id: int, index: int, beat: float) -> None:
         """Knife: cut every note spanning `beat` (clip-relative) into two abutting notes."""
         self._ack(self.stub.SplitNotesAtBeat(pb.SplitNotesRequest(

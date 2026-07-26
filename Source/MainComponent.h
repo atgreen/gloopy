@@ -316,6 +316,7 @@ public:
     bool apiInvertClip (int trackId, int index);                    // melodic inversion (mirror pitches around a pivot)
     bool apiRatchetClip (int trackId, int index, int subdivisions); // subdivide each note into rapid same-pitch hits
     bool apiHarmonizeClip (int trackId, int index, int semitones);  // add a parallel interval voice to each note
+    bool apiSwingClip (int trackId, int index, double grid, float amount); // bake a groove: delay off-beat notes
     bool apiSplitNotesAtBeat (int trackId, int index, double beat);   // knife: cut notes spanning a clip-relative beat
     // Live (non-destructive) arpeggiator per track. mode 0 up/1 down/2 updown/3 random.
     bool apiSetTrackArp (int trackId, bool enabled, double rate, int octaves, float gate, int mode,
