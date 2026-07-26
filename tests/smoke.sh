@@ -306,6 +306,15 @@ NW=$(ls "$WORK/stems_out"/*.wav 2>/dev/null | wc -l)
 [ "$NW" -ge 2 ] && echo "smoke: PASS — ExportStems wrote $NW stem WAVs (one per instrument track)" || { echo "smoke: export stems wrong ($NW files)" >&2; exit 1; }
 g -d "{\"path\":\"$WORK/stems_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 
+# Rename clip: label a clip "Chorus" -> the name is written into the saved .gloopy (clip
+# names already serialise). Add a scratch track, rename its clip, SaveProject, grep, drop it.
+RCT=$(g -d '{"name":"rcsrc","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$RCT,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"track_id\":$RCT,\"index\":0,\"name\":\"Chorus\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenameClip >/dev/null
+g -d "{\"path\":\"$WORK/renclip.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+grep -q 'name="Chorus"' "$WORK/renclip.gloopy" && echo "smoke: PASS — RenameClip labelled the clip 'Chorus' (persisted to the .gloopy)" || { echo 'smoke: rename clip wrong' >&2; exit 1; }
+g -d "{\"id\":$RCT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   # isolate
+
 # Rename mixer strip (insert): rename the highest-index strip -> ListInserts shows the new
 # name, and it survives a composition round-trip (MTRACK name serialises). Snapshot+restore.
 g -d "{\"path\":\"$WORK/insn_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null

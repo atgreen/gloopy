@@ -203,6 +203,7 @@ message SamplerControls { bool ok = 1; float start = 2; float end = 3; bool reve
 message AddSfzTrackRequest     { string name = 1; string path = 2; }   // native SFZ instrument
 message AddPluginTrackRequest  { string identifier = 1; }                        // PluginInfo.identifier
 message ClipRef            { int32 track_id = 1; int32 index = 2; }
+message RenameClipRequest  { int32 track_id = 1; int32 index = 2; string name = 3; }   // empty -> track name
 message ScaleTimeRequest  { int32 track_id = 1; int32 index = 2; double factor = 3; }   // 0.5 double-time, 2 half-time
 message NotesJson          { string json = 1; }
 message ImportNotesRequest { int32 track_id = 1; double start_beat = 2; string json = 3; }
@@ -401,6 +402,7 @@ service Gloopy {
   rpc SplitClipAtMarker(SplitAtMarkerRequest)  returns (ClipId);    // split at a named timeline location
   rpc SliceAtTransients(SliceTransientsRequest) returns (SliceResult);   // audio clip -> slices at detected onsets
   rpc SetClipMuted    (ClipMuteRequest)        returns (Ack);      // mute/enable a clip in the arrangement
+  rpc RenameClip      (RenameClipRequest)      returns (Ack);      // rename a clip (empty -> track name)
   rpc SetLoopToClip   (ClipRef)                returns (Ack);      // loop the transport over a clip's span
   rpc SetMetronome    (MetronomeRequest)       returns (Ack);      // toggle the beat-click metronome
   rpc SetMetronomeLevel (MetronomeLevel)       returns (Ack);      // click volume (0..1)

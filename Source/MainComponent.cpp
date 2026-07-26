@@ -405,6 +405,12 @@ MainComponent::MainComponent (bool headless)
         if (arrangeView) arrangeView->repaint();
     };
 
+    arrangeView->onRenameClip = [this] (int trackIdx, int clip, const juce::String& name)
+    {
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+        apiRenameClip (tracks[(size_t) trackIdx]->id, clip, name);   // map view index -> stable API id
+    };
+
     arrangeView->onPasteNotes = [this] (int trackIdx, double beat)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;

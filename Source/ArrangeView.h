@@ -49,6 +49,7 @@ public:
     /** Right-click clip menu command: (track, clip, command). Commands: "split",
         "duplicate", "reverse", "snapscale", "delete". Owner routes to the api* ops. */
     std::function<void (int, int, const juce::String&)> onClipCommand;
+    std::function<void (int, int, const juce::String&)> onRenameClip;   // track, clip, new name
     std::function<void (int, const juce::String&)>      onRenameTrack;   // track index, new name
     std::function<void (int, const juce::String&)>      onSetTrackColour; // track index, 8-hex ARGB
     std::function<void (int, int)>                      onMoveTrack;     // track index, delta (<0 up, >0 down)

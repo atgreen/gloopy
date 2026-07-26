@@ -621,6 +621,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addItem (17, "Mute clip", ! isTake, isMuted);      // disable/enable in the arrangement (takes use Use/Promote)
         m.addItem (18, "Loop this clip");                    // set the transport loop to this clip's span
         m.addItem (19, "Copy notes (JSON)", isMidi);         // notes -> system clipboard as JSON
+        m.addItem (20, "Rename clip...");                    // set the clip's label
         if (isMidi)                                          // non-destructive playback transpose
         {
             juce::PopupMenu tr;
@@ -726,6 +727,24 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             if (r == 11) { promptClipGain (t, c); return; }        // "Gain..." -> dB prompt
             if (r == 12) { promptClipFades (t, c); return; }       // "Fades..." -> in/out prompt
             if (r == 19) { if (onClipCommand) onClipCommand (t, c, "copynotes"); return; }   // notes -> clipboard
+            if (r == 20)   // Rename clip: prompt (prefilled with the clip's current name)
+            {
+                juce::String cur;
+                { const juce::ScopedLock sl (engineLock);
+                  if (juce::isPositiveAndBelow (t, (int) tracks.size())
+                      && juce::isPositiveAndBelow (c, (int) tracks[(size_t) t]->clips.size()))
+                      cur = tracks[(size_t) t]->clips[(size_t) c].name; }
+                auto* rw = new juce::AlertWindow ("Rename clip", "New clip name (blank = track name)", juce::MessageBoxIconType::NoIcon);
+                rw->addTextEditor ("name", cur, "Name");
+                rw->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
+                rw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+                rw->enterModalState (true, juce::ModalCallbackFunction::create ([this, rw, t, c] (int rr)
+                {
+                    if (rr == 1 && onRenameClip) onRenameClip (t, c, rw->getTextEditorContents ("name"));
+                    delete rw;
+                }), false);
+                return;
+            }
             if (r >= 700 && r <= 708)   // Transpose <semitones> (non-destructive)
             {
                 const int vals[] = { -12, -7, -5, -2, 0, 2, 5, 7, 12 };

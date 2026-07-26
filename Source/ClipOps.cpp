@@ -453,6 +453,24 @@ bool MainComponent::apiSetClipMuted (int trackId, int index, bool muted)
     });
 }
 
+bool MainComponent::apiRenameClip (int trackId, int index, const juce::String& name)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+            t->clips[(size_t) index].name = name.trim();   // empty -> the clip label falls back to the track name
+        }
+        emitChange ("clip_changed", trackId);
+        if (arrangeView) arrangeView->repaint();
+        return true;
+    });
+}
+
 // Bounce (freeze) a clip to audio: render just this track over the clip's [start,end)
 // region — offline and soloed, so only its instrument + inserts print — then load the
 // result back as an embedded audio clip on a fresh "(bounce)" track. Non-destructive:

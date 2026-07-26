@@ -1095,6 +1095,21 @@ each shipping with desktop UI + screenshot validation.
   **Deferred (needs its own tick):** *Duplicate track* — a true clone needs the per-track
   save/load factored into a reusable helper AND its own mixer strip (each track gets a distinct
   `mixerTrack` strip, so a naive clone would share inserts/fader); not a clean single-tick slice.
+  **ATTEMPTED + REVERTED (crash):** the "clone the TRACK subtree in toValueTree() and reload via
+  loadFromTree()" shortcut CRASHES — first call silently dropped the clone's notes, a second gRPC
+  call then killed the server (EOF/connection-refused). loadFromTree() from inside a
+  callOnMessageThread api* lambda (mutating the just-built tree + full reload) is not safe. Do NOT
+  use the whole-project-reload approach. The right path remains: extract a `readTrackFromTree`
+  helper (loader lines ~3706-3871) so a single Track can be built without reloading the project,
+  then add + wire its own mixer strip. Reverted cleanly; no partial code left in tree.
+- `[x]` **Rename clip landed** (commit): a clip's label was fixed at creation. `apiRenameClip(track,
+  index,name)` sets `clip.name` (message-thread, undo; empty name → the label falls back to the
+  track name, which `drawClip` already does) + RenameClip RPC (`RenameClipRequest`) + Python
+  `rename_clip`; `clip.name` already serialises. **Desktop:** a "Rename clip..." item on the
+  MIDI/audio clip menu → a name-prompt dialog prefilled with the clip's current name (via a new
+  ArrangeView `onRenameClip` hook). smoke: rename a clip to "Chorus" → SaveProject writes
+  `name="Chorus"` into the .gloopy. Screenshot-validated end-to-end (clip menu → dialog → typed
+  "Verse" → the clip label updates live from "Kick" to "Verse" while the track header stays "Kick").
 - `[x]` **Track polarity / phase invert landed** (commit): a per-track `polarity` flag negates
   the track's contribution as it's summed into its mixer strip (`v *= pol` at the pan-law addFrom)
   — a standard channel polarity/phase button, useful to cancel a correlated layer. `apiSetTrackPolarity(id,invert)`

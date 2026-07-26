@@ -281,6 +281,11 @@ class Gloopy:
         """Mute (disable) or enable a clip in the arrangement without deleting it."""
         self._ack(self.stub.SetClipMuted(pb.ClipMuteRequest(track_id=track_id, index=index, muted=muted)))
 
+    def rename_clip(self, track_id: int, index: int, name: str) -> None:
+        """Rename a clip (its label). An empty name makes the clip fall back to showing the
+        track's name."""
+        self._ack(self.stub.RenameClip(pb.RenameClipRequest(track_id=track_id, index=index, name=name)))
+
     def set_loop_to_clip(self, track_id: int, index: int) -> None:
         """Set the transport loop to a clip's span and enable looping (audition on repeat)."""
         self._ack(self.stub.SetLoopToClip(pb.ClipRef(track_id=track_id, index=index)))
