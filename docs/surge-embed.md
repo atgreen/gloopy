@@ -19,12 +19,36 @@ default synth — so users get **the real Surge XT editor** (via Gloopy's existi
 4. Retire (or keep as a lean fallback) the headless embed once the plugin path works.
 5. CI/packaging: the release build compiles the plugin (install GUI deps in the container).
 
-**⛔ Local build blocker (this dev box):** the full plugin UI needs **OpenGL** (`libGL`)
-+ X11 dev libs, and **sudo is not passwordless here** — so I *cannot build or verify the
-plugin in this environment*. The build recipe **configures cleanly** (verified up to the
-compile boundary); the actual compile + bundling + hosting must run where those GUI deps can
-be installed (the CI containers, or a dev machine). See `scripts/build-surge-plugin.sh` for
-the exact deps + recipe. Everything below (the headless embed) still works and is committed.
+**✅ PROGRESS (2026-07-26, commit 8987ce3 — the earlier local-build blocker is resolved):**
+- **Step 1 DONE.** `scripts/build-surge-plugin.sh` built the full Surge XT LV2 plugin and staged
+  `third_party/surge-plugin/Surge XT.lv2` (37 MB `.so` + the three `.ttl` files). The GUI deps
+  are now installed on this box, so it builds & verifies here.
+- **Step 1 (scan+host) DONE + a real bug fixed.** `PluginHost` adds the bundle dir to the scan
+  path *and* — the subtle fix — prepends it to `$LV2_PATH` before the LV2 format is constructed.
+  JUCE builds its lilv world once from `getDefaultLocationsToSearch()` and instantiates *cached*
+  plugins from that world; adding the dir only to the scan path made Surge discoverable but made
+  `create()` fail from the fast cached-startup path ("Unable to locate plugin with the requested
+  URI"). Verified in an isolated `HOME` (no `~/.lv2`): fresh scan **and** cached create both
+  instantiate Surge XT. The editor UI renders from Surge's cmrc-embedded skin, so the hosted
+  plugin works with no external install.
+- **Step 5 DONE.** The 37 MB bundle is gitignored + built in CI: `release.yaml` runs
+  `build-surge-plugin.sh` before configure (so the `if(EXISTS …)` install rule fires) and installs
+  the GL/Xrender dev deps the GUI build needs.
+
+**⏳ Remaining follow-ups:**
+- **Step 2b — factory patch/wavetable library (not yet bundled).** The plugin loads, renders its
+  UI, and the init patch makes sound — but the on-disk factory *patch/wavetable library* (the
+  browser) is NOT shipped, so on a clean machine the patch browser is empty. Ship Surge's data dir
+  and point the bundled plugin at it (Surge XT LV2 resolves data via XDG/system paths, not
+  `bin/assets`, so a plain copy is not enough — needs `SURGE_DATA`/symlink or equivalent). Verify
+  in an isolated `HOME`.
+- **Licensing — record the bundled GPL-3 Surge in `THIRD-PARTY-LICENSES.md`.** We now *ship* the
+  Surge binary in the RPM/DEB packages (not just link the embedded core), so the "record this in
+  THIRD-PARTY-LICENSES.md" guardrail from the Licensing section below is now live and must be done.
+- **Step 3.** Make `+ Synth → Surge XT` / the Presets tab drive the hosted bundled plugin (real
+  UI) and load `.fxp` into it, instead of the headless `SurgeGenerator`.
+
+Everything in the headless-embed sections below still works and is committed.
 
 ---
 
