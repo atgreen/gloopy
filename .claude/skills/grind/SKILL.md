@@ -781,6 +781,13 @@ desktop control wiring the *same* api* op, screenshot-validated. Status:
 - `[x]` **Punch range** (SetPunchRange) — Alt-drag the ruler to set the punch in/out
   region; drawn in red (loop stays plain-drag/accent) (commit 71e31ef). Screenshot-
   validated (RPC-set bars 2-4 + Alt-drag bars 5-7).
+- `[x]` **Swing groove UI** (SetSwing) — the engine already swung 1/8 notes (`transport.swing`,
+  used in `collectClip`) with an `apiSetSwing`/SetSwing RPC + serialisation, but had **no
+  desktop control** and wasn't readable. Added a "Swing ▸" submenu on the beat-ruler
+  right-click menu (Straight / Light 56% / Medium 62% / Heavy 68% / Triplet 67%, ticked at
+  the current value) and a `swing` field on `GetTransport`/`TransportState` (+ Python
+  `transport()` readback). Screenshot-validated; smoke proves swing shifts off-beat 8ths
+  (render diff) and the amount round-trips via GetTransport.
 - `[x]` **Metronome / click track** (SetMetronome) — a beat click generated in `renderBlock`
   (a 30 ms decaying sine per beat, higher/louder accent on bar downbeats, time-signature
   aware; allocation-free, click state persists across blocks). A monitor layer on top of the

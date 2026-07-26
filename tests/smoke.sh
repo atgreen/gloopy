@@ -1153,6 +1153,28 @@ assert gs['VCA'].get('members',0)>=1, 'group membership lost after reload: %s'%g
 print('smoke: PASS — control group survived composition round-trip (gain 0.5, %d member)'%gs['VCA']['members'])
 " || { echo 'smoke: control group did not survive composition round-trip' >&2; exit 1; }
 
+# Swing groove: swing shifts every other 1/8 note later, so a straight-8ths clip renders
+# differently swung vs straight; GetTransport reports the amount. Solo-rendered, cleaned up.
+SWT=$(g -d '{"name":"swingtk","wave":"SAW","attack":0.001,"decay":0.05,"sustain":0,"release":0.02,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$SWT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":0.25,\"velocity\":0.9},{\"pitch\":60,\"start_beat\":0.5,\"length_beats\":0.25,\"velocity\":0.9},{\"pitch\":60,\"start_beat\":1,\"length_beats\":0.25,\"velocity\":0.9},{\"pitch\":60,\"start_beat\":1.5,\"length_beats\":0.25,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d '{"amount":0.5}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSwing >/dev/null
+g -d "{\"path\":\"$WORK/sw_straight.wav\",\"tail_seconds\":0,\"start_beat\":0,\"end_beat\":4,\"track_id\":$SWT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"amount":0.667}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSwing >/dev/null
+g -d "{\"path\":\"$WORK/sw_swung.wav\",\"tail_seconds\":0,\"start_beat\":0,\"end_beat\":4,\"track_id\":$SWT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+SWG=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetTransport | python3 -c "import json,sys;print(json.load(sys.stdin).get('swing'))")
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+a=rd('$WORK/sw_straight.wav');b=rd('$WORK/sw_swung.wav');m=min(len(a),len(b))
+d=sum(abs(a[i]-b[i]) for i in range(m))/m/(1<<23)
+assert d>0.0008, 'swing did not change the render (diff=%.5f)'%d   # off-beat shift is subtle but real
+assert abs(float('$SWG')-0.667)<1e-3, 'GetTransport swing wrong: %s'%'$SWG'
+print('smoke: PASS — swing shifts off-beat 8ths (render diff %.4f), GetTransport swing=%.3f'%(d,float('$SWG')))
+" || { echo 'smoke: swing wrong' >&2; exit 1; }
+g -d '{"amount":0.5}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSwing >/dev/null   # restore straight
+g -d "{\"id\":$SWT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
 # Metronome (last — clears the project): on an empty project a 4-beat render is silent
 # with the click off and emits a click per beat with it on.
 g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null

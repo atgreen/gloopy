@@ -89,7 +89,7 @@ class Gloopy:
         t = self.stub.GetTransport(pb.Empty())
         return {"playing": t.playing, "bpm": t.bpm, "position_beats": t.position_beats,
                 "loop_enabled": t.loop_enabled, "loop_start": t.loop_start, "loop_end": t.loop_end,
-                "metronome": t.metronome}
+                "metronome": t.metronome, "swing": t.swing}
 
     def set_metronome(self, enabled: bool = True) -> None:
         """Toggle the beat-click metronome (a monitor layer; included in a bounce if left on)."""

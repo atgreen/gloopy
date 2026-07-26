@@ -369,11 +369,25 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addSeparator();
         m.addItem (3, "Time signature... (" + juce::String (transport.getTimeSigNumerator())
                         + "/" + juce::String (transport.getTimeSigDenominator()) + ")");
+        // Swing (groove): shift every other 1/8 note later. Presets, ticked at the current value.
+        const double curSwing = getSwing ? getSwing() : 0.5;
+        const std::pair<const char*, double> swingPresets[] = {
+            { "Straight", 0.50 }, { "Light 56%", 0.56 }, { "Medium 62%", 0.62 },
+            { "Heavy 68%", 0.68 }, { "Triplet 67%", 0.667 } };
+        juce::PopupMenu sw;
+        for (int i = 0; i < 5; ++i)
+            sw.addItem (30 + i, swingPresets[i].first, true, std::abs (curSwing - swingPresets[i].second) < 0.005);
+        m.addSubMenu ("Swing", sw);
         m.showMenuAsync (juce::PopupMenu::Options(), [this, beat, nearBeat] (int r)
         {
             if (r == 1) promptAddTempoMarker (beat);
             else if (r == 2 && nearBeat >= 0.0 && onRemoveTempoMarker) onRemoveTempoMarker (nearBeat);
             else if (r == 3) promptTimeSignature();
+            else if (r >= 30 && r <= 34 && onSetSwing)
+            {
+                const double vals[] = { 0.50, 0.56, 0.62, 0.68, 0.667 };
+                onSetSwing (vals[r - 30]);
+            }
         });
         return;
     }

@@ -117,6 +117,7 @@ namespace
             r->set_loop_start (s.loopStart);
             r->set_loop_end (s.loopEnd);
             r->set_metronome (main.apiGetMetronome());
+            r->set_swing (s.swing);
             return Status::OK;
         }
 

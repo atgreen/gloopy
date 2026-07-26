@@ -230,6 +230,8 @@ MainComponent::MainComponent (bool headless)
         if (arrangeView) arrangeView->repaint();
     };
     arrangeView->onSetTimeSignature = [this] (int num, int denom) { apiSetTimeSignature (num, denom); };
+    arrangeView->getSwing   = [this] { return transport.getSwing(); };
+    arrangeView->onSetSwing = [this] (double s) { apiSetSwing (s); };
     arrangeView->getPunchRange = [this] (double& in, double& out) -> bool
     {
         in  = punchInBeat.load();
@@ -709,7 +711,8 @@ void MainComponent::apiSetLoop (bool enabled, double startBeat, double endBeat)
 MainComponent::TransportSnap MainComponent::apiGetTransport()
 {
     return { transport.isPlaying(), transport.getBpm(), transport.getPlayheadBeats(),
-             transport.isLoopEnabled(), transport.getLoopStartBeats(), transport.getLoopEndBeats() };
+             transport.isLoopEnabled(), transport.getLoopStartBeats(), transport.getLoopEndBeats(),
+             transport.getSwing() };
 }
 
 bool MainComponent::apiSetMetronome (bool enabled) { metronomeEnabled.store (enabled); return enabled; }

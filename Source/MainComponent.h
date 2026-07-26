@@ -75,7 +75,7 @@ public:
     bool isRenderFinished() const { return renderFinished.load(); }
 
     // ── gRPC control API (called from the server thread; plain types, no proto) ──
-    struct TransportSnap { bool playing; double bpm; double positionBeats; bool loopEnabled; double loopStart, loopEnd; };
+    struct TransportSnap { bool playing; double bpm; double positionBeats; bool loopEnabled; double loopStart, loopEnd; double swing; };
     struct TrackSnap { int id; juce::String name; juce::String type; float volume; float pan; bool mute; int clips; };
 
     void apiPlay();

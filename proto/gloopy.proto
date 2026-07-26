@@ -27,7 +27,7 @@ message SecondsValue { double seconds = 1; }
 message Loop     { bool enabled = 1; double start_beat = 2; double end_beat = 3; }
 message TransportState { bool playing = 1; double bpm = 2; double position_beats = 3;
                          bool loop_enabled = 4; double loop_start = 5; double loop_end = 6;
-                         bool metronome = 7; }
+                         bool metronome = 7; double swing = 8; }
 message MetronomeRequest { bool enabled = 1; }
 
 // ── notes / clips ──────────────────────────────────────────
