@@ -1731,7 +1731,11 @@ prior-art references to *read*, not to lift.
     patches; clicking "Basses/Bass 1" → a "Bass 1" instrument track). Only present when
     GLOOPY_WITH_SURGE + a data dir. (4) curated
     patch/wavetable bundle + curation script; (5) default-synth wiring + preset browser (the
-    desktop control); (6) license/docs. Curate ONLY from `patches_factory`/`wavetables` (skip
+    desktop control); (6) **license/docs — ✅ DONE (commit)**: THIRD-PARTY-LICENSES.md gained an
+    "Embedded synth (Surge XT) — GPL-3.0" section (combined GPL/AGPL work; GLOOPY_WITH_SURGE=OFF
+    for a Surge-free build; first-party factory content only) + documented the sfizz Tunings→
+    TuningsSfz rename as a local modification; README License note added. Curate ONLY from
+    `patches_factory`/`wavetables` (skip
     `*_3rdparty` without per-pack review).
 
 ## Explicitly NOT doing (the guardrails, made concrete)

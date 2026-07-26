@@ -164,3 +164,10 @@ See [`docs/PRD.md`](docs/PRD.md) for the product spec and architecture.
 Gloopy is licensed under the GNU Affero General Public License, version 3
 (AGPL-3.0-only) — see [`LICENSE`](LICENSE). This aligns with JUCE's GPL/AGPL
 licensing terms.
+
+When built with the embedded **Surge XT** synth (`-DGLOOPY_WITH_SURGE=ON`, the
+default when the Surge source is present), the resulting binary is a combined
+**GPL-3.0 / AGPL-3.0** work — Surge XT is GPL-3.0, which is compatible to combine
+with the AGPL. Build with `-DGLOOPY_WITH_SURGE=OFF` for a lean binary with no
+Surge code. See [`THIRD-PARTY-LICENSES.md`](THIRD-PARTY-LICENSES.md) for the full
+component list and combined-work details.

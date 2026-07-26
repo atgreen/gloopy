@@ -6,7 +6,10 @@ Gloopy itself is licensed under the GNU AGPL v3 (see [`LICENSE`](LICENSE)). It
 vendors the following third-party source under `third_party/sfizz/`, linked as a
 static library. All are permissively licensed and compatible with distribution
 inside an AGPL-3.0 work; their original license texts are retained in-tree at the
-paths listed below and are authoritative.
+paths listed below and are authoritative. Gloopy can additionally embed the
+**Surge XT** synth engine, which is **GPL-3.0** — see the [Embedded synth
+(Surge XT)](#embedded-synth-surge-xt--gpl-30) section below for its combined-work
+implications and how to build without it.
 
 | Component | License | License text |
 |-----------|---------|--------------|
@@ -32,6 +35,43 @@ Notes:
   Steinberg VST3 SDK) are disabled.
 - JUCE (fetched at build time, not vendored here) is used under its GPL/AGPL
   terms — the reason Gloopy is AGPL-3.0.
+- **Local modification:** sfizz vendors its own copy of the Surge *tuning-library*
+  (`third_party/sfizz/src/external/tunings/`) in `namespace Tunings`. Because Gloopy
+  now also embeds Surge XT — which vendors a *newer* copy of the same library — the
+  two collided at link time (an ODR clash: the linker kept sfizz's older strong
+  symbol, which Surge then called with a mismatched struct layout, crashing). To fix
+  it, sfizz's private copy was renamed to `namespace TuningsSfz` (in `Tunings.h`,
+  `Tunings.cpp`, and `sfizz/Tuning.cpp`). sfizz is BSD-2-Clause, which permits
+  modification; this note records the change for transparency and future updates.
+
+## Embedded synth (Surge XT) — GPL-3.0
+
+Gloopy can embed the **Surge XT** synthesizer engine as its default instrument
+voice (the `+ Synth → Surge XT` menu and the browser's *Presets* tab). It is built
+only when `GLOOPY_WITH_SURGE=ON` (the default), and only its synth core
+(`surge-common`) is compiled — no JUCE UI, plugin wrappers, or standalone.
+
+| Component | License | License text |
+|-----------|---------|--------------|
+| **Surge XT** (synth engine + factory patches/wavetables) | **GPL-3.0-or-later** | `third_party/surge/LICENSE` (+ `AUTHORS`) |
+
+Surge bundles its own third-party libraries (the `sst-*` DSP libs, fmt, LuaJIT,
+PEGTL, r8brain, airwindows, eurorack, zstd, sqlite, tuning-library, …); the license
+texts inside the vendored Surge tree are authoritative for those, and Surge's own
+`AUTHORS`/`LICENSE` cover the aggregate.
+
+Notes:
+- **The shipped binary is a combined GPL-3.0 / AGPL-3.0 work.** GPLv3 §13 and the
+  GNU AGPLv3 are explicitly compatible for combination, so linking Surge (GPL-3.0)
+  into Gloopy (AGPL-3.0) is permitted; the combined result must be conveyed under
+  terms satisfying both (in practice, the AGPL for Gloopy's own code, the GPL for
+  Surge's, source available for the whole). Building with `-DGLOOPY_WITH_SURGE=OFF`
+  produces a lean binary with **no Surge code**, if a GPL-free build is desired.
+- **Factory content:** only Surge's **first-party** factory patches
+  (`resources/data/patches_factory`) and wavetables are used/bundled — these ship
+  under the repo's GPL-3.0. Third-party patch/wavetable packs
+  (`*_3rdparty`) are **not** included, since they carry their own terms.
+- See `docs/surge-embed.md` for the build/vendoring details.
 
 ## Bundled instrument (sample data)
 
