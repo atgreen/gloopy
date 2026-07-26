@@ -78,25 +78,42 @@ MainComponent::MainComponent (bool headless)
                       std::make_unique<SynthGenerator>(), 48,
                       paletteColour ((int) tracks.size())));
     };
-    // Add an embedded Surge XT track (default init patch).
+    // Add an embedded Surge XT track (headless core, default init patch — self-contained, no UI).
     auto addSurge = [this] { addSurgeTrackAsync ({}, "Surge"); };
-   #ifdef GLOOPY_WITH_SURGE
-    // Surge is the embedded default synth; the built-in step-synth stays one click away.
-    addSynthBtn.onClick = [this, addBasicSynth, addSurge]
+    // Add the Surge XT *plugin* — the real, editable Surge editor via the plugin's native UI
+    // (Track/Mixer "Plugin UI" button). Finds an installed/bundled Surge XT in the plugin scan.
+    auto addSurgePlugin = [this]
+    {
+        juce::String id;
+        for (auto& p : apiListPlugins())
+            if (p.isInstrument && p.name.containsIgnoreCase ("Surge XT"))
+            { id = p.identifier; if (p.format == "LV2") break; }   // prefer LV2
+        if (id.isEmpty())
+        {
+            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon, "Surge XT",
+                "The Surge XT plugin wasn't found. Install Surge XT (VST3/LV2), or build + bundle it "
+                "with scripts/build-surge-plugin.sh, then Rescan Plugins.");
+            return;
+        }
+        busyOverlay.show ("Adding Surge XT…");
+        juce::MessageManager::callAsync ([this, id] { apiAddPluginTrack (id); busyOverlay.hide(); });
+    };
+    addSynthBtn.onClick = [this, addBasicSynth, addSurge, addSurgePlugin]
     {
         juce::PopupMenu m;
-        m.addItem (1, "Surge XT  (default)");
+       #ifdef GLOOPY_WITH_SURGE
+        m.addItem (1, "Surge XT  (embedded)");        // self-contained core, no UI
+       #endif
+        m.addItem (3, "Surge XT  (full editor)");     // hosted plugin -> real Surge UI
         m.addItem (2, "Basic synth");
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (addSynthBtn),
-            [addBasicSynth, addSurge] (int r)
+            [addBasicSynth, addSurge, addSurgePlugin] (int r)
             {
                 if      (r == 1) addSurge();
+                else if (r == 3) addSurgePlugin();
                 else if (r == 2) addBasicSynth();
             });
     };
-   #else
-    addSynthBtn.onClick = [addBasicSynth] { addBasicSynth(); };
-   #endif
 
     addAndMakeVisible (loadSampleBtn);
     loadSampleBtn.onClick = [this]

@@ -1715,12 +1715,16 @@ prior-art references to *read*, not to lift.
     added the `third_party/surge` git submodule (github URL, pinned `9e73f42c`, via `--reference` so
     Gloopy's .git stays tiny; `ignore = dirty`) + `scripts/init-surge.sh` that inits ONLY the sub-libs
     surge-common needs (JUCE skipped) — so the committed default `GLOOPY_SURGE_DIR=third_party/surge`
-    builds. **Surge slice #28 is now COMPLETE** (all of 1–6). **Follow-up (#28b, open):** Surge
-    tracks have NO editor UI — we embed only the headless synth *core* (surge-common), not
-    Surge's JUCE editor. Give Surge tracks a Gloopy-side edit surface: either a curated **macro
-    panel** (Surge's 8 macros + osc/filter/env basics) or expose Surge params through the
-    ParamModel grammar (`track/<id>/surge/<param>`) so the mixer param menu / automation / LFO /
-    MIDI-learn can address them (the plugin generic-rack pattern). Needs a scope decision. (3)
+    builds. **Surge slice #28 is now COMPLETE** (all of 1–6). **Follow-up (#28b):** the embedded core has no UI. **User pivot (2026-07-26): build
+    the Surge XT *plugin* from source, ship it, host it for the real editor.** First verifiable
+    step landed (commit): the **"+ Synth → Surge XT (full editor)"** menu option hosts an
+    installed/bundled Surge XT plugin (`apiAddPluginTrack`, prefers LV2) → the real Surge UI via
+    the existing plugin-editor path; embedded default + Presets untouched. Remaining (CI-gated —
+    can't build locally, no libGL/sudo): build the LV2 from the submodule
+    (`scripts/build-surge-plugin.sh`), bundle it + add its dir to the plugin scan path (zero
+    install), and (open) Presets → load `.fxp` into the hosted plugin (the generic host API can't
+    load an arbitrary .fxp by path — needs a Surge-plugin patch-load path). Open with the user:
+    retire headless vs keep as fallback; bundled-vs-installed default. See docs DIRECTION CHANGE. (3)
     **`SurgeGenerator` — ✅ DONE (commit)**: a Surge track renders non-silent audio through the
     mix (smoke peak ~0.33). Was crashing in `SurgeStorage` ctor — root cause was an **ODR clash**:
     vendored sfizz ships its own *older* `Tunings::` tuning-library (strong global symbol) that
