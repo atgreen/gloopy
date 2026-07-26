@@ -52,6 +52,19 @@ MainComponent::ParamDesc mk (juce::String id, juce::String name, float value,
 {
     return { std::move (id), std::move (name), unit, scaling, value, mn, mx, def };
 }
+
+// Set one hosted-plugin parameter by index (value normalised 0..1). notifyHost=true from
+// the message thread (updates the plugin's generic editor); false from the audio thread.
+bool setPluginParam (juce::AudioProcessor* proc, int idx, float value, bool notifyHost)
+{
+    if (proc == nullptr) return false;
+    const auto& ps = proc->getParameters();
+    if (! juce::isPositiveAndBelow (idx, ps.size())) return false;
+    const float v = juce::jlimit (0.0f, 1.0f, value);
+    if (notifyHost) ps[idx]->setValueNotifyingHost (v);
+    else            ps[idx]->setValue (v);
+    return true;
+}
 } // namespace
 
 std::vector<MainComponent::ParamDesc> MainComponent::apiListParameters()
@@ -82,6 +95,17 @@ std::vector<MainComponent::ParamDesc> MainComponent::apiListParameters()
                                        r.min, r.max, r.def, r.unit, r.scaling));
                 }
             }
+            else if (auto* proc = t->generator ? t->generator->getPluginInstance() : nullptr)
+            {
+                // Hosted instrument plugin (VST3/LV2): each param addressed by index,
+                // value normalised 0..1 (the plugin's own scaling is internal).
+                const juce::ScopedLock sl (engineLock);
+                const auto& ps = proc->getParameters();
+                for (int pi = 0; pi < ps.size(); ++pi)
+                    out.push_back (mk (base + "plugin/" + juce::String (pi),
+                                       t->name + " " + ps[pi]->getName (48),
+                                       ps[pi]->getValue(), 0.f, 1.f, ps[pi]->getDefaultValue(), "", "linear"));
+            }
         }
 
         // ── mixer inserts (strip + each effect's generic parameters) ──
@@ -103,6 +127,14 @@ std::vector<MainComponent::ParamDesc> MainComponent::apiListParameters()
                     out.push_back (mk (fxBase + pr.name, fx.name() + " " + pr.name,
                                        pr.get ? pr.get() : 0.f,
                                        pr.minValue, pr.maxValue, pr.defaultValue, "", "linear"));
+                if (auto* proc = fx.getPluginInstance())   // plugin effect: params by index, 0..1
+                {
+                    const auto& ps = proc->getParameters();
+                    for (int pi = 0; pi < ps.size(); ++pi)
+                        out.push_back (mk (fxBase + "plugin/" + juce::String (pi),
+                                           fx.name() + " " + ps[pi]->getName (48),
+                                           ps[pi]->getValue(), 0.f, 1.f, ps[pi]->getDefaultValue(), "", "linear"));
+                }
             }
         }
 
@@ -141,6 +173,14 @@ bool MainComponent::apiSetParameter (const juce::String& id, float value)
         }
         if (tok.size() == 4 && tok[2] == "synth")
             return apiSetSynthParam (tid, tok[3], value);
+        if (tok.size() == 4 && tok[2] == "plugin")   // track/<id>/plugin/<index>
+        {
+            const juce::ScopedLock sl (engineLock);
+            for (auto& t : tracks)
+                if (t->id == tid && t->generator)
+                    return setPluginParam (t->generator->getPluginInstance(), tok[3].getIntValue(), value, true);
+            return false;
+        }
         return false;
     }
 
@@ -158,6 +198,16 @@ bool MainComponent::apiSetParameter (const juce::String& id, float value)
 
     if (domain == "effect" && tok.size() == 4)
         return apiSetEffectParam (tok[1].getIntValue(), tok[2].getIntValue(), tok[3], value);
+
+    if (domain == "effect" && tok.size() == 5 && tok[3] == "plugin")   // effect/<i>/<slot>/plugin/<index>
+    {
+        const int i = tok[1].getIntValue(), slot = tok[2].getIntValue();
+        const juce::ScopedLock sl (engineLock);
+        if (! juce::isPositiveAndBelow (i, (int) mixerTracks.size())) return false;
+        auto& fx = mixerTracks[(size_t) i]->effects;
+        if (! juce::isPositiveAndBelow (slot, (int) fx.size())) return false;
+        return setPluginParam (fx[(size_t) slot]->getPluginInstance(), tok[4].getIntValue(), value, true);
+    }
 
     return false;
 }

@@ -222,9 +222,21 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      screenshot-validated. smoke proves a cutoff sweep on `track/<id>/synth/cutoff` moves
      the render, the lane round-trips through SaveComposition/LoadComposition, and the
      RELOADED project still sweeps (stable id keeps the lane live).
-     **Still to do for full done:** plugin-param ids (VST3/LV2 instrument + effect params
-     in the id grammar); persist a full param snapshot in the composition; log/dB scaling
-     for UI knobs.
+   - `[x]` **Plugin-param ids landed** (commit): hosted VST3/LV2 params now ride the id
+     grammar — instrument plugins as `track/<id>/plugin/<index>` and plugin effects as
+     `effect/<i>/<slot>/plugin/<index>`, value normalised 0..1. `ListParameters` enumerates
+     them (via `AudioProcessor::getParameters()`), `apiGetParameter`/`apiSetParameter` read/
+     write by id (`setValueNotifyingHost` from the message thread), and `applyParamValue`
+     (audio thread, `setValue`) writes them too — so automation/modulation/controllers can
+     all target plugin params by id. Verified against a real hosted plugin (Surge XT: 2855
+     params; automation on a plugin param moves the render). smoke is plugin-agnostic +
+     conditional (first installed instrument plugin; list + set/get monotonic + automatable
+     by id; skipped if none). **Desktop control:** the plugin's own generic/native editor
+     (the "Plugin UI" button) edits these params; a *Gloopy-side* generic knob rack to
+     attach LFO/MIDI-learn/automation to plugin params from the desktop is the follow-up
+     (Wave 6 #19 territory).
+     **Still to do for full done:** persist a full param snapshot in the composition; log/dB
+     scaling for UI knobs; the plugin generic-param rack (desktop attach).
 
 2. **Timeline locations — markers / ranges / loop / punch / sections.** ✦ **M**
    *Ardour #3.* A project-level `TimelineLocation { kind: marker|range|loop|punch|

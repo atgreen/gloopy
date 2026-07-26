@@ -289,6 +289,39 @@ print('smoke: PASS — reloaded project still sweeps (stable track id keeps the 
 AMID=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print([t['id'] for t in json.load(sys.stdin)['tracks']][-1])")
 g -d "{\"id\":$AMID}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null 2>&1 || true
 
+# ParamModel keystone — plugin-param ids: a hosted instrument plugin's params must appear
+# in ListParameters (track/<id>/plugin/<index>), be set/get through the model, and be
+# automatable by that id. Plugin-agnostic + conditional (skipped if no instrument plugin
+# is installed in this environment).
+PLID=$(g -d '{"force":false}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ScanPlugins | python3 -c "
+import json,sys
+insts=[p for p in json.load(sys.stdin).get('plugins',[]) if p.get('isInstrument')]
+print(insts[0]['identifier'] if insts else '')" 2>/dev/null)
+if [ -n "$PLID" ]; then
+  PT=$(g -d "{\"identifier\":\"$PLID\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddPluginTrack | grep -o '[0-9]\+' | head -1)
+  sleep 2
+  NP=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListParameters | python3 -c "import json,sys;print(len([p for p in json.load(sys.stdin).get('params',[]) if p['id'].startswith('track/$PT/plugin/')]))")
+  [ "${NP:-0}" -ge 1 ] || { echo "smoke: plugin instrument exposed no plugin params" >&2; exit 1; }
+  # Set/Get round-trip through the model: two distinct values must read back monotonically
+  # (robust to param quantisation).
+  g -d "{\"id\":\"track/$PT/plugin/0\",\"value\":0.2}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null
+  LO=$(g -d "{\"id\":\"track/$PT/plugin/0\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetParameter | python3 -c "import json,sys;print(json.load(sys.stdin).get('value',0))")
+  g -d "{\"id\":\"track/$PT/plugin/0\",\"value\":0.8}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null
+  HI=$(g -d "{\"id\":\"track/$PT/plugin/0\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetParameter | python3 -c "import json,sys;print(json.load(sys.stdin).get('value',0))")
+  # Automation-by-id on a plugin param id is accepted and reported.
+  g -d "{\"param_id\":\"track/$PT/plugin/0\",\"points\":[{\"beat\":0,\"value\":0},{\"beat\":4,\"value\":1}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetAutomation >/dev/null
+  AOK=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetAutomation | python3 -c "import json,sys;print(any(l.get('paramId')=='track/$PT/plugin/0' for l in json.load(sys.stdin).get('lanes',[])))")
+  python3 -c "
+lo,hi=float('$LO'),float('$HI'); aok='$AOK'
+assert hi>lo, 'plugin param set/get not monotonic (%.3f -> %.3f)'%(lo,hi)
+assert aok=='True', 'automation-by-id not accepted on a plugin param'
+print('smoke: PASS — plugin-param ids ($NP params; set/get %.2f->%.2f; automatable by id)'%(lo,hi))
+" || { echo 'smoke: plugin-param id model wrong' >&2; exit 1; }
+  g -d "{\"id\":$PT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+else
+  echo "smoke: (no instrument plugin installed, skipping plugin-param id test)"
+fi
+
 # Per-track microtuning: a +1200-cent detune raises a sine note one octave, so its
 # zero-crossing rate (~2x fundamental) doubles. Proves the cents->frequency mapping and
 # that detune rides the synth param model (SetParameter/GetParameter).

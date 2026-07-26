@@ -95,6 +95,18 @@ void MainComponent::applyParamValue (const juce::String& id, float v)
         {
             for (auto& t : tracks) if (t->id == tid) { applySynthParam (t.get(), tok[3], v); break; }
         }
+        else if (tok.size() == 4 && tok[2] == "plugin")   // track/<id>/plugin/<index>: normalised 0..1
+        {
+            for (auto& t : tracks)
+                if (t->id == tid && t->generator)
+                    if (auto* proc = t->generator->getPluginInstance())
+                    {
+                        const auto& ps = proc->getParameters();
+                        const int pi = tok[3].getIntValue();
+                        if (juce::isPositiveAndBelow (pi, ps.size())) ps[pi]->setValue (juce::jlimit (0.0f, 1.0f, v));
+                        break;
+                    }
+        }
     }
     else if (tok[0] == "insert" && tok.size() == 3)
     {
@@ -117,6 +129,21 @@ void MainComponent::applyParamValue (const juce::String& id, float v)
             if (juce::isPositiveAndBelow (slot, (int) fx.size()))
                 for (auto& pr : fx[(size_t) slot]->parameters())
                     if (pr.name.equalsIgnoreCase (tok[3])) { pr.set (v); break; }
+        }
+    }
+    else if (tok[0] == "effect" && tok.size() == 5 && tok[3] == "plugin")   // effect/<i>/<slot>/plugin/<index>
+    {
+        const int i = tok[1].getIntValue(), slot = tok[2].getIntValue();
+        if (juce::isPositiveAndBelow (i, (int) mixerTracks.size()))
+        {
+            auto& fx = mixerTracks[(size_t) i]->effects;
+            if (juce::isPositiveAndBelow (slot, (int) fx.size()))
+                if (auto* proc = fx[(size_t) slot]->getPluginInstance())
+                {
+                    const auto& ps = proc->getParameters();
+                    const int pi = tok[4].getIntValue();
+                    if (juce::isPositiveAndBelow (pi, ps.size())) ps[pi]->setValue (juce::jlimit (0.0f, 1.0f, v));
+                }
         }
     }
 }
