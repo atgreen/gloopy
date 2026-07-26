@@ -182,6 +182,10 @@ class Gloopy:
         """Load a native SFZ instrument (samples preloaded) onto a new track."""
         return self.stub.AddSfzTrack(pb.AddSfzTrackRequest(name=name, path=path)).id
 
+    def add_surge_track(self, patch: str = "", name: str = "") -> int:
+        """Add a new track backed by the embedded Surge XT engine (optional .fxp patch)."""
+        return self.stub.AddSurgeTrack(pb.AddSurgeTrackRequest(name=name, patch=patch)).id
+
     def add_audio_track(self, name: str = "") -> int:
         return self.stub.AddAudioTrack(pb.AddAudioTrackRequest(name=name)).id
 

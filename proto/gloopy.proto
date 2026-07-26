@@ -201,6 +201,7 @@ message AddSamplerTrackRequest { string name = 1; string path = 2; int32 root_no
 message SamplerControlsRequest { int32 track_id = 1; float start = 2; float end = 3; bool reverse = 4; int32 root_note = 5; float fade_in = 6; float fade_out = 7; bool loop = 8; bool mono = 9; }
 message SamplerControls { bool ok = 1; float start = 2; float end = 3; bool reverse = 4; int32 root_note = 5; string name = 6; float fade_in = 7; float fade_out = 8; bool loop = 9; bool mono = 10; }
 message AddSfzTrackRequest     { string name = 1; string path = 2; }   // native SFZ instrument
+message AddSurgeTrackRequest   { string name = 1; string patch = 2; } // embedded Surge XT (patch = optional .fxp)
 message AddPluginTrackRequest  { string identifier = 1; }                        // PluginInfo.identifier
 message ClipRef            { int32 track_id = 1; int32 index = 2; }
 message RenameClipRequest  { int32 track_id = 1; int32 index = 2; string name = 3; }   // empty -> track name
@@ -398,6 +399,7 @@ service Gloopy {
   rpc SetSamplerControls (SamplerControlsRequest) returns (Ack);
   rpc GetSamplerControls (TrackId) returns (SamplerControls);
   rpc AddSfzTrack     (AddSfzTrackRequest)     returns (TrackId);
+  rpc AddSurgeTrack   (AddSurgeTrackRequest)   returns (TrackId);
   rpc AddPluginTrack  (AddPluginTrackRequest)  returns (TrackId);
   rpc RemoveClip      (ClipRef)                returns (Ack);
   rpc MoveClip        (MoveClipRequest)        returns (Ack);

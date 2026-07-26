@@ -64,7 +64,8 @@ target_sources(Gloopy PRIVATE
     Source/ArrangeView.cpp
     Source/PianoRoll.cpp
     Source/MixerView.cpp
-    Source/GloopyLookAndFeel.cpp)
+    Source/GloopyLookAndFeel.cpp
+    Source/SurgeGenerator.cpp)   # Surge glue; PIMPL stub when GLOOPY_WITH_SURGE is off
 
 target_compile_definitions(Gloopy PUBLIC
     JUCE_WEB_BROWSER=0            # no webkit dependency
@@ -173,6 +174,11 @@ if(GLOOPY_WITH_SURGE AND EXISTS "${GLOOPY_SURGE_DIR}/src/common/CMakeLists.txt")
     add_subdirectory(${GLOOPY_SURGE_DIR} ${CMAKE_BINARY_DIR}/surge EXCLUDE_FROM_ALL)
     target_link_libraries(Gloopy PRIVATE surge::surge-common)
     target_compile_definitions(Gloopy PRIVATE GLOOPY_WITH_SURGE=1)
+    # SurgeGenerator.cpp is the only TU that includes Surge headers: build it as
+    # C++20 + -fno-char8_t (Surge's requirement; sst-effects headers need C++20).
+    # -w silences warnings from the heavy third-party header instantiation.
+    set_source_files_properties(Source/SurgeGenerator.cpp PROPERTIES
+        COMPILE_OPTIONS "-std=c++20;-fno-char8_t;-w")
     message(STATUS "Gloopy: Surge XT synth engine ENABLED (${GLOOPY_SURGE_DIR})")
 elseif(GLOOPY_WITH_SURGE)
     message(WARNING "GLOOPY_WITH_SURGE=ON but no Surge source at ${GLOOPY_SURGE_DIR}. "

@@ -6,6 +6,7 @@
 #include "FadeShape.h"
 #include "Sampler.h"
 #include "SfizzGenerator.h"
+#include "SurgeGenerator.h"
 #include "SynthGenerator.h"
 #include "DrumSynth.h"
 #include <array>
@@ -1761,6 +1762,32 @@ int MainComponent::apiAddSfzTrack (const juce::String& name, const juce::String&
         addTrack (std::move (t));
         return raw->id;
     });
+}
+
+int MainComponent::apiAddSurgeTrack (const juce::String& name, const juce::String& patch)
+{
+   #ifndef GLOOPY_WITH_SURGE
+    juce::ignoreUnused (name, patch);
+    return -1;   // Surge engine not compiled into this binary (GLOOPY_WITH_SURGE=OFF)
+   #else
+    return callOnMessageThread ([&] () -> int
+    {
+        pushUndoSnapshot();
+        auto surge = std::make_unique<SurgeGenerator>();
+        surge->prepare (currentSampleRate, currentBlockSize);
+        if (patch.isNotEmpty())
+        {
+            juce::String err;
+            if (! surge->loadPatch (juce::File (patch), err))
+                std::cout << "[surge] patch load: " << err << std::endl;
+        }
+        const auto disp = name.isNotEmpty() ? name : surge->getName();
+        auto t = std::make_unique<Track> (disp, std::move (surge), 60, paletteColour ((int) tracks.size()));
+        Track* raw = t.get();
+        addTrack (std::move (t));
+        return raw->id;
+    });
+   #endif
 }
 
 int MainComponent::apiAddPluginTrack (const juce::String& identifier)

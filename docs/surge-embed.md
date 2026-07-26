@@ -89,9 +89,36 @@ great out of the box, self-contained, no external plugin install required.
    default checkout has the source (today `GLOOPY_SURGE_DIR` is pointed at `~/git/surge` for
    the build; without a source tree the CMake warns + builds Surge-less). The sed shim will
    then apply to the submodule — carry it as a documented compat patch.
-3. **`SurgeGenerator` + one hardcoded patch.** Mirror `SfizzGenerator`; a synth track can
-   be a SurgeGenerator loaded with one bundled patch; smoke-render proves non-silent audio
-   into the mix and a composition round-trip.
+3. **`SurgeGenerator` — ⚠️ WIP: scaffold done, instantiation CRASHES.** Built
+   `Source/SurgeGenerator.{h,cpp}` (PIMPL: C++17 header, C++20 `.cpp` — the only Surge-header
+   TU, compiled `-std=c++20 -fno-char8_t -w` per CMake; a fixed-32-block carry buffer adapts
+   Surge's block to Gloopy's), plus `apiAddSurgeTrack` + `AddSurgeTrack` RPC + Python
+   `add_surge_track` + a (gated) smoke block. Compiles + links clean. **But calling
+   AddSurgeTrack CRASHES the process** (SIGSEGV, core-dumped).
+
+   **Precise crash (from coredumpctl):**
+   `Tunings::readSCLStream` ← `Tunings::evenTemperament12NoteScale()` ← `SurgeStorage::SurgeStorage`
+   ← `SurgeSynthesizer::SurgeSynthesizer` ← `SurgeGenerator::prepare` ← `apiAddSurgeTrack`.
+   It's in the SurgeStorage *constructor's* tuning init (`SurgeStorage.cpp:414`,
+   `twelveToneStandardMapping = Tunings::Tuning(evenTemperament12NoteScale(), …)`), a
+   **completely self-contained** call — parses a hardcoded 12-TET Scala string, no file/data
+   dir/cmrc involved. Confirmed it's construction, not render: with render forced to a no-op
+   the crash is unchanged. The **standalone probe (docs/surge/probe.cpp) does the identical
+   construct fine** — so it's specific to surge-common being linked into the Gloopy binary.
+   Not an ODR clash with Gloopy's own `.scl` code (Gloopy has a hand-rolled parser in
+   Scales.cpp, no `Tunings::` symbols). Not a data-thread race (audio callback + toValueTree
+   are both under `engineLock`; the earlier "crash in toValueTree" cores were heap corruption
+   surfacing later — same underlying bug).
+
+   **Leading hypothesis:** ODR/ABI mismatch in the header-heavy **`Tunings::` tuning-library**
+   (`libs/tuning-library`, largely inline) between the C++20 `-fno-char8_t` surge-common build
+   and how it's linked into Gloopy — or a static-init-order issue. **Next step:** build
+   SurgeGenerator + surge-common under **ASan/UBSan** (ties into Wave 7 #27) to catch the exact
+   corruption; if ODR, check whether any `Tunings::`/inline symbol is defined in two TUs with
+   different flags, and consider building the tuning-library with hidden visibility or matching
+   the consumer's standard. Repro: build with `-DGLOOPY_SURGE_DIR=~/git/surge`, set
+   `GLOOPY_SURGE_DATA=~/git/surge/resources/data`, `grpcurl … AddSurgeTrack`. Smoke block is
+   gated behind `GLOOPY_SMOKE_SURGE=1` until this is fixed.
 4. **Curated patch bundle + curation script.** Select ~150–300 first-party patches + the
    wavetables they need; install into the data dir; document the selection.
 5. **Default-synth wiring + preset browser.** `+ Synth` defaults to Surge; patches

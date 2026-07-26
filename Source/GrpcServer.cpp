@@ -719,6 +719,9 @@ namespace
         Status AddSfzTrack (ServerContext*, const pb::AddSfzTrackRequest* q, pb::TrackId* r) override
         { r->set_id (main.apiAddSfzTrack (js (q->name()), js (q->path()))); return Status::OK; }
 
+        Status AddSurgeTrack (ServerContext*, const pb::AddSurgeTrackRequest* q, pb::TrackId* r) override
+        { r->set_id (main.apiAddSurgeTrack (js (q->name()), js (q->patch()))); return Status::OK; }
+
         Status AddPluginTrack (ServerContext*, const pb::AddPluginTrackRequest* q, pb::TrackId* r) override
         { r->set_id (main.apiAddPluginTrack (js (q->identifier()))); return Status::OK; }
 

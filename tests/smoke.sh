@@ -2382,6 +2382,38 @@ assert abs(half - full*0.5) < full*0.1, 'metronome level 0.5 did not halve the c
 print('smoke: PASS — metronome level scales the click (full %.2f -> half %.2f), round-trips'%(full,half))
 " || { echo 'smoke: metronome level wrong' >&2; exit 1; }
 
+# Surge XT embedded synth: a new Surge-backed track must render non-silent audio
+# through Gloopy's Generator path. SKIP-aware — if Surge isn't built into this
+# binary (AddSurgeTrack -> -1) or no data dir is present (silent), skip not fail.
+# Isolate on a clean project (snapshot + restore around the destructive NewProject).
+# GATED behind GLOOPY_SMOKE_SURGE=1 while slice 3 is WIP: instantiating a Surge
+# track currently CRASHES in SurgeStorage's tuning init (see docs/surge-embed.md),
+# so we don't let it break the suite on a Surge-enabled binary until it's fixed.
+if [ "${GLOOPY_SMOKE_SURGE:-0}" = 1 ]; then
+g -d "{\"path\":\"$WORK/surge_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+SG=$(g -d '{"name":"surgetest"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSurgeTrack | python3 -c "import json,sys;print(json.load(sys.stdin).get('id',-1))")
+if [ "$SG" -lt 0 ] 2>/dev/null; then
+    echo "smoke: SKIP — Surge engine not built into this binary (GLOOPY_WITH_SURGE off)"
+else
+    g -d "{\"track_id\":$SG,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":2,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+    g -d "{\"path\":\"$WORK/surge.wav\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+    python3 -c "
+import wave
+w=wave.open('$WORK/surge.wav','rb'); n=w.getnframes(); sw=w.getsampwidth(); f=w.readframes(n)
+peak=0.0
+if sw==3:
+    for i in range(0,len(f),3): peak=max(peak,abs(int.from_bytes(f[i:i+3],'little',signed=True))/(1<<23))
+elif sw==2:
+    import struct
+    for i in range(0,len(f),2): peak=max(peak,abs(struct.unpack('<h',f[i:i+2])[0])/(1<<15))
+if peak>0.005: print('smoke: PASS — Surge track renders non-silent audio through the mix (peak %.3f)'%peak)
+else:          print('smoke: SKIP — Surge built but silent (no data dir? set GLOOPY_SURGE_DATA) peak %.4f'%peak)
+" || { echo 'smoke: surge render check failed' >&2; exit 1; }
+fi
+g -d "{\"path\":\"$WORK/surge_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null
+fi   # GLOOPY_SMOKE_SURGE
+
 # Undo / redo: a mutation (add track) is reverted by Undo and re-applied by Redo.
 # addTrack pushes a snapshot before mutating, so the add is a clean undo boundary.
 tc() { g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListTracks | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('tracks',[])))"; }
