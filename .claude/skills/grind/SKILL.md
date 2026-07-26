@@ -189,6 +189,25 @@ by leverage. Each item is a slice: model+serialise+proto+client → headless pro
 commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈ hours,
 **M** ≈ a day or two, **L** ≈ a week+.
 
+### ★ Reprioritized near-term order (2026-07-26) — read this first
+
+After studying **Tracktion Engine** (the production JUCE DAW engine; see Wave 7), the
+highest-value gaps it surfaced jump the queue. The next slices, in order:
+
+1. **Undo / redo** (Wave 7 #2) — Gloopy's single biggest *missing* DAW feature, and
+   Tracktion shows it's nearly free once every mutation routes through the ValueTree +
+   `UndoManager`. Fits "every feature needs a desktop control" literally (Ctrl-Z / menu).
+2. **Strong time types** (Wave 7 #1) — mechanical, compile-time-checked, kills a whole
+   bug class; no audio-thread risk. Do it before more timeline/tempo work.
+3. **`AudioBufferPool`** (Wave 7 #4) — kill audio-thread allocations; prerequisite for
+   any graph rework, and cheap on its own.
+4. Then resume the **browser sidebar** tail (Wave 6 #1: Presets/Favorites tabs +
+   first-class drag-and-drop) and the rest of Waves 2–5.
+
+The heavy engine items (off-thread graph swap #5, **multicore rendering #6**) stay
+*deferred* and gated on a real profiling trigger — do not start them until Gloopy is
+measurably single-core-bound on a heavy multi-track session. See Wave 7 for why.
+
 ### Wave 1 — Keystone model work (everything downstream rides on these)
 
 1. **Universal parameter model — `ParamModel` / `ParameterRef`.** ✦ **L**
@@ -1581,6 +1600,88 @@ each shipping with desktop UI + screenshot validation.
       NewProject clears → reload restores. **UI needs visual eval.** **Not yet:** web
       surface, MCP surface, script browser (each still independent L slices);
       notes/ subdir for multiple docs (lyrics/credits split).
+
+### Wave 7 — Engine architecture & correctness (lessons from Tracktion Engine) ✦
+
+Studied `~/git/tracktion_engine` (the production JUCE DAW engine, ~376k LOC across
+`tracktion_core` / `tracktion_graph` / `tracktion_engine`). Every item below is
+**borrow-the-idea only** — Tracktion Engine is GPL/dual-licensed; do NOT copy its code
+or assets, and keep its name out of shipped code/commit messages per the guardrail
+(this internal roadmap cites it the same way it cites Ardour). File pointers are
+prior-art references to *read*, not to lift.
+
+21. **Strong time types — `BeatPosition` / `TimePosition` / `*Duration`.** ✦ **M**
+    Replace bare `double beat` / `int samples` passed everywhere with distinct wrapper
+    types (position vs duration are different types; only sensible combinations compile:
+    position ± duration → position, position − position → duration). Prior art:
+    `tracktion_core/utilities/tracktion_Time.h:31-338`. *Done when:* clip/loop/marker
+    positions and `beatToSamples`/`samplesToBeats` are expressed in the new types; a
+    `GloopyTests` case proves the illegal combinations don't compile (or are rejected).
+    Low risk, no audio-thread danger, big safety win — **near-term (priority #2).**
+
+22. **Undo / redo via ValueTree + `UndoManager`.** ✦ **L** — **near-term (priority #1).**
+    Gloopy's biggest missing DAW feature. Route *all* model mutations through the
+    ValueTree with an `UndoManager` (Tracktion binds each property with
+    `CachedValue<T>.referTo(state, id, um)` and manages Track/Clip C++ objects with a
+    `ValueTreeObjectList` listener — child added → create wrapper, removed → destroy).
+    Undo then "just works" from the tree deltas. Prior art:
+    `tracktion_ValueTreeUtilities.h:89-203` (ValueTreeObjectList), `tracktion_Clip.cpp:77-90`
+    (CachedValue), `tracktion_Edit.h` (single `state` tree = source of truth). *Done when:*
+    Ctrl-Z / Edit-menu Undo+Redo reverse track/clip/param edits; multi-step undo survives;
+    a headless test mutates → undoes → asserts the tree is byte-identical to before.
+    **Desktop control required** (Edit menu + Ctrl-Z/Ctrl-Shift-Z). Staged: (a) adopt an
+    `UndoManager` + route one subsystem (e.g. clip edits) through it; (b) convert the rest;
+    (c) `ValueTreeObjectList` to retire manual `buildTrackFromTree` rebuilds.
+
+23. **Stable-ID remapping — generalize `EditItemID`.** **M**
+    Tracktion gives every object a stable id and a built-in `remapIDs(old→new)` for
+    copy/paste/duplicate. Gloopy's duplicate-track slice hand-rolled exactly this
+    (drop `tid`, reassign). Generalize into one id-remap pass over a subtree so
+    duplicate/paste of *any* object (clips, lanes, sends) is reference-safe. Prior art:
+    `tracktion_EditItem.h:17-79`. *Done when:* duplicating a track/clip that references
+    other ids (sends, sidechains, automation targets) rewrites those refs correctly;
+    round-trips in the composition.
+
+24. **`AudioBufferPool` — no allocation on the audio thread.** ✦ **M** — **near-term (#3).**
+    Pre-allocate a lock-free FIFO of buffers; nodes/strips `allocate()`/`release()`
+    instead of touching `new` in `getNextAudioBlock`. Prior art:
+    `tracktion_graph/.../tracktion_AudioBufferPool.h`. *Done when:* a churn test proves
+    zero heap allocations on the audio thread during playback (hook the allocator / count).
+    Cheap, self-contained, and a prerequisite for any graph rework.
+
+25. **Off-thread graph build + atomic swap.** ✦ **L** — *deferred* (do #24 first).
+    Build the new mixing graph off the audio thread and swap it in lock-free
+    (double-buffered holder; audio thread `try_lock`s, edit thread pushes non-RT). Also:
+    monotonic **reference sample-range** through the render (looping/scrubbing becomes a
+    block-split, not per-node logic), per-node **PDC** with FIFO reuse across rebuilds to
+    avoid clicks. Prior art: `tracktion_LockFreeMultiThreadedNodePlayer.cpp:276`,
+    `tracktion_LockFreeObject.h`, `tracktion_LatencyNode.h`, `tracktion_PlayHead.h`.
+    Only worth it once Gloopy has dynamic routing (aux sends/returns, #7). **Touches the
+    audio thread — principle-4 territory; probe under churn before integrating.**
+
+26. **Multicore audio rendering — work-stealing node scheduler.** ✦ **XL** — *deferred,
+    gated on profiling.* Today Gloopy sums all tracks **serially on the one audio thread**
+    (`getNextAudioBlock`, `MainComponent.cpp`); Tracktion renders the graph across
+    `NumCPUsForAudio − 1` workers **plus** the audio thread, via atomic per-node
+    input-counters draining a lock-free ready-queue (independent tracks/plugin chains run
+    on different cores). Prior art: `tracktion_LockFreeMultiThreadedNodePlayer.cpp` (the
+    `process()` drain loop + `updateProcessQueueForNode`), `tracktion_NodePlayerThreadPools.h`
+    (6 wake strategies to avoid CVs on the audio thread). **Do NOT start until profiling
+    shows a real single-core ceiling on a heavy multi-track session** — parallelism only
+    helps *independent* work (Amdahl: a deep serial plugin chain can't be split), and the
+    real cost is the entire lock-free-graph architecture (#24 + #25), not a thread pool.
+    When the time comes, port Tracktion's shape rather than invent one.
+
+27. **In-process deterministic render test harness + sanitizer CI.** ✦ **M**
+    Tracktion tests audio *offline and deterministically*: fixed-block in-process render
+    to a buffer + peak/RMS assertions (no external tools, no running app), tests co-located
+    and gated by compile flags, and CI running **ASan/TSan** presets. Prior art:
+    `testing/tracktion_EnginePlayer.h:26-124`, `model/export/tracktion_Renderer.h`,
+    `CMakePresets.json`. *Done when:* a `GloopyTests`-style harness renders a fixed edit to
+    a buffer and asserts peak/LUFS in-process (complementing `smoke.sh`'s WAV-shell-out);
+    and CMake gains `asan`/`tsan` presets wired into a CI matrix. High value precisely
+    because we're about to touch audio-thread code (#24/#25) — sanitizers catch the bugs
+    that only bite under load.
 
 ## Explicitly NOT doing (the guardrails, made concrete)
 
