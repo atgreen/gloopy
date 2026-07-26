@@ -358,6 +358,7 @@ inline std::vector<Note> expandArp (const std::vector<Note>& notes, double rateB
     juce::Random rng ((juce::int64) std::llround (tStart * 1000.0) + (juce::int64) notes.size() * 131 + 17);
     std::vector<Note> out;
     std::vector<int> lastHeld; float lastVel = 0.8f;           // for hold/latch across rests
+    std::vector<int> prevSet;                                  // last note-set the pattern ran over
     int stepIndex = 0;
 
     for (double t = tStart; t < tEnd - eps; t += rateBeats)
@@ -376,6 +377,12 @@ inline std::vector<Note> expandArp (const std::vector<Note>& notes, double rateB
             else continue;                                     // a rest
         }
         else { lastHeld = held; lastVel = vel; }
+
+        // A new held set restarts the pattern from its first note (so each chord arpeggiates
+        // from its root, matching hardware/Ableton/LMMS) — rather than carrying the running
+        // index over and starting the new chord mid-pattern. Latched (held == prevSet) steps
+        // keep advancing.
+        if (held != prevSet) { stepIndex = 0; prevSet = held; }
 
         std::vector<int> pat;                                  // held set across octaves
         for (int o = 0; o < octs; ++o)

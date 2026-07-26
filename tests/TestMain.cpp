@@ -573,6 +573,18 @@ struct NoteEditTests : juce::UnitTest
             expect (a[0].pitch == 60 && a[1].pitch == 60 && a[2].pitch == 64 && a[3].pitch == 64);
         }
 
+        beginTest ("expandArp restarts the pattern when the chord changes (root-first)");
+        {
+            // C-E-G (0-1) then D-F-A (1-2). Each chord must arpeggiate from its own root, not
+            // carry the running index over (which used to start the 2nd chord mid-pattern).
+            std::vector<Note> two { {60,0,1,0.8f}, {64,0,1,0.8f}, {67,0,1,0.8f},
+                                    {62,1,1,0.8f}, {65,1,1,0.8f}, {69,1,1,0.8f} };
+            auto a = expandArp (two, 0.5, 1, 1.0f, 0);          // up; steps at 0,0.5,1,1.5
+            expect ((int) a.size() == 4);
+            expect (a[0].pitch == 60 && a[1].pitch == 64);     // C E (chord 1 from root)
+            expect (a[2].pitch == 62 && a[3].pitch == 65);     // D F (chord 2 restarts at root)
+        }
+
         beginTest ("expandArp is deterministic for random mode");
         {
             std::vector<Note> chord { {60,0,2,0.8f}, {64,0,2,0.8f}, {67,0,2,0.8f} };
