@@ -11,6 +11,7 @@
 #include "NoteScheduler.h"
 #include "NoteEdits.h"
 #include "NotesJson.h"
+#include "AllpassPhaser.h"
 #include "Onsets.h"
 #include "ParamScale.h"
 #include "FileDrop.h"
@@ -617,6 +618,43 @@ struct NotesJsonTests : juce::UnitTest
     }
 };
 
+struct AllpassPhaserTests : juce::UnitTest
+{
+    AllpassPhaserTests() : juce::UnitTest ("AllpassPhaser") {}
+    void runTest() override
+    {
+        beginTest ("coefficient stays in (-1,1) and moves with frequency");
+        {
+            const double sr = 44100.0;
+            const float lo = phaserCoeff (200.0f, sr), hi = phaserCoeff (6000.0f, sr);
+            expect (lo > -1.0f && lo < 1.0f);
+            expect (hi > -1.0f && hi < 1.0f);
+            expect (hi > lo);                                  // higher fc -> larger coefficient
+        }
+        beginTest ("a cascade of allpass stages preserves amplitude (allpass property)");
+        {
+            const double sr = 44100.0;
+            const float a = phaserCoeff (1000.0f, sr);
+            std::array<float, 6> z {}; z.fill (0.0f);
+            const int n = 8000;
+            float inPeak = 0.0f, outPeak = 0.0f;
+            for (int i = 0; i < n; ++i)
+            {
+                const float x = std::sin (2.0 * 3.14159265358979323846 * 440.0 * i / sr);
+                float y = x;
+                for (auto& s : z) y = allpassStage (y, a, s);
+                if (i > n / 2)                                  // ignore the settling transient
+                {
+                    inPeak  = juce::jmax (inPeak,  std::abs (x));
+                    outPeak = juce::jmax (outPeak, std::abs (y));
+                }
+            }
+            expectWithinAbsoluteError ((double) outPeak, (double) inPeak, 0.02);   // magnitude preserved
+        }
+    }
+};
+
+static AllpassPhaserTests allpassPhaserTests;
 static NotesJsonTests    notesJsonTests;
 static ParamScaleTests   paramScaleTests;
 static NoteSchedulerTests noteSchedulerTests;

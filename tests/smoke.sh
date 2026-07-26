@@ -918,6 +918,27 @@ python3 -c "assert float('$WS') > float('$BASE_RMS')+2, 'waveshaper drive did no
     || { echo "smoke: waveshaper had no effect" >&2; exit 1; }
 echo "smoke: PASS — waveshaper drive raised RMS ($BASE_RMS -> $WS dBFS)"
 g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+# Phaser (PHASER enum -> factory -> params): the swept allpass notches change the waveform
+# vs dry, while staying roughly level-matched (allpass magnitude preservation + mix).
+g -d "{\"path\":\"$WORK/ph_dry.wav\",\"tail_seconds\":0.5,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"insert":0,"type":"PHASER"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Mix","value":1.0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Rate","value":1.0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Feedbk","value":0.6}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/ph_wet.wav\",\"tail_seconds\":0.5,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+PHDRY=$(arms "$WORK/ph_dry.wav"); PHWET=$(arms "$WORK/ph_wet.wav")
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+a=rd('$WORK/ph_dry.wav');b=rd('$WORK/ph_wet.wav');m=min(len(a),len(b))
+assert m>0 and any(a) and any(b), 'phaser render silent'
+d=sum(abs(a[i]-b[i]) for i in range(m))/m/(1<<23)
+assert d>0.003, 'phaser did not change the waveform vs dry (diff=%.5f)'%d
+assert abs(float('$PHWET')-float('$PHDRY'))<6.0, 'phaser is not roughly level-matched (dry %s vs wet %s dBFS)'%('$PHDRY','$PHWET')
+print('smoke: PASS — phaser sweeps notches (waveform diff %.4f, dry %s vs wet %s dBFS)'%(d,'$PHDRY','$PHWET'))
+" || { echo 'smoke: phaser wrong' >&2; exit 1; }
+g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
 
 # Stereo Widener: prove the STEREO_WIDENER enum -> factory -> params wiring and a clean
 # render (the mid/side DSP itself is unit-tested in GloopyTests::StereoWidener).

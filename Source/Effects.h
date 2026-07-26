@@ -9,6 +9,7 @@
 #include <cmath>
 #include "Effect.h"
 #include "StereoWiden.h"
+#include "AllpassPhaser.h"
 
 // ---------------------------------------------------------------------------
 // Gain
@@ -657,11 +658,80 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+// Phaser — a cascade of LFO-swept allpass stages summed with the dry signal,
+// producing sweeping notches (see AllpassPhaser.h for the pure DSP primitives).
+// ---------------------------------------------------------------------------
+class PhaserFx : public Effect
+{
+public:
+    void prepare (double sampleRate, int, int) override { sr = sampleRate; reset(); }
+
+    void reset() override
+    {
+        for (auto& ch : z) ch.fill (0.0f);
+        fbState.fill (0.0f);
+        phase = 0.0f;
+    }
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        if (bypassed.load()) return;
+        const float rate  = juce::jlimit (0.05f, 8.0f, rateHz.load());
+        const float depth = juce::jlimit (0.0f, 1.0f, depthAmt.load());
+        const float fb    = juce::jlimit (0.0f, 0.95f, feedback.load());
+        const float mx    = juce::jlimit (0.0f, 1.0f, mix.load());
+        const float twoPi = juce::MathConstants<float>::twoPi;
+        const float inc   = twoPi * rate / (float) sr;
+        const float fmin  = 200.0f;
+        const float fmax  = fmin * std::pow (2.0f, 1.0f + 4.0f * depth);   // up to ~5 octaves of sweep
+
+        const int nch = juce::jmin (2, b.getNumChannels());
+        for (int i = 0; i < b.getNumSamples(); ++i)
+        {
+            const float lfo = 0.5f + 0.5f * std::sin (phase);             // 0..1
+            const float fc  = fmin * std::pow (fmax / fmin, lfo);         // log sweep
+            const float a   = phaserCoeff (fc, sr);
+            for (int c = 0; c < nch; ++c)
+            {
+                auto* d = b.getWritePointer (c);
+                const float in = d[i];
+                float x = in + fbState[(size_t) c] * fb;
+                for (int s = 0; s < kStages; ++s)
+                    x = allpassStage (x, a, z[(size_t) c][(size_t) s]);
+                fbState[(size_t) c] = x;
+                d[i] = in * (1.0f - mx) + x * mx;
+            }
+            phase += inc; if (phase >= twoPi) phase -= twoPi;
+        }
+    }
+
+    juce::String name() const override { return "Phaser"; }
+
+    std::vector<EffectParam> parameters() override
+    {
+        return {
+            { "Rate",   0.05f, 8.0f, 0.4f,  [this] { return rateHz.load(); },   [this] (float v) { rateHz.store (v); } },
+            { "Depth",  0.0f, 1.0f, 0.6f,   [this] { return depthAmt.load(); }, [this] (float v) { depthAmt.store (v); } },
+            { "Feedbk", 0.0f, 0.95f, 0.5f,  [this] { return feedback.load(); }, [this] (float v) { feedback.store (v); } },
+            { "Mix",    0.0f, 1.0f, 0.5f,   [this] { return mix.load(); },      [this] (float v) { mix.store (v); } }
+        };
+    }
+
+private:
+    static constexpr int kStages = 6;
+    double sr { 44100.0 };
+    float  phase { 0.0f };
+    std::array<std::array<float, kStages>, 2> z {};
+    std::array<float, 2> fbState {};
+    std::atomic<float> rateHz { 0.4f }, depthAmt { 0.6f }, feedback { 0.5f }, mix { 0.5f };
+};
+
+// ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 namespace EffectFactory
 {
-    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Chorus", "Flanger" }; }
+    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Chorus", "Flanger", "Phaser" }; }
 
     inline std::unique_ptr<Effect> create (const juce::String& type)
     {
@@ -677,6 +747,7 @@ namespace EffectFactory
         if (type == "Stereo Widener") return std::make_unique<StereoWidenerFx>();
         if (type == "Chorus")     return std::make_unique<ChorusFx>();
         if (type == "Flanger")    return std::make_unique<FlangerFx>();
+        if (type == "Phaser")     return std::make_unique<PhaserFx>();
         return nullptr;
     }
 }

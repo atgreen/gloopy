@@ -780,6 +780,17 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       FLANGER=11 (four registries synced); auto-listed in the mixer menu. smoke proves
       the enum→factory + Feedbk/Mix params: Mix=0 bit-exact passthrough, Mix=0.8 active
       (mean|Δ|=0.10). The chorus/flanger backlog pair is done.
+    - `[x]` **Phaser landed** (commit): `PhaserFx`, a cascade of 6 LFO-swept first-order
+      allpass stages (log sweep ~200 Hz..up to 5 octaves) with feedback and dry/wet Mix —
+      sweeping notches, completing the modulation-effects family (chorus/flanger/phaser).
+      Rate/Depth/Feedbk/Mix params; EffectType PHASER=12 (all four registries synced — proto
+      enum, `types()`, `create()`, the `apiAddEffect` names[]; also back-filled the stale
+      Python EFFECTS map which had stopped at WAVESHAPER=8). The pure DSP is
+      `Source/AllpassPhaser.h` (`allpassStage`/`phaserCoeff`), unit-tested
+      (`GloopyTests::AllpassPhaser`: coefficient range/monotonicity + the allpass
+      magnitude-preservation property across a 6-stage cascade) without the audio-processor
+      dep. smoke proves the enum→factory→params wiring (waveform diff 0.13 vs dry, stays
+      level-matched within ~1.4 dB); screenshot-validated (Phaser in the add-effect menu).
       **Not yet:** multi-band EQ; analyzers (scope/spectrum/vectorscope) with API
       snapshots.
 
