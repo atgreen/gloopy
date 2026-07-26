@@ -76,20 +76,24 @@ default synth — so users get **the real Surge XT editor** (via Gloopy's existi
     `SURGE_EXPOSE_PRESETS` (OFF in our build; option in `surge/src/CMakeLists.txt:9`). Even if
     enabled it drives JUCE's *program* API, which almost certainly does NOT cross the LV2 host
     boundary (LV2 has no program concept). Treat as a dead end for LV2. **Do not chase.**
-  - **State path (RECOMMENDED)** — `AudioProcessor::setStateInformation(bytes)` →
-    `enqueuePatchForLoad` → `loadRaw(chunk)` (SurgeSynthesizerIO.cpp:419/461). JUCE maps
-    get/setStateInformation to the LV2 `state:` extension, so it DOES cross the LV2 boundary.
-    Catch: `loadRaw` expects Surge's **raw chunk**, but the on-disk factory `.fxp` files are
-    **FXP-wrapped** (`fxChunkSetCustom` header: magic `CcnK`/`FPCh`/`cjs3`, checked at
-    SurgeSynthesizerIO.cpp:264). So the host must read a factory `.fxp`, **strip the
-    `fxChunkSetCustom` header**, and pass the trailing chunk (`chunkSize` at line 299) to
-    `setStateInformation`. Next step: a headless probe — instantiate the hosted Surge XT,
-    load a known factory `.fxp` (e.g. a bass patch) this way, dump `--plugparams`, and confirm
-    params differ from INIT. Then wrap as `apiAddSurgePluginTrackWithPatch(patchPath)` and
-    serialize the resulting plugin state per track.
-  - Alt to probe if state path is fragile: `loadPatchByPath(fxpPath)` (SurgeSynthesizerIO.cpp:242)
-    / the `patchid_file` field (SurgeSynthProcessor.cpp:1726) — a file-path loader; find its
-    host-facing trigger (OSC? a control?).
+  - **State path via raw chunk — PROBED, FAILED (dead end).** Hypothesis was:
+    `setStateInformation(strippedChunk)` → `enqueuePatchForLoad` → `loadRaw` (which DOES load a
+    bare patch chunk — `loadPatchByPath`→`loadRaw`→`load_patch` proves it for FILE loads). Built
+    the `--surgepatch <fxp>` headless probe (`Source/Main.cpp`): strips the 60-byte
+    `fxChunkSetCustom` header, feeds the chunk to a *hosted* Surge instance's
+    `setStateInformation`, and compares rendered ENERGY vs INIT (param values don't refresh over
+    the plugin boundary, so audio is the only reliable signal). **Result: no distinct load.**
+    Three very different patches (Bass 1 / a lead / a pad) all render ~identical energy
+    (~212 on LV2, ~338 on VST3); the small INIT→loaded delta is just LFO phase drift from the
+    8 pump blocks. Fails on **LV2 AND VST3**. Root cause: JUCE's *hosted* get/setStateInformation
+    wraps state in its own VST3/LV2 container, so a raw Surge chunk never reaches
+    `enqueuePatchForLoad`. Passing the whole (unstripped) `.fxp` would fail the same way.
+  - **NEXT mechanisms to try** (reuse `--surgepatch` to verify — relDiff must be large AND differ
+    per patch): (a) **`patchid_file` dawExtraState** (SurgeSynthProcessor.cpp:1726) — figure out
+    Surge's DAW-state layout and build a host state that says "load /path/Bass 1.fxp"; (b) load a
+    patch through Surge's OWN path first, then `getStateInformation` to capture the JUCE-wrapped
+    blob and store THAT per track; (c) fallback: pick patches in the hosted Surge editor UI and
+    save the plugin state per track (manual, not automatable across 23 tracks).
 
 Everything in the headless-embed sections below still works and is committed.
 

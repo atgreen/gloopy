@@ -80,7 +80,8 @@ public:
 
         // Headless plugin diagnostics.
         if (args.contains ("--scan") || args.contains ("--plugintest") || args.contains ("--plugindesc")
-              || args.contains ("--plugparams") || args.contains ("--bakestate"))
+              || args.contains ("--plugparams") || args.contains ("--bakestate")
+              || args.contains ("--surgepatch"))
         {
             PluginHost host;
             if (args.contains ("--scan") || ! host.loadCache())   // cache is instant; --scan forces fresh
@@ -162,6 +163,71 @@ public:
                               << " bytes, peak=" << peak << " -> " << args[bs + 3] << "\n";
                     break;
                 }
+
+            // --surgepatch <fxp>: probe the migration linchpin — load a factory Surge patch into the
+            // *hosted* Surge XT (LV2 preferred) via setStateInformation. On-disk .fxp files are
+            // FXP-wrapped (fxChunkSetCustom, 60-byte header); loadRaw wants the raw chunk, so we strip
+            // the header and pass the trailing chunk. Reports how many params changed vs INIT (>0 ⇒
+            // the patch loaded across the LV2 state boundary) and the rendered peak.
+            const int spx = args.indexOf ("--surgepatch");
+            if (spx >= 0 && spx + 1 < args.size())
+            {
+                // Preferred format defaults to LV2 (what we bundle); GLOOPY_SURGE_FMT overrides (probe).
+                const auto prefFmt = juce::SystemStats::getEnvironmentVariable ("GLOOPY_SURGE_FMT", "LV2");
+                juce::PluginDescription surgeDesc; bool found = false;
+                for (const auto& d : types)
+                    if (d.isInstrument && d.name.containsIgnoreCase ("Surge XT"))
+                    { surgeDesc = d; found = true; if (d.pluginFormatName == prefFmt) break; }
+                juce::String err;
+                auto inst = found ? host.create (surgeDesc, 44100.0, 512, err) : nullptr;
+                if (inst == nullptr) { std::cout << "surgepatch: Surge XT unavailable (" << err << ")\n"; }
+                else
+                {
+                    inst->setPlayConfigDetails (0, 2, 44100.0, 512);
+                    inst->prepareToPlay (44100.0, 512);
+                    // Render a held middle-C and return the energy (sum of squares) + peak. A patch that
+                    // loads changes the timbre -> a different energy signature, which survives the LV2
+                    // boundary even when the host-side param cache does NOT refresh on patch load.
+                    auto renderSig = [&] (double& energy) {
+                        float peak = 0.0f; energy = 0.0;
+                        for (int blk = 0; blk < 40; ++blk)
+                        {
+                            juce::AudioBuffer<float> a (2, 512); a.clear(); juce::MidiBuffer m;
+                            if (blk == 0)  m.addEvent (juce::MidiMessage::noteOn  (1, 60, (juce::uint8) 110), 0);
+                            if (blk == 32) m.addEvent (juce::MidiMessage::noteOff (1, 60), 0);
+                            inst->processBlock (a, m);
+                            peak = juce::jmax (peak, a.getMagnitude (0, 0, 512));
+                            for (int ch = 0; ch < 2; ++ch)
+                            { auto* s = a.getReadPointer (ch); for (int i = 0; i < 512; ++i) energy += (double) s[i] * s[i]; }
+                        }
+                        return peak;
+                    };
+                    double eInit = 0.0; const float pInit = renderSig (eInit);   // INIT patch baseline
+
+                    juce::MemoryBlock raw; juce::File (args[spx + 1]).loadFileAsData (raw);
+                    const int hdr = 60;   // sizeof fxChunkSetCustom (8 ints + prgName[28])
+                    if ((int) raw.getSize() <= hdr) { std::cout << "surgepatch: fxp too small / missing\n"; }
+                    else
+                    {
+                        auto* b = static_cast<const juce::uint8*> (raw.getData());
+                        const int chunkSize = (b[56] << 24) | (b[57] << 16) | (b[58] << 8) | b[59];   // big-endian
+                        const int avail = (int) raw.getSize() - hdr;
+                        const int useSize = (chunkSize > 0 && chunkSize <= avail) ? chunkSize : avail;
+                        inst->setStateInformation (b + hdr, useSize);
+                        for (int blk = 0; blk < 8; ++blk)                     // pump silent blocks to apply the enqueued load
+                        { juce::AudioBuffer<float> a (2, 512); a.clear(); juce::MidiBuffer m; inst->processBlock (a, m); }
+
+                        double eLoaded = 0.0; const float pLoaded = renderSig (eLoaded);
+                        const double rel = (eInit > 0.0) ? std::abs (eLoaded - eInit) / eInit
+                                                         : (eLoaded > 0.0 ? 1.0 : 0.0);
+                        std::cout << "SURGEPATCH " << juce::File (args[spx + 1]).getFileName()
+                                  << " format=" << surgeDesc.pluginFormatName << " chunk=" << useSize
+                                  << " initE=" << eInit << " loadedE=" << eLoaded << " relDiff=" << rel
+                                  << " peakInit=" << pInit << " peakLoaded=" << pLoaded
+                                  << (rel > 0.05 ? "  => PATCH LOADED" : "  => NO CHANGE") << "\n";
+                    }
+                }
+            }
 
             const int pt = args.indexOf ("--plugintest");
             if (pt >= 0 && pt + 1 < args.size())
