@@ -1713,12 +1713,12 @@ prior-art references to *read*, not to lift.
     green; lean OFF-path clean); fixed the embedding gotcha (surge-common's `${CMAKE_SOURCE_DIR}`
     r8brain ref mis-resolves to Gloopy → sed shim to `${SURGE_SOURCE_DIR}`). Remaining **2b**: add
     the actual `third_party/surge` submodule (today `GLOOPY_SURGE_DIR`→`~/git/surge`). (3)
-    **`SurgeGenerator` — ⚠️ WIP (commit): scaffold+RPC+PIMPL build & link clean, but
-    AddSurgeTrack CRASHES** in `SurgeStorage` ctor tuning init (`Tunings::readSCLStream` via
-    `evenTemperament12NoteScale()`) — self-contained call, works in the standalone probe, so
-    it's specific to surge-common linked into Gloopy. Leading theory: ODR/ABI in the inline
-    `Tunings::` tuning-library across the C++20/-fno-char8_t surge build vs Gloopy. NEXT: ASan
-    (Wave 7 #27) to pinpoint. Full detail in docs/surge-embed.md. (4) curated
+    **`SurgeGenerator` — ✅ DONE (commit)**: a Surge track renders non-silent audio through the
+    mix (smoke peak ~0.33). Was crashing in `SurgeStorage` ctor — root cause was an **ODR clash**:
+    vendored sfizz ships its own *older* `Tunings::` tuning-library (strong global symbol) that
+    the linker preferred over surge-common's *newer inline* one, so surge called sfizz's
+    incompatible-layout impl → SIGSEGV. Fixed by renaming sfizz's private copy `namespace Tunings`
+    → `TuningsSfz` (3 files). Full detail in docs/surge-embed.md. (4) curated
     patch/wavetable bundle + curation script; (5) default-synth wiring + preset browser (the
     desktop control); (6) license/docs. Curate ONLY from `patches_factory`/`wavetables` (skip
     `*_3rdparty` without per-pack review).

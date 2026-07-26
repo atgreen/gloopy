@@ -20,21 +20,21 @@ struct Tuning::Impl {
 public:
     Impl() { updateKeysFractional12TET(); }
 
-    const Tunings::Tuning& tuning() const { return tuning_; }
+    const TuningsSfz::Tuning& tuning() const { return tuning_; }
 
     float getKeyFractional12TET(int midiKey) const;
 
     int rootKey() const { return rootKey_; }
     float tuningFrequency() const { return tuningFrequency_; }
 
-    void updateScale(const Tunings::Scale& scale, absl::optional<fs::path> sourceFile = {});
+    void updateScale(const TuningsSfz::Scale& scale, absl::optional<fs::path> sourceFile = {});
     bool shouldReloadScala();
     void updateRootKey(int rootKey);
     void updateTuningFrequency(float tuningFrequency);
     void reset();
 private:
     void updateKeysFractional12TET();
-    static Tunings::KeyboardMapping mappingFromParameters(int rootKey, float tuningFrequency);
+    static TuningsSfz::KeyboardMapping mappingFromParameters(int rootKey, float tuningFrequency);
 
 private:
     static constexpr int defaultRootKey = 60;
@@ -42,15 +42,15 @@ private:
     int rootKey_ = defaultRootKey;
     float tuningFrequency_ = defaultTuningFrequency;
 
-    Tunings::Tuning tuning_ {
-        Tunings::evenTemperament12NoteScale(),
+    TuningsSfz::Tuning tuning_ {
+        TuningsSfz::evenTemperament12NoteScale(),
         mappingFromParameters(defaultRootKey, defaultTuningFrequency)
     };
 
     absl::optional<fs::path> scalaFile_;
     fs::file_time_type modificationTime_ {};
 
-    static constexpr int numKeys = Tunings::Tuning::N;
+    static constexpr int numKeys = TuningsSfz::Tuning::N;
     static constexpr int keyOffset = 256; // Surge tuning has key range ±256
     std::array<float, numKeys> keysFractional12TET_;
 };
@@ -59,8 +59,8 @@ void Tuning::Impl::reset()
 {
     rootKey_ = defaultRootKey;
     tuningFrequency_ = defaultTuningFrequency;
-    tuning_ = Tunings::Tuning(
-        Tunings::evenTemperament12NoteScale(),
+    tuning_ = TuningsSfz::Tuning(
+        TuningsSfz::evenTemperament12NoteScale(),
         mappingFromParameters(defaultRootKey, defaultTuningFrequency)
     );
     scalaFile_.reset();
@@ -73,9 +73,9 @@ float Tuning::Impl::getKeyFractional12TET(int midiKey) const
     return keysFractional12TET_[std::max(0, std::min(numKeys - 1, midiKey + keyOffset))];
 }
 
-void Tuning::Impl::updateScale(const Tunings::Scale& scale, absl::optional<fs::path> sourceFile)
+void Tuning::Impl::updateScale(const TuningsSfz::Scale& scale, absl::optional<fs::path> sourceFile)
 {
-    tuning_ = Tunings::Tuning(scale, tuning_.keyboardMapping);
+    tuning_ = TuningsSfz::Tuning(scale, tuning_.keyboardMapping);
     updateKeysFractional12TET();
 
     scalaFile_ = sourceFile;
@@ -110,7 +110,7 @@ void Tuning::Impl::updateRootKey(int rootKey)
     if (rootKey_ == rootKey)
         return;
 
-    tuning_ = Tunings::Tuning(tuning_.scale, mappingFromParameters(rootKey, tuningFrequency_));
+    tuning_ = TuningsSfz::Tuning(tuning_.scale, mappingFromParameters(rootKey, tuningFrequency_));
     rootKey_ = rootKey;
     updateKeysFractional12TET();
 }
@@ -123,7 +123,7 @@ void Tuning::Impl::updateTuningFrequency(float tuningFrequency)
     if (tuningFrequency_ == tuningFrequency)
         return;
 
-    tuning_ = Tunings::Tuning(tuning_.scale, mappingFromParameters(rootKey_, tuningFrequency));
+    tuning_ = TuningsSfz::Tuning(tuning_.scale, mappingFromParameters(rootKey_, tuningFrequency));
     tuningFrequency_ = tuningFrequency;
     updateKeysFractional12TET();
 }
@@ -137,7 +137,7 @@ void Tuning::Impl::updateKeysFractional12TET()
     }
 }
 
-Tunings::KeyboardMapping Tuning::Impl::mappingFromParameters(int rootKey, float tuningFrequency)
+TuningsSfz::KeyboardMapping Tuning::Impl::mappingFromParameters(int rootKey, float tuningFrequency)
 {
 #if 1
     // root note is the start of octave. like Scala
@@ -146,7 +146,7 @@ Tunings::KeyboardMapping Tuning::Impl::mappingFromParameters(int rootKey, float 
     rootKey = std::max(0, rootKey - 12);
 #endif
     // fixed frequency of the root note
-    return Tunings::startScaleOnAndTuneNoteTo(rootKey, 69, tuningFrequency);
+    return TuningsSfz::startScaleOnAndTuneNoteTo(rootKey, 69, tuningFrequency);
 }
 
 ///
@@ -161,7 +161,7 @@ Tuning::~Tuning()
 
 bool Tuning::loadScalaFile(const fs::path& path)
 {
-    Tunings::Scale scl;
+    TuningsSfz::Scale scl;
     fs::ifstream stream(path);
 
     if (stream.bad()) {
@@ -170,9 +170,9 @@ bool Tuning::loadScalaFile(const fs::path& path)
     }
 
     try {
-        scl = Tunings::readSCLStream(stream);
+        scl = TuningsSfz::readSCLStream(stream);
     }
-    catch (Tunings::TuningError& error) {
+    catch (TuningsSfz::TuningError& error) {
         DBG("Tuning: " << error.what());
         goto failure;
     }
@@ -192,13 +192,13 @@ failure:
 
 bool Tuning::loadScalaString(const std::string& text)
 {
-    Tunings::Scale scl;
+    TuningsSfz::Scale scl;
     std::istringstream stream(text);
 
     try {
-        scl = Tunings::readSCLStream(stream);
+        scl = TuningsSfz::readSCLStream(stream);
     }
-    catch (Tunings::TuningError& error) {
+    catch (TuningsSfz::TuningError& error) {
         DBG("Tuning: " << error.what());
         goto failure;
     }
@@ -238,7 +238,7 @@ float Tuning::getTuningFrequency() const
 
 void Tuning::loadEqualTemperamentScale()
 {
-    impl_->updateScale(Tunings::evenTemperament12NoteScale());
+    impl_->updateScale(TuningsSfz::evenTemperament12NoteScale());
 }
 
 float Tuning::getFrequencyOfKey(int midiKey) const

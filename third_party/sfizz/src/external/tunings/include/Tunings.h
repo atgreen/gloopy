@@ -11,10 +11,10 @@
  * An example of using the API is
  *
  * ```
- * auto s = Tunings::readSCLFile( "./my-scale.scl" );
- * auto k = Tunings::readKBMFile( "./my-mapping.kbm" );
+ * auto s = TuningsSfz::readSCLFile( "./my-scale.scl" );
+ * auto k = TuningsSfz::readKBMFile( "./my-mapping.kbm" );
  *
- * Tunings::Tuning t( s, k );
+ * TuningsSfz::Tuning t( s, k );
  *
  * std::cout << "The frequency of C4 and A4 are "
  *           << t.frequencyForMidiNote( 60 ) << " and "
@@ -35,7 +35,7 @@
 #include <memory>
 #include <array>
 
-namespace Tunings
+namespace TuningsSfz
 {
     static constexpr double MIDI_0_FREQ = 8.17579891564371; // or 440.0 * pow( 2.0, - (69.0/12.0 ) )
 
@@ -71,7 +71,7 @@ namespace Tunings
      * features. Most importantly it has a count and a vector of Tones.
      *
      * In most normal use, you will simply pass around instances of this class
-     * to a Tunings::Tuning instance, but in some cases you may want to create
+     * to a TuningsSfz::Tuning instance, but in some cases you may want to create
      * or inspect this class yourself.
      */
     struct Scale
@@ -242,4 +242,4 @@ namespace Tunings
         std::array<int, N> scalepositiontable;
     };
 
-} // namespace Tunings
+} // namespace TuningsSfz

@@ -19,7 +19,7 @@
 #include <cctype>
 #include <cmath>
 
-namespace Tunings
+namespace TuningsSfz
 {
     static double locale_atof(const char* s)
     {
@@ -163,9 +163,9 @@ namespace Tunings
     Scale evenDivisionOfSpanByM( int Span, int M )
     {
         if( Span <= 0 )
-            throw Tunings::TuningError( "Span should be a positive number. You entered " + std::to_string( Span ) );
+            throw TuningsSfz::TuningError( "Span should be a positive number. You entered " + std::to_string( Span ) );
         if( M <= 0 )
-            throw Tunings::TuningError( "You must divide the period into at least one step. You entered " + std::to_string( M ) );
+            throw TuningsSfz::TuningError( "You must divide the period into at least one step. You entered " + std::to_string( M ) );
 
         std::ostringstream oss;
         oss.imbue( std::locale( "C" ) );

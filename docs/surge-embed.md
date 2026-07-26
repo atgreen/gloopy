@@ -89,7 +89,23 @@ great out of the box, self-contained, no external plugin install required.
    default checkout has the source (today `GLOOPY_SURGE_DIR` is pointed at `~/git/surge` for
    the build; without a source tree the CMake warns + builds Surge-less). The sed shim will
    then apply to the submodule — carry it as a documented compat patch.
-3. **`SurgeGenerator` — ⚠️ WIP: scaffold done, instantiation CRASHES.** Built
+3. **`SurgeGenerator` — ✅ DONE (2026-07-26).** A Surge track renders non-silent audio
+   through Gloopy's mix (smoke: peak ~0.33). **The crash was an ODR namespace clash:**
+   the vendored **sfizz** ships its *own older* copy of the `Tunings::` tuning-library
+   (`third_party/sfizz/src/external/tunings/`, non-inline → a **strong** global
+   `Tunings::readSCLStream`), while surge-common vendors a *newer inline* version (weak
+   symbols). The linker kept sfizz's strong symbol, so surge-common's `SurgeStorage` ctor
+   called sfizz's incompatible-layout `Tunings::` implementation → SIGSEGV in
+   `evenTemperament12NoteScale`. The standalone probe had no sfizz, so it never clashed.
+   **Fix:** renamed sfizz's private copy `namespace Tunings` → `namespace TuningsSfz` (3
+   files, ~30 refs; `third_party/sfizz` is Gloopy's own copied tree, filename/include
+   guards preserved) so the two libraries no longer share a symbol. Verified: a Surge track
+   renders non-silent both with `$GLOOPY_SURGE_DATA` set (factory patches) and without (the
+   cmrc-embedded default init patch still sounds) — and no longer crashes either way. The
+   original scaffold below stands. (Diagnosis lesson for Wave 7 #27: ASan would have flagged
+   this instantly — but `nm -C | grep Tunings::` showing a duplicate strong symbol nailed it.)
+
+   Scaffold: built
    `Source/SurgeGenerator.{h,cpp}` (PIMPL: C++17 header, C++20 `.cpp` — the only Surge-header
    TU, compiled `-std=c++20 -fno-char8_t -w` per CMake; a fixed-32-block carry buffer adapts
    Surge's block to Gloopy's), plus `apiAddSurgeTrack` + `AddSurgeTrack` RPC + Python
