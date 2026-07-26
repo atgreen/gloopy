@@ -550,6 +550,10 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             ts.addItem (742, "Double-time (faster)");       // factor 0.5
             ts.addItem (743, "Half-time (slower)");         // factor 2
             m.addSubMenu ("Time", ts);
+            juce::PopupMenu ec;                             // MIDI echo: decaying note repeats
+            ec.addItem (744, "1/8 note x3");                // delay 0.5, 3 reps
+            ec.addItem (745, "1/16 note x4");               // delay 0.25, 4 reps
+            m.addSubMenu ("Echo", ec);
         }
         if (! isMidi)                                   // audio-clip level ops
         {
@@ -614,6 +618,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             if (r == 742 || r == 743)   // Time-scale: double-time (0.5) / half-time (2)
             {
                 if (onClipCommand) onClipCommand (t, c, r == 742 ? "timescale:0.5" : "timescale:2");
+                return;
+            }
+            if (r == 744 || r == 745)   // MIDI echo: 1/8 x3 or 1/16 x4
+            {
+                if (onClipCommand) onClipCommand (t, c, r == 744 ? "echo:0.5,3" : "echo:0.25,4");
                 return;
             }
             const char* cmd = r == 1  ? "split"

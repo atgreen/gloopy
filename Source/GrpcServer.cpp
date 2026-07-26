@@ -810,6 +810,12 @@ namespace
         Status RampClipVelocity (ServerContext*, const pb::VelRampRequest* q, pb::Ack* r) override
         { const bool ok = main.apiRampClipVelocity (q->track_id(), q->index(), q->from(), q->to());
           r->set_ok (ok); if (! ok) r->set_error ("velocity ramp failed (clip not found or not MIDI)"); return Status::OK; }
+        Status EchoClip (ServerContext*, const pb::EchoRequest* q, pb::Ack* r) override
+        { // proto3 omits unset repeats(0)/feedback(0); default to a musical 3 echoes at 0.6 feedback.
+          const int reps = q->repeats() <= 0 ? 3 : q->repeats();
+          const float fb = q->feedback() <= 0.0f ? 0.6f : q->feedback();
+          const bool ok = main.apiEchoClip (q->track_id(), q->index(), q->delay_beats(), reps, fb);
+          r->set_ok (ok); if (! ok) r->set_error ("echo failed (clip not found or not MIDI)"); return Status::OK; }
         Status StrumClip (ServerContext*, const pb::StrumRequest* q, pb::Ack* r) override
         { const bool ok = main.apiStrumClip (q->track_id(), q->index(), q->step_beats(), q->down());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }

@@ -139,6 +139,31 @@ inline void scaleNoteTimes (std::vector<Note>& notes, double factor)
     for (auto& n : notes) { n.startBeat *= f; n.lengthBeats = juce::jmax (0.01, n.lengthBeats * f); }
 }
 
+/** MIDI echo / delay: append `repeats` decaying copies of every note, each `delayBeats`
+    later than the last, with velocity multiplied by `feedback` each step (copies that fade
+    below ~1% are dropped). The originals are kept; pitch and length are preserved. A
+    generative note *multiplier* (grows the list), distinct from the shaping transforms. */
+inline void echoNotes (std::vector<Note>& notes, double delayBeats, int repeats, float feedback)
+{
+    if (delayBeats <= 0.0 || repeats <= 0) return;
+    const int   reps = juce::jlimit (1, 16, repeats);
+    const float fb   = juce::jlimit (0.0f, 1.0f, feedback);
+    const std::vector<Note> src (notes);                    // snapshot the originals (we append)
+    for (const auto& n : src)
+    {
+        float vel = n.velocity;
+        for (int k = 1; k <= reps; ++k)
+        {
+            vel *= fb;
+            if (vel < 0.01f) break;                         // faded out
+            Note e = n;
+            e.startBeat = n.startBeat + (double) k * delayBeats;
+            e.velocity  = juce::jlimit (0.0f, 1.0f, vel);
+            notes.push_back (e);
+        }
+    }
+}
+
 /** Arpeggiate: turn each chord (notes sharing a start beat) into a sequence of single
     notes, each `stepBeats` long, played in order. mode 0 = up, 1 = down, 2 = up-down.
     Single notes pass through unchanged. Note lengths become the step (classic arp gate). */

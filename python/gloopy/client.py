@@ -374,6 +374,13 @@ class Gloopy:
         self._ack(self.stub.RampClipVelocity(pb.VelRampRequest(
             track_id=track_id, index=index, **{'from': frm, 'to': to})))
 
+    def echo_clip(self, track_id: int, index: int, delay_beats: float = 0.5,
+                  repeats: int = 3, feedback: float = 0.6) -> None:
+        """MIDI echo: append `repeats` decaying copies of every note, each delay_beats later,
+        velocity multiplied by feedback each step (copies fading below ~1% are dropped)."""
+        self._ack(self.stub.EchoClip(pb.EchoRequest(
+            track_id=track_id, index=index, delay_beats=delay_beats, repeats=repeats, feedback=feedback)))
+
     def split_notes_at_beat(self, track_id: int, index: int, beat: float) -> None:
         """Knife: cut every note spanning `beat` (clip-relative) into two abutting notes."""
         self._ack(self.stub.SplitNotesAtBeat(pb.SplitNotesRequest(

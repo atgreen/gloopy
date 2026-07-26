@@ -1046,6 +1046,17 @@ assert abs(float(cl.get('len'))-3.0)<1e-6, 'clip slot length not halved: %s'%cl.
 assert abs(float(cl.get('content'))-3.0)<1e-6, 'content length not halved: %s'%cl.get('content')
 print('smoke: PASS — ScaleClipTime halved the clip slot + content length (6 -> 3)')
 " || { echo 'smoke: time-scale clip length wrong' >&2; exit 1; }
+# MIDI echo: one note (vel 0.8) + echo delay 0.5, 3 repeats, feedback 0.5 -> decaying copies
+# at 0.5/1.0/1.5 with vel 0.4/0.2/0.1. The original is kept.
+g -d "{\"track_id\":$CO,\"start_beat\":0,\"length_beats\":8,\"content_len_beats\":8,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":0.5,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+ECC=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print(next(t['clips'] for t in json.load(sys.stdin)['tracks'] if t.get('name')=='clipops')-1)")
+g -d "{\"track_id\":$CO,\"index\":$ECC,\"delay_beats\":0.5,\"repeats\":3,\"feedback\":0.5}" 127.0.0.1:$PORT gloopy.v1.Gloopy/EchoClip >/dev/null
+g -d "{\"track_id\":$CO,\"index\":$ECC}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetClipNotes | python3 -c "
+import json,sys
+ns=sorted((round(n.get('startBeat',0),3),round(n.get('velocity',0),3)) for n in json.load(sys.stdin)['notes'])
+assert ns==[(0.0,0.8),(0.5,0.4),(1.0,0.2),(1.5,0.1)], 'echo notes wrong: %s'%ns
+print('smoke: PASS — EchoClip appended 3 decaying repeats (0.5/1.0/1.5 @ 0.4/0.2/0.1), original kept')
+" || { echo 'smoke: MIDI echo wrong' >&2; exit 1; }
 g -d "{\"id\":$CO}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   # isolate: drop the scratch track
 # Split-at-named-marker: a marker at beat 2 splits a [0,4) clip (notes 0/1/2/3) into
 # [0,2)+[2,4); the right clip's notes rebase to 0/1. Reuses the locations model.

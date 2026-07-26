@@ -1125,6 +1125,15 @@ each shipping with desktop UI + screenshot validation.
       scaling + inverse; smoke drives ScaleClipTime 0.5 and checks GetClipNotes (0/1/2, len 0.5)
       AND that the saved clip's `len`+`content` halved (6→3); screenshot-validated (the expanded
       submenu). A distinct rhythmic op (not a note-only transform — it resizes the clip).
+    - `[x]` **MIDI echo landed** (commit): a shared `echoNotes` transform (NoteEdits.h) that
+      APPENDS `repeats` decaying copies of every note — each `delayBeats` later, velocity ×
+      `feedback` per step, copies fading below ~1% dropped; originals kept, pitch/length
+      preserved. A generative note *multiplier* (grows the list), distinct from the shaping
+      transforms. `apiEchoClip` (via GLOOPY_EDIT_CLIP_NOTES) + EchoClip RPC (`EchoRequest`;
+      handler defaults unset repeats/feedback to 3 / 0.6) + Python `echo_clip`. **Desktop:** an
+      "Echo ▸ 1/8 note ×3 / 1/16 note ×4" submenu on the MIDI-clip menu. `GloopyTests::NoteEdits`
+      proves the decaying repeats + the fade-out drop + originals-kept; smoke drives EchoClip and
+      checks GetClipNotes (0.5/1.0/1.5 @ 0.4/0.2/0.1); screenshot-validated (the expanded submenu).
     - `[x]` **Arpeggiate (destructive one-shot) landed** (commit c90da23): shared arpeggiateNotes
       + apiArpeggiateClip + ArpeggiateClip RPC + ARP header button (Up/Down/Up-Down menu).
       Rewrites a chord clip into a note sequence in place. Smoke + screenshot.

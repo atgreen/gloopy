@@ -728,6 +728,9 @@ bool MainComponent::apiLegatoClip (int trackId, int index, float amount)
 bool MainComponent::apiRampClipVelocity (int trackId, int index, float fromVel, float toVel)
 { GLOOPY_EDIT_CLIP_NOTES (rampVelocities (notes, fromVel, toVel)) }
 
+bool MainComponent::apiEchoClip (int trackId, int index, double delayBeats, int repeats, float feedback)
+{ GLOOPY_EDIT_CLIP_NOTES (echoNotes (notes, delayBeats, repeats, feedback)) }
+
 bool MainComponent::apiSplitNotesAtBeat (int trackId, int index, double beat)
 { GLOOPY_EDIT_CLIP_NOTES (splitNotesAtBeat (notes, beat)) }
 

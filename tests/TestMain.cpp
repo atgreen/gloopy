@@ -371,6 +371,23 @@ struct NoteEditTests : juce::UnitTest
             expectWithinAbsoluteError (ns[2].lengthBeats, 0.5, 1e-9);
         }
 
+        beginTest ("MIDI echo appends decaying repeats; faded copies dropped; originals kept");
+        {
+            std::vector<Note> ns { {60,0,0.5f,0.8f} };
+            echoNotes (ns, 0.5, 3, 0.5f);                   // vels 0.4/0.2/0.1 at 0.5/1.0/1.5
+            expect (ns.size() == 4);
+            std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b) { return a.startBeat < b.startBeat; });
+            expectWithinAbsoluteError (ns[0].startBeat, 0.0, 1e-9); expectWithinAbsoluteError (ns[0].velocity, 0.8f, 1e-5f);
+            expectWithinAbsoluteError (ns[1].startBeat, 0.5, 1e-9); expectWithinAbsoluteError (ns[1].velocity, 0.4f, 1e-5f);
+            expectWithinAbsoluteError (ns[2].startBeat, 1.0, 1e-9); expectWithinAbsoluteError (ns[2].velocity, 0.2f, 1e-5f);
+            expectWithinAbsoluteError (ns[3].startBeat, 1.5, 1e-9); expectWithinAbsoluteError (ns[3].velocity, 0.1f, 1e-5f);
+            expect (ns[1].pitch == 60 && ns[1].lengthBeats == 0.5f);   // pitch/length preserved
+            // a low feedback drops copies once they fade below ~1%.
+            std::vector<Note> few { {64,0,1,0.2f} };
+            echoNotes (few, 0.25, 8, 0.1f);                 // 0.02 then 0.002(<0.01 -> stop) => 1 echo
+            expect (few.size() == 2);
+        }
+
         beginTest ("arpeggiate up sequences a chord");
         {
             std::vector<Note> ns { {60,0,1,0.8f}, {64,0,1,0.8f}, {67,0,1,0.8f} };
