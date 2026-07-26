@@ -2382,4 +2382,25 @@ assert abs(half - full*0.5) < full*0.1, 'metronome level 0.5 did not halve the c
 print('smoke: PASS — metronome level scales the click (full %.2f -> half %.2f), round-trips'%(full,half))
 " || { echo 'smoke: metronome level wrong' >&2; exit 1; }
 
+# Undo / redo: a mutation (add track) is reverted by Undo and re-applied by Redo.
+# addTrack pushes a snapshot before mutating, so the add is a clean undo boundary.
+tc() { g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListTracks | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('tracks',[])))"; }
+U0=$(tc)
+UT=$(g -d '{"name":"undotest","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+U1=$(tc)
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/Undo >/dev/null
+U2=$(tc)
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/Redo >/dev/null
+U3=$(tc)
+python3 -c "
+a,b,c,d=$U0,$U1,$U2,$U3
+assert b==a+1, 'AddSynthTrack did not add a track (%d -> %d)'%(a,b)
+assert c==a,   'Undo did not revert the add (%d, expected %d)'%(c,a)
+assert d==b,   'Redo did not re-apply the add (%d, expected %d)'%(d,b)
+print('smoke: PASS — undo reverts an added track (%d->%d->%d) and redo re-applies it (->%d)'%(a,b,c,d))
+" || { echo 'smoke: undo/redo round-trip wrong' >&2; exit 1; }
+# isolate: leave the session as we found it (the track is present again after redo)
+UZ=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print([t['id'] for t in json.load(sys.stdin)['tracks']][-1])")
+g -d "{\"id\":$UZ}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+
 echo "smoke: OK"

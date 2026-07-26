@@ -3241,6 +3241,11 @@ void MainComponent::showFileMenu()
     juce::PopupMenu menu;
     const bool haveProject = currentProjectFile != juce::File();
     const bool isComposition = currentProjectFile.getFileName() == "gloopy.toml";
+    // Undo / redo — discoverable here (also bound to Ctrl+Z / Ctrl+Shift+Z). The
+    // enabled state reflects the snapshot stacks so users can see when either is live.
+    menu.addItem (20, "Undo   Ctrl+Z",        ! undoStack.empty());
+    menu.addItem (21, "Redo   Ctrl+Shift+Z",  ! redoStack.empty());
+    menu.addSeparator();
     menu.addItem (1, "New Project (empty)");
     juce::PopupMenu templatesMenu;                       // New from a built-in or user template
     const auto templates = apiListTemplates();
@@ -3269,6 +3274,8 @@ void MainComponent::showFileMenu()
         [this, isComposition] (int result)
         {
             if (result == 8) { openNotes(); return; }
+            if (result == 20) { undo(); return; }
+            if (result == 21) { redo(); return; }
             if (result >= 100)                                  // New from Template
             {
                 const auto templates = apiListTemplates();
