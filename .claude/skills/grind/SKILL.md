@@ -1094,6 +1094,16 @@ each shipping with desktop UI + screenshot validation.
       unchanged, the amount blend, and chord-together); smoke proves LegatoClip via GetClipNotes;
       screenshot-validated (before/after in the piano roll: the LEGATO button stretches the notes
       to the next onset).
+    - `[x]` **Velocity ramp (crescendo/decrescendo) landed** (commit): shared `rampVelocities`
+      transform (NoteEdits.h) linearly interpolates each note's velocity from `fromVel` at the
+      first onset to `toVel` at the last, by start-beat position (chords share a velocity; a
+      single onset gets `toVel`); size/order-preserving. `apiRampClipVelocity` + RampClipVelocity
+      RPC (`VelRampRequest`) + Python `ramp_clip_velocity`. **Desktop:** a "Velocity ramp ▸
+      Crescendo / Decrescendo" submenu on the MIDI-clip right-click menu (crescendo 0.3→1.0,
+      decrescendo 1.0→0.3). `GloopyTests::NoteEdits` proves the linear interpolation + chord/
+      single-onset edges; smoke drives RampClipVelocity and checks GetClipNotes (0.3/0.65/1.0);
+      screenshot-validated (the expanded submenu). Distinct from the non-destructive per-clip
+      `velocityScale` (a uniform multiplier) — this writes a shaped dynamic into the notes.
     - `[x]` **Arpeggiate (destructive one-shot) landed** (commit c90da23): shared arpeggiateNotes
       + apiArpeggiateClip + ArpeggiateClip RPC + ARP header button (Up/Down/Up-Down menu).
       Rewrites a chord clip into a note sequence in place. Smoke + screenshot.

@@ -335,6 +335,27 @@ struct NoteEditTests : juce::UnitTest
             expectWithinAbsoluteError (ch[2].lengthBeats, 1.0, 1e-9);   // last onset: unchanged
         }
 
+        beginTest ("velocity ramp crescendos linearly by onset; last unchanged position gets `to`");
+        {
+            std::vector<Note> ns { {60,0,1,0.5f}, {62,2,1,0.5f}, {64,4,1,0.5f} };
+            rampVelocities (ns, 0.2f, 1.0f);                 // onsets 0/2/4 -> t 0/0.5/1
+            expectWithinAbsoluteError (ns[0].velocity, 0.2f, 1e-5f);
+            expectWithinAbsoluteError (ns[1].velocity, 0.6f, 1e-5f);
+            expectWithinAbsoluteError (ns[2].velocity, 1.0f, 1e-5f);
+            expect (ns.size() == 3 && ns[0].pitch == 60 && ns[2].pitch == 64);   // size + order preserved
+        }
+        beginTest ("velocity ramp decrescendos; chord shares velocity; single onset gets `to`");
+        {
+            std::vector<Note> ns { {60,0,1,0.9f}, {62,4,1,0.9f} };
+            rampVelocities (ns, 1.0f, 0.2f);                 // decrescendo
+            expectWithinAbsoluteError (ns[0].velocity, 1.0f, 1e-5f);
+            expectWithinAbsoluteError (ns[1].velocity, 0.2f, 1e-5f);
+            std::vector<Note> ch { {60,0,1,0.5f}, {64,0,1,0.5f} };   // one onset
+            rampVelocities (ch, 0.3f, 0.8f);
+            expectWithinAbsoluteError (ch[0].velocity, 0.8f, 1e-5f);
+            expectWithinAbsoluteError (ch[1].velocity, 0.8f, 1e-5f);
+        }
+
         beginTest ("arpeggiate up sequences a chord");
         {
             std::vector<Note> ns { {60,0,1,0.8f}, {64,0,1,0.8f}, {67,0,1,0.8f} };

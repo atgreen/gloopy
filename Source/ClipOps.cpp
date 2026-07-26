@@ -701,6 +701,9 @@ bool MainComponent::apiArpeggiateClip (int trackId, int index, double stepBeats,
 bool MainComponent::apiLegatoClip (int trackId, int index, float amount)
 { GLOOPY_EDIT_CLIP_NOTES (legatoNotes (notes, amount)) }
 
+bool MainComponent::apiRampClipVelocity (int trackId, int index, float fromVel, float toVel)
+{ GLOOPY_EDIT_CLIP_NOTES (rampVelocities (notes, fromVel, toVel)) }
+
 bool MainComponent::apiSplitNotesAtBeat (int trackId, int index, double beat)
 { GLOOPY_EDIT_CLIP_NOTES (splitNotesAtBeat (notes, beat)) }
 

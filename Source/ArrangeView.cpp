@@ -538,6 +538,10 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 { "100% (always)", 100 }, { "75%", 75 }, { "50%", 50 }, { "25%", 25 }, { "10%", 10 } };
             for (int i = 0; i < 5; ++i) prob.addItem (720 + i, popts[i].first);
             m.addSubMenu ("Probability", prob);
+            juce::PopupMenu vr;                              // destructive velocity ramp across the clip
+            vr.addItem (740, "Crescendo");                  // soft -> loud
+            vr.addItem (741, "Decrescendo");                // loud -> soft
+            m.addSubMenu ("Velocity ramp", vr);
         }
         if (! isMidi)                                   // audio-clip level ops
         {
@@ -592,6 +596,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             if (r >= 730 && r <= 732)   // Audio-clip fade curve: 0 linear, 1 equal-power, 2 exp
             {
                 if (onClipCommand) onClipCommand (t, c, "fadeshape:" + juce::String (r - 730));
+                return;
+            }
+            if (r == 740 || r == 741)   // Velocity ramp: crescendo / decrescendo
+            {
+                if (onClipCommand) onClipCommand (t, c, r == 740 ? "velramp:up" : "velramp:down");
                 return;
             }
             const char* cmd = r == 1  ? "split"

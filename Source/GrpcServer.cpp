@@ -802,6 +802,9 @@ namespace
           const float amt = q->amount() <= 0.0f ? 1.0f : q->amount();
           const bool ok = main.apiLegatoClip (q->track_id(), q->index(), amt);
           r->set_ok (ok); if (! ok) r->set_error ("legato failed (clip not found or not MIDI)"); return Status::OK; }
+        Status RampClipVelocity (ServerContext*, const pb::VelRampRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiRampClipVelocity (q->track_id(), q->index(), q->from(), q->to());
+          r->set_ok (ok); if (! ok) r->set_error ("velocity ramp failed (clip not found or not MIDI)"); return Status::OK; }
         Status StrumClip (ServerContext*, const pb::StrumRequest* q, pb::Ack* r) override
         { const bool ok = main.apiStrumClip (q->track_id(), q->index(), q->step_beats(), q->down());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }

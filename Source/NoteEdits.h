@@ -111,6 +111,24 @@ inline void legatoNotes (std::vector<Note>& notes, float amount)
     }
 }
 
+/** Velocity ramp (crescendo / decrescendo): linearly interpolate each note's velocity
+    from `fromVel` at the first onset to `toVel` at the last onset, by the note's start-beat
+    position. A crescendo passes from<to, a decrescendo from>to. Notes sharing an onset get
+    the same velocity; a single onset gets `toVel`. Pure, size- and order-preserving. */
+inline void rampVelocities (std::vector<Note>& notes, float fromVel, float toVel)
+{
+    if (notes.empty()) return;
+    const float a = juce::jlimit (0.0f, 1.0f, fromVel), b = juce::jlimit (0.0f, 1.0f, toVel);
+    double lo = notes[0].startBeat, hi = notes[0].startBeat;
+    for (const auto& n : notes) { lo = juce::jmin (lo, n.startBeat); hi = juce::jmax (hi, n.startBeat); }
+    const double span = hi - lo;
+    for (auto& n : notes)
+    {
+        const double t = span > 1e-9 ? (n.startBeat - lo) / span : 1.0;
+        n.velocity = juce::jlimit (0.0f, 1.0f, a + (float) t * (b - a));
+    }
+}
+
 /** Arpeggiate: turn each chord (notes sharing a start beat) into a sequence of single
     notes, each `stepBeats` long, played in order. mode 0 = up, 1 = down, 2 = up-down.
     Single notes pass through unchanged. Note lengths become the step (classic arp gate). */

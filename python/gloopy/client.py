@@ -361,6 +361,12 @@ class Gloopy:
         self._ack(self.stub.LegatoClip(pb.LegatoRequest(
             track_id=track_id, index=index, amount=amount)))
 
+    def ramp_clip_velocity(self, track_id: int, index: int, frm: float = 0.3, to: float = 1.0) -> None:
+        """Velocity ramp: interpolate each note's velocity from `frm` at the first onset to `to`
+        at the last onset (crescendo if frm<to, decrescendo if frm>to). Destructive."""
+        self._ack(self.stub.RampClipVelocity(pb.VelRampRequest(
+            track_id=track_id, index=index, **{'from': frm, 'to': to})))
+
     def split_notes_at_beat(self, track_id: int, index: int, beat: float) -> None:
         """Knife: cut every note spanning `beat` (clip-relative) into two abutting notes."""
         self._ack(self.stub.SplitNotesAtBeat(pb.SplitNotesRequest(
