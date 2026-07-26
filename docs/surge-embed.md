@@ -57,11 +57,39 @@ default synth — so users get **the real Surge XT editor** (via Gloopy's existi
   API, not the UI lambda); other instrument types keep their own toolbar buttons (+SFZ/+Sample/
   +Audio/+Plugin). **Remaining in step 3:** the *Presets* browser tab still drives the headless
   `SurgeGenerator` / embedded core — point it at the hosted plugin and load `.fxp` into it.
-- **Removals + migration (do LAST, after the above).** Per the user directive
-  ([[surge-is-the-synth]]): migrate both templates (Piano+Bass+Drums, Lead+Bass) + the ~6 example
-  projects off `SynthGenerator`, THEN remove `SynthGenerator` entirely (code/proto/python/tests/
-  `type="synth"` format) and the embedded Surge (`SurgeGenerator` + `GLOOPY_WITH_SURGE` +
-  `surge-common` link). Old `.gloopy` files with synth tracks will stop loading.
+- **Removals + migration (do LAST, after the above).** User directive: **full removal + migrate
+  everything to Surge** ([[surge-is-the-synth]], confirmed 2026-07-26 with the downsides accepted).
+  Migrate both templates (Piano+Bass+Drums, Lead+Bass) + all **23 example synth tracks** off
+  `SynthGenerator` to hosted Surge XT plugin tracks with a hand-picked factory patch per voice,
+  THEN remove `SynthGenerator` entirely (code/proto/python/tests/`type="synth"` format) and the
+  embedded Surge (`SurgeGenerator` + `GLOOPY_WITH_SURGE` + `surge-common` link). Consequences
+  accepted: all melodic content becomes Surge-bundle-dependent; old `.gloopy` files with synth
+  tracks stop loading. Scope facts: templates use `SynthGenerator` for Lead/Bass/fallback-piano
+  only (drums = procedural `DrumSynth`+Sampler, real piano = Salamander SFZ — both survive);
+  no SFZ lead/bass content exists in-repo.
+
+  **LINCHPIN — load a named factory patch into a hosted Surge XT LV2 track (research 2026-07-26,
+  NOT yet implemented; resume here).** So a migrated Bass sounds like a bass, each track needs a
+  specific patch, then Gloopy bakes it via the hosted plugin's serialized state. Mechanisms in
+  `third_party/surge/src/surge-xt/SurgeSynthProcessor.cpp` + `.../common/SurgeSynthesizerIO.cpp`:
+  - **Program API** (`getNumPrograms`/`setCurrentProgram`/`getProgramName`) — gated on
+    `SURGE_EXPOSE_PRESETS` (OFF in our build; option in `surge/src/CMakeLists.txt:9`). Even if
+    enabled it drives JUCE's *program* API, which almost certainly does NOT cross the LV2 host
+    boundary (LV2 has no program concept). Treat as a dead end for LV2. **Do not chase.**
+  - **State path (RECOMMENDED)** — `AudioProcessor::setStateInformation(bytes)` →
+    `enqueuePatchForLoad` → `loadRaw(chunk)` (SurgeSynthesizerIO.cpp:419/461). JUCE maps
+    get/setStateInformation to the LV2 `state:` extension, so it DOES cross the LV2 boundary.
+    Catch: `loadRaw` expects Surge's **raw chunk**, but the on-disk factory `.fxp` files are
+    **FXP-wrapped** (`fxChunkSetCustom` header: magic `CcnK`/`FPCh`/`cjs3`, checked at
+    SurgeSynthesizerIO.cpp:264). So the host must read a factory `.fxp`, **strip the
+    `fxChunkSetCustom` header**, and pass the trailing chunk (`chunkSize` at line 299) to
+    `setStateInformation`. Next step: a headless probe — instantiate the hosted Surge XT,
+    load a known factory `.fxp` (e.g. a bass patch) this way, dump `--plugparams`, and confirm
+    params differ from INIT. Then wrap as `apiAddSurgePluginTrackWithPatch(patchPath)` and
+    serialize the resulting plugin state per track.
+  - Alt to probe if state path is fragile: `loadPatchByPath(fxpPath)` (SurgeSynthesizerIO.cpp:242)
+    / the `patchid_file` field (SurgeSynthProcessor.cpp:1726) — a file-path loader; find its
+    host-facing trigger (OSC? a control?).
 
 Everything in the headless-embed sections below still works and is committed.
 
