@@ -1232,9 +1232,16 @@ each shipping with desktop UI + screenshot validation.
       push Metro off, a real overflow gotcha); when shown it docks 210px on the left of the main
       content and `resized()` reflows arrange/editor. Screenshot-validated end-to-end (☰ → the
       TEMPLATES list [Starter Beat / Piano+Bass+Drums / Drum Kit / Lead+Bass] → clicking "Starter
-      Beat" seeded the Kick/Snare/Hat/Clap/Bass tracks with the sidebar still open). **Next slices:**
-      more categories as tabs (Demos = the bundled example compositions via openAny; Samples; Plugins;
-      Presets; Favorites), and first-class drag-and-drop from the browser onto tracks/inserts.
+      Beat" seeded the Kick/Snare/Hat/Clap/Bass tracks with the sidebar still open).
+    - `[~]` **Browser sidebar — Demos tab landed** (commit): the sidebar is now TABBED
+      (`setCategories({...})` — each `Category` = title + getItems + onChoose). Added a "Demos"
+      category listing the bundled example compositions: `demosDir()` resolves `$GLOOPY_EXAMPLES_PATH`
+      else an `examples/` folder by the CWD/executable; `listDemos()` returns the composition-folder
+      names (dirs holding a `gloopy.toml`), and clicking one `openAny`s it (off-thread + busy overlay).
+      Screenshot-validated end-to-end (Templates|Demos tabs; the Demos tab listed the 8 bundled
+      demos [demo-ambient … demo-synthwave]; clicking "demo-song" loaded the full 7-track composition
+      at tempo 124). **Next slices:** Samples / Plugins / Presets / Favorites tabs, and first-class
+      drag-and-drop from the browser onto tracks/inserts.
     - `[x]` **User templates ("Save as Template") landed** (commit): the current project can
       be saved as a reusable template — `apiSaveAsTemplate(name)` writes a `.gloopy` into a
       user templates dir (`<userAppData>/Gloopy/templates`, or `$GLOOPY_TEMPLATE_PATH`, the

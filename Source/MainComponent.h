@@ -146,6 +146,8 @@ public:
     bool apiNewFromTemplate (const juce::String& name);           // empty the project + seed a template
     bool apiSaveAsTemplate (const juce::String& name);            // save the current project as a reusable user template
     juce::File templatesDir() const;                              // user templates dir (GLOOPY_TEMPLATE_PATH override)
+    juce::File demosDir() const;                                  // bundled example compositions (GLOOPY_EXAMPLES_PATH override)
+    std::vector<juce::String> listDemos() const;                  // composition-folder names under demosDir()
     bool apiLoadProject (const juce::String& path);
     bool apiSaveProject (const juce::String& path);
     bool apiSaveComposition (const juce::String& path);   // directory "composition as repo" format

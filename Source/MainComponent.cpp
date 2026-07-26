@@ -176,14 +176,25 @@ MainComponent::MainComponent (bool headless)
     addAndMakeVisible (mixerButton);
     mixerButton.onClick = [this] { openMixer(); };
 
-    // Collapsible left browser: a Templates list that seeds a new project on click.
+    // Collapsible left browser: tabbed categories that seed / open projects on click.
     browser = std::make_unique<BrowserSidebar>();
-    browser->getTemplates     = [this] { return apiListTemplates(); };
-    browser->onChooseTemplate = [this] (const juce::String& name)
-    {
-        busyOverlay.show ("Loading " + name + "…");
-        juce::MessageManager::callAsync ([this, name] { apiNewFromTemplate (name); busyOverlay.hide(); });
-    };
+    browser->setCategories ({
+        { "Templates",
+          [this] { return apiListTemplates(); },
+          [this] (const juce::String& name)
+          {
+              busyOverlay.show ("Loading " + name + "…");
+              juce::MessageManager::callAsync ([this, name] { apiNewFromTemplate (name); busyOverlay.hide(); });
+          } },
+        { "Demos",
+          [this] { return listDemos(); },
+          [this] (const juce::String& name)
+          {
+              const auto f = demosDir().getChildFile (name);
+              busyOverlay.show ("Opening " + name + "…");
+              juce::MessageManager::callAsync ([this, f] { openAny (f); busyOverlay.hide(); });
+          } },
+    });
     addChildComponent (*browser);   // hidden until toggled
     browseButton.setClickingTogglesState (true);
     browseButton.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
@@ -2137,6 +2148,34 @@ juce::File MainComponent::templatesDir() const
     return base.isNotEmpty()
         ? juce::File (base)
         : juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory).getChildFile ("Gloopy").getChildFile ("templates");
+}
+
+// Bundled example compositions for the browser's Demos tab. Resolved from
+// $GLOOPY_EXAMPLES_PATH, else an "examples" folder next to the CWD or the executable.
+juce::File MainComponent::demosDir() const
+{
+    auto base = juce::SystemStats::getEnvironmentVariable ("GLOOPY_EXAMPLES_PATH", {});
+    if (base.isNotEmpty()) return juce::File (base);
+    const juce::File cands[] = {
+        juce::File::getCurrentWorkingDirectory().getChildFile ("examples"),
+        juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory().getChildFile ("examples"),
+        juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory().getParentDirectory().getChildFile ("examples"),
+    };
+    for (auto& c : cands) if (c.isDirectory()) return c;
+    return cands[0];
+}
+
+// Names of composition folders (each holding a gloopy.toml) under demosDir().
+std::vector<juce::String> MainComponent::listDemos() const
+{
+    std::vector<juce::String> out;
+    const auto dir = demosDir();
+    if (! dir.isDirectory()) return out;
+    for (const auto& e : juce::RangedDirectoryIterator (dir, false, "*", juce::File::findDirectories))
+        if (e.getFile().getChildFile ("gloopy.toml").existsAsFile())
+            out.push_back (e.getFile().getFileName());
+    std::sort (out.begin(), out.end());
+    return out;
 }
 
 std::vector<juce::String> MainComponent::apiListTemplates()
