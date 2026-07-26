@@ -759,6 +759,9 @@ namespace
         Status RenameClip (ServerContext*, const pb::RenameClipRequest* q, pb::Ack* r) override
         { const bool ok = main.apiRenameClip (q->track_id(), q->index(), js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
+        Status SetClipColour (ServerContext*, const pb::ClipColourRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiSetClipColour (q->track_id(), q->index(), js (q->colour()));
+          r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
         Status SetLoopToClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
         { const bool ok = main.apiSetLoopToClip (q->track_id(), q->index());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }

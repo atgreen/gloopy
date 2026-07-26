@@ -286,6 +286,11 @@ class Gloopy:
         track's name."""
         self._ack(self.stub.RenameClip(pb.RenameClipRequest(track_id=track_id, index=index, name=name)))
 
+    def set_clip_colour(self, track_id: int, index: int, colour: str) -> None:
+        """Per-clip colour override (8-hex ARGB, e.g. 'ffef5350'). An empty string clears the
+        override so the clip inherits the track's colour."""
+        self._ack(self.stub.SetClipColour(pb.ClipColourRequest(track_id=track_id, index=index, colour=colour)))
+
     def set_loop_to_clip(self, track_id: int, index: int) -> None:
         """Set the transport loop to a clip's span and enable looping (audition on repeat)."""
         self._ack(self.stub.SetLoopToClip(pb.ClipRef(track_id=track_id, index=index)))

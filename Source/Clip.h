@@ -43,6 +43,7 @@ struct Clip
     juce::String takeId;
 
     bool   muted { false };      // take-lane: inactive alternate takes are muted
+    juce::Colour colour;         // per-clip colour override; ARGB 0 (default) = inherit the track colour
     double endBeat() const noexcept { return startBeat + lengthBeats; }
     bool   isAudio() const noexcept { return type == ClipType::Audio; }
 };

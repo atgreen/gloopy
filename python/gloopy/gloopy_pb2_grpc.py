@@ -280,6 +280,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.RenameClipRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SetClipColour = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetClipColour',
+                request_serializer=gloopy__pb2.ClipColourRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.SetLoopToClip = channel.unary_unary(
                 '/gloopy.v1.Gloopy/SetLoopToClip',
                 request_serializer=gloopy__pb2.ClipRef.SerializeToString,
@@ -1240,6 +1245,13 @@ class GloopyServicer:
 
     def RenameClip(self, request, context):
         """rename a clip (empty -> track name)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetClipColour(self, request, context):
+        """per-clip colour override (empty -> inherit)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2340,6 +2352,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'RenameClip': grpc.unary_unary_rpc_method_handler(
                     servicer.RenameClip,
                     request_deserializer=gloopy__pb2.RenameClipRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetClipColour': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetClipColour,
+                    request_deserializer=gloopy__pb2.ClipColourRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'SetLoopToClip': grpc.unary_unary_rpc_method_handler(
@@ -4306,6 +4323,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/RenameClip',
             gloopy__pb2.RenameClipRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetClipColour(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetClipColour',
+            gloopy__pb2.ClipColourRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

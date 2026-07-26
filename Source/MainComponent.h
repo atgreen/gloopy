@@ -320,6 +320,7 @@ public:
     bool apiSwingClip (int trackId, int index, double grid, float amount); // bake a groove: delay off-beat notes
     bool apiChordifyClip (int trackId, int index, int chordType);   // turn each note into a named chord
     bool apiRenameClip (int trackId, int index, const juce::String& name);   // rename a clip (empty -> track name)
+    bool apiSetClipColour (int trackId, int index, const juce::String& hexArgb);   // per-clip colour override ("" clears)
     bool apiGateClip (int trackId, int index, double factor);       // scale note lengths (staccato/tenuto)
     bool apiSplitNotesAtBeat (int trackId, int index, double beat);   // knife: cut notes spanning a clip-relative beat
     // Live (non-destructive) arpeggiator per track. mode 0 up/1 down/2 updown/3 random.

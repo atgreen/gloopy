@@ -371,6 +371,7 @@ MainComponent::MainComponent (bool headless)
         }
         else if (cmd.startsWith ("chordify:")) apiChordifyClip (id, clip, cmd.substring (9).getIntValue());
         else if (cmd.startsWith ("gate:")) apiGateClip (id, clip, cmd.substring (5).getDoubleValue());
+        else if (cmd.startsWith ("clipcolour:")) apiSetClipColour (id, clip, cmd.substring (11));
         else if (cmd.startsWith ("quantize:"))
         {
             auto a = cmd.substring (9);                          // "grid,strength"
@@ -3430,6 +3431,7 @@ juce::ValueTree MainComponent::toValueTree()
             if (c.transpose != 0) cl.setProperty ("transpose", c.transpose, nullptr);
             if (c.velocityScale != 1.0f) cl.setProperty ("velscale", c.velocityScale, nullptr);
             if (c.muted) cl.setProperty ("muted", true, nullptr);
+            if (c.colour.getARGB() != 0) cl.setProperty ("colour", (int) c.colour.getARGB(), nullptr);   // omit when inheriting
             if (c.fadeInBeats  > 0.0) cl.setProperty ("fadein",  c.fadeInBeats,  nullptr);
             if (c.fadeOutBeats > 0.0) cl.setProperty ("fadeout", c.fadeOutBeats, nullptr);
             if (c.fadeShape != 0)     cl.setProperty ("fadeshape", c.fadeShape, nullptr);
@@ -3845,6 +3847,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             c.transpose = (int) cl.getProperty ("transpose", 0);
             c.velocityScale = (float) (double) cl.getProperty ("velscale", 1.0);
             c.muted  = (bool) cl.getProperty ("muted", false);
+            c.colour = juce::Colour ((juce::uint32) (int) cl.getProperty ("colour", (int) 0));   // 0 = inherit track colour
             c.fadeInBeats  = (double) cl.getProperty ("fadein", 0.0);
             c.fadeOutBeats = (double) cl.getProperty ("fadeout", 0.0);
             c.fadeShape    = (int) cl.getProperty ("fadeshape", 0);

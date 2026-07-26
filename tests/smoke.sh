@@ -313,6 +313,16 @@ g -d "{\"track_id\":$RCT,\"start_beat\":0,\"length_beats\":2,\"content_len_beats
 g -d "{\"track_id\":$RCT,\"index\":0,\"name\":\"Chorus\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenameClip >/dev/null
 g -d "{\"path\":\"$WORK/renclip.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
 grep -q 'name="Chorus"' "$WORK/renclip.gloopy" && echo "smoke: PASS — RenameClip labelled the clip 'Chorus' (persisted to the .gloopy)" || { echo 'smoke: rename clip wrong' >&2; exit 1; }
+# Clip colour override: set a clip to red -> a second colour= attr appears (track + clip);
+# clearing it ("") drops back to one (just the track colour). juce wraps long tags across
+# lines, so count colour= occurrences rather than matching within a single CLIP tag.
+g -d "{\"track_id\":$RCT,\"index\":0,\"colour\":\"ffef5350\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipColour >/dev/null
+g -d "{\"path\":\"$WORK/clipcol.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+NSET=$(grep -o 'colour=' "$WORK/clipcol.gloopy" | wc -l)
+g -d "{\"track_id\":$RCT,\"index\":0,\"colour\":\"\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipColour >/dev/null   # clear -> inherit
+g -d "{\"path\":\"$WORK/clipcol2.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+NCLR=$(grep -o 'colour=' "$WORK/clipcol2.gloopy" | wc -l)
+[ "$((NSET - NCLR))" -eq 1 ] && echo "smoke: PASS — SetClipColour added exactly one per-clip colour override (colour= $NSET vs $NCLR after clearing)" || { echo "smoke: clip colour wrong (set=$NSET clear=$NCLR)" >&2; exit 1; }
 g -d "{\"id\":$RCT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   # isolate
 
 # Rename mixer strip (insert): rename the highest-index strip -> ListInserts shows the new

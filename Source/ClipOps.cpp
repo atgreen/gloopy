@@ -471,6 +471,27 @@ bool MainComponent::apiRenameClip (int trackId, int index, const juce::String& n
     });
 }
 
+bool MainComponent::apiSetClipColour (int trackId, int index, const juce::String& hexArgb)
+{
+    // Empty / "0" clears the override (the clip inherits the track colour again).
+    const juce::String h = hexArgb.startsWith ("#") ? hexArgb.substring (1) : hexArgb;
+    const juce::Colour col = h.isEmpty() ? juce::Colour ((juce::uint32) 0) : juce::Colour::fromString (h);
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+            t->clips[(size_t) index].colour = col;
+        }
+        emitChange ("clip_changed", trackId);
+        if (arrangeView) arrangeView->repaint();
+        return true;
+    });
+}
+
 // Bounce (freeze) a clip to audio: render just this track over the clip's [start,end)
 // region — offline and soloed, so only its instrument + inserts print — then load the
 // result back as an embedded audio clip on a fresh "(bounce)" track. Non-destructive:

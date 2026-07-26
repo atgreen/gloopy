@@ -1110,6 +1110,17 @@ each shipping with desktop UI + screenshot validation.
   ArrangeView `onRenameClip` hook). smoke: rename a clip to "Chorus" → SaveProject writes
   `name="Chorus"` into the .gloopy. Screenshot-validated end-to-end (clip menu → dialog → typed
   "Verse" → the clip label updates live from "Kick" to "Verse" while the track header stays "Kick").
+- `[x]` **Per-clip colour override landed** (commit): a `Clip.colour` (ARGB 0 = inherit the track
+  colour) drawn by `drawClip` (`c.colour.getARGB() ? c.colour : t.colour`), so a clip can be
+  colour-coded independently of its track (mark sections). `apiSetClipColour(track,index,hexArgb)`
+  ("" clears → inherit; message-thread, undo) + SetClipColour RPC (`ClipColourRequest`) + Python
+  `set_clip_colour`. Serialised on the CLIP ValueTree (`colour`, omitted when inheriting).
+  **Desktop:** a "Colour ▸ Red/…/Grey + Inherit track" submenu on the clip menu (routed via
+  onClipCommand "clipcolour:<hex>"). smoke: set a clip red → one extra `colour=` attr in the saved
+  .gloopy, clearing removes it (delta check, since other tracks/clips also carry colours; juce
+  wraps long XML tags across lines so a per-tag single-line grep won't work — count occurrences).
+  Screenshot-validated end-to-end (Snare clip menu → Colour → Purple → the clip draws purple while
+  its track-header stripe stays yellow).
 - `[x]` **Track polarity / phase invert landed** (commit): a per-track `polarity` flag negates
   the track's contribution as it's summed into its mixer strip (`v *= pol` at the pan-law addFrom)
   — a standard channel polarity/phase button, useful to cancel a correlated layer. `apiSetTrackPolarity(id,invert)`

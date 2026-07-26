@@ -154,7 +154,7 @@ int ArrangeView::clipAt (int track, juce::Point<float> p) const
 void ArrangeView::drawClip (juce::Graphics& g, const Track& t, const Clip& c,
                             juce::Rectangle<float> r, bool selected) const
 {
-    g.setColour (t.colour);
+    g.setColour (c.colour.getARGB() != 0 ? c.colour : t.colour);   // per-clip override, else the track colour
     g.fillRoundedRectangle (r, 3.0f);
     g.setColour (juce::Colours::white.withAlpha (0.14f));
     g.fillRoundedRectangle (r.withHeight (14.0f), 3.0f);
@@ -622,6 +622,18 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addItem (18, "Loop this clip");                    // set the transport loop to this clip's span
         m.addItem (19, "Copy notes (JSON)", isMidi);         // notes -> system clipboard as JSON
         m.addItem (20, "Rename clip...");                    // set the clip's label
+        {
+            juce::PopupMenu ccm;                             // per-clip colour override (else inherit the track)
+            static const std::pair<const char*, const char*> kClipCols[] = {
+                { "Red", "ffef5350" }, { "Orange", "ffffa726" }, { "Yellow", "ffffee58" },
+                { "Green", "ff66bb6a" }, { "Teal", "ff26a69a" }, { "Blue", "ff42a5f5" },
+                { "Purple", "ffab47bc" }, { "Grey", "ff90a4ae" } };
+            for (int i = 0; i < (int) numElementsInArray (kClipCols); ++i)
+                ccm.addItem (810 + i, kClipCols[i].first);
+            ccm.addSeparator();
+            ccm.addItem (818, "Inherit track");
+            m.addSubMenu ("Colour", ccm);
+        }
         if (isMidi)                                          // non-destructive playback transpose
         {
             juce::PopupMenu tr;
@@ -743,6 +755,14 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                     if (rr == 1 && onRenameClip) onRenameClip (t, c, rw->getTextEditorContents ("name"));
                     delete rw;
                 }), false);
+                return;
+            }
+            if (r >= 810 && r <= 818)   // Colour: per-clip override (818 = inherit the track)
+            {
+                static const char* cols[] = { "ffef5350", "ffffa726", "ffffee58", "ff66bb6a",
+                                              "ff26a69a", "ff42a5f5", "ffab47bc", "ff90a4ae" };
+                const juce::String hex = (r == 818) ? juce::String() : juce::String (cols[r - 810]);
+                if (onClipCommand) onClipCommand (t, c, "clipcolour:" + hex);
                 return;
             }
             if (r >= 700 && r <= 708)   // Transpose <semitones> (non-destructive)
