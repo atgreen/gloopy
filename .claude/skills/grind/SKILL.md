@@ -771,6 +771,15 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       saw track so the master has HF content for the high shelf); the 7 knobs auto-render in
       the generic FX param panel (screenshot-validated). No proto change (effects serialise
       generically by param name).
+    - `[x]` **Tempo-synced delay** (commit): effects can now be tempo-aware — added a
+      `Effect::setTempo(bpm)` hook, called each block for every insert/master effect with
+      `transport.getBpm()`. `DelayFx` gained a "Sync bt" param: 0 = free (Time ms), else the
+      delay length in beats (0.5 = 1/8, 1 = 1/4, ...), converted to ms via the block tempo.
+      smoke proves it exactly: a synced 1/4 @120 BPM is a byte-for-byte match of a free 500 ms
+      delay (diff 0.00000, re-adding a fresh delay per render so feedback tails don't bleed
+      across renders — a gotcha), and a tempo change to 240 BPM halves it (render differs).
+      The "Sync bt" knob auto-renders in the FX panel (screenshot-validated). The setTempo hook
+      generalises to future tempo-synced effects. **Not yet:** dotted/triplet sync labels.
     - `[x]` **Stereo Widener landed** (commit): `StereoWidenerFx`, mid/side, one Width
       param (0 mono / 1 unchanged / 2 double-wide), as EffectType STEREO_WIDENER=9 (all
       four registries synced). The pure transform lives in `Source/StereoWiden.h`

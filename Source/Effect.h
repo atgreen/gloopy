@@ -28,6 +28,10 @@ public:
     virtual void process (juce::AudioBuffer<float>& buffer) = 0;
     virtual void reset() {}
 
+    /** Called each block before process() with the current project tempo, so a
+        tempo-syncable effect (e.g. Delay) can convert beat divisions to samples. */
+    virtual void setTempo (double /*bpm*/) {}
+
     virtual juce::String name() const = 0;
     virtual std::vector<EffectParam> parameters() = 0;
 

@@ -119,11 +119,16 @@ public:
         writePos = 0;
     }
 
+    void setTempo (double b) override { bpm = juce::jmax (1.0, b); }
+
     void process (juce::AudioBuffer<float>& b) override
     {
         if (bypassed.load() || bufLen <= 4) return;
 
-        const float base = juce::jlimit (1.0f, (float) (bufLen - 4), (timeMs.load() / 1000.0f) * (float) sr);
+        // Sync > 0 sets the delay length in beats (tempo-synced); otherwise Time ms is used.
+        const float syncBt = syncBeats.load();
+        const float delMs  = syncBt > 0.0f ? syncBt * (float) (60000.0 / bpm) : timeMs.load();
+        const float base = juce::jlimit (1.0f, (float) (bufLen - 4), (delMs / 1000.0f) * (float) sr);
         const float fb = juce::jlimit (0.0f, 0.95f, feedback.load());
         const float mx = juce::jlimit (0.0f, 1.0f, mix.load());
 
@@ -175,6 +180,8 @@ public:
         return {
             { "Time ms", 10.0f, 1000.0f, 300.0f,
               [this] { return timeMs.load(); }, [this] (float v) { timeMs.store (v); } },
+            { "Sync bt", 0.0f, 4.0f, 0.0f,                     // 0 = free (Time ms); e.g. 0.5=1/8, 1=1/4
+              [this] { return syncBeats.load(); }, [this] (float v) { syncBeats.store (v); } },
             { "Feedbk", 0.0f, 0.95f, 0.35f,
               [this] { return feedback.load(); }, [this] (float v) { feedback.store (v); } },
             { "Mix",    0.0f, 1.0f, 0.3f,
@@ -183,10 +190,10 @@ public:
     }
 
 private:
-    double sr { 44100.0 };
+    double sr { 44100.0 }, bpm { 120.0 };
     int    bufLen { 0 }, writePos { 0 };
     std::array<std::vector<float>, 2> buffers;
-    std::atomic<float> timeMs { 300.0f }, feedback { 0.35f }, mix { 0.3f };
+    std::atomic<float> timeMs { 300.0f }, syncBeats { 0.0f }, feedback { 0.35f }, mix { 0.3f };
 };
 
 // ---------------------------------------------------------------------------

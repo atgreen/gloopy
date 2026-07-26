@@ -991,6 +991,37 @@ assert abs(float('$PHWET')-float('$PHDRY'))<6.0, 'phaser is not roughly level-ma
 print('smoke: PASS — phaser sweeps notches (waveform diff %.4f, dry %s vs wet %s dBFS)'%(d,'$PHDRY','$PHWET'))
 " || { echo 'smoke: phaser wrong' >&2; exit 1; }
 g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+# Tempo-synced delay: a synced 1/4-note delay (Sync=1) at 120 BPM must match a free 500 ms
+# delay, and changing the tempo to 240 BPM must change it (proving effects receive the tempo).
+# Re-add a fresh delay per render so the delay line starts empty (feedback tails otherwise
+# bleed across renders and make the comparison state-dependent).
+render_delay() {  # $1=out  $2=extra-param-json (Time ms or Sync bt)
+    g -d '{"insert":0,"type":"DELAY"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+    g -d '{"insert":0,"slot":0,"name":"Feedbk","value":0.4}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+    g -d '{"insert":0,"slot":0,"name":"Mix","value":0.5}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+    g -d "$2" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+    g -d "{\"path\":\"$1\",\"tail_seconds\":1.0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+    g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+}
+g -d '{"bpm":120}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTempo >/dev/null
+render_delay "$WORK/dly_free.wav" '{"insert":0,"slot":0,"name":"Time ms","value":500}'
+render_delay "$WORK/dly_s120.wav" '{"insert":0,"slot":0,"name":"Sync bt","value":1}'
+g -d '{"bpm":240}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTempo >/dev/null
+render_delay "$WORK/dly_s240.wav" '{"insert":0,"slot":0,"name":"Sync bt","value":1}'
+g -d '{"bpm":120}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetTempo >/dev/null
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+free=rd('$WORK/dly_free.wav');s120=rd('$WORK/dly_s120.wav');s240=rd('$WORK/dly_s240.wav')
+m=min(len(free),len(s120),len(s240))
+def diff(a,b): return sum(abs(a[i]-b[i]) for i in range(m))/m/(1<<23)
+assert any(free[:m]), 'delay render silent'
+dsync=diff(free,s120); dtempo=diff(s120,s240)
+assert dsync < 0.0005, 'synced 1/4 @120 did not match free 500ms (diff=%.5f)'%dsync
+assert dtempo > 0.003, 'changing tempo did not change the synced delay (diff=%.5f)'%dtempo
+print('smoke: PASS — tempo-synced delay: 1/4@120 == free 500ms (diff %.5f), tempo change alters it (diff %.4f)'%(dsync,dtempo))
+" || { echo 'smoke: tempo-synced delay wrong' >&2; exit 1; }
 
 # Stereo Widener: prove the STEREO_WIDENER enum -> factory -> params wiring and a clean
 # render (the mid/side DSP itself is unit-tested in GloopyTests::StereoWidener).

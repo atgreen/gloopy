@@ -2230,10 +2230,11 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         if (mixerTracks[(size_t) ti]->solo.load()) { anyTrackSolo = true; break; }
 
     MixerTrack& master = *mixerTracks[0];
+    const double fxBpm = juce::jmax (1.0, transport.getBpm());   // tempo for tempo-synced effects this block
     for (int ti = 1; ti < numTracks; ++ti)
     {
         MixerTrack& mt = *mixerTracks[(size_t) ti];
-        { auto sub = subView (mt.buffer); for (auto& fx : mt.effects) fx->process (sub); }
+        { auto sub = subView (mt.buffer); for (auto& fx : mt.effects) { fx->setTempo (fxBpm); fx->process (sub); } }
         const float mpL = mt.buffer.getMagnitude (0, 0, num), mpR = mt.buffer.getMagnitude (1, 0, num);
         mt.peakL.store (mpL); mt.peakR.store (mpR);
         if (mpL >= 1.0f || mpR >= 1.0f) mt.clipped.store (true);
@@ -2268,7 +2269,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     }
 
     // --- master -> output ---
-    { auto sub = subView (master.buffer); for (auto& fx : master.effects) fx->process (sub); }
+    { auto sub = subView (master.buffer); for (auto& fx : master.effects) { fx->setTempo (fxBpm); fx->process (sub); } }
     const float mpL = master.buffer.getMagnitude (0, 0, num), mpR = master.buffer.getMagnitude (1, 0, num);
     master.peakL.store (mpL); master.peakR.store (mpR);
     if (mpL >= 1.0f || mpR >= 1.0f) master.clipped.store (true);
