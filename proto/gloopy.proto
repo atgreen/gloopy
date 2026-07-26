@@ -122,9 +122,10 @@ message SceneList { repeated string names = 1; }
 // ── control groups (VCA-lite) ──────────────────────────────
 message ControlGroupGain { string name = 1; float gain = 2; }        // gain 0..1 (also defines the group)
 message ControlGroupMute { string name = 1; bool mute = 2; }
+message ControlGroupSolo { string name = 1; bool solo = 2; }   // VCA solo: only soloed groups' members audible
 message GroupAssign      { int32 insert = 1; string group = 2; }     // group="" clears membership
 message GroupName        { string name = 1; }
-message ControlGroupInfo { string name = 1; float gain = 2; bool mute = 3; int32 members = 4; }
+message ControlGroupInfo { string name = 1; float gain = 2; bool mute = 3; int32 members = 4; bool solo = 5; }
 message ControlGroupList { repeated ControlGroupInfo groups = 1; }
 
 // ── universal parameter model ──────────────────────────────
@@ -432,6 +433,7 @@ service Gloopy {
   rpc DefineControlGroup  (ControlGroupGain) returns (Ack);   // upsert a group with a gain
   rpc SetControlGroupGain (ControlGroupGain) returns (Ack);   // set an existing group's fader
   rpc SetControlGroupMute (ControlGroupMute) returns (Ack);
+  rpc SetControlGroupSolo (ControlGroupSolo) returns (Ack);   // VCA solo
   rpc AssignInsertToGroup (GroupAssign)      returns (Ack);   // group="" clears membership
   rpc RemoveControlGroup  (GroupName)        returns (Ack);
   rpc ListControlGroups   (Empty)            returns (ControlGroupList);

@@ -462,9 +462,10 @@ void MixerView::showGroupMenu (int insertIndex)
         const int pcts[] = { 0, 25, 50, 75, 100 };
         for (int i = 0; i < 5; ++i) gain.addItem (300 + i, juce::String (pcts[i]) + "%");
         m.addSubMenu ("Group gain", gain);
-        bool muted = false;
-        for (auto& gs : groups) if (gs.name == cur) muted = gs.mute;
+        bool muted = false, soloed = false;
+        for (auto& gs : groups) if (gs.name == cur) { muted = gs.mute; soloed = gs.solo; }
         m.addItem (3, "Mute group", true, muted);
+        m.addItem (5, "Solo group", true, soloed);    // VCA solo
         m.addSeparator();
         m.addItem (4, "Delete group");
     }
@@ -479,6 +480,13 @@ void MixerView::showGroupMenu (int insertIndex)
             bool muted = false;
             for (auto& gs : groups) if (gs.name == cur) muted = gs.mute;
             onGroupMute (cur, ! muted);
+            return;
+        }
+        if (r == 5 && onGroupSolo)
+        {
+            bool soloed = false;
+            for (auto& gs : groups) if (gs.name == cur) soloed = gs.solo;
+            onGroupSolo (cur, ! soloed);
             return;
         }
         if (r == 4 && onRemoveGroup) { onRemoveGroup (cur); return; }

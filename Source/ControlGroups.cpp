@@ -63,6 +63,18 @@ bool MainComponent::apiSetControlGroupMute (const juce::String& name, bool mute)
     });
 }
 
+bool MainComponent::apiSetControlGroupSolo (const juce::String& name, bool solo)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        const juce::ScopedLock sl (engineLock);
+        auto* g = findControlGroup (name);
+        if (g == nullptr) return false;
+        g->solo.store (solo);
+        return true;
+    });
+}
+
 // Assign an insert to a group (group="" clears its membership). Creating a reference
 // to a not-yet-defined group defines it (unity gain), so a single call both makes a
 // group and adds its first member.
@@ -112,7 +124,7 @@ std::vector<MainComponent::ControlGroupInfo> MainComponent::apiListControlGroups
             int members = 0;
             for (auto& mt : mixerTracks)
                 if (mt->group == g->name) ++members;
-            out.push_back ({ g->name, g->gain.load(), g->mute.load(), members });
+            out.push_back ({ g->name, g->gain.load(), g->mute.load(), g->solo.load(), members });
         }
         return out;
     });

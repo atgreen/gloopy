@@ -457,7 +457,7 @@ MainComponent::MainComponent (bool headless)
     mixerView->onListGroups  = [this]
     {
         std::vector<MixerView::GroupState> out;
-        for (auto& g : apiListControlGroups()) out.push_back ({ g.name, g.gain, g.mute });
+        for (auto& g : apiListControlGroups()) out.push_back ({ g.name, g.gain, g.mute, g.solo });
         return out;
     };
     mixerView->onInsertGroup = [this] (int insert) -> juce::String
@@ -468,6 +468,7 @@ MainComponent::MainComponent (bool headless)
     mixerView->onAssignGroup = [this] (int insert, const juce::String& grp) { apiAssignInsertToGroup (insert, grp); };
     mixerView->onGroupGain   = [this] (const juce::String& grp, float gain) { apiDefineControlGroup (grp, gain); };
     mixerView->onGroupMute   = [this] (const juce::String& grp, bool mute)  { apiSetControlGroupMute (grp, mute); };
+    mixerView->onGroupSolo   = [this] (const juce::String& grp, bool solo)  { apiSetControlGroupSolo (grp, solo); };
     mixerView->onRemoveGroup = [this] (const juce::String& grp) { apiRemoveControlGroup (grp); };
 
     // Start with an EMPTY project — no default tracks. Use File -> New from Template
@@ -2309,6 +2310,9 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     bool anyTrackSolo = false;
     for (int ti = 1; ti < numTracks; ++ti)
         if (mixerTracks[(size_t) ti]->solo.load()) { anyTrackSolo = true; break; }
+    // VCA solo: soloing a control group makes only its members audible (like soloing them).
+    bool anyGroupSolo = false;
+    for (auto& g : controlGroups) if (g->solo.load()) { anyGroupSolo = true; break; }
 
     MixerTrack& master = *mixerTracks[0];
     const double fxBpm = juce::jmax (1.0, transport.getBpm());   // tempo for tempo-synced effects this block
@@ -2331,7 +2335,12 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
                 bus.addFrom (1, 0, mt.buffer, 1, 0, num, sd.level);
             }
 
-        const bool audible = ! mt.mute.load() && (! anyTrackSolo || mt.solo.load());
+        // Solo: an insert is audible only if nothing is soloed, or it is directly soloed, or
+        // it belongs to a soloed control group (VCA solo). Track-solo and group-solo combine.
+        bool soloed = mt.solo.load();
+        if (! soloed && anyGroupSolo && mt.group.isNotEmpty())
+            if (auto* grp = findControlGroup (mt.group)) soloed = grp->solo.load();
+        const bool audible = ! mt.mute.load() && ((! anyTrackSolo && ! anyGroupSolo) || soloed);
         if (! audible) continue;
         float v = mt.volume.load();
         // VCA-lite: an insert's control group scales its fader; a muted group silences it.
@@ -3239,6 +3248,7 @@ juce::ValueTree MainComponent::toValueTree()
         gv.setProperty ("name", g->name, nullptr);
         gv.setProperty ("gain", g->gain.load(), nullptr);
         gv.setProperty ("mute", g->mute.load(), nullptr);
+        if (g->solo.load()) gv.setProperty ("solo", true, nullptr);
         grps.addChild (gv, -1, nullptr);
     }
     root.addChild (grps, -1, nullptr);
@@ -3683,6 +3693,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
         g->name = gv.getProperty ("name", "Group").toString();
         g->gain.store ((float) (double) gv.getProperty ("gain", 1.0));
         g->mute.store ((bool) gv.getProperty ("mute", false));
+        g->solo.store ((bool) gv.getProperty ("solo", false));
         controlGroups.push_back (std::move (g));
     }
 

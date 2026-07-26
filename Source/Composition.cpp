@@ -541,6 +541,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
         if (! gv.hasType ("GROUP")) continue;
         gw.arrayItem ("groups").str ("name", gv.getProperty ("name").toString())
           .number ("gain", gv.getProperty ("gain", 1.0)).boolean ("mute", gv.getProperty ("mute", false))
+          .boolean ("solo", gv.getProperty ("solo", false))
           .blank();
     }
     ctx.writeText ("groups.toml", gw.str());
@@ -943,6 +944,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             gv.setProperty ("name", gd.getString ("name"), nullptr);
             gv.setProperty ("gain", gd.getDouble ("gain", 1.0), nullptr);
             gv.setProperty ("mute", gd.getBool ("mute"), nullptr);
+            if (gd.getBool ("solo")) gv.setProperty ("solo", true, nullptr);
             groupTree.addChild (gv, -1, nullptr);
         }
     root.addChild (groupTree, -1, nullptr);

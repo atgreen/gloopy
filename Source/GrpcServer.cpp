@@ -316,6 +316,9 @@ namespace
         Status SetControlGroupMute (ServerContext*, const pb::ControlGroupMute* q, pb::Ack* r) override
         { const bool ok = main.apiSetControlGroupMute (js (q->name()), q->mute());
           r->set_ok (ok); if (! ok) r->set_error ("no such control group"); return Status::OK; }
+        Status SetControlGroupSolo (ServerContext*, const pb::ControlGroupSolo* q, pb::Ack* r) override
+        { const bool ok = main.apiSetControlGroupSolo (js (q->name()), q->solo());
+          r->set_ok (ok); if (! ok) r->set_error ("no such control group"); return Status::OK; }
         Status AssignInsertToGroup (ServerContext*, const pb::GroupAssign* q, pb::Ack* r) override
         { const bool ok = main.apiAssignInsertToGroup (q->insert(), js (q->group()));
           r->set_ok (ok); if (! ok) r->set_error ("invalid insert index"); return Status::OK; }
@@ -326,7 +329,7 @@ namespace
         {
             for (auto& g : main.apiListControlGroups())
             { auto* o = r->add_groups(); o->set_name (g.name.toStdString());
-              o->set_gain (g.gain); o->set_mute (g.mute); o->set_members (g.members); }
+              o->set_gain (g.gain); o->set_mute (g.mute); o->set_members (g.members); o->set_solo (g.solo); }
             return Status::OK;
         }
 

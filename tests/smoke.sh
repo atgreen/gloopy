@@ -1801,6 +1801,48 @@ assert abs(gs['VCA'].get('gain',0)-0.5)<1e-6, 'group gain wrong after reload: %s
 assert gs['VCA'].get('members',0)>=1, 'group membership lost after reload: %s'%gs['VCA']
 print('smoke: PASS — control group survived composition round-trip (gain 0.5, %d member)'%gs['VCA']['members'])
 " || { echo 'smoke: control group did not survive composition round-trip' >&2; exit 1; }
+# Group solo (VCA solo): soloing a control group makes ONLY its members audible in the full
+# mix. Put T1 in group "gs" (T2 stays ungrouped); with gs soloed, the full-mix render must
+# isolate T1 — i.e. equal a T1-only render and drop T2. The solo flag round-trips.
+GS1=$(g -d '{"name":"gsA","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.8,"release":0.1,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$GS1,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":57,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+GS2=$(g -d '{"name":"gsB","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.8,"release":0.1,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$GS2,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":64,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/gspre.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+GSI=$(python3 -c "
+import xml.etree.ElementTree as ET
+t=[t for t in ET.parse('$WORK/gspre.gloopy').getroot().iter('TRACK') if t.get('name')=='gsA'][0]
+print(t.get('mixerTrack'))")   # gsA's routed insert index
+g -d "{\"insert\":$GSI,\"group\":\"gs\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AssignInsertToGroup >/dev/null
+g -d "{\"path\":\"$WORK/gs_t1.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$GS1}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null   # T1 alone
+g -d "{\"path\":\"$WORK/gs_full.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null                    # full mix
+g -d '{"name":"gs","solo":true}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetControlGroupSolo >/dev/null
+g -d "{\"path\":\"$WORK/gs_solo.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null                    # full mix, gs soloed
+GSSOLO=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListControlGroups | python3 -c "import json,sys;print(next(g.get('solo',False) for g in json.load(sys.stdin)['groups'] if g['name']=='gs'))")
+python3 -c "
+import wave
+def raw(p):
+    w=wave.open(p);return w.readframes(w.getnframes())
+def rms(p):
+    f=raw(p);v=[int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)];return (sum(x*x for x in v)/max(1,len(v)))**0.5
+assert '$GSSOLO'=='True','ListControlGroups did not report gs soloed'
+assert rms('$WORK/gs_full.wav') > rms('$WORK/gs_t1.wav')*1.1, 'full mix should be louder than T1 alone (T2 present)'
+assert raw('$WORK/gs_solo.wav')==raw('$WORK/gs_t1.wav'), 'group-solo full mix did not isolate T1 (differs from a T1-only render)'
+print('smoke: PASS — group solo isolates its member (soloed full mix == T1 alone, T2 dropped)')
+" || { echo 'smoke: group solo wrong' >&2; exit 1; }
+# The solo flag survives a project round-trip.
+g -d "{\"path\":\"$WORK/gssolo.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d "{\"path\":\"$WORK/gssolo.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListControlGroups | python3 -c "
+import json,sys
+g=[x for x in json.load(sys.stdin)['groups'] if x['name']=='gs']
+assert g and g[0].get('solo',False)==True, 'group solo lost on reload: %s'%g
+print('smoke: PASS — group solo flag survives a project round-trip')
+" || { echo 'smoke: group solo did not round-trip' >&2; exit 1; }
+g -d '{"name":"gs","solo":false}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetControlGroupSolo >/dev/null
+g -d '{"name":"gs"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveControlGroup >/dev/null 2>&1 || true
+g -d "{\"id\":$GS1}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+g -d "{\"id\":$GS2}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
 # Swing groove: swing shifts every other 1/8 note later, so a straight-8ths clip renders
 # differently swung vs straight; GetTransport reports the amount. Solo-rendered, cleaned up.

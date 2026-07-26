@@ -445,6 +445,10 @@ class Gloopy:
     def set_control_group_mute(self, name: str, mute: bool) -> None:
         self._ack(self.stub.SetControlGroupMute(pb.ControlGroupMute(name=name, mute=mute)))
 
+    def set_control_group_solo(self, name: str, solo: bool = True) -> None:
+        """VCA solo: while any group is soloed, only members of soloed groups are audible."""
+        self._ack(self.stub.SetControlGroupSolo(pb.ControlGroupSolo(name=name, solo=solo)))
+
     def assign_insert_to_group(self, insert: int, group: str) -> None:
         """Assign an insert to a control group (group='' clears membership)."""
         self._ack(self.stub.AssignInsertToGroup(pb.GroupAssign(insert=insert, group=group)))
@@ -453,8 +457,8 @@ class Gloopy:
         self._ack(self.stub.RemoveControlGroup(pb.GroupName(name=name)))
 
     def list_control_groups(self) -> list:
-        """List control groups as (name, gain, mute, members) tuples."""
-        return [(g.name, g.gain, g.mute, g.members)
+        """List control groups as (name, gain, mute, solo, members) tuples."""
+        return [(g.name, g.gain, g.mute, g.solo, g.members)
                 for g in self.stub.ListControlGroups(pb.Empty()).groups]
 
     # -- mixer scenes (named snapshots) -----------------------------------

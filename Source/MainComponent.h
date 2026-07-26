@@ -256,6 +256,7 @@ public:
         juce::String       name;
         std::atomic<float> gain { 1.0f };
         std::atomic<bool>  mute { false };
+        std::atomic<bool>  solo { false };   // VCA solo: soloing a group solos all its members
     };
     std::vector<std::unique_ptr<ControlGroup>> controlGroups;
     ControlGroup* findControlGroup (const juce::String& name);      // caller holds engineLock; nullptr if none
@@ -263,9 +264,10 @@ public:
     bool apiDefineControlGroup (const juce::String& name, float gain);   // upsert a group (gain, mute=false if new)
     bool apiSetControlGroupGain (const juce::String& name, float gain);  // set group fader (0..1); false if unknown
     bool apiSetControlGroupMute (const juce::String& name, bool mute);   // group mute; false if unknown
+    bool apiSetControlGroupSolo (const juce::String& name, bool solo);   // VCA solo: only soloed groups' members audible
     bool apiAssignInsertToGroup (int insert, const juce::String& group); // group="" clears; defines the group if new
     bool apiRemoveControlGroup (const juce::String& name);              // remove group + clear members
-    struct ControlGroupInfo { juce::String name; float gain; bool mute; int members; };
+    struct ControlGroupInfo { juce::String name; float gain; bool mute; bool solo; int members; };
     std::vector<ControlGroupInfo> apiListControlGroups();
 
     // --- mixer scenes (MixerScenes.cpp) ---

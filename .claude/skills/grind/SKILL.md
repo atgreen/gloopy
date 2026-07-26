@@ -567,8 +567,16 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      Delete) — screenshot-validated. smoke proves gain 0.5 drops a member's soloed render
      exactly 6 dB, mute silences it, and the group + membership survive both a `.gloopy`
      round-trip and a SaveComposition/LoadComposition round-trip.
-     **Not yet:** group *solo* (VCA solo); a dedicated group fader strip in the mixer
-     (menu-driven gain for now).
+   - `[x]` **Group solo (VCA solo) landed** (commit): `ControlGroup.solo` — soloing a group
+     makes ONLY its members audible in the full mix (folded into the mix loop's `audible`
+     test alongside per-track solo: while anything is soloed, an insert plays iff it is
+     directly soloed OR belongs to a soloed group). `apiSetControlGroupSolo` + SetControlGroupSolo
+     RPC + Python `set_control_group_solo`; `solo` added to `ListControlGroups`. Serialised on
+     the `GROUPS/GROUP` ValueTree and `groups.toml` (omitted when false). **Desktop:** a "Solo
+     group" toggle on the mixer strip's control-group menu. smoke proves a soloed group's
+     full-mix render is byte-identical to a T1-only render (T2 dropped) and that the solo flag
+     survives a project round-trip; screenshot-validated (the "Solo group" menu item).
+     **Not yet:** a dedicated group fader strip in the mixer (menu-driven gain for now).
 
 ### Wave 4 — Musical model & modulation
 

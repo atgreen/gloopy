@@ -480,6 +480,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ControlGroupMute.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.SetControlGroupSolo = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetControlGroupSolo',
+                request_serializer=gloopy__pb2.ControlGroupSolo.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.AssignInsertToGroup = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AssignInsertToGroup',
                 request_serializer=gloopy__pb2.GroupAssign.SerializeToString,
@@ -1402,6 +1407,13 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetControlGroupSolo(self, request, context):
+        """VCA solo
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def AssignInsertToGroup(self, request, context):
         """group="" clears membership
         """
@@ -2289,6 +2301,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'SetControlGroupMute': grpc.unary_unary_rpc_method_handler(
                     servicer.SetControlGroupMute,
                     request_deserializer=gloopy__pb2.ControlGroupMute.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetControlGroupSolo': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetControlGroupSolo,
+                    request_deserializer=gloopy__pb2.ControlGroupSolo.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'AssignInsertToGroup': grpc.unary_unary_rpc_method_handler(
@@ -5030,6 +5047,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/SetControlGroupMute',
             gloopy__pb2.ControlGroupMute.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetControlGroupSolo(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetControlGroupSolo',
+            gloopy__pb2.ControlGroupSolo.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

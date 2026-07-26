@@ -52,12 +52,13 @@ public:
 
     // Control groups (VCA-lite): the strip name's right-click menu creates/assigns
     // groups and rides the group fader. Wired by the owner to the apiControlGroup* calls.
-    struct GroupState { juce::String name; float gain; bool mute; };
+    struct GroupState { juce::String name; float gain; bool mute; bool solo; };
     std::function<std::vector<GroupState>()>       onListGroups;   // all groups + their state
     std::function<juce::String (int)>              onInsertGroup;  // an insert's current group ("" = none)
     std::function<void (int, const juce::String&)> onAssignGroup;  // assign insert -> group ("" clears; defines if new)
     std::function<void (const juce::String&, float)> onGroupGain;  // set a group's fader
     std::function<void (const juce::String&, bool)>  onGroupMute;  // set a group's mute
+    std::function<void (const juce::String&, bool)>  onGroupSolo;  // set a group's VCA solo
     std::function<void (const juce::String&)>        onRemoveGroup;
 
     // Plugin hooks (wired by the owner).
