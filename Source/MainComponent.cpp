@@ -3455,6 +3455,20 @@ void MainComponent::showFileMenu()
     menu.addItem (12, "Reset Tuning (Equal)", tuned);
     menu.addSeparator();
     menu.addItem (8, "Project Notes...");
+    // Live MIDI status (read-only): the input sources Gloopy hears + which track they play.
+    juce::PopupMenu midiMenu;
+    const auto midiIns = apiListMidiInputs();
+    if (midiIns.empty())
+        midiMenu.addItem (899, "(no MIDI inputs detected)", false);
+    else
+        for (const auto& n : midiIns) midiMenu.addItem (899, n, false);
+    midiMenu.addSeparator();
+    int midiTgt = midiInputTarget.load();
+    if (midiTgt < 0) midiTgt = firstInstrumentId.load();
+    Track* midiTrack = resolveTrack (midiTgt);
+    midiMenu.addItem (899, "Live notes play: " + (midiTrack != nullptr ? midiTrack->name
+                                                                        : juce::String ("(select an instrument track)")), false);
+    menu.addSubMenu ("MIDI Inputs", midiMenu);
     menu.addItem (5, "Rescan Plugins");
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
         [this, isComposition] (int result)
