@@ -1223,6 +1223,18 @@ each shipping with desktop UI + screenshot validation.
       apiListTemplates/apiNewFromTemplate + ListTemplates/NewFromTemplate RPCs + Python +
       `File → New from Template`. Track ids are now 1-based (proto3 omits id 0). **The
       browser sidebar should drive project seeding through this same template API.**
+    - `[~]` **Browser sidebar — first slice landed** (commit, user request "tackle the browser
+      sidebar next"): a docked, collapsible LEFT panel (`Source/BrowserSidebar.h`, header-only) with
+      a "TEMPLATES" category — each built-in/user template (from `apiListTemplates`) is a clickable
+      row that seeds a new project via `apiNewFromTemplate` (off-thread + busy overlay), exactly the
+      "drive seeding through the template API" the note above asked for. Toggled by a compact "☰"
+      toolbar button (`browseButton`, next to Maps/Mixer — kept narrow so the crowded toolbar didn't
+      push Metro off, a real overflow gotcha); when shown it docks 210px on the left of the main
+      content and `resized()` reflows arrange/editor. Screenshot-validated end-to-end (☰ → the
+      TEMPLATES list [Starter Beat / Piano+Bass+Drums / Drum Kit / Lead+Bass] → clicking "Starter
+      Beat" seeded the Kick/Snare/Hat/Clap/Bass tracks with the sidebar still open). **Next slices:**
+      more categories as tabs (Demos = the bundled example compositions via openAny; Samples; Plugins;
+      Presets; Favorites), and first-class drag-and-drop from the browser onto tracks/inserts.
     - `[x]` **User templates ("Save as Template") landed** (commit): the current project can
       be saved as a reusable template — `apiSaveAsTemplate(name)` writes a `.gloopy` into a
       user templates dir (`<userAppData>/Gloopy/templates`, or `$GLOOPY_TEMPLATE_PATH`, the

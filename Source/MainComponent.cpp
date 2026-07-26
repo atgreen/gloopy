@@ -176,6 +176,26 @@ MainComponent::MainComponent (bool headless)
     addAndMakeVisible (mixerButton);
     mixerButton.onClick = [this] { openMixer(); };
 
+    // Collapsible left browser: a Templates list that seeds a new project on click.
+    browser = std::make_unique<BrowserSidebar>();
+    browser->getTemplates     = [this] { return apiListTemplates(); };
+    browser->onChooseTemplate = [this] (const juce::String& name)
+    {
+        busyOverlay.show ("Loading " + name + "…");
+        juce::MessageManager::callAsync ([this, name] { apiNewFromTemplate (name); busyOverlay.hide(); });
+    };
+    addChildComponent (*browser);   // hidden until toggled
+    browseButton.setClickingTogglesState (true);
+    browseButton.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
+    browseButton.setTooltip ("Browser: templates (click to start a new project from one)");
+    browseButton.onClick = [this]
+    {
+        browserVisible = browseButton.getToggleState();
+        if (browserVisible) browser->refresh();
+        resized();
+    };
+    addAndMakeVisible (browseButton);
+
     addAndMakeVisible (mapsButton);
     mapsButton.setTooltip ("Mappings: see and remove all MIDI/OSC controller maps and LFO routes");
     mapsButton.onClick = [this] { openMappings(); };
@@ -3052,11 +3072,20 @@ void MainComponent::resized()
     addAudioBtn  .setBounds (bar.removeFromLeft (68)); bar.removeFromLeft (5);
     addPluginBtn .setBounds (bar.removeFromLeft (72));
     mixerButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (6);
+    browseButton .setBounds (bar.removeFromRight (30)); bar.removeFromRight (6);
     mapsButton   .setBounds (bar.removeFromRight (52)); bar.removeFromRight (6);
     loopButton   .setBounds (bar.removeFromRight (54)); bar.removeFromRight (6);
     metroButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (12);
     scaleNameBox .setBounds (bar.removeFromRight (128).reduced (0, 4)); bar.removeFromRight (4);
     scaleRootBox .setBounds (bar.removeFromRight (52).reduced (0, 4));
+
+    // Collapsible browser docks on the left of the main content area.
+    if (browser != nullptr)
+    {
+        browser->setVisible (browserVisible);
+        if (browserVisible)
+            browser->setBounds (area.removeFromLeft (210));
+    }
 
     // Arrangement | divider | editor.
     Component* comps[] = { &arrangeViewport, dividerBar.get(), &editorPanel };

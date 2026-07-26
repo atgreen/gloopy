@@ -18,6 +18,7 @@
 #include "MixerTrack.h"
 #include "MappingsView.h"
 #include "MixerView.h"
+#include "BrowserSidebar.h"
 #include "Effects.h"
 #include "PluginHost.h"
 #include "PluginInstrument.h"
@@ -595,6 +596,7 @@ private:
     juce::TextButton metroButton   { "Metro" };
     juce::TextButton mixerButton   { "Mixer" };
     juce::TextButton mapsButton    { "Maps" };     // see + remove all controller/LFO mappings
+    juce::TextButton browseButton  { juce::String::fromUTF8 ("\xe2\x98\xb0") };   // hamburger: toggle the left browser sidebar
     juce::ComboBox   scaleRootBox;                 // C..B    — project scale selector
     juce::ComboBox   scaleNameBox;                 // chromatic/major/minor/...
     void applyScaleFromToolbar();                  // reads both boxes -> apiSetScale
@@ -785,6 +787,8 @@ private:
     EditorPanel      editorPanel { transport };
 
     std::unique_ptr<MixerView>            mixerView;
+    std::unique_ptr<BrowserSidebar>       browser;          // collapsible left browser (templates, ...)
+    bool                                  browserVisible { false };
     std::unique_ptr<juce::DocumentWindow> mixerWindow;
     juce::String projectNotes;                          // free-form markdown (message thread)
     std::unique_ptr<juce::DocumentWindow> notesWindow;
