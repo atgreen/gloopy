@@ -94,3 +94,21 @@ great out of the box, self-contained, no external plugin install required.
   (configuration + at least the wavetables referenced by bundled patches) during slice 1.
 - **BLOCK_SIZE / SR:** Surge fixes BLOCK_SIZE=32; the `SfizzGenerator` chunking pattern
   handles a fixed engine block inside Gloopy's variable callback — reuse it.
+
+## Build-state findings (2026-07-26) — resume slice 1 here
+
+- No existing Surge build tree in `~/git/surge` (no `build/`), though Surge XT is
+  installed (`~/.vst3`, `~/.lv2`) — provenance of that install unconfirmed (may be a
+  distro package, not this repo).
+- `~/git/surge/libs/` **directories are populated** (JUCE, sst/*, fmt, PEGTL, simde,
+  r8brain, luajitlib, oddsound-mts, …) BUT `git submodule status` shows a `-` prefix
+  (reports uninitialized). **First probe action:** verify whether `libs/*` actually have
+  content (e.g. `ls libs/JUCE/modules`, `ls libs/sst/sst-basic-blocks/include`); if empty,
+  `git submodule update --init --recursive` (large — pulls JUCE etc.). If populated, the
+  `-` is cosmetic and we can configure directly.
+- **Next concrete step:** in a scratch dir, `cmake` Surge scoped to the `surge-common`
+  target only (avoid the UI/plugin/`surge-xt` targets), build it, then a ~40-line headless
+  main (`new SurgeSynthesizer(&HeadlessPluginLayerProxy, dataPath)` → `loadPatchByPath` a
+  factory patch → `process()` ~100 blocks → assert RMS(`output`) > 0). Time-box; if the
+  configure needs network or the build is > ~15 min, checkpoint and consider the fallback
+  (build the plugin + host it) noted in Risks. Keep this OUT of Gloopy's tree until green.
