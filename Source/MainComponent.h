@@ -330,6 +330,7 @@ public:
 
     // track & clip management
     bool apiRemoveTrack (int id);
+    bool apiRenameTrack (int id, const juce::String& name);   // rename an existing track
     int  apiAddAudioTrack (const juce::String& name);
     int  apiAddSamplerTrack (const juce::String& name, const juce::String& path, int rootNote);
     bool apiSetSamplerControls (int trackId, float startFrac, float endFrac, bool reverse, int rootNote, float fadeIn, float fadeOut, bool loop, bool mono = false);

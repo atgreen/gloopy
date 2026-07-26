@@ -174,6 +174,25 @@ g -d "{\"path\":\"$NCOMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/
 g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetProjectNotes | python3 -c "import json,sys;assert 'XYZZY' in json.load(sys.stdin).get('text',''),'notes lost on reload';print('smoke: PASS — project notes survive composition round-trip')" \
     || { echo "smoke: project notes did not round-trip" >&2; exit 1; }
 
+# Rename track: create -> rename -> GetState shows the new name -> survives a
+# composition round-trip (names serialise); empty names are rejected. The round-trip
+# is destructive (NewProject), so snapshot the session and restore it at the end.
+g -d "{\"path\":\"$WORK/rename_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+RNT=$(g -d '{"name":"renme-orig","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$RNT,\"name\":\"renme-new\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenameTrack >/dev/null
+g -d "{\"track_id\":$RNT,\"name\":\"   \"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenameTrack >/dev/null 2>&1   # empty -> rejected, no-op
+RNCOMP="$WORK/renamecomp"
+g -d "{\"path\":\"$RNCOMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+g -d "{\"path\":\"$RNCOMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "
+import json,sys
+names=[t.get('name') for t in json.load(sys.stdin)['tracks']]
+assert 'renme-new' in names and 'renme-orig' not in names, 'rename lost: %s'%names
+print('smoke: PASS — RenameTrack renme-orig->renme-new (survives composition round-trip)')
+" || { echo 'smoke: rename track wrong' >&2; exit 1; }
+g -d "{\"path\":\"$WORK/rename_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+
 # Modulation matrix: an LFO on a synth cutoff must change the render vs a static
 # cutoff. Dedicated track + two renders, then cleaned up.
 MT=$(g -d '{"name":"modtest","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.2,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)

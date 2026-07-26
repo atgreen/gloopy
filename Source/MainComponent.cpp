@@ -406,6 +406,12 @@ MainComponent::MainComponent (bool headless)
             if (arrangeView) arrangeView->repaint();
     };
 
+    arrangeView->onRenameTrack = [this] (int trackIdx, const juce::String& name)
+    {
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+        apiRenameTrack (tracks[(size_t) trackIdx]->id, name);    // map view index -> stable API id
+    };
+
     arrangeView->onClipGain = [this] (int trackIdx, int clip, float db)
     {
         if (juce::isPositiveAndBelow (trackIdx, (int) tracks.size()))
@@ -1414,6 +1420,25 @@ bool MainComponent::apiRemoveTrack (int id)
         emitChange ("track_removed", id);
         if (arrangeView) arrangeView->rebuild();
         selectClip (-1, -1);
+        resized();
+        return true;
+    });
+}
+
+bool MainComponent::apiRenameTrack (int id, const juce::String& name)
+{
+    if (name.trim().isEmpty()) return false;
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (id);
+        if (t == nullptr) return false;
+        pushUndoSnapshot();
+        {
+            const juce::ScopedLock sl (engineLock);
+            t->name = name.trim();
+        }
+        emitChange ("track_renamed", id);
+        if (arrangeView) arrangeView->rebuild();
         resized();
         return true;
     });

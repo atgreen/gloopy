@@ -462,13 +462,39 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         if (onClipSelected) onClipSelected (track, -1);
         repaint();
 
-        // Right-click a Sampler track header -> playback-window prompt (start/end/reverse/root).
-        if (e.mods.isPopupMenu() && getSamplerControls)
+        // Right-click a track header -> track menu (Rename; Sampler window for sampler tracks).
+        if (e.mods.isPopupMenu())
         {
-            const auto sc = getSamplerControls (track);
-            if (sc.isSampler)
+            SamplerCtl sc {};
+            if (getSamplerControls) sc = getSamplerControls (track);
+            juce::String curName;
             {
-                auto* aw = new juce::AlertWindow ("Sampler", "One-shot playback window", juce::MessageBoxIconType::NoIcon);
+                const juce::ScopedLock sl (engineLock);
+                if (juce::isPositiveAndBelow (track, (int) tracks.size()))
+                    curName = tracks[(size_t) track]->name;
+            }
+            const int tk = track;
+
+            juce::PopupMenu m;
+            m.addItem (1, "Rename track...");
+            if (sc.isSampler) m.addItem (2, "Sampler playback window...");
+            m.showMenuAsync (juce::PopupMenu::Options(), [this, tk, curName, sc] (int r)
+            {
+                if (r == 1)
+                {
+                    auto* rw = new juce::AlertWindow ("Rename track", "New track name", juce::MessageBoxIconType::NoIcon);
+                    rw->addTextEditor ("name", curName, "Name");
+                    rw->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
+                    rw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+                    rw->enterModalState (true, juce::ModalCallbackFunction::create ([this, rw, tk] (int rr)
+                    {
+                        if (rr == 1 && onRenameTrack) onRenameTrack (tk, rw->getTextEditorContents ("name"));
+                        delete rw;
+                    }), false);
+                }
+                else if (r == 2 && sc.isSampler)
+                {
+                    auto* aw = new juce::AlertWindow ("Sampler", "One-shot playback window", juce::MessageBoxIconType::NoIcon);
                 aw->addTextEditor ("start", juce::String (sc.start, 3), "Start (0..1)");
                 aw->addTextEditor ("end",   juce::String (sc.end, 3),   "End (0..1)");
                 aw->addTextEditor ("fadein",  juce::String (sc.fadeIn, 3),  "Fade in (s)");
@@ -485,7 +511,6 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 aw->getComboBoxComponent ("voices")->setSelectedItemIndex (sc.mono ? 1 : 0);
                 aw->addButton ("Apply",  1, juce::KeyPress (juce::KeyPress::returnKey));
                 aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-                const int tk = track;
                 aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, tk] (int r)
                 {
                     if (r == 1 && onSetSamplerControls)
@@ -502,7 +527,8 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                     }
                     delete aw;
                 }), false);
-            }
+                }
+            });
         }
         return;
     }

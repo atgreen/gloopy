@@ -1063,6 +1063,18 @@ desktop control wiring the *same* api* op, screenshot-validated. Status:
 Next: Wave 6 Tier-1 piano-roll items (strum, arpeggiate, snap-to-scale-while-drawing),
 each shipping with desktop UI + screenshot validation.
 
+- `[x]` **Rename track landed** (commit): closed a real UX gap — a track's name was fixed at
+  creation with no way to change it. `apiRenameTrack(id,name)` (message-thread, rejects
+  empty/whitespace, pushes undo) + RenameTrack RPC (`RenameTrackRequest`) + Python
+  `rename_track`. **Desktop:** the track-header right-click now opens a track menu with "Rename
+  track..." (a name-prompt AlertWindow) — and, for sampler tracks, the existing "Sampler
+  playback window..." (the header popup was previously sampler-only; it's now a general track
+  menu). Name already serialises, so it round-trips. smoke: create renme-orig → rename →
+  GetState shows renme-new (not the old name) and it survives a SaveComposition/NewProject/
+  LoadComposition round-trip (wrapped in a SaveProject/LoadProject session snapshot so the
+  destructive reload doesn't disturb later blocks). Screenshot-validated end-to-end: header
+  menu → dialog (prefilled "Kick") → typed "Boom" → the track header updates live to "Boom".
+
 16. **Browser sidebar + demo/template browser + `File → New From Template`** *(Idea
     #1/#2; absorbs remaining preset UI/work).* **L**
     - `[~]` **Empty-by-default + template system landed** (commit 5b90d3b, user request):

@@ -208,6 +208,10 @@ class Gloopy:
     def remove_track(self, track_id: int) -> None:
         self._ack(self.stub.RemoveTrack(pb.TrackId(id=track_id)))
 
+    def rename_track(self, track_id: int, name: str) -> None:
+        """Rename an existing track. Empty/whitespace names are rejected."""
+        self._ack(self.stub.RenameTrack(pb.RenameTrackRequest(track_id=track_id, name=name)))
+
     def list_tracks(self) -> list[dict]:
         r = self.stub.ListTracks(pb.Empty())
         return [{"id": t.id, "name": t.name, "type": t.type, "volume": t.volume,

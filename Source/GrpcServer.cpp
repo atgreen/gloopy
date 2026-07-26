@@ -665,6 +665,10 @@ namespace
         Status RemoveTrack (ServerContext*, const pb::TrackId* q, pb::Ack* r) override
         { const bool ok = main.apiRemoveTrack (q->id()); r->set_ok (ok); if (! ok) r->set_error ("track not found"); return Status::OK; }
 
+        Status RenameTrack (ServerContext*, const pb::RenameTrackRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiRenameTrack (q->track_id(), js (q->name()));
+          r->set_ok (ok); if (! ok) r->set_error ("rename failed (track not found or empty name)"); return Status::OK; }
+
         Status AddAudioTrack (ServerContext*, const pb::AddAudioTrackRequest* q, pb::TrackId* r) override
         { r->set_id (main.apiAddAudioTrack (js (q->name()))); return Status::OK; }
 
