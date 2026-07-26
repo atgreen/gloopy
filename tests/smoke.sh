@@ -1270,6 +1270,32 @@ print('smoke: PASS — Auto-wah follows the envelope: loud opens the filter brig
 g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
 g -d "{\"id\":$AWL}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 g -d "{\"id\":$AWQ}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
+# Ring mod (new effect): a LOW sine (~98 Hz) multiplied by a HIGH carrier (1500 Hz) shifts
+# energy up to ~1400/1600 Hz, so the zero-crossing rate jumps far above the dry sine. Mix 0
+# is a true identity; the render is reproducible.
+RM=$(g -d '{"name":"rmtone","wave":"SINE","attack":0.005,"decay":0.05,"sustain":0.95,"release":0.05,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$RM,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":43,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.95}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/rm_dry.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$RM}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"insert":0,"type":"RINGMOD"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Freq","value":1500}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Mix","value":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/rm_mix0.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$RM}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Mix","value":1.0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/rm_wet.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$RM}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"path\":\"$WORK/rm_wet2.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$RM}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+ZDRY=$(zcr "$WORK/rm_dry.wav"); ZWET=$(zcr "$WORK/rm_wet.wav")
+python3 -c "
+import wave
+def raw(p):
+    w=wave.open(p);return w.readframes(w.getnframes())
+zd,zw=int('$ZDRY'),int('$ZWET')
+assert raw('$WORK/rm_mix0.wav')==raw('$WORK/rm_dry.wav'), 'ring mod Mix 0 is not identity'
+assert zw > zd*2, 'ring mod did not shift energy up (wet ZCR %d not > 2x dry %d)'%(zw,zd)
+assert raw('$WORK/rm_wet.wav')==raw('$WORK/rm_wet2.wav'), 'ring mod not reproducible (re-render differs)'
+print('smoke: PASS — Ring Mod: Mix0=identity, a 1500 Hz carrier shifts a low sine up (ZCR %d vs dry %d), reproducible'%(zw,zd))
+" || { echo 'smoke: ring mod wrong' >&2; exit 1; }
+g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+g -d "{\"id\":$RM}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 # Tremolo (new effect): a sine LFO scales master gain. Depth 0 is a true identity; depth 1
 # on a sustained tone makes the amplitude oscillate (trough near silence, so windowed RMS
 # swings hugely); and a tempo-synced 1-beat cycle matches a free LFO at bpm/60 Hz exactly.

@@ -932,6 +932,15 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       the envelope drives the cutoff; also reproducible. Screenshot-validated (Auto-wah in the
       add-effect menu + its 4 knobs). Distinct from the LFO effects (tremolo/auto-pan) and the
       dynamics (limiter/compressor/gate) — a dynamic *filter*.
+    - `[x]` **Ring Mod landed** (commit): `RingModFx`, a nonlinear amplitude multiplication —
+      `out = in·sin(2π·Freq·t)` blended by Mix — producing inharmonic sum/difference tones
+      (metallic/bell/robotic). Freq / Mix params; a shared carrier phase across channels;
+      reset() zeroes it. EffectType RINGMOD=17, **appended** across all four registries (no enum
+      shift). smoke exploits the level-independent ZCR: a LOW ~98 Hz sine multiplied by a 1500 Hz
+      carrier shifts energy up to ~1400/1600 Hz, so the wet ZCR jumps ~16× (6138 vs 380); Mix 0 is
+      a bit-exact identity and the render is reproducible. Screenshot-validated (Ring Mod in the
+      add-effect menu + its 2 knobs). Distinct from every prior effect (LFO / dynamics / filter) —
+      a nonlinear multiplier.
       **Not yet:** analyzers (scope/spectrum/vectorscope) with API snapshots.
 
 ### Wave 6 — Product surface & UI (deferred: harder to verify headless; keep layout simple)

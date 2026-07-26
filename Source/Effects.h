@@ -499,6 +499,56 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+// Ring modulator — multiply the signal by a sine carrier at Freq Hz, producing
+// inharmonic sum/difference tones (a metallic, bell-like, or robotic timbre). Unlike
+// the filter/LFO/dynamics effects this is a nonlinear amplitude multiplication:
+// out = in·sin(2π·Freq·t), blended with the dry signal by Mix (0 = dry, 1 = fully ring-
+// modulated). Both channels share one carrier phase. reset() zeroes the phase so offline
+// bounces are reproducible.
+// ---------------------------------------------------------------------------
+class RingModFx : public Effect
+{
+public:
+    void prepare (double sampleRate, int, int) override { sr = (float) sampleRate; phase = 0.0f; }
+    void reset() override { phase = 0.0f; }
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        if (bypassed.load()) return;
+        const float mx = juce::jlimit (0.0f, 1.0f, mix.load());
+        if (mx <= 0.0f) return;                                          // identity when fully dry
+        const float freq = juce::jlimit (1.0f, 8000.0f, freqHz.load());
+        const float twoPi = juce::MathConstants<float>::twoPi;
+        const float inc   = twoPi * freq / sr;
+        const int nch = b.getNumChannels();
+        for (int i = 0; i < b.getNumSamples(); ++i)
+        {
+            const float carrier = std::sin (phase);
+            for (int c = 0; c < nch; ++c)
+            {
+                auto* d = b.getWritePointer (c);
+                d[i] = d[i] * (1.0f - mx) + (d[i] * carrier) * mx;       // dry/wet blend
+            }
+            phase += inc; if (phase >= twoPi) phase -= twoPi;
+        }
+    }
+
+    juce::String name() const override { return "Ring Mod"; }
+
+    std::vector<EffectParam> parameters() override
+    {
+        return {
+            { "Freq",  1.0f, 4000.0f, 200.0f, [this] { return freqHz.load(); }, [this] (float v) { freqHz.store (v); } },
+            { "Mix",   0.0f, 1.0f, 1.0f,       [this] { return mix.load(); },    [this] (float v) { mix.store (v); } }
+        };
+    }
+
+private:
+    std::atomic<float> freqHz { 200.0f }, mix { 1.0f };
+    float phase { 0.0f }, sr { 44100.0f };
+};
+
+// ---------------------------------------------------------------------------
 // Parametric EQ (single peaking band, RBJ biquad)
 // ---------------------------------------------------------------------------
 // Three-band EQ: a low shelf, a mid peaking band, and a high shelf, chained per channel.
@@ -981,7 +1031,7 @@ private:
 // ---------------------------------------------------------------------------
 namespace EffectFactory
 {
-    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate", "Auto-wah" }; }
+    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate", "Auto-wah", "Ring Mod" }; }
 
     inline std::unique_ptr<Effect> create (const juce::String& type)
     {
@@ -1002,6 +1052,7 @@ namespace EffectFactory
         if (type == "Auto-pan")   return std::make_unique<AutoPanFx>();
         if (type == "Noise Gate") return std::make_unique<NoiseGateFx>();
         if (type == "Auto-wah")   return std::make_unique<AutoWahFx>();
+        if (type == "Ring Mod")   return std::make_unique<RingModFx>();
         return nullptr;
     }
 }
