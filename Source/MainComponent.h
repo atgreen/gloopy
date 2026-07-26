@@ -16,6 +16,7 @@
 #include "StepEditor.h"
 #include "IconButton.h"
 #include "MixerTrack.h"
+#include "MappingsView.h"
 #include "MixerView.h"
 #include "Effects.h"
 #include "PluginHost.h"
@@ -451,6 +452,7 @@ private:
 
     void setupMixer();
     void openMixer();
+    void openMappings();                                // UI: the controller/LFO mapping rack
     std::unique_ptr<Effect> makeEffect (const juce::String& type);
     juce::Colour paletteColour (int index) const;
 
@@ -545,6 +547,7 @@ private:
     juce::TextButton loopButton    { "Loop" };
     juce::TextButton metroButton   { "Metro" };
     juce::TextButton mixerButton   { "Mixer" };
+    juce::TextButton mapsButton    { "Maps" };     // see + remove all controller/LFO mappings
     juce::ComboBox   scaleRootBox;                 // C..B    — project scale selector
     juce::ComboBox   scaleNameBox;                 // chromatic/major/minor/...
     void applyScaleFromToolbar();                  // reads both boxes -> apiSetScale
@@ -736,6 +739,8 @@ private:
     std::unique_ptr<juce::DocumentWindow> mixerWindow;
     juce::String projectNotes;                          // free-form markdown (message thread)
     std::unique_ptr<juce::DocumentWindow> notesWindow;
+    MappingsView mappingsView;
+    std::unique_ptr<juce::DocumentWindow> mappingsWindow;
     juce::TextEditor notesEditor;
 
     juce::StretchableLayoutManager verticalLayout;

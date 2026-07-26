@@ -833,12 +833,20 @@ desktop control wiring the *same* api* op, screenshot-validated. Status:
   the model on load (commit). Screenshot-validated (dorian tint + GetScale readback).
 - `[x]` **Modulation / LFO** (SetModulation/RemoveModulation) — Add LFO... / Remove LFO on
   the mixer param right-click menu (rate/depth/shape prompt; centre = current value)
-  (commit efac838). Screenshot + headless validated. Follow-up: a full mod-matrix VIEW
-  (ListModulations) if managing many routes becomes fiddly.
+  (commit efac838). Screenshot + headless validated.
 - `[x]` **MIDI-learn** (AddControllerMap/MidiLearn) — right-click a mixer fader / pan /
   FX param knob → MIDI Learn → apiMidiLearn(target) (commit 8567627). Screenshot +
-  headless validated (cc:20 → insert/0/volume). Still open: a full mapping-rack VIEW
-  (list/edit/remove existing maps, inversion/smoothing/bypass) — #19.
+  headless validated (cc:20 → insert/0/volume).
+- `[x]` **Mappings rack VIEW landed** (commit) — the mod-matrix/mapping-rack follow-up
+  (#19). A "Maps" toolbar button opens a Mappings window (`Source/MappingsView.h`, a thin
+  client) that lists EVERY control mapping in one place: each MIDI/OSC controller map
+  (`source -> target [lo..hi]`, "(bypassed)" when off) and each LFO route (`LFO (shape,
+  rate/sync, depth) -> target`), each with a Remove button wiring apiRemoveControllerMap /
+  apiRemoveModulation, then re-querying. Pure UI over the existing (already smoke-tested)
+  apiListControllerMaps/apiListModulations ops — no new RPC. Screenshot- AND functionally-
+  validated: added a controller map + an LFO via gRPC, opened the window (both rows shown),
+  clicked Remove -> ListControllerMaps empty while the LFO route persists and the list
+  rebuilt. Still open: per-map edit (range/inversion/smoothing) in the rack.
 - `[x]` **Tempo markers** (AddTempoMarker/RemoveTempoMarker) — right-click the beat ruler
   → Add (BPM prompt) / Remove; markers drawn as flags on the ruler (commit 004c19f).
   Screenshot + headless validated (bar 3 / 150 BPM).
@@ -1061,8 +1069,11 @@ each shipping with desktop UI + screenshot validation.
       when mapped — so a MIDI-learned binding can be *seen and cleared* from the desktop, not
       only via the API. Pure UI wiring on the tested controller backend (`onControllerSourceFor`
       / `onRemoveControllerMap` iterate `apiListControllerMaps` by target) — screenshot-
-      validated. **Not yet:** a full mapping-rack VIEW (list all maps, edit range/bypass,
-      device-map files), OSC-lane wiring, per-map smoothing (slew).
+      validated.
+    - `[x]` **Mapping-rack VIEW landed** (commit): a "Maps" toolbar button opens a Mappings
+      window (`Source/MappingsView.h`) listing every controller map AND LFO route with a
+      per-row Remove (see the Wave-6 UI-parity note above). **Not yet:** in-rack editing of a
+      map's range/bypass/smoothing, device-map files, OSC-lane wiring.
 20. **Product-surface tier** — in-app markdown **project notes** under `notes/`
     (Idea #10); a static-file **localhost web control surface** for transport/mixer/
     markers/live notes, doubling as an API test client (Ardour #7); an **MCP tool

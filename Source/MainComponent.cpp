@@ -175,6 +175,16 @@ MainComponent::MainComponent (bool headless)
     addAndMakeVisible (mixerButton);
     mixerButton.onClick = [this] { openMixer(); };
 
+    addAndMakeVisible (mapsButton);
+    mapsButton.setTooltip ("Mappings: see and remove all MIDI/OSC controller maps and LFO routes");
+    mapsButton.onClick = [this] { openMappings(); };
+    mappingsView.onRemove = [this] (const juce::String& kind, const juce::String& key)
+    {
+        if (kind == "ctrl") apiRemoveControllerMap (key);
+        else                apiRemoveModulation (key);
+        openMappings();   // re-query + rebuild the list
+    };
+
     // ---- project scale selector (drives snap-to-scale + piano-roll highlight) ----
     {
         const char* roots[] = { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B" };
@@ -2418,6 +2428,40 @@ void MainComponent::openMixer()
     mixerWindow->toFront (true);
 }
 
+void MainComponent::openMappings()
+{
+    // Build the row list from the live mapping state (controller maps + LFO routes).
+    std::vector<MappingsView::Row> rows;
+    for (const auto& c : apiListControllerMaps())
+    {
+        juce::String t = c.source + "  ->  " + c.target + "   [" + juce::String (c.lo, 2) + ".." + juce::String (c.hi, 2) + "]";
+        if (c.bypass) t += "  (bypassed)";
+        rows.push_back ({ t, "ctrl", c.source });
+    }
+    static const char* shapeName[] = { "sine", "tri", "saw", "square", "random" };
+    for (const auto& m : apiListModulations())
+    {
+        const juce::String sh = juce::isPositiveAndBelow (m.shape, 5) ? shapeName[m.shape] : "sine";
+        juce::String t = "LFO (" + sh + (m.syncBeats > 0.0f ? ", " + juce::String (m.syncBeats, 2) + "bt" : ", " + juce::String (m.rate, 2) + "Hz")
+                       + ", depth " + juce::String (m.depth, 2) + ")  ->  " + m.target;
+        rows.push_back ({ t, "mod", m.target });
+    }
+    mappingsView.setRows (std::move (rows));
+
+    if (mappingsWindow == nullptr)
+    {
+        auto w = std::make_unique<HideOnCloseWindow>();
+        w->setName ("Mappings");
+        w->setContentNonOwned (&mappingsView, false);
+        w->setResizable (true, false);
+        w->setSize (560, 420);
+        w->centreWithSize (560, 420);
+        mappingsWindow = std::move (w);
+    }
+    mappingsWindow->setVisible (true);
+    mappingsWindow->toFront (true);
+}
+
 void MainComponent::openNotes()
 {
     if (notesWindow == nullptr)
@@ -2679,6 +2723,7 @@ void MainComponent::resized()
     addAudioBtn  .setBounds (bar.removeFromLeft (68)); bar.removeFromLeft (5);
     addPluginBtn .setBounds (bar.removeFromLeft (72));
     mixerButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (6);
+    mapsButton   .setBounds (bar.removeFromRight (52)); bar.removeFromRight (6);
     loopButton   .setBounds (bar.removeFromRight (54)); bar.removeFromRight (6);
     metroButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (12);
     scaleNameBox .setBounds (bar.removeFromRight (128).reduced (0, 4)); bar.removeFromRight (4);
