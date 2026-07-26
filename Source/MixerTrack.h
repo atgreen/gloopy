@@ -31,7 +31,7 @@ struct MixerTrack
     // Aux sends: an additive tap of this insert's post-effects signal into another
     // mixer track (a bus). `isBus` marks a track that exists to receive sends and
     // sum to master (no track routes its main output to it). Guarded by engineLock.
-    struct Send { int bus; float level; };
+    struct Send { int bus; float level; bool postFader { false }; };   // postFader: send follows the fader/mute
     std::vector<Send> sends;
     bool isBus { false };
 

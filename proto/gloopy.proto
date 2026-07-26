@@ -101,7 +101,7 @@ message MixerInsert {
   bool is_bus = 8; repeated Send sends = 9;
 }
 message AddBusRequest  { string name = 1; }
-message SetSendRequest { int32 insert = 1; int32 bus = 2; float level = 3; }   // level<=0 removes
+message SetSendRequest { int32 insert = 1; int32 bus = 2; float level = 3; bool post_fader = 4; }   // level<=0 removes; post_fader follows the fader
 message InsertList  { repeated MixerInsert inserts = 1; }
 message InsertParams {
   int32 index = 1;

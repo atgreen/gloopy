@@ -545,8 +545,19 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      the existing Buses.cpp API — no proto/API change (the routing is already headless-proven by
      the reverb-bus smoke). Screenshot-validated (two buses created from the desktop, the strip
      menu's New bus + "Send to Reverb Bus ▸ ✓Off/25/50/75/100%" submenu).
-     **Not yet:** pre/post-fader send choice, send presets; a dedicated send-level fader per
-     strip (menu presets for now).
+   - `[x]` **Pre/post-fader send choice landed** (commit): `MixerTrack.Send.postFader` — a PRE-fader
+     send taps the post-fx signal at its own level regardless of the fader/mute (a classic aux); a
+     POST-fader send follows the fader gain (incl. the group VCA) and is silenced when the channel
+     is muted/soloed out. The mix loop now computes the fader gain + audibility BEFORE the send tap
+     so post-fader can scale by it. `post_fader` on the SetSend RPC + Python `set_send(post_fader=)`
+     + apiSetSend; serialised on the SEND ValueTree (`post`, omitted when false) + composition
+     (`bus,level,post`). **Desktop:** the "Send to <bus>" submenu gains a Pre-fader/Post-fader radio
+     (enabled once a send exists, checkmarked). Scene recall only updates send *levels* by bus so it
+     leaves post untouched (scenes capture level, not the tap point). smoke: a MUTED source's
+     pre-fader send still routes to the bus (rms 1.42M) while its post-fader send is silenced
+     (919k), and the post flag survives a project round-trip; screenshot-validated (the ✓Pre-fader /
+     Post-fader items under the level presets).
+     **Not yet:** send presets; a dedicated send-level fader per strip (menu presets for now).
 
    **✅ Wave 3 complete** (#6 clip ops, #7 buses/sends, #8 mixer scenes).
 

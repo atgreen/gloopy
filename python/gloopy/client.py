@@ -455,9 +455,10 @@ class Gloopy:
         """Remove a bus mixer track; sends are re-indexed (drops sends to it, shifts higher)."""
         self._ack(self.stub.RemoveBus(pb.TrackId(id=index)))
 
-    def set_send(self, insert: int, bus: int, level: float) -> None:
-        """Aux send from an insert to a bus at level (level<=0 removes)."""
-        self._ack(self.stub.SetSend(pb.SetSendRequest(insert=insert, bus=bus, level=level)))
+    def set_send(self, insert: int, bus: int, level: float, post_fader: bool = False) -> None:
+        """Aux send from an insert to a bus at level (level<=0 removes). post_fader=True makes
+        the send follow the source fader/mute; the default (pre-fader) taps at a fixed level."""
+        self._ack(self.stub.SetSend(pb.SetSendRequest(insert=insert, bus=bus, level=level, post_fader=post_fader)))
 
     # -- control groups (VCA-lite) ----------------------------------------
     def define_control_group(self, name: str, gain: float = 1.0) -> None:

@@ -473,8 +473,8 @@ void MixerView::showGroupMenu (int insertIndex)
     // Aux sends: route this strip to any bus at a level. Only for non-bus strips.
     std::vector<BusInfo> buses = onListBuses ? onListBuses() : std::vector<BusInfo>();
     const bool thisIsBus = [&] { for (auto& b : buses) if (b.index == insertIndex) return true; return false; }();
-    std::vector<std::pair<int, float>> sends = (onInsertSends && ! thisIsBus) ? onInsertSends (insertIndex)
-                                                                              : std::vector<std::pair<int, float>>();
+    std::vector<SendState> sends = (onInsertSends && ! thisIsBus) ? onInsertSends (insertIndex)
+                                                                  : std::vector<SendState>();
     if (! thisIsBus && onSetSend)
     {
         m.addSeparator();
@@ -483,16 +483,19 @@ void MixerView::showGroupMenu (int insertIndex)
         const char* lblbl[] = { "Off", "25%", "50%", "75%", "100%" };
         for (int bi = 0; bi < (int) buses.size(); ++bi)
         {
-            float cual = 0.0f;                                        // this insert's current send to that bus
-            for (auto& s : sends) if (s.first == buses[(size_t) bi].index) cual = s.second;
+            float cual = 0.0f; bool cpost = false;                    // this insert's current send to that bus
+            for (auto& s : sends) if (s.bus == buses[(size_t) bi].index) { cual = s.level; cpost = s.post; }
             juce::PopupMenu sm;
             for (int li = 0; li < 5; ++li)
                 sm.addItem (400 + bi * 8 + li, lblbl[li], true, std::abs (cual - lvls[li]) < 0.01f);
+            sm.addSeparator();                                        // fader tap point (only meaningful with a send)
+            sm.addItem (400 + bi * 8 + 5, "Pre-fader",  cual > 0.0f, ! cpost);
+            sm.addItem (400 + bi * 8 + 6, "Post-fader", cual > 0.0f,   cpost);
             m.addSubMenu ("Send to " + buses[(size_t) bi].name, sm);
         }
     }
 
-    m.showMenuAsync (juce::PopupMenu::Options(), [this, insertIndex, cur, groups, buses] (int r)
+    m.showMenuAsync (juce::PopupMenu::Options(), [this, insertIndex, cur, groups, buses, sends] (int r)
     {
         if (r == 0) return;
         if (r == 1) { promptNewGroup (insertIndex); return; }
@@ -519,13 +522,18 @@ void MixerView::showGroupMenu (int insertIndex)
             const float pct[] = { 0.0f, 0.25f, 0.5f, 0.75f, 1.0f };
             onGroupGain (cur, pct[r - 300]);
         }
-        if (r >= 400 && onSetSend)                                    // Send to bus <bi> at level <li>
+        if (r >= 400 && onSetSend)                                    // Send to bus <bi>: level 0-4, or pre/post 5/6
         {
             const int bi = (r - 400) / 8, li = (r - 400) % 8;
-            if (bi < (int) buses.size() && li < 5)
+            if (bi < (int) buses.size())
             {
+                const int busIdx = buses[(size_t) bi].index;
+                float cual = 0.0f; bool cpost = false;                // current send to that bus (from the snapshot)
+                for (auto& s : sends) if (s.bus == busIdx) { cual = s.level; cpost = s.post; }
                 const float lvls[] = { 0.0f, 0.25f, 0.5f, 0.75f, 1.0f };
-                onSetSend (insertIndex, buses[(size_t) bi].index, lvls[li]);
+                if      (li < 5) onSetSend (insertIndex, busIdx, lvls[li], cpost);     // set level, keep tap point
+                else if (li == 5) onSetSend (insertIndex, busIdx, cual, false);        // pre-fader (keep level)
+                else if (li == 6) onSetSend (insertIndex, busIdx, cual, true);         // post-fader (keep level)
             }
         }
     });

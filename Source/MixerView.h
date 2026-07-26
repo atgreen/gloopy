@@ -64,9 +64,10 @@ public:
     // Aux sends / buses: route a strip's post-fx signal to a bus at a level. Wired to the
     // apiAddBus / apiSetSend / apiListInserts calls so the bus routing has a desktop control.
     struct BusInfo { int index; juce::String name; };
+    struct SendState { int bus; float level; bool post; };
     std::function<std::vector<BusInfo>()>            onListBuses;   // all bus mixer tracks
-    std::function<std::vector<std::pair<int, float>> (int)> onInsertSends;  // an insert's sends: (busIndex, level)
-    std::function<void (int, int, float)>            onSetSend;     // insert, busIndex, level (<=0 removes)
+    std::function<std::vector<SendState> (int)>      onInsertSends;  // an insert's sends: (busIndex, level, post-fader)
+    std::function<void (int, int, float, bool)>      onSetSend;     // insert, busIndex, level (<=0 removes), post-fader
     std::function<void (const juce::String&)>        onAddBus;      // create a bus by name
 
     // Plugin hooks (wired by the owner).

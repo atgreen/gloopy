@@ -501,12 +501,15 @@ MainComponent::MainComponent (bool headless)
         for (auto& ins : apiListInserts()) if (ins.isBus) out.push_back ({ ins.index, ins.name });
         return out;
     };
-    mixerView->onInsertSends = [this] (int insert) -> std::vector<std::pair<int, float>>
+    mixerView->onInsertSends = [this] (int insert) -> std::vector<MixerView::SendState>
     {
-        for (auto& ins : apiListInserts()) if (ins.index == insert) return ins.sends;
-        return {};
+        std::vector<MixerView::SendState> out;
+        const juce::ScopedLock sl (engineLock);
+        if (juce::isPositiveAndBelow (insert, (int) mixerTracks.size()))
+            for (auto& sd : mixerTracks[(size_t) insert]->sends) out.push_back ({ sd.bus, sd.level, sd.postFader });
+        return out;
     };
-    mixerView->onSetSend     = [this] (int insert, int bus, float level) { apiSetSend (insert, bus, level); if (mixerView) mixerView->rebuild(); };
+    mixerView->onSetSend     = [this] (int insert, int bus, float level, bool post) { apiSetSend (insert, bus, level, post); if (mixerView) mixerView->rebuild(); };
     mixerView->onAddBus      = [this] (const juce::String& name) { apiAddBus (name); if (mixerView) mixerView->rebuild(); };
 
     // Start with an EMPTY project — no default tracks. Use File -> New from Template
@@ -2363,34 +2366,36 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         mt.peakL.store (mpL); mt.peakR.store (mpR);
         if (mpL >= 1.0f || mpR >= 1.0f) mt.clipped.store (true);
 
-        // Aux sends: tap this insert's post-effects signal into its target buses.
-        // Independent of mute/solo (a pre-fader-style aux). Buses have higher indices
-        // (apiAddBus appends), so their buffers accumulate before they're processed.
-        for (auto& sd : mt.sends)
-            if (sd.level > 0.0f && sd.bus > 0 && sd.bus < numTracks && sd.bus != ti)
-            {
-                auto& bus = mixerTracks[(size_t) sd.bus]->buffer;
-                bus.addFrom (0, 0, mt.buffer, 0, 0, num, sd.level);
-                bus.addFrom (1, 0, mt.buffer, 1, 0, num, sd.level);
-            }
-
+        // Compute the fader gain + audibility first — post-fader sends need them.
         // Solo: an insert is audible only if nothing is soloed, or it is directly soloed, or
         // it belongs to a soloed control group (VCA solo). Track-solo and group-solo combine.
         bool soloed = mt.solo.load();
         if (! soloed && anyGroupSolo && mt.group.isNotEmpty())
             if (auto* grp = findControlGroup (mt.group)) soloed = grp->solo.load();
-        const bool audible = ! mt.mute.load() && ((! anyTrackSolo && ! anyGroupSolo) || soloed);
-        if (! audible) continue;
+        bool audible = ! mt.mute.load() && ((! anyTrackSolo && ! anyGroupSolo) || soloed);
         float v = mt.volume.load();
         // VCA-lite: an insert's control group scales its fader; a muted group silences it.
         if (mt.group.isNotEmpty())
-        {
             if (auto* grp = findControlGroup (mt.group))
             {
-                if (grp->mute.load()) continue;
-                v *= grp->gain.load();
+                if (grp->mute.load()) audible = false;
+                else                  v *= grp->gain.load();
             }
-        }
+
+        // Aux sends: tap this insert's post-effects signal into its target buses. A PRE-fader
+        // send taps at its own level regardless of the fader/mute (a classic aux); a POST-fader
+        // send follows the fader gain and is silenced when the channel is muted/soloed out.
+        for (auto& sd : mt.sends)
+            if (sd.level > 0.0f && sd.bus > 0 && sd.bus < numTracks && sd.bus != ti)
+            {
+                const float g = sd.postFader ? (audible ? v * sd.level : 0.0f) : sd.level;
+                if (g <= 0.0f) continue;
+                auto& bus = mixerTracks[(size_t) sd.bus]->buffer;
+                bus.addFrom (0, 0, mt.buffer, 0, 0, num, g);
+                bus.addFrom (1, 0, mt.buffer, 1, 0, num, g);
+            }
+
+        if (! audible) continue;
         const float pan = mt.pan.load();
         const float theta = (pan + 1.0f) * 0.25f * juce::MathConstants<float>::pi;
         master.buffer.addFrom (0, 0, mt.buffer, 0, 0, num, v * std::cos (theta));
@@ -3246,6 +3251,7 @@ juce::ValueTree MainComponent::toValueTree()
         {
             juce::ValueTree sv ("SEND");
             sv.setProperty ("to", sd.bus, nullptr); sv.setProperty ("level", sd.level, nullptr);
+            if (sd.postFader) sv.setProperty ("post", true, nullptr);
             t.addChild (sv, -1, nullptr);
         }
         for (auto& fx : mt->effects)
@@ -3680,7 +3686,8 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
                 if (ft.hasType ("SEND"))   // aux send, not an effect
                 {
                     mt->sends.push_back ({ (int) ft.getProperty ("to", 0),
-                                           (float) (double) ft.getProperty ("level", 0.0) });
+                                           (float) (double) ft.getProperty ("level", 0.0),
+                                           (bool) ft.getProperty ("post", false) });
                     continue;
                 }
                 const juce::String ftype = ft.getProperty ("type", "Gain").toString();

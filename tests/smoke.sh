@@ -1904,6 +1904,43 @@ lv=float('$(sendlvl)')
 assert abs(lv-0.5) < 1e-4, 'scene recall did not restore the send level (got %.3f, expected 0.5)'%lv
 print('smoke: PASS — mixer scene restores aux-send level (%.2f)'%lv)
 " || { echo "smoke: mixer scene did not restore send level" >&2; exit 1; }
+# Pre/post-fader sends: a MUTED source's PRE-fader send still routes its full signal to a bus
+# (a pre-fader aux ignores mute), so the bus reaches master; the same send set POST-fader is
+# silenced when the channel is muted, so the bus is empty. The two full-mix renders therefore
+# differ exactly by the bus signal. The post flag survives a project round-trip.
+g -d "{\"path\":\"$WORK/pp_session.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null   # snapshot to restore after the reload test
+PFT=$(g -d '{"name":"prepost","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.1,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$PFT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":57,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.95}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/ppre.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+PFI=$(python3 -c "
+import xml.etree.ElementTree as ET
+t=[t for t in ET.parse('$WORK/ppre.gloopy').getroot().iter('TRACK') if t.get('name')=='prepost'][0]
+print(t.get('mixerTrack'))")
+PFB=$(g -d '{"name":"AuxBus"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddBus | python3 -c "import json,sys;print(json.load(sys.stdin).get('id',0))")
+g -d "{\"index\":$PFI,\"volume\":0.8,\"mute\":true}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetInsertParams >/dev/null   # mute the direct output
+g -d "{\"insert\":$PFI,\"bus\":$PFB,\"level\":1.0,\"post_fader\":false}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSend >/dev/null
+g -d "{\"path\":\"$WORK/pp_pre.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"insert\":$PFI,\"bus\":$PFB,\"level\":1.0,\"post_fader\":true}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSend >/dev/null
+g -d "{\"path\":\"$WORK/pp_post.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"path\":\"$WORK/pp.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d "{\"path\":\"$WORK/pp.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null
+g -d "{\"path\":\"$WORK/pp_post2.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave,xml.etree.ElementTree as ET
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+def rms(x): return (sum(v*v for v in x)/max(1,len(x)))**0.5
+pre=rd('$WORK/pp_pre.wav');post=rd('$WORK/pp_post.wav');post2=rd('$WORK/pp_post2.wav');n=min(len(pre),len(post))
+# a muted source: pre-fader still feeds the bus (loud), post-fader is silenced (empty)
+assert rms(pre[:n]) > rms(post[:n]) + 20000, 'pre-fader send did not route a muted source (pre %.0f vs post %.0f)'%(rms(pre[:n]),rms(post[:n]))
+d=sum(abs(pre[i]-post[i]) for i in range(n))/n
+assert d > 5000, 'pre vs post-fader renders barely differ (%.0f)'%d
+snd=[s for s in ET.parse('$WORK/pp.gloopy').getroot().iter('SEND') if s.get('post')=='1']
+assert snd, 'post-fader flag not saved on the SEND'
+m2=min(len(post),len(post2)); assert post[:m2]==post2[:m2], 'post-fader send not preserved across a project round-trip'
+print('smoke: PASS — pre-fader routes a muted source to the bus, post-fader silences it (pre %.0f vs post %.0f); post round-trips'%(rms(pre[:n]),rms(post[:n])))
+" || { echo 'smoke: pre/post-fader send wrong' >&2; exit 1; }
+g -d "{\"path\":\"$WORK/pp_session.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the pre-test session
 
 # Control groups (VCA-lite): a group fader SCALES its member insert. Assign a fresh
 # synth track's insert to a group, set gain 0.5 -> its soloed render drops ~6 dB; group

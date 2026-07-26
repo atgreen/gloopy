@@ -408,12 +408,13 @@ bool MainComponent::saveComposition (const juce::File& dir)
         if ((bool) mt.getProperty ("bus", false)) mw.boolean ("bus", true);
         if (mt.getProperty ("group").toString().isNotEmpty()) mw.str ("group", mt.getProperty ("group").toString());
         {
-            juce::StringArray sendEnc;   // "busIndex,level"
+            juce::StringArray sendEnc;   // "busIndex,level[,post]"
             for (int e = 0; e < mt.getNumChildren(); ++e)
             {
                 auto sd = mt.getChild (e);
                 if (sd.hasType ("SEND"))
-                    sendEnc.add (sd.getProperty ("to").toString() + "," + toml::Writer::num ((double) sd.getProperty ("level", 0.0)));
+                    sendEnc.add (sd.getProperty ("to").toString() + "," + toml::Writer::num ((double) sd.getProperty ("level", 0.0))
+                                 + ((bool) sd.getProperty ("post", false) ? ",post" : ""));
             }
             if (! sendEnc.isEmpty()) mw.strArray ("sends", sendEnc);
         }
@@ -673,6 +674,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                 juce::ValueTree sv ("SEND");
                 sv.setProperty ("to", p.size() > 0 ? p[0].getIntValue() : 0, nullptr);
                 sv.setProperty ("level", p.size() > 1 ? p[1].getDoubleValue() : 0.0, nullptr);
+                if (p.size() > 2 && p[2].trim() == "post") sv.setProperty ("post", true, nullptr);
                 mt.addChild (sv, -1, nullptr);
             }
             mixerTree.addChild (mt, -1, nullptr);

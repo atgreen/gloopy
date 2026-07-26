@@ -303,7 +303,7 @@ namespace
         { const bool ok = main.apiRemoveBus (q->id());
           r->set_ok (ok); if (! ok) r->set_error ("remove bus failed (index is not a bus)"); return Status::OK; }
         Status SetSend (ServerContext*, const pb::SetSendRequest* q, pb::Ack* r) override
-        { const bool ok = main.apiSetSend (q->insert(), q->bus(), q->level());
+        { const bool ok = main.apiSetSend (q->insert(), q->bus(), q->level(), q->post_fader());
           r->set_ok (ok); if (! ok) r->set_error ("invalid send (bad insert/bus, or nothing to remove)"); return Status::OK; }
 
         // ---- control groups (VCA-lite) ----

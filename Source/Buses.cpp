@@ -60,7 +60,7 @@ bool MainComponent::apiRemoveBus (int busIndex)
     });
 }
 
-bool MainComponent::apiSetSend (int insert, int bus, float level)
+bool MainComponent::apiSetSend (int insert, int bus, float level, bool postFader)
 {
     return callOnMessageThread ([&] () -> bool
     {
@@ -78,8 +78,8 @@ bool MainComponent::apiSetSend (int insert, int bus, float level)
             if (it == sends.end()) return false;
             sends.erase (it);
         }
-        else if (it != sends.end()) it->level = level;   // update
-        else                        sends.push_back ({ bus, level });
+        else if (it != sends.end()) { it->level = level; it->postFader = postFader; }   // update
+        else                        sends.push_back ({ bus, level, postFader });
         return true;
     });
 }
