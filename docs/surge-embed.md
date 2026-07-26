@@ -73,8 +73,22 @@ great out of the box, self-contained, no external plugin install required.
    data path, **scanned 3,559 factory patches / 417 categories**, played middle C, and
    rendered **non-silent** stereo audio (**RMS 0.070**, blockSize 32). The engine + the
    embed contract are proven. **Reproducible recipe below.**
-2. **Submodule + CMake link.** Add the `third_party/surge` submodule; get Gloopy to
-   configure+build+link `surge-common` (scoped to the core; exclude UI). Green build only.
+2. **CMake link — ✅ DONE (2026-07-26, CMake integration).** Gloopy's CMakeLists gained a
+   `GLOOPY_WITH_SURGE` option (default ON) + `GLOOPY_SURGE_DIR` (defaults to the
+   `third_party/surge` submodule). When on, it sets the scope flags and
+   `add_subdirectory`s Surge, linking `surge::surge-common`. Proven: Gloopy compiles all 92
+   surge-common objects inside its build tree and links (20 MB binary, exit 0); smoke suite
+   still green (no regression); and `GLOOPY_WITH_SURGE=OFF` still configures a lean,
+   pure-AGPL/C++17 build. **Embedding gotcha fixed:** surge-common's `src/common/CMakeLists.txt`
+   references r8brain via `${CMAKE_SOURCE_DIR}` (= the *top-level* project = Gloopy when
+   embedded), which mis-resolves. A configure-time `sed` shim (mirroring Gloopy's existing
+   JUCE LV2 sed) redirects those 2 lines to `${SURGE_SOURCE_DIR}` (Surge's own root, correct
+   under add_subdirectory). Confirmed surge-common does NOT propagate its C++20 standard, so
+   Gloopy stays C++17 (only slice-3's SurgeGenerator TU needs per-file C++20 + -fno-char8_t).
+   **Remaining for this slice (2b):** actually add the `third_party/surge` git submodule so a
+   default checkout has the source (today `GLOOPY_SURGE_DIR` is pointed at `~/git/surge` for
+   the build; without a source tree the CMake warns + builds Surge-less). The sed shim will
+   then apply to the submodule — carry it as a documented compat patch.
 3. **`SurgeGenerator` + one hardcoded patch.** Mirror `SfizzGenerator`; a synth track can
    be a SurgeGenerator loaded with one bundled patch; smoke-render proves non-silent audio
    into the mix and a composition round-trip.

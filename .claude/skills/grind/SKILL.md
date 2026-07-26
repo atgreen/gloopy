@@ -1707,8 +1707,13 @@ prior-art references to *read*, not to lift.
     ✅ DONE (commit)**: built `surge-common` headless (no JUCE), linked `docs/surge/probe.cpp`,
     scanned **3,559 patches** + rendered **non-silent** audio (RMS 0.070); proven build recipe
     recorded in `docs/surge-embed.md` (submodule set, cmake skip-flags incl. `SURGE_SKIP_WERROR`,
-    consumer `-std=c++20 -fno-char8_t`, PUBLIC include/BLOCK_SIZE contract). (2) submodule +
-    CMake link (NEXT); (3) `SurgeGenerator` + one patch (smoke render); (4) curated
+    consumer `-std=c++20 -fno-char8_t`, PUBLIC include/BLOCK_SIZE contract). (2) **CMake link —
+    ✅ DONE (commit)**: `GLOOPY_WITH_SURGE` option (default ON) + `GLOOPY_SURGE_DIR`;
+    `add_subdirectory` builds surge-common (92 objs) inside Gloopy's build + links it (smoke
+    green; lean OFF-path clean); fixed the embedding gotcha (surge-common's `${CMAKE_SOURCE_DIR}`
+    r8brain ref mis-resolves to Gloopy → sed shim to `${SURGE_SOURCE_DIR}`). Remaining **2b**: add
+    the actual `third_party/surge` submodule (today `GLOOPY_SURGE_DIR`→`~/git/surge`). (3)
+    `SurgeGenerator` + one patch (smoke render); (4) curated
     patch/wavetable bundle + curation script; (5) default-synth wiring + preset browser (the
     desktop control); (6) license/docs. Curate ONLY from `patches_factory`/`wavetables` (skip
     `*_3rdparty` without per-pack review).

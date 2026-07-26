@@ -140,6 +140,47 @@ target_link_libraries(Gloopy PRIVATE sfizz::sfizz)
 target_include_directories(Gloopy PRIVATE third_party/sfizz/src)
 
 # ---------------------------------------------------------------------------
+# Vendored Surge XT synth engine (GPL-3.0) — the default instrument voice.
+# Embedded like sfizz, but scoped to surge-common (the synth core): no JUCE,
+# no plugin/standalone/FX/tests. surge-common builds as C++20 at its OWN
+# directory scope (it does not propagate the standard), so Gloopy stays C++17;
+# only the future SurgeGenerator TU (slice 3) compiles as C++20 + -fno-char8_t.
+# GPL-3.0 combines with Gloopy's AGPL-3.0 (GPLv3/AGPLv3 §13). Toggle off for a
+# lean, pure-AGPL, C++17-only build with -DGLOOPY_WITH_SURGE=OFF.
+# See docs/surge-embed.md for the proven recipe and the six-slice plan.
+# ---------------------------------------------------------------------------
+option(GLOOPY_WITH_SURGE "Embed Surge XT as the default synth (GPL-3.0)" ON)
+set(GLOOPY_SURGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge"
+    CACHE PATH "Surge XT source tree (the third_party/surge submodule by default)")
+if(GLOOPY_WITH_SURGE AND EXISTS "${GLOOPY_SURGE_DIR}/src/common/CMakeLists.txt")
+    set(SURGE_SKIP_JUCE_FOR_RACK TRUE CACHE BOOL "" FORCE)   # synth core only, no JUCE UI
+    set(SURGE_SKIP_VST3          TRUE CACHE BOOL "" FORCE)
+    set(SURGE_SKIP_STANDALONE    TRUE CACHE BOOL "" FORCE)
+    set(SURGE_BUILD_XT           OFF  CACHE BOOL "" FORCE)
+    set(SURGE_BUILD_FX           OFF  CACHE BOOL "" FORCE)
+    set(SURGE_BUILD_CLAP         OFF  CACHE BOOL "" FORCE)
+    set(SURGE_BUILD_LV2          OFF  CACHE BOOL "" FORCE)
+    set(SURGE_BUILD_TESTRUNNER   OFF  CACHE BOOL "" FORCE)
+    set(SURGE_SKIP_WERROR        TRUE CACHE BOOL "" FORCE)   # vendored sqlite 3.23.3 warns on GCC 16
+    set(BUILD_TESTING            OFF  CACHE BOOL "" FORCE)
+    # Embedding compat shim: surge-common references r8brain via ${CMAKE_SOURCE_DIR}
+    # (the top-level project = Gloopy when embedded), which mis-resolves. Redirect
+    # those two lines to ${SURGE_SOURCE_DIR} (Surge's own root, correct when embedded).
+    # Idempotent; mirrors the JUCE LV2 sed above. See docs/surge-embed.md.
+    execute_process(COMMAND sed -i
+        "s|\${CMAKE_SOURCE_DIR}/libs/r8brain-free-src|\${SURGE_SOURCE_DIR}/libs/r8brain-free-src|g"
+        "${GLOOPY_SURGE_DIR}/src/common/CMakeLists.txt")
+    add_subdirectory(${GLOOPY_SURGE_DIR} ${CMAKE_BINARY_DIR}/surge EXCLUDE_FROM_ALL)
+    target_link_libraries(Gloopy PRIVATE surge::surge-common)
+    target_compile_definitions(Gloopy PRIVATE GLOOPY_WITH_SURGE=1)
+    message(STATUS "Gloopy: Surge XT synth engine ENABLED (${GLOOPY_SURGE_DIR})")
+elseif(GLOOPY_WITH_SURGE)
+    message(WARNING "GLOOPY_WITH_SURGE=ON but no Surge source at ${GLOOPY_SURGE_DIR}. "
+                    "Init the third_party/surge submodule or pass -DGLOOPY_SURGE_DIR=<path>. "
+                    "Building WITHOUT Surge for now.")
+endif()
+
+# ---------------------------------------------------------------------------
 # Unit tests — a small headless console target over the pure logic
 # (NoteScheduler / swing, ValueTree serialisation). Built with -DGLOOPY_TESTS=ON.
 # Kept out of the default build so it doesn't slow the app iteration loop.
