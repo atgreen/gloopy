@@ -507,6 +507,27 @@ struct LfoTests : juce::UnitTest
             expectWithinAbsoluteError (lfoOsc (0, 5.25), lfoOsc (0, 0.25), 1e-12);
         }
 
+        beginTest ("sample-and-hold: held within a cycle, stepped + deterministic across cycles");
+        {
+            // Same integer cycle -> the value is held (constant) regardless of fraction.
+            expect (lfoOsc (4, 3.0) == lfoOsc (4, 3.4));
+            expect (lfoOsc (4, 3.4) == lfoOsc (4, 3.99));
+            // A new cycle picks a new value (with overwhelming probability the hash differs).
+            expect (lfoOsc (4, 3.0) != lfoOsc (4, 4.0));
+            expect (lfoOsc (4, 4.0) != lfoOsc (4, 5.0));
+            // Deterministic: the same step always yields the same value (reproducible renders).
+            expect (lfoOsc (4, 7.2) == lfoOsc (4, 7.8));
+            // In range [-1, 1) and not all-zero across a run of steps.
+            bool anyNonZero = false;
+            for (int s = 0; s < 32; ++s)
+            {
+                const double v = lfoOsc (4, (double) s + 0.5);
+                expect (v >= -1.0 && v < 1.0);
+                if (std::abs (v) > 1.0e-6) anyNonZero = true;
+            }
+            expect (anyNonZero);
+        }
+
         beginTest ("phase offset + unipolar folding (lfoUnit)");
         {
             // Phase offset shifts the waveform: a 0.25-cycle offset makes phase 0 read

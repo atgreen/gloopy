@@ -243,6 +243,25 @@ assert d>0.003, 'slew did not change the render (diff=%.5f)'%d
 assert abs(float('$SLEW')-40.0)<1e-3, 'slew_ms not round-tripped: %s'%'$SLEW'
 print('smoke: PASS — LFO slew softens a square LFO (render diff %.4f), slew_ms=40 round-trips'%d)
 " || { echo 'smoke: modulation slew wrong' >&2; exit 1; }
+# Random / sample-and-hold LFO (shape 4, Wave 4 #9): stepped random cutoff changes the
+# render vs static, and — because the step value is a deterministic hash of the cycle
+# index — two renders of the same S&H mod are byte-identical (reproducible bounces).
+g -d "{\"target\":\"track/$MT/synth/cutoff\",\"depth\":1400,\"center\":1500,\"shape\":4,\"sync_beats\":0.25}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetModulation >/dev/null
+g -d "{\"path\":\"$WORK/mod_sh1.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"path\":\"$WORK/mod_sh2.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+SHSHAPE=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListModulations | python3 -c "import json,sys;print(json.load(sys.stdin)['mods'][0].get('shape',0))")
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+base=rd('$WORK/mod_base.wav');sh1=rd('$WORK/mod_sh1.wav');sh2=rd('$WORK/mod_sh2.wav')
+m=min(len(base),len(sh1))
+d=sum(abs(base[i]-sh1[i]) for i in range(m))/m/(1<<23)
+assert d>0.003, 'S&H LFO did not change the render (diff=%.5f)'%d
+assert sh1==sh2, 'S&H render not deterministic (hash should make bounces reproducible)'
+assert int('$SHSHAPE')==4, 'shape 4 (random) not round-tripped: got $SHSHAPE'
+print('smoke: PASS — random/S&H LFO changes render (diff %.4f), deterministic across renders, shape=4 round-trips'%d)
+" || { echo 'smoke: modulation sample-and-hold wrong' >&2; exit 1; }
 g -d "{\"target\":\"track/$MT/synth/cutoff\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveModulation >/dev/null
 g -d "{\"id\":$MT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 

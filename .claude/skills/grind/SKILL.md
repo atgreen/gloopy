@@ -571,6 +571,16 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      ListModulations + Python; serialised in MODS + `mods.toml` + composition. **Desktop UI:**
      the "Add LFO" prompt gains a "Smooth (ms)" field (screenshot-validated). smoke proves a
      40 ms slew softens a fast square LFO (render differs) and `slew_ms` round-trips.
+   - `[x]` **Random / sample-and-hold LFO shape landed** (commit): a 5th LFO shape (shape 4)
+     that holds a stepped random value for each cycle. The random value is a fixed integer
+     bit-mix of the cycle index (`lfoHash` in `Source/Lfo.h`) — **no RNG state**, so offline
+     bounces stay byte-identical (principle 4). Pairs naturally with the existing slew for
+     "wandering" (smooth-random) modulation. Just widened the shape clamp (0..4) and added
+     "Random (S&H)" to the Add-LFO shape combo — no proto/serialisation change (shape is
+     already an int). `GloopyTests::Lfo` proves S&H is held within a cycle, steps + is
+     deterministic across cycles, and stays in [-1,1); smoke proves a random-cutoff render
+     differs from static AND is identical across two renders (reproducible), shape=4 round-
+     trips; screenshot-validated (the expanded shape combo lists Random (S&H)).
      **Not yet:** envelope sources, multiple LFOs per target, plugin-param targets.
 
 10. **Tempo & time-signature map.** ✦ **M**

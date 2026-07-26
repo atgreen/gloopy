@@ -399,7 +399,7 @@ void MixerView::promptAddLfo (const juce::String& target)
     aw->addTextEditor ("sync",  "0",    "Sync (beats, 0=free)");
     aw->addTextEditor ("phase", "0",    "Phase (0..1)");
     aw->addTextEditor ("slew",  "0",    "Smooth (ms, 0=off)");
-    juce::StringArray shapes { "Sine", "Triangle", "Saw", "Square" };
+    juce::StringArray shapes { "Sine", "Triangle", "Saw", "Square", "Random (S&H)" };
     aw->addComboBox ("shape", shapes, "Shape");
     juce::StringArray polar { "Bipolar (+/- depth)", "Unipolar (0..depth)" };
     aw->addComboBox ("polar", polar, "Range");

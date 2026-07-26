@@ -25,7 +25,7 @@ bool MainComponent::apiSetModulation (const juce::String& target, float rate, fl
                                 [&] (const Mod& m) { return m.target == target; });
         // phase wraps to [0,1): only the fractional cycle offset matters.
         const float ph = phase - std::floor (phase);
-        Mod m { target, juce::jmax (0.0f, rate), depth, center, juce::jlimit (0, 3, shape),
+        Mod m { target, juce::jmax (0.0f, rate), depth, center, juce::jlimit (0, 4, shape),
                 juce::jmax (0.0f, syncBeats), ph, unipolar, juce::jmax (0.0f, slewMs) };
         if (it != modulations.end()) *it = m;      // upsert (also clears transient slew state)
         else                          modulations.push_back (m);
