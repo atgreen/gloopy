@@ -1251,6 +1251,15 @@ each shipping with desktop UI + screenshot validation.
       the real host: the Plugins tab listed sfizz / Surge XT (VST3+LV2) / ZynAddSubFX / Calf * , and
       clicking "Surge XT (LV2)" instantiated it as a new "Surge XT" instrument track. **Next:** Samples
       / Presets / Favorites tabs, and first-class drag-and-drop onto tracks/inserts.
+    - `[~]` **Browser sidebar — Samples tab landed** (commit): a fourth category listing importable
+      audio files (wav/aiff/flac) under `samplesDir()` — resolved from `$GLOOPY_SAMPLES_PATH`, else a
+      `samples/` folder next to the CWD, else `~/Music` (the demosDir resolver pattern). Clicking a row
+      `apiImportAudio`s the file as a new audio track (off-thread + busy overlay). Pure desktop control
+      over the existing import path (no new RPC — import is already smoke-proven). Screenshot-validated
+      end-to-end: pointed `$GLOOPY_SAMPLES_PATH` at two rendered WAVs (bass-220 / tone-440), the tab
+      listed both, and clicking tone-440.wav created an AUDIO track "tone-440" with its clip at bar 1.
+      **Next:** Presets / Favorites tabs, and first-class drag-and-drop onto tracks/inserts (the
+      "first-class" item the ideas doc emphasizes: sample→sampler/audio track, plugin→track/insert).
     - `[x]` **User templates ("Save as Template") landed** (commit): the current project can
       be saved as a reusable template — `apiSaveAsTemplate(name)` writes a `.gloopy` into a
       user templates dir (`<userAppData>/Gloopy/templates`, or `$GLOOPY_TEMPLATE_PATH`, the

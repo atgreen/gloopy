@@ -11,8 +11,9 @@
 
 /** A collapsible left-hand browser panel with tabbed categories. Each category
     lists items (labels) and opens the clicked one. Categories so far: Templates
-    (seed a new project) and Demos (open a bundled example composition). More
-    (Samples / Plugins / Presets / Favorites) plug in the same way. */
+    (seed a new project), Demos (open a bundled example composition), Plugins (add
+    an instrument plugin track), and Samples (import an audio file as a track).
+    More (Presets / Favorites) plug in the same way. */
 class BrowserSidebar : public juce::Component
 {
 public:

@@ -148,6 +148,8 @@ public:
     juce::File templatesDir() const;                              // user templates dir (GLOOPY_TEMPLATE_PATH override)
     juce::File demosDir() const;                                  // bundled example compositions (GLOOPY_EXAMPLES_PATH override)
     std::vector<juce::String> listDemos() const;                  // composition-folder names under demosDir()
+    juce::File samplesDir() const;                                // audio-sample folder (GLOOPY_SAMPLES_PATH override)
+    std::vector<juce::String> listSamples() const;                // audio files (wav/aiff/flac) under samplesDir()
     bool apiLoadProject (const juce::String& path);
     bool apiSaveProject (const juce::String& path);
     bool apiSaveComposition (const juce::String& path);   // directory "composition as repo" format

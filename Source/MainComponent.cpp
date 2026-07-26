@@ -216,6 +216,14 @@ MainComponent::MainComponent (bool headless)
               busyOverlay.show ("Loading " + label + "…");
               juce::MessageManager::callAsync ([this, id] { apiAddPluginTrack (id); busyOverlay.hide(); });
           } },
+        { "Samples",
+          [this] { return listSamples(); },                 // audio files under samplesDir()
+          [this] (const juce::String& name)
+          {
+              const auto f = samplesDir().getChildFile (name);
+              busyOverlay.show ("Importing " + name + "…");
+              juce::MessageManager::callAsync ([this, f] { apiImportAudio (f.getFullPathName()); busyOverlay.hide(); });
+          } },
     });
     addChildComponent (*browser);   // hidden until toggled
     browseButton.setClickingTogglesState (true);
@@ -2196,6 +2204,33 @@ std::vector<juce::String> MainComponent::listDemos() const
     for (const auto& e : juce::RangedDirectoryIterator (dir, false, "*", juce::File::findDirectories))
         if (e.getFile().getChildFile ("gloopy.toml").existsAsFile())
             out.push_back (e.getFile().getFileName());
+    std::sort (out.begin(), out.end());
+    return out;
+}
+
+// Audio-sample folder for the browser's Samples tab. Resolved from
+// $GLOOPY_SAMPLES_PATH, else a "samples" folder next to the CWD, else ~/Music.
+juce::File MainComponent::samplesDir() const
+{
+    auto base = juce::SystemStats::getEnvironmentVariable ("GLOOPY_SAMPLES_PATH", {});
+    if (base.isNotEmpty()) return juce::File (base);
+    auto cwd = juce::File::getCurrentWorkingDirectory().getChildFile ("samples");
+    if (cwd.isDirectory()) return cwd;
+    return juce::File::getSpecialLocation (juce::File::userMusicDirectory);
+}
+
+// Names of importable audio files (wav/aiff/flac) under samplesDir().
+std::vector<juce::String> MainComponent::listSamples() const
+{
+    std::vector<juce::String> out;
+    const auto dir = samplesDir();
+    if (! dir.isDirectory()) return out;
+    for (const auto& e : juce::RangedDirectoryIterator (dir, false, "*", juce::File::findFiles))
+    {
+        const auto f = e.getFile();
+        if (f.hasFileExtension ("wav;aif;aiff;flac"))
+            out.push_back (f.getFileName());
+    }
     std::sort (out.begin(), out.end());
     return out;
 }
