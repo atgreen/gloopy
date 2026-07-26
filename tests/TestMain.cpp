@@ -21,6 +21,8 @@
 #include "Lfo.h"
 #include "FadeShape.h"
 #include "Toml.h"
+#include "Time.h"
+#include <type_traits>
 
 //==============================================================================
 struct NoteSchedulerTests : juce::UnitTest
@@ -969,6 +971,61 @@ struct FadeShapeTests : juce::UnitTest
     }
 };
 
+// ---- strong time types (Source/Time.h) --------------------------------------------------------
+namespace {
+using namespace gloopy::time;
+
+template <typename A, typename B, typename = void> struct hasAdd : std::false_type {};
+template <typename A, typename B>
+struct hasAdd<A, B, std::void_t<decltype (std::declval<A>() + std::declval<B>())>> : std::true_type {};
+template <typename A, typename B, typename = void> struct hasSub : std::false_type {};
+template <typename A, typename B>
+struct hasSub<A, B, std::void_t<decltype (std::declval<A>() - std::declval<B>())>> : std::true_type {};
+
+// Legal combinations compile:
+static_assert (hasAdd<BeatPosition, BeatDuration>::value, "position + duration must compile");
+static_assert (hasSub<BeatPosition, BeatPosition>::value, "position - position must compile (=> duration)");
+static_assert (hasAdd<BeatDuration, BeatDuration>::value, "duration + duration must compile");
+static_assert (hasAdd<TimePosition, TimeDuration>::value, "time position + duration must compile");
+// Illegal combinations are rejected at compile time (the whole point of the strong types):
+static_assert (! hasAdd<BeatPosition, BeatPosition>::value, "position + position must NOT compile");
+static_assert (! hasAdd<BeatPosition, double>::value,       "typed time + bare double must NOT compile");
+static_assert (! hasAdd<BeatPosition, TimePosition>::value, "beats + seconds must NOT compile");
+static_assert (! hasAdd<BeatDuration, TimeDuration>::value, "beat-duration + time-duration must NOT compile");
+static_assert (! hasSub<BeatPosition, TimePosition>::value, "beats - seconds must NOT compile");
+} // namespace
+
+struct TimeTypesTests : juce::UnitTest
+{
+    TimeTypesTests() : juce::UnitTest ("TimeTypes") {}
+    void runTest() override
+    {
+        using namespace gloopy::time;
+
+        beginTest ("beat position / duration algebra");
+        expectWithinAbsoluteError ((BeatPosition { 4.0 } - BeatPosition { 1.0 }).inBeats(), 3.0, 1e-12);
+        expectWithinAbsoluteError ((BeatPosition { 1.0 } + BeatDuration { 2.0 }).inBeats(), 3.0, 1e-12);
+        expectWithinAbsoluteError ((BeatDuration { 2.0 } + BeatPosition { 1.0 }).inBeats(), 3.0, 1e-12);   // commutes
+        expectWithinAbsoluteError ((BeatDuration { 2.0 } * 1.5).inBeats(), 3.0, 1e-12);
+        expectWithinAbsoluteError (BeatDuration { 6.0 } / BeatDuration { 2.0 }, 3.0, 1e-12);                // ratio
+        expect (BeatPosition { 2.0 } < BeatPosition { 3.0 });
+        expect (BeatPosition { 3.0 } == BeatPosition { 3.0 });
+        expect (BeatPosition { 3.0 } != BeatPosition { 2.0 });
+
+        beginTest ("time position / duration algebra (seconds)");
+        expectWithinAbsoluteError ((TimePosition { 1.0 } + TimeDuration { 0.5 }).inSeconds(), 1.5, 1e-12);
+        expectWithinAbsoluteError ((TimePosition { 2.0 } - TimePosition { 0.5 }).inSeconds(), 1.5, 1e-12);
+        expect (TimeDuration { 0.5 } < TimeDuration { 1.0 });
+
+        beginTest ("illegal combinations are rejected at compile time");
+        expect (! hasAdd<BeatPosition, BeatPosition>::value, "position + position must be rejected");
+        expect (! hasAdd<BeatPosition, TimePosition>::value, "beats + seconds must be rejected");
+        expect (! hasAdd<BeatPosition, double>::value,       "typed + bare double must be rejected");
+        expect (  hasSub<BeatPosition, BeatPosition>::value, "position - position must be allowed");
+        expect (  hasAdd<BeatPosition, BeatDuration>::value, "position + duration must be allowed");
+    }
+};
+
 static FadeShapeTests    fadeShapeTests;
 static EffectSyncTests   effectSyncTests;
 static BiquadEqTests     biquadEqTests;
@@ -982,6 +1039,7 @@ static TomlTests         tomlTests;
 static SerializationTests serializationTests;
 static NoteEditTests     noteEditTests;
 static FileDropTests     fileDropTests;
+static TimeTypesTests    timeTypesTests;
 
 int main (int, char**)
 {
