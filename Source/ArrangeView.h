@@ -60,6 +60,8 @@ public:
     std::function<std::vector<std::pair<juce::String, double>>()> getMarkers;   // timeline locations (name, beat) for "Split at marker"
     std::function<void (double, double)> onAddTempoMarker;                     // beat, bpm
     std::function<void (double)>         onRemoveTempoMarker;                  // beat
+    std::function<void (const juce::String&, double)> onAddMarker;             // named timeline marker: name, beat
+    std::function<void (const juce::String&)>         onRemoveMarker;          // remove a named marker
     std::function<void (int, int)>       onSetTimeSignature;                   // numerator, denominator
     std::function<double()>              getSwing;                             // current swing (0.5 = straight)
     std::function<void (double)>         onSetSwing;                           // set the groove swing amount
@@ -87,6 +89,7 @@ private:
     int    clipAt (int track, juce::Point<float> p) const;
     void   drawClip (juce::Graphics&, const Track&, const Clip&, juce::Rectangle<float>, bool selected) const;
     void   promptAddTempoMarker (double beat);   // AlertWindow BPM prompt -> onAddTempoMarker
+    void   promptAddMarker (double beat);        // AlertWindow name prompt -> onAddMarker
     void   promptTimeSignature();                // AlertWindow num/denom prompt -> onSetTimeSignature
     void   promptClipGain (int track, int clip); // AlertWindow dB prompt -> onClipGain
     void   promptClipFades (int track, int clip); // AlertWindow in/out prompt -> onClipFades

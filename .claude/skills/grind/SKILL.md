@@ -290,8 +290,17 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
      `locations.toml` (survives dir round-trip, dirty-write stable). Python client
      add/list/remove_location + `render(range_name=…)`. smoke.sh asserts render-by-range
      is shorter than full + location survives the composition round-trip.
+   - `[x]` **Marker ruler UI landed** (commit): closed the desktop gap — named markers had NO
+     desktop control (only `AddLocation` via the API), despite driving split-at-marker. The
+     beat-ruler right-click menu gains "Add marker..." (name prompt at the clicked bar →
+     `onAddMarker` → `apiAddLocation(name,"marker",beat,beat)`) and "Remove marker (name)" when
+     one is near; named markers now DRAW on the ruler as cyan flags + labels (distinct from the
+     accent-coloured tempo markers), via the existing `getMarkers` hook. Pure desktop wiring of
+     the already-headless-proven Locations API (add/list/remove + composition round-trip already
+     smoke-covered), so no proto/Python change. Screenshot-validated (two markers "Verse"/"Drop"
+     drawn on the ruler + the "Add marker..." / "Remove marker" menu items).
      **Not yet:** folding the *existing* SetLoop/punch state into this model (today
-     they're still separate); ruler UI; export/skip semantics.
+     they're still separate); export/skip semantics.
 
 ### Wave 2 — Turn the control surface into the product
 

@@ -230,6 +230,16 @@ MainComponent::MainComponent (bool headless)
         for (auto& l : apiListLocations()) out.push_back ({ l.name, l.startBeat });
         return out;
     };
+    arrangeView->onAddMarker = [this] (const juce::String& name, double beat)
+    {
+        apiAddLocation (name, "marker", beat, beat);
+        if (arrangeView) arrangeView->repaint();
+    };
+    arrangeView->onRemoveMarker = [this] (const juce::String& name)
+    {
+        apiRemoveLocation (name);
+        if (arrangeView) arrangeView->repaint();
+    };
     arrangeView->onAddTempoMarker = [this] (double beat, double bpm)
     {
         apiAddTempoMarker (beat, bpm);

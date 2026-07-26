@@ -253,6 +253,24 @@ void ArrangeView::paint (juce::Graphics& g)
         }
     }
 
+    // Named timeline markers — a cyan flag + label at each marker beat (distinct from the
+    // accent-coloured tempo markers above).
+    if (getMarkers)
+    {
+        for (auto& mk : getMarkers())
+        {
+            const float x = xForBeat (mk.second);
+            if (x < headerWidth - 1.0f) continue;
+            g.setColour (juce::Colours::aquamarine);
+            juce::Path flag;
+            flag.addTriangle (x, 0.0f, x + 8.0f, 0.0f, x, 8.0f);
+            g.fillPath (flag);
+            g.drawVerticalLine ((int) x, 0.0f, (float) rulerHeight);
+            g.setFont (juce::FontOptions (9.0f));
+            g.drawText (mk.first, (int) x + 3, 1, 90, 9, juce::Justification::centredLeft, false);
+        }
+    }
+
     // Tracks.
     for (int i = 0; i < (int) tracks.size(); ++i)
     {
@@ -362,10 +380,19 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             for (auto& mk : getTempoMarkers())
                 if (std::abs (mk.first - beat) < 1e-6) { nearBeat = mk.first; break; }
 
+        // Is there a named marker near this bar (for Remove)?
+        juce::String nearMarker;
+        if (getMarkers)
+            for (auto& mk : getMarkers())
+                if (std::abs (mk.second - beat) < 1e-6) { nearMarker = mk.first; break; }
+
         juce::PopupMenu m;
         m.addSectionHeader ("Bar " + juce::String ((int) (beat / beatsPerBar) + 1));
         m.addItem (1, "Add tempo marker...");
         m.addItem (2, "Remove tempo marker", nearBeat >= 0.0);
+        m.addSeparator();
+        m.addItem (4, "Add marker...");                                   // named timeline marker
+        m.addItem (5, "Remove marker" + (nearMarker.isNotEmpty() ? " (" + nearMarker + ")" : juce::String()), nearMarker.isNotEmpty());
         m.addSeparator();
         m.addItem (3, "Time signature... (" + juce::String (transport.getTimeSigNumerator())
                         + "/" + juce::String (transport.getTimeSigDenominator()) + ")");
@@ -378,10 +405,12 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         for (int i = 0; i < 5; ++i)
             sw.addItem (30 + i, swingPresets[i].first, true, std::abs (curSwing - swingPresets[i].second) < 0.005);
         m.addSubMenu ("Swing", sw);
-        m.showMenuAsync (juce::PopupMenu::Options(), [this, beat, nearBeat] (int r)
+        m.showMenuAsync (juce::PopupMenu::Options(), [this, beat, nearBeat, nearMarker] (int r)
         {
             if (r == 1) promptAddTempoMarker (beat);
             else if (r == 2 && nearBeat >= 0.0 && onRemoveTempoMarker) onRemoveTempoMarker (nearBeat);
+            else if (r == 4) promptAddMarker (beat);
+            else if (r == 5 && nearMarker.isNotEmpty() && onRemoveMarker) onRemoveMarker (nearMarker);
             else if (r == 3) promptTimeSignature();
             else if (r >= 30 && r <= 34 && onSetSwing)
             {
@@ -779,6 +808,25 @@ void ArrangeView::promptAddTempoMarker (double beat)
         {
             const double bpm = aw->getTextEditorContents ("bpm").getDoubleValue();
             if (bpm >= 20.0 && bpm <= 400.0 && onAddTempoMarker) onAddTempoMarker (beat, bpm);
+        }
+        delete aw;
+    }), false);
+}
+
+void ArrangeView::promptAddMarker (double beat)
+{
+    auto* aw = new juce::AlertWindow ("Marker",
+                                      "Name for the marker at bar " + juce::String ((int) (beat / beatsPerBar) + 1),
+                                      juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("name", "Marker");
+    aw->addButton ("Add",    1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, beat] (int r)
+    {
+        if (r == 1)
+        {
+            const juce::String name = aw->getTextEditorContents ("name").trim();
+            if (name.isNotEmpty() && onAddMarker) onAddMarker (name, beat);
         }
         delete aw;
     }), false);
