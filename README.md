@@ -88,6 +88,24 @@ JUCE is fetched automatically by CMake (`FetchContent`), pinned to `8.0.15`.
 The gRPC C++ is generated from [`proto/gloopy.proto`](proto/gloopy.proto) at
 build time using the system `protoc` / `grpc_cpp_plugin`.
 
+### Embedded Surge XT synth (optional)
+
+Gloopy can embed the **Surge XT** synth engine (its default instrument voice and
+the browser's *Presets* tab). The engine source is the `third_party/surge` git
+submodule. **Don't** `git clone --recursive` — that would pull Surge's own
+`libs/JUCE` (~500 MB), which the synth core doesn't use. Instead, after cloning,
+run the helper, which fetches only the libraries `surge-common` needs:
+
+```sh
+scripts/init-surge.sh        # inits third_party/surge + just the needed sub-libs
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release   # GLOOPY_WITH_SURGE is ON by default
+```
+
+The factory patches/wavetables are bundled in `third_party/surge-data/` (no extra
+download). To build **without** Surge (a lean, pure-AGPL, C++17 binary), configure
+with `-DGLOOPY_WITH_SURGE=OFF`. Surge XT is GPL-3.0 — see
+[`THIRD-PARTY-LICENSES.md`](THIRD-PARTY-LICENSES.md).
+
 ## Quick start
 
 1. Press **Play** — the loaded demo arrangement plays down the timeline.

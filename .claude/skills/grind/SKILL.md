@@ -1711,8 +1711,11 @@ prior-art references to *read*, not to lift.
     ✅ DONE (commit)**: `GLOOPY_WITH_SURGE` option (default ON) + `GLOOPY_SURGE_DIR`;
     `add_subdirectory` builds surge-common (92 objs) inside Gloopy's build + links it (smoke
     green; lean OFF-path clean); fixed the embedding gotcha (surge-common's `${CMAKE_SOURCE_DIR}`
-    r8brain ref mis-resolves to Gloopy → sed shim to `${SURGE_SOURCE_DIR}`). Remaining **2b**: add
-    the actual `third_party/surge` submodule (today `GLOOPY_SURGE_DIR`→`~/git/surge`). (3)
+    r8brain ref mis-resolves to Gloopy → sed shim to `${SURGE_SOURCE_DIR}`). **2b — ✅ DONE (commit)**:
+    added the `third_party/surge` git submodule (github URL, pinned `9e73f42c`, via `--reference` so
+    Gloopy's .git stays tiny; `ignore = dirty`) + `scripts/init-surge.sh` that inits ONLY the sub-libs
+    surge-common needs (JUCE skipped) — so the committed default `GLOOPY_SURGE_DIR=third_party/surge`
+    builds. **Surge slice #28 is now COMPLETE** (all of 1–6). (3)
     **`SurgeGenerator` — ✅ DONE (commit)**: a Surge track renders non-silent audio through the
     mix (smoke peak ~0.33). Was crashing in `SurgeStorage` ctor — root cause was an **ODR clash**:
     vendored sfizz ships its own *older* `Tunings::` tuning-library (strong global symbol) that

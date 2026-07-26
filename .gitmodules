@@ -1,0 +1,4 @@
+[submodule "third_party/surge"]
+	path = third_party/surge
+	url = https://github.com/surge-synthesizer/surge.git
+	ignore = dirty

@@ -94,10 +94,15 @@ great out of the box, self-contained, no external plugin install required.
    JUCE LV2 sed) redirects those 2 lines to `${SURGE_SOURCE_DIR}` (Surge's own root, correct
    under add_subdirectory). Confirmed surge-common does NOT propagate its C++20 standard, so
    Gloopy stays C++17 (only slice-3's SurgeGenerator TU needs per-file C++20 + -fno-char8_t).
-   **Remaining for this slice (2b):** actually add the `third_party/surge` git submodule so a
-   default checkout has the source (today `GLOOPY_SURGE_DIR` is pointed at `~/git/surge` for
-   the build; without a source tree the CMake warns + builds Surge-less). The sed shim will
-   then apply to the submodule — carry it as a documented compat patch.
+   **2b — ✅ DONE (2026-07-26):** added the `third_party/surge` git submodule (URL
+   `https://github.com/surge-synthesizer/surge.git`, pinned `9e73f42c`), so the committed
+   default `GLOOPY_SURGE_DIR=third_party/surge` resolves. Added by `--reference ~/git/surge`
+   so Gloopy's `.git` stays tiny (surge `.git` is 814 MB); `.gitmodules` has `ignore = dirty`
+   (the r8brain sed shim modifies the submodule tree at configure). `scripts/init-surge.sh`
+   inits ONLY the sub-submodules surge-common needs (JUCE deliberately skipped — verified 0
+   entries), optionally borrowing objects from `$GLOOPY_SURGE_REFERENCE`/`~/git/surge`. Verified
+   a clean configure+build against `third_party/surge` (Surge ENABLED). README documents the
+   `init-surge.sh` (don't `--recursive`) workflow.
 3. **`SurgeGenerator` — ✅ DONE (2026-07-26).** A Surge track renders non-silent audio
    through Gloopy's mix (smoke: peak ~0.33). **The crash was an ODR namespace clash:**
    the vendored **sfizz** ships its *own older* copy of the `Tunings::` tuning-library
