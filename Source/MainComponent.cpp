@@ -228,7 +228,7 @@ MainComponent::MainComponent (bool headless)
     addChildComponent (*browser);   // hidden until toggled
     browseButton.setClickingTogglesState (true);
     browseButton.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
-    browseButton.setTooltip ("Browser: templates (click to start a new project from one)");
+    browseButton.setTooltip ("Browser: templates, demos, plugins & samples (toggle the left panel)");
     browseButton.onClick = [this]
     {
         browserVisible = browseButton.getToggleState();
@@ -3141,6 +3141,10 @@ void MainComponent::resized()
     auto bar = toolbarBounds.reduced (8, 9);
     bar.removeFromLeft (104);   // wordmark
 
+    // Browser toggle: first control on the left, directly above where the panel
+    // docks — the conventional home for a left-sidebar toggle.
+    browseButton.setBounds (bar.removeFromLeft (30)); bar.removeFromLeft (12);
+
     fileButton.setBounds (bar.removeFromLeft (52)); bar.removeFromLeft (12);
 
     // Transport cluster.
@@ -3168,7 +3172,6 @@ void MainComponent::resized()
     addAudioBtn  .setBounds (bar.removeFromLeft (68)); bar.removeFromLeft (5);
     addPluginBtn .setBounds (bar.removeFromLeft (72));
     mixerButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (6);
-    browseButton .setBounds (bar.removeFromRight (30)); bar.removeFromRight (6);
     mapsButton   .setBounds (bar.removeFromRight (52)); bar.removeFromRight (6);
     loopButton   .setBounds (bar.removeFromRight (54)); bar.removeFromRight (6);
     metroButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (12);
