@@ -1144,6 +1144,35 @@ python3 -c "assert float('$COMP_PEAK') < float('$BASE_PEAK')-3.0, 'compressor di
     || { echo "smoke: compressor did not reduce peak" >&2; exit 1; }
 echo "smoke: PASS — compressor ducked peak ($BASE_PEAK -> $COMP_PEAK dBFS)"
 g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+# Noise Gate (new effect): a percussive note (loud attack, quiet sustain) through a gate
+# with the threshold set between them — the loud attack passes at unity while the quiet
+# sustain tail is gated toward the Range floor. So vs the ungated render the HEAD window is
+# ~unchanged and the TAIL window drops steeply.
+NG=$(g -d '{"name":"gatetest","wave":"SAW","attack":0.003,"decay":0.12,"sustain":0.05,"release":0.05,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$NG,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\"notes\":[{\"pitch\":57,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.95}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/gate_dry.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$NG}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"insert":0,"type":"NOISE_GATE"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Thresh dB","value":-18}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Range dB","value":-60}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Attack ms","value":0.5}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Release ms","value":30}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/gate_on.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$NG}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave,math
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+def rms(x): return (sum(v*v for v in x)/max(1,len(x)))**0.5
+def db(x): return 20*math.log10(max(1e-9,x))
+dry=rd('$WORK/gate_dry.wav');on=rd('$WORK/gate_on.wav');n=min(len(dry),len(on))
+head=slice(int(0.01*n),int(0.06*n))          # loud attack region (skip the first opening ramp)
+tail=slice(int(0.6*n),n)                      # sustained quiet tail
+hd=db(rms(on[head]))-db(rms(dry[head])); td=db(rms(on[tail]))-db(rms(dry[tail]))
+assert hd > -4.0, 'gate attenuated the loud attack too much (head %.1f dB)'%hd
+assert td < -12.0, 'gate did not close on the quiet tail (tail %.1f dB, wanted <-12)'%td
+print('smoke: PASS — Noise Gate: loud attack passes (head %+.1f dB), quiet tail gated (tail %+.1f dB)'%(hd,td))
+" || { echo 'smoke: noise gate wrong' >&2; exit 1; }
+g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+g -d "{\"id\":$NG}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 # Tremolo (new effect): a sine LFO scales master gain. Depth 0 is a true identity; depth 1
 # on a sustained tone makes the amplitude oscillate (trough near silence, so windowed RMS
 # swings hugely); and a tempo-synced 1-beat cycle matches a free LFO at bpm/60 Hz exactly.

@@ -382,6 +382,57 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+// Noise Gate — a downward gate (the dynamics complement to the limiter/compressor):
+// when the signal level drops below Thresh dB the gain falls to Range dB (a floor, e.g.
+// -60 dB ≈ silence), attenuating hum/hiss/bleed in the gaps; above threshold it passes
+// at unity. The gate gain smooths toward its target with Attack (opening) / Release
+// (closing) time constants. Starts closed; reset() clears the state for reproducible
+// bounces.
+// ---------------------------------------------------------------------------
+class NoiseGateFx : public Effect
+{
+public:
+    void prepare (double sampleRate, int, int) override { sr = (float) sampleRate; reset(); }
+    void reset() override { gain = 0.0f; }              // closed until the signal opens it
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        if (bypassed.load()) return;
+        const float thr    = threshDb.load();
+        const float floorG = juce::Decibels::decibelsToGain (rangeDb.load());   // gain when closed
+        const float atCoef = std::exp (-1.0f / (juce::jmax (0.1f, attackMs.load())  * 0.001f * sr));
+        const float rlCoef = std::exp (-1.0f / (juce::jmax (1.0f, releaseMs.load()) * 0.001f * sr));
+        const int n = b.getNumSamples(), ch = juce::jmin (2, b.getNumChannels());
+        for (int i = 0; i < n; ++i)
+        {
+            float peak = 0.0f;
+            for (int c = 0; c < ch; ++c) peak = juce::jmax (peak, std::abs (b.getSample (c, i)));
+            const float lvlDb  = juce::Decibels::gainToDecibels (juce::jmax (1.0e-6f, peak));
+            const float target = lvlDb >= thr ? 1.0f : floorG;                  // open above threshold, else floor
+            const float coef   = target > gain ? atCoef : rlCoef;              // attack when opening, release when closing
+            gain = coef * (gain - target) + target;
+            for (int c = 0; c < ch; ++c) b.getWritePointer (c)[i] *= gain;
+        }
+    }
+
+    juce::String name() const override { return "Noise Gate"; }
+
+    std::vector<EffectParam> parameters() override
+    {
+        return {
+            { "Thresh dB",  -80.0f, 0.0f, -40.0f, [this] { return threshDb.load(); },  [this] (float v) { threshDb.store (v); } },
+            { "Range dB",   -80.0f, 0.0f, -60.0f, [this] { return rangeDb.load(); },   [this] (float v) { rangeDb.store (v); } },
+            { "Attack ms",  0.1f, 100.0f, 1.0f,   [this] { return attackMs.load(); },  [this] (float v) { attackMs.store (v); } },
+            { "Release ms", 5.0f, 1000.0f, 80.0f, [this] { return releaseMs.load(); }, [this] (float v) { releaseMs.store (v); } }
+        };
+    }
+
+private:
+    std::atomic<float> threshDb { -40.0f }, rangeDb { -60.0f }, attackMs { 1.0f }, releaseMs { 80.0f };
+    float gain { 0.0f }, sr { 44100.0f };
+};
+
+// ---------------------------------------------------------------------------
 // Parametric EQ (single peaking band, RBJ biquad)
 // ---------------------------------------------------------------------------
 // Three-band EQ: a low shelf, a mid peaking band, and a high shelf, chained per channel.
@@ -864,7 +915,7 @@ private:
 // ---------------------------------------------------------------------------
 namespace EffectFactory
 {
-    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan" }; }
+    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate" }; }
 
     inline std::unique_ptr<Effect> create (const juce::String& type)
     {
@@ -883,6 +934,7 @@ namespace EffectFactory
         if (type == "Flanger")    return std::make_unique<FlangerFx>();
         if (type == "Phaser")     return std::make_unique<PhaserFx>();
         if (type == "Auto-pan")   return std::make_unique<AutoPanFx>();
+        if (type == "Noise Gate") return std::make_unique<NoiseGateFx>();
         return nullptr;
     }
 }

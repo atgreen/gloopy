@@ -894,6 +894,16 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       where R hard-pans, each >3× the other channel), and synced(1bt)==free(bpm/60 Hz) byte-for-
       byte; screenshot-validated (Auto-pan in the add-effect menu + its 3 knobs). Completes the
       tremolo/auto-pan amplitude-LFO pair.
+    - `[x]` **Noise Gate landed** (commit): `NoiseGateFx`, a downward gate — the dynamics
+      complement to the limiter/compressor. Below Thresh dB the gate gain falls to a Range dB
+      floor (default -60 ≈ silence), attenuating hiss/bleed in the gaps; above threshold it
+      passes at unity, with Attack (opening) / Release (closing) smoothing. Starts closed;
+      reset() clears state for reproducible bounces. Thresh/Range/Attack/Release params;
+      EffectType NOISE_GATE=15, **appended** across all four registries (no enum shift). smoke
+      renders a percussive note (loud attack, quiet sustain) through the gate: the loud attack
+      passes (head -1.4 dB vs dry) while the quiet tail is gated (tail -60 dB); screenshot-
+      validated (Noise Gate in the add-effect menu + its 4 knobs). Completes the
+      limiter/compressor/gate dynamics trio.
       **Not yet:** analyzers (scope/spectrum/vectorscope) with API snapshots.
 
 ### Wave 6 — Product surface & UI (deferred: harder to verify headless; keep layout simple)
