@@ -332,6 +332,7 @@ public:
     bool apiRemoveTrack (int id);
     bool apiRenameTrack (int id, const juce::String& name);   // rename an existing track
     bool apiSetTrackColour (int id, const juce::String& hexArgb);   // recolour a track (8-hex ARGB)
+    bool apiMoveTrack (int id, int delta);   // reorder: delta<0 up (toward top), delta>0 down
     int  apiAddAudioTrack (const juce::String& name);
     int  apiAddSamplerTrack (const juce::String& name, const juce::String& path, int rootNote);
     bool apiSetSamplerControls (int trackId, float startFrac, float endFrac, bool reverse, int rootNote, float fadeIn, float fadeOut, bool loop, bool mono = false);

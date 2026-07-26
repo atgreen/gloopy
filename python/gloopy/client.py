@@ -222,6 +222,11 @@ class Gloopy:
         without a leading '#'."""
         self._ack(self.stub.SetTrackColour(pb.SetTrackColourRequest(track_id=track_id, colour=colour)))
 
+    def move_track(self, track_id: int, delta: int) -> None:
+        """Reorder a track: delta<0 moves it up (toward the top), delta>0 down. No-op (error)
+        if the track is already at that edge."""
+        self._ack(self.stub.MoveTrack(pb.MoveTrackRequest(track_id=track_id, delta=delta)))
+
     # -- clips ------------------------------------------------------------
     def add_clip(self, track_id: int, notes: Iterable[pb.Note] = (),
                  start_beat: float = 0.0, length_beats: float = 4.0,

@@ -418,6 +418,12 @@ MainComponent::MainComponent (bool headless)
         apiSetTrackColour (tracks[(size_t) trackIdx]->id, hex);  // map view index -> stable API id
     };
 
+    arrangeView->onMoveTrack = [this] (int trackIdx, int delta)
+    {
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+        apiMoveTrack (tracks[(size_t) trackIdx]->id, delta);     // map view index -> stable API id
+    };
+
     arrangeView->onClipGain = [this] (int trackIdx, int clip, float db)
     {
         if (juce::isPositiveAndBelow (trackIdx, (int) tracks.size()))
@@ -1445,6 +1451,33 @@ bool MainComponent::apiRenameTrack (int id, const juce::String& name)
             t->name = name.trim();
         }
         emitChange ("track_renamed", id);
+        if (arrangeView) arrangeView->rebuild();
+        resized();
+        return true;
+    });
+}
+
+bool MainComponent::apiMoveTrack (int id, int delta)
+{
+    if (delta == 0) return false;
+    return callOnMessageThread ([&] () -> bool
+    {
+        // Locate + range-check under the lock first, so we only snapshot on a real move.
+        int idx = -1, target = -1;
+        {
+            const juce::ScopedLock sl (engineLock);
+            for (size_t i = 0; i < tracks.size(); ++i)
+                if (tracks[i]->id == id) { idx = (int) i; break; }
+            if (idx < 0) return false;
+            target = idx + (delta < 0 ? -1 : 1);   // -1 = up (toward top), +1 = down
+            if (! juce::isPositiveAndBelow (target, (int) tracks.size())) return false;   // at an edge
+        }
+        pushUndoSnapshot();
+        {
+            const juce::ScopedLock sl (engineLock);
+            std::swap (tracks[(size_t) idx], tracks[(size_t) target]);   // mixerTrack lives on the Track, so routing is unchanged
+        }
+        emitChange ("track_moved", id);
         if (arrangeView) arrangeView->rebuild();
         resized();
         return true;

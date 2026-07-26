@@ -675,6 +675,10 @@ namespace
         { const bool ok = main.apiSetTrackColour (q->track_id(), js (q->colour()));
           r->set_ok (ok); if (! ok) r->set_error ("recolour failed (track not found)"); return Status::OK; }
 
+        Status MoveTrack (ServerContext*, const pb::MoveTrackRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiMoveTrack (q->track_id(), q->delta());
+          r->set_ok (ok); if (! ok) r->set_error ("move failed (track not found or already at edge)"); return Status::OK; }
+
         Status AddAudioTrack (ServerContext*, const pb::AddAudioTrackRequest* q, pb::TrackId* r) override
         { r->set_id (main.apiAddAudioTrack (js (q->name()))); return Status::OK; }
 

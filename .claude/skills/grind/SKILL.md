@@ -1083,6 +1083,18 @@ each shipping with desktop UI + screenshot validation.
   it into the rename block (set purple ffab47bc → survives the composition round-trip in
   GetState); screenshot-validated end-to-end (picked Green → the Kick clip + header accent turn
   green live).
+- `[x]` **Move track up/down landed** (commit): reorder a track in the arrangement.
+  `apiMoveTrack(id,delta)` (delta<0 up toward the top, >0 down) swaps adjacent entries in the
+  `tracks` vector under the lock — safe because each track's `mixerTrack` index lives ON the
+  Track, so routing/inserts are unaffected by vector order (and serialization writes/reads the
+  new order). Message-thread, undo, no-op at an edge. MoveTrack RPC (`MoveTrackRequest`) + Python
+  `move_track`. **Desktop:** "Move up"/"Move down" on the track-header menu, disabled at the
+  respective edge. smoke: append mvA/mvB/mvC, move mvC up x2 → GetState order mvC/mvA/mvB, then
+  remove the trio. Screenshot-validated end-to-end (Kick's menu shows Move-up disabled at the
+  top; picking Move down swapped Kick below Snare, each keeping its clip/colour).
+  **Deferred (needs its own tick):** *Duplicate track* — a true clone needs the per-track
+  save/load factored into a reusable helper AND its own mixer strip (each track gets a distinct
+  `mixerTrack` strip, so a naive clone would share inserts/fader); not a clean single-tick slice.
 
 16. **Browser sidebar + demo/template browser + `File → New From Template`** *(Idea
     #1/#2; absorbs remaining preset UI/work).* **L**

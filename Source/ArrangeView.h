@@ -51,6 +51,7 @@ public:
     std::function<void (int, int, const juce::String&)> onClipCommand;
     std::function<void (int, const juce::String&)>      onRenameTrack;   // track index, new name
     std::function<void (int, const juce::String&)>      onSetTrackColour; // track index, 8-hex ARGB
+    std::function<void (int, int)>                      onMoveTrack;     // track index, delta (<0 up, >0 down)
     /** Right-click an empty part of a track -> "Paste notes here": (track, beat). The
         owner reads JSON notes from the system clipboard and builds a clip at that beat. */
     std::function<void (int, double)> onPasteNotes;

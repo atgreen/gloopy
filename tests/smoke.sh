@@ -197,6 +197,21 @@ print('smoke: PASS — RenameTrack + SetTrackColour (renme-new / ffab47bc surviv
 " || { echo 'smoke: rename/colour track wrong' >&2; exit 1; }
 g -d "{\"path\":\"$WORK/rename_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 
+# Move track: append 3 named tracks (mvA/mvB/mvC), move mvC up twice -> it leads them;
+# routing (mixerTrack lives on the Track) is unaffected. Then remove all three.
+MVA=$(g -d '{"name":"mvA","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+MVB=$(g -d '{"name":"mvB","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+MVC=$(g -d '{"name":"mvC","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$MVC,\"delta\":-1}" 127.0.0.1:$PORT gloopy.v1.Gloopy/MoveTrack >/dev/null   # mvC: ..A,B,C -> A,C,B
+g -d "{\"track_id\":$MVC,\"delta\":-1}" 127.0.0.1:$PORT gloopy.v1.Gloopy/MoveTrack >/dev/null   # -> C,A,B
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "
+import json,sys
+mv=[t['name'] for t in json.load(sys.stdin)['tracks'] if t['name'] in ('mvA','mvB','mvC')]
+assert mv==['mvC','mvA','mvB'], 'move order wrong: %s'%mv
+print('smoke: PASS — MoveTrack up x2 reordered mvA/mvB/mvC -> mvC/mvA/mvB')
+" || { echo 'smoke: move track wrong' >&2; exit 1; }
+for T in $MVA $MVB $MVC; do g -d "{\"id\":$T}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null; done   # isolate
+
 # Modulation matrix: an LFO on a synth cutoff must change the render vs a static
 # cutoff. Dedicated track + two renders, then cleaned up.
 MT=$(g -d '{"name":"modtest","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.2,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
