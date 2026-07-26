@@ -871,6 +871,18 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
       magnitude-preservation property across a 6-stage cascade) without the audio-processor
       dep. smoke proves the enum→factory→params wiring (waveform diff 0.13 vs dry, stays
       level-matched within ~1.4 dB); screenshot-validated (Phaser in the add-effect menu).
+    - `[x]` **Tremolo landed** (commit): `TremoloFx`, periodic amplitude modulation — a sine
+      LFO scales the gain between 1 and (1 - Depth) at Rate Hz, or tempo-synced when Sync bt > 0
+      (reusing the shared `effectSyncedRate` beats→Hz law from the modulation effects + the
+      `setTempo` hook). Both channels share one phase (classic tremolo, not auto-pan); Depth 0
+      short-circuits to a true identity; reset() zeroes the phase so bounces are reproducible.
+      Rate/Sync bt/Depth params; EffectType TREMOLO=10 (all four registries synced by INSERTING
+      at index 10 — proto enum, `types()`, `create()`, `apiAddEffect` names[], Python EFFECTS —
+      which shifted CHORUS/FLANGER/PHASER to 11/12/13; safe because effects serialise by name and
+      the desktop menu adds by string, so the enum is only an AddEffect input with no reverse
+      lookup). smoke proves depth 0 = bit-exact identity, depth 1 swings windowed RMS ~40× (a
+      near-silent trough), and a synced 1-beat cycle == a free LFO at bpm/60 Hz byte-for-byte;
+      screenshot-validated (Tremolo in the add-effect menu + its 3 auto-rendered knobs).
       **Not yet:** analyzers (scope/spectrum/vectorscope) with API snapshots.
 
 ### Wave 6 — Product surface & UI (deferred: harder to verify headless; keep layout simple)

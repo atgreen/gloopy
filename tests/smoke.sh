@@ -1133,6 +1133,43 @@ python3 -c "assert float('$COMP_PEAK') < float('$BASE_PEAK')-3.0, 'compressor di
     || { echo "smoke: compressor did not reduce peak" >&2; exit 1; }
 echo "smoke: PASS — compressor ducked peak ($BASE_PEAK -> $COMP_PEAK dBFS)"
 g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+# Tremolo (new effect): a sine LFO scales master gain. Depth 0 is a true identity; depth 1
+# on a sustained tone makes the amplitude oscillate (trough near silence, so windowed RMS
+# swings hugely); and a tempo-synced 1-beat cycle matches a free LFO at bpm/60 Hz exactly.
+TRB=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetTransport | python3 -c "import json,sys;print(json.load(sys.stdin).get('bpm',120))")
+TRT=$(g -d '{"name":"tremtone","wave":"SAW","attack":0.005,"decay":0.05,"sustain":0.95,"release":0.05,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$TRT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":false,\"notes\":[{\"pitch\":57,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"path\":\"$WORK/trem_base.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$TRT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"insert":0,"type":"TREMOLO"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Depth","value":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/trem_d0.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$TRT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Depth","value":1.0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Rate","value":0.5}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null   # ~1 cycle over the render -> windows resolve peak vs near-silent trough
+g -d "{\"path\":\"$WORK/trem_d1.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$TRT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+# tempo-sync exactness: 1-beat cycle == free LFO at bpm/60 Hz.
+FREERATE=$(python3 -c "print(float('$TRB')/60.0)")
+g -d "{\"insert\":0,\"slot\":0,\"name\":\"Sync bt\",\"value\":1.0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/trem_sync.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$TRT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d '{"insert":0,"slot":0,"name":"Sync bt","value":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"insert\":0,\"slot\":0,\"name\":\"Rate\",\"value\":$FREERATE}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetEffectParam >/dev/null
+g -d "{\"path\":\"$WORK/trem_free.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$TRT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
+def rms(x): return (sum(v*v for v in x)/max(1,len(x)))**0.5
+base=rd('$WORK/trem_base.wav');d0=rd('$WORK/trem_d0.wav');d1=rd('$WORK/trem_d1.wav')
+sync=rd('$WORK/trem_sync.wav');free=rd('$WORK/trem_free.wav')
+assert d0==base, 'Tremolo depth 0 is not identity (differs from the dry render)'
+n=min(len(base),len(d1)); W=16; w=n//W
+wr=[rms(d1[k*w:(k+1)*w]) for k in range(W)]
+assert max(wr) > 4*max(1.0,min(wr)), 'depth-1 tremolo did not swing the amplitude (max/min window RMS %.0f/%.0f)'%(max(wr),min(wr))
+m=min(len(sync),len(free))
+assert sync[:m]==free[:m], 'tempo-synced 1-beat != free bpm/60 Hz (sync law mismatch)'
+print('smoke: PASS — Tremolo: depth0=identity, depth1 swings RMS %.0f..%.0f, sync(1bt)==free(%.3fHz)'%(min(wr),max(wr),float('$FREERATE')))
+" || { echo 'smoke: tremolo wrong' >&2; exit 1; }
+g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveEffect >/dev/null
+g -d "{\"id\":$TRT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 arms() { g -d "{\"path\":\"$1\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AnalyzeFile | python3 -c "import json,sys;print(json.load(sys.stdin).get('rmsDbfs',-99.0))"; }
 # EQ: a wide boost vs cut at a band shifts RMS.
 g -d '{"insert":0,"type":"EQ"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null

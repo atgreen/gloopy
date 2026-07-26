@@ -522,6 +522,57 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+// Tremolo — periodic amplitude modulation. A sine LFO scales the gain between
+// 1 and (1 - Depth) at Rate Hz (or tempo-synced when Sync bt > 0, reusing the same
+// beats->Hz law as the modulation effects). Both channels share one phase (classic
+// tremolo, not auto-pan). Depth 0 = identity (a true passthrough); Depth 1 fully
+// gates the trough to silence. Stateless apart from the LFO phase, so reset() makes
+// offline bounces reproducible.
+// ---------------------------------------------------------------------------
+class TremoloFx : public Effect
+{
+public:
+    void prepare (double sampleRate, int, int) override { sr = sampleRate; phase = 0.0f; }
+    void reset() override { phase = 0.0f; }
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        if (bypassed.load()) return;
+        const float depth = juce::jlimit (0.0f, 1.0f, depthAmt.load());
+        if (depth <= 0.0f) return;                                    // identity: leave the signal untouched
+        const float rate  = effectSyncedRate (bpm, syncBeats.load(), rateHz.load());   // tempo-sync when Sync bt > 0
+        const float twoPi = juce::MathConstants<float>::twoPi;
+        const float inc   = twoPi * rate / (float) sr;
+        const int nch = b.getNumChannels();
+        for (int i = 0; i < b.getNumSamples(); ++i)
+        {
+            // g in [1-depth, 1]: full level at phase 0, trough half a cycle later.
+            const float g = 1.0f - depth * (0.5f + 0.5f * std::sin (phase));
+            for (int c = 0; c < nch; ++c) b.getWritePointer (c)[i] *= g;
+            phase += inc; if (phase >= twoPi) phase -= twoPi;
+        }
+    }
+
+    void setTempo (double b) override { bpm = juce::jmax (1.0, b); }
+
+    juce::String name() const override { return "Tremolo"; }
+
+    std::vector<EffectParam> parameters() override
+    {
+        return {
+            { "Rate",  0.05f, 20.0f, 5.0f, [this] { return rateHz.load(); },    [this] (float v) { rateHz.store (v); } },
+            { "Sync bt", 0.0f, 4.0f, 0.0f, [this] { return syncBeats.load(); }, [this] (float v) { syncBeats.store (v); } },
+            { "Depth", 0.0f, 1.0f, 0.5f,   [this] { return depthAmt.load(); },  [this] (float v) { depthAmt.store (v); } }
+        };
+    }
+
+private:
+    double sr { 44100.0 }, bpm { 120.0 };
+    float  phase { 0.0f };
+    std::atomic<float> rateHz { 5.0f }, depthAmt { 0.5f }, syncBeats { 0.0f };
+};
+
+// ---------------------------------------------------------------------------
 // Chorus — a short LFO-modulated delay (no feedback) mixed with the dry signal.
 // The delay time sweeps base..base+Depth ms at Rate Hz; the right channel's LFO is a
 // quarter-cycle ahead for stereo width. Mix 0 = dry (identity), 1 = fully wet.
@@ -761,7 +812,7 @@ private:
 // ---------------------------------------------------------------------------
 namespace EffectFactory
 {
-    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Chorus", "Flanger", "Phaser" }; }
+    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser" }; }
 
     inline std::unique_ptr<Effect> create (const juce::String& type)
     {
@@ -775,6 +826,7 @@ namespace EffectFactory
         if (type == "EQ")         return std::make_unique<EqFx>();
         if (type == "Waveshaper") return std::make_unique<WaveshaperFx>();
         if (type == "Stereo Widener") return std::make_unique<StereoWidenerFx>();
+        if (type == "Tremolo")    return std::make_unique<TremoloFx>();
         if (type == "Chorus")     return std::make_unique<ChorusFx>();
         if (type == "Flanger")    return std::make_unique<FlangerFx>();
         if (type == "Phaser")     return std::make_unique<PhaserFx>();
