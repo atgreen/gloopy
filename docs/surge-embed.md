@@ -38,13 +38,14 @@ default synth — so users get **the real Surge XT editor** (via Gloopy's existi
 **⏳ Remaining follow-ups:**
 - **Step 2b — factory patch/wavetable library — ✅ DONE.** `build-surge-plugin.sh` now stages
   Surge's first-party `resources/data` (excluding the `*_3rdparty` packs) as
-  `third_party/surge-plugin/SurgeXTData/` (~62 MB, 639 factory patches). Surge XT finds it via
-  **portable mode** — at construction it walks UP from its own `.so` dir looking for a
-  `SurgeXTData/` dir (`SurgeStorage.cpp`), so installing to `bin/plugins/SurgeXTData` (beside the
-  `.lv2`) is auto-found with NO env var / NO Gloopy code / NO CMake change (the existing
-  `install(DIRECTORY surge-plugin/)` rule ships it; gitignore already covers it). Verified by
-  `strace` in an isolated `HOME` (no `~/.lv2`, no system Surge): **558 opens under the bundled
-  `SurgeXTData`** — wavetables + all factory patch categories load. (`configuration.xml` is NOT in
+  `third_party/surge-plugin/Surge XT.lv2/SurgeXTData/` (~62 MB, 639 factory patches) — **inside**
+  the `.lv2` bundle (not beside it, so lilv doesn't scan it as a bogus bundle and error on a
+  missing `manifest.ttl`). Surge XT finds it via **portable mode** — at construction it walks UP
+  from its own `.so` dir looking for a `SurgeXTData/` dir (`SurgeStorage.cpp`), and `<bundle>/
+  SurgeXTData` is the first hit — auto-found with NO env var / NO Gloopy code / NO CMake change
+  (the existing `install(DIRECTORY surge-plugin/)` rule ships it; gitignore already covers it).
+  Verified by `strace` in an isolated `HOME` (no `~/.lv2`, no system Surge): **~556 opens under
+  the bundled `SurgeXTData`** — wavetables + all factory patch categories load. (`configuration.xml` is NOT in
   the data dir — Surge compiles it in as a binary resource.)
 - **Licensing — ✅ DONE.** `THIRD-PARTY-LICENSES.md` now documents Surge XT in both forms
   (embedded `surge-common` core *and* the bundled GPL-3 LV2 plugin `.so` shipped in the RPM/DEB
