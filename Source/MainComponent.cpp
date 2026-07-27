@@ -669,6 +669,8 @@ MainComponent::MainComponent (bool headless)
         r = mixerTracks[(size_t) route]->peakR.load();
     };
     sessionView->onOpenTrackFx = [this] (int) { setViewMode (ViewMode::Mixer); };   // add effects in the mixer view
+    sessionView->getQuantumBeats   = [this] { return apiGetLaunchQuantumBeats(); };
+    sessionView->onSetQuantumBeats = [this] (double b) { apiSetLaunchQuantumBeats (b); };
     sessionViewport.setViewedComponent (sessionView.get(), false);
     sessionViewport.setScrollBarsShown (true, true);
     addChildComponent (sessionViewport);             // hidden until Tab switches to Session

@@ -54,6 +54,8 @@ public:
     std::function<void (int, int)> onEditClip;        // (track index, scene) -> load into the piano-roll editor
     std::function<void (int, float&, float&)> getTrackLevels;   // (track index) -> L,R peak for the stereo VU
     std::function<void (int)>      onOpenTrackFx;     // (track index) -> open that track's effects (mixer view)
+    std::function<double()>        getQuantumBeats;   // current launch quantum (beats; 0 = off)
+    std::function<void (double)>   onSetQuantumBeats; // cycle the launch quantum
 
     void rebuild()
     {
@@ -163,15 +165,23 @@ public:
             g.drawText (trackName[(size_t) t], h.reduced (6, 2), juce::Justification::centredLeft, true);
         }
 
-        // Scene-column header: "Stop All".
+        // Scene-column header: "Stop All" + the launch-quantum selector.
         {
             auto h = stopAllRect();
             g.setColour (juce::Colour (0xff3a2a2a));
             g.fillRoundedRectangle (h.reduced (2.0f), 3.0f);
             g.setColour (juce::Colours::white.withAlpha (0.8f));
-            g.setFont (juce::FontOptions (10.5f, juce::Font::bold));
-            g.drawText (juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xa0")) + "  Stop All",
-                        h.reduced (6, 0), juce::Justification::centredLeft, false);
+            g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+            g.drawText (juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xa0")) + " Stop",
+                        h.reduced (5, 0), juce::Justification::centredLeft, false);
+
+            auto q = quantumRect();
+            g.setColour (juce::Colour (0xff2a2a34));
+            g.fillRoundedRectangle (q.reduced (2.0f), 3.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.75f));
+            g.setFont (juce::FontOptions (9.5f, juce::Font::bold));
+            g.drawText ("Q " + quantumLabel (getQuantumBeats ? getQuantumBeats() : 4.0),
+                        q.reduced (5, 0), juce::Justification::centredLeft, false);
         }
 
         // Grid cells.
@@ -296,6 +306,7 @@ public:
         const auto p = e.position;
         if (addSceneRect().contains (p)) { if (onAddScene) onAddScene(); return; }
         if (stopAllRect().contains (p))  { if (onStopAll)  onStopAll();  return; }
+        if (quantumRect().contains (p))  { cycleQuantum(); return; }
 
         for (int s = 0; s < ns; ++s)
         {
@@ -327,8 +338,10 @@ private:
 
     juce::Rectangle<float> trackHeaderRect (int t) const
     { return { (float) (kPad + t * kTrackW), (float) kPad, (float) kTrackW, (float) kHeaderH }; }
-    juce::Rectangle<float> stopAllRect() const
+    juce::Rectangle<float> sceneHeaderRect() const
     { return { (float) (kPad + (int) tracks.size() * kTrackW), (float) kPad, (float) kSceneW, (float) kHeaderH }; }
+    juce::Rectangle<float> stopAllRect() const { return sceneHeaderRect().removeFromLeft (kSceneW * 0.5f); }
+    juce::Rectangle<float> quantumRect() const { auto h = sceneHeaderRect(); h.removeFromLeft (kSceneW * 0.5f); return h; }
     juce::Rectangle<float> cellRect (int t, int s) const
     { return { (float) (kPad + t * kTrackW), (float) (kPad + kHeaderH + s * kRowH), (float) kTrackW, (float) kRowH }; }
     juce::Rectangle<float> sceneRect (int s) const
@@ -379,6 +392,27 @@ private:
                              if      (r == 1 && onLaunchScene) onLaunchScene (s);
                              else if (r == 2 && onRemoveScene) onRemoveScene (s);
                          });
+    }
+
+    static juce::String quantumLabel (double b)
+    {
+        if (b <= 0.0)   return "Off";
+        if (b <= 0.26)  return "1/16";
+        if (b <= 0.51)  return "1/8";
+        if (b <= 1.01)  return "1/4";
+        if (b <= 2.01)  return "1/2";
+        if (b <= 4.01)  return "1 bar";
+        if (b <= 8.01)  return "2 bars";
+        return juce::String (b, 1) + "bt";
+    }
+    void cycleQuantum()
+    {
+        static const double opts[] = { 0.0, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
+        const double cur = getQuantumBeats ? getQuantumBeats() : 4.0;
+        int idx = 5; double best = 1e9;
+        for (int i = 0; i < 7; ++i) { const double d = std::abs (opts[i] - cur); if (d < best) { best = d; idx = i; } }
+        if (onSetQuantumBeats) onSetQuantumBeats (opts[(idx + 1) % 7]);
+        repaint();
     }
 
     void updateSize() { setSize (juce::jmax (preferredWidth(), getWidth()), juce::jmax (preferredHeight(), getHeight())); }
