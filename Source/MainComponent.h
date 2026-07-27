@@ -582,6 +582,8 @@ private:
     void pushUndoSnapshot();
     void undo();
     void redo();
+    void toggleTransport();       // Space: play/stop in place
+    void saveCurrentProject();    // Ctrl/Cmd+S: save to the current file (or Save As if unsaved)
     std::vector<juce::ValueTree> undoStack, redoStack;
     bool undoSuppressed { false };
 

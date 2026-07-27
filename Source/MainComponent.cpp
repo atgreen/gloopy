@@ -4075,11 +4075,39 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
 {
     using MK = juce::ModifierKeys;
     if (key.getKeyCode() == juce::KeyPress::tabKey)                               { cycleView(); return true; }   // Arrange/Session/Mixer
+    if (key == juce::KeyPress (juce::KeyPress::spaceKey, 0, 0))                   { toggleTransport(); return true; }   // play/stop
+    if (key == juce::KeyPress ('s', MK::commandModifier, 0))                      { saveCurrentProject(); return true; }
     if (key == juce::KeyPress ('z', MK::commandModifier, 0))                      { undo(); return true; }
     if (key == juce::KeyPress ('z', MK::commandModifier | MK::shiftModifier, 0))  { redo(); return true; }
     if (key == juce::KeyPress ('y', MK::commandModifier, 0))                      { redo(); return true; }
     if (key == juce::KeyPress ('.', MK::commandModifier, 0))                      { apiPanic(); return true; }   // MIDI panic
     return false;
+}
+
+// Space: toggle playback in place (keeps the playhead), mirroring the play/pause button.
+void MainComponent::toggleTransport()
+{
+    const bool willPlay = ! transport.isPlaying();
+    if (willPlay) clearClipIndicators();
+    transport.setPlaying (willPlay);
+    playButton.setToggleState (willPlay, juce::dontSendNotification);
+    playButton.setIcon (willPlay ? IconButton::Pause : IconButton::Play);
+}
+
+// Ctrl/Cmd+S: save to the current file in the format it was opened as; if never saved, Save As.
+void MainComponent::saveCurrentProject()
+{
+    if (currentProjectFile != juce::File())
+    {
+        if (currentProjectFile.getFileName() == "gloopy.toml") saveComposition (currentProjectFile.getParentDirectory());
+        else                                                   saveProject (currentProjectFile);
+        return;
+    }
+    fileChooser = std::make_unique<juce::FileChooser> ("Save as .gloopy", juce::File(), "*.gloopy");
+    fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
+                                | juce::FileBrowserComponent::warnAboutOverwriting,
+        [this] (const juce::FileChooser& fc)
+        { auto f = fc.getResult(); if (f != juce::File()) saveProject (f.withFileExtension ("gloopy")); });
 }
 
 juce::ValueTree MainComponent::clipToTree (const Clip& c, const juce::Identifier& type)
