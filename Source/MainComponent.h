@@ -865,8 +865,7 @@ private:
 
     juce::Viewport   arrangeViewport;
     std::unique_ptr<ArrangeView> arrangeView;
-    juce::Viewport   sessionViewport;                 // holds the Session grid (Tab switches views)
-    std::unique_ptr<SessionView> sessionView;
+    std::unique_ptr<SessionPane> sessionPane;         // frozen scene/master column (left) + scrolling track grid
     juce::Viewport   mixerViewport;                   // embedded Mixer (a view, not a floating window)
     enum class ViewMode { Arrange, Session, Mixer };
     ViewMode viewMode { ViewMode::Arrange };

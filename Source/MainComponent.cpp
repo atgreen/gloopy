@@ -631,9 +631,11 @@ MainComponent::MainComponent (bool headless)
     addAndMakeVisible (arrangeViewport);
 
     // ---- session view (clip-launch grid); Tab cycles Arrange -> Session -> Mixer ----
-    sessionView = std::make_unique<SessionView> (tracks, scenes, sessionLauncher, transport, engineLock);
-    sessionView->onLaunchClip  = [this] (int ti, int s) { if (auto* t = trackByIndex (ti)) apiLaunchClip (t->id, s); };
-    sessionView->onEmptyCell   = [this] (int ti, int s)
+    sessionPane = std::make_unique<SessionPane> (tracks, scenes, sessionLauncher, transport, engineLock);
+    auto& grid  = sessionPane->grid();          // scrolling track grid (cells + mixer strips)
+    auto& sceneCol = sessionPane->sceneColumn(); // frozen scene-launch + master column (pinned left)
+    grid.onLaunchClip  = [this] (int ti, int s) { if (auto* t = trackByIndex (ti)) apiLaunchClip (t->id, s); };
+    grid.onEmptyCell   = [this] (int ti, int s)
     {
         auto* t = trackByIndex (ti);
         if (t == nullptr) return;
@@ -641,28 +643,28 @@ MainComponent::MainComponent (bool headless)
         else if (t->recordArmed.load())                    startSessionRecord (ti, s);
         else                                               apiStopTrackClip (t->id);
     };
-    sessionView->onArm            = [this] (int ti, bool a) { if (auto* t = trackByIndex (ti)) t->recordArmed.store (a); };
-    sessionView->isArmed          = [this] (int ti) { auto* t = trackByIndex (ti); return t != nullptr && t->recordArmed.load(); };
-    sessionView->getRecordingScene= [this] (int ti) { return sessionRecTrack == ti ? sessionRecScene : -1; };
-    sessionView->onLaunchScene = [this] (int s)         { apiLaunchScene (s); };
-    sessionView->onStopAll     = [this]                 { apiStopAllClips(); };
-    sessionView->onAddScene    = [this]                 { apiAddScene(); if (sessionView) sessionView->rebuild(); resized(); };
-    sessionView->onRemoveScene = [this] (int s)         { apiRemoveScene (s); if (sessionView) sessionView->rebuild(); resized(); };
-    sessionView->onClearSlot   = [this] (int ti, int s) { if (auto* t = trackByIndex (ti)) { apiClearSessionSlot (t->id, s); if (sessionView) sessionView->rebuild(); } };
-    sessionView->onNewClip     = [this] (int ti, int s)
+    grid.onArm            = [this] (int ti, bool a) { if (auto* t = trackByIndex (ti)) t->recordArmed.store (a); };
+    grid.isArmed          = [this] (int ti) { auto* t = trackByIndex (ti); return t != nullptr && t->recordArmed.load(); };
+    grid.getRecordingScene= [this] (int ti) { return sessionRecTrack == ti ? sessionRecScene : -1; };
+    sceneCol.onLaunchScene = [this] (int s)         { apiLaunchScene (s); };
+    sceneCol.onStopAll     = [this]                 { apiStopAllClips(); };
+    sceneCol.onAddScene    = [this]                 { apiAddScene(); if (sessionPane) sessionPane->rebuild(); resized(); };
+    sceneCol.onRemoveScene = [this] (int s)         { apiRemoveScene (s); if (sessionPane) sessionPane->rebuild(); resized(); };
+    grid.onClearSlot   = [this] (int ti, int s) { if (auto* t = trackByIndex (ti)) { apiClearSessionSlot (t->id, s); if (sessionPane) sessionPane->rebuild(); } };
+    grid.onNewClip     = [this] (int ti, int s)
     {
         if (auto* t = trackByIndex (ti))
         {
             Clip c; c.type = ClipType::Midi; c.name = "Clip"; c.lengthBeats = 4.0; c.contentLenBeats = 4.0; c.looped = true;
             apiSetSessionClip (t->id, s, c);
-            if (sessionView) sessionView->rebuild();
+            if (sessionPane) sessionPane->rebuild();
             resized();
             selectSessionClip (ti, s);         // open the new clip in the editor to add notes
             setEditorMode (0);                 // piano roll
         }
     };
-    sessionView->onEditClip    = [this] (int ti, int s) { selectSessionClip (ti, s); };
-    sessionView->onCopyToArrangement = [this] (int ti, int s)
+    grid.onEditClip    = [this] (int ti, int s) { selectSessionClip (ti, s); };
+    grid.onCopyToArrangement = [this] (int ti, int s)
     {
         auto* t = trackByIndex (ti);
         if (t == nullptr) return;
@@ -676,7 +678,7 @@ MainComponent::MainComponent (bool headless)
         if (arrangeView) arrangeView->rebuild();
         setViewMode (ViewMode::Arrange);                 // reveal the result on the timeline
     };
-    sessionView->onCopySelectedClip = [this] (int ti, int s)
+    grid.onCopySelectedClip = [this] (int ti, int s)
     {
         auto* t = trackByIndex (ti);
         if (t == nullptr) return;
@@ -689,10 +691,10 @@ MainComponent::MainComponent (bool headless)
             copy = sc[(size_t) selClip];              // copy the selected arrangement clip
         }
         apiSetSessionClip (t->id, s, copy);
-        if (sessionView) sessionView->rebuild();
+        if (sessionPane) sessionPane->rebuild();
         resized();
     };
-    sessionView->getTrackLevels = [this] (int ti, float& l, float& r)
+    grid.getTrackLevels = [this] (int ti, float& l, float& r)
     {
         l = r = 0.0f;
         if (ti < 0 || ti >= (int) tracks.size() || mixerTracks.empty()) return;
@@ -700,16 +702,14 @@ MainComponent::MainComponent (bool headless)
         l = mixerTracks[(size_t) route]->peakL.load();
         r = mixerTracks[(size_t) route]->peakR.load();
     };
-    sessionView->onOpenTrackFx = [this] (int) { setViewMode (ViewMode::Mixer); };   // add effects in the mixer view
-    sessionView->getQuantumBeats   = [this] { return apiGetLaunchQuantumBeats(); };
-    sessionView->onSetQuantumBeats = [this] (double b) { apiSetLaunchQuantumBeats (b); };
-    sessionView->getMasterVolume   = [this] { return mixerTracks.empty() ? 0.8f : mixerTracks[0]->volume.load(); };
-    sessionView->onSetMasterVolume = [this] (float v) { if (! mixerTracks.empty()) mixerTracks[0]->volume.store (v); };
-    sessionView->getMasterLevels   = [this] (float& l, float& r)
+    grid.onOpenTrackFx = [this] (int) { setViewMode (ViewMode::Mixer); };   // add effects in the mixer view
+    sceneCol.getQuantumBeats   = [this] { return apiGetLaunchQuantumBeats(); };
+    sceneCol.onSetQuantumBeats = [this] (double b) { apiSetLaunchQuantumBeats (b); };
+    sceneCol.getMasterVolume   = [this] { return mixerTracks.empty() ? 0.8f : mixerTracks[0]->volume.load(); };
+    sceneCol.onSetMasterVolume = [this] (float v) { if (! mixerTracks.empty()) mixerTracks[0]->volume.store (v); };
+    sceneCol.getMasterLevels   = [this] (float& l, float& r)
     { l = r = 0.0f; if (! mixerTracks.empty()) { l = mixerTracks[0]->peakL.load(); r = mixerTracks[0]->peakR.load(); } };
-    sessionViewport.setViewedComponent (sessionView.get(), false);
-    sessionViewport.setScrollBarsShown (true, true);
-    addChildComponent (sessionViewport);             // hidden until Tab switches to Session
+    addChildComponent (*sessionPane);                // hidden until Tab switches to Session
 
     // ---- clip editor ----
     addChildComponent (busyOverlay);   // shown only while a background task runs
@@ -964,7 +964,7 @@ void MainComponent::addTrack (std::unique_ptr<Track> track)
     refreshTrackIds();
     if (! undoSuppressed && ! tracks.empty()) emitChange ("track_added", tracks.back()->id);
     if (arrangeView) arrangeView->rebuild();
-    if (sessionView) sessionView->rebuild();
+    if (sessionPane) sessionPane->rebuild();
     resized();
 }
 
@@ -1221,7 +1221,7 @@ void MainComponent::finalizeRecording()
             tracks[(size_t) srTrack]->sessionSlots[(size_t) srScene] = std::make_shared<Clip> (std::move (c));
             sessionLauncher.requestClip (srTrack, srScene);   // start looping the freshly recorded clip
         }
-        if (sessionView) sessionView->rebuild();
+        if (sessionPane) sessionPane->rebuild();
         return;
     }
 
@@ -1876,7 +1876,7 @@ bool MainComponent::apiRemoveTrack (int id)
         refreshTrackIds();
         emitChange ("track_removed", id);
         if (arrangeView) arrangeView->rebuild();
-        if (sessionView) sessionView->rebuild();
+        if (sessionPane) sessionPane->rebuild();
         selectClip (-1, -1);
         resized();
         return true;
@@ -3404,9 +3404,9 @@ void MainComponent::parentHierarchyChanged()
 void MainComponent::applyViewMode()
 {
     arrangeViewport.setVisible (viewMode == ViewMode::Arrange);
-    sessionViewport.setVisible (viewMode == ViewMode::Session);
+    if (sessionPane) sessionPane->setVisible (viewMode == ViewMode::Session);
     mixerViewport  .setVisible (viewMode == ViewMode::Mixer);
-    if (viewMode == ViewMode::Session && sessionView) sessionView->rebuild();
+    if (viewMode == ViewMode::Session && sessionPane) sessionPane->rebuild();
     if (viewMode == ViewMode::Mixer   && mixerView)   mixerView->rebuild();
     resized();
     grabKeyboardFocus();   // keep Tab reaching keyPressed regardless of what had focus
@@ -3752,7 +3752,7 @@ void MainComponent::resized()
 
     // Arrangement | divider | editor.
     // The top pane is the arrangement, the session grid, or the mixer, per the view mode.
-    Component* topPane = viewMode == ViewMode::Session ? (Component*) &sessionViewport
+    Component* topPane = (viewMode == ViewMode::Session && sessionPane) ? (Component*) sessionPane.get()
                        : viewMode == ViewMode::Mixer   ? (Component*) &mixerViewport
                                                        : (Component*) &arrangeViewport;
     // The bottom pane is the clip editor or the device chain, per bottomMode.
@@ -3769,9 +3769,7 @@ void MainComponent::resized()
     if (arrangeView)
         arrangeView->setSize (arrangeViewport.getMaximumVisibleWidth(),
                               juce::jmax (arrangeView->preferredHeight(), arrangeViewport.getHeight()));
-    if (sessionView)
-        sessionView->setSize (juce::jmax (sessionView->preferredWidth(),  sessionViewport.getMaximumVisibleWidth()),
-                              juce::jmax (sessionView->preferredHeight(), sessionViewport.getHeight()));
+    // SessionPane self-sizes its inner grid + frozen scene column in its own resized().
     if (mixerView && viewMode == ViewMode::Mixer)
         mixerView->setSize (juce::jmax (700, mixerViewport.getMaximumVisibleWidth()),
                             juce::jmax (400, mixerViewport.getHeight()));
