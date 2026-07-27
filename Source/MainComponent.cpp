@@ -3233,10 +3233,11 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
 
     // --- master -> output ---
     { auto sub = subView (master.buffer); for (auto& fx : master.effects) { fx->setTempo (fxBpm); fx->process (sub); } }
-    const float mpL = master.buffer.getMagnitude (0, 0, num), mpR = master.buffer.getMagnitude (1, 0, num);
+    const float mv = master.volume.load();
+    // Meter the master POST-fader so it reflects the master level control (what you hear).
+    const float mpL = master.buffer.getMagnitude (0, 0, num) * mv, mpR = master.buffer.getMagnitude (1, 0, num) * mv;
     master.peakL.store (mpL); master.peakR.store (mpR);
     if (mpL >= 1.0f || mpR >= 1.0f) master.clipped.store (true);
-    const float mv = master.volume.load();
     if (out->getNumChannels() > 0) out->addFrom (0, start, master.buffer, 0, 0, num, mv);
     if (out->getNumChannels() > 1) out->addFrom (1, start, master.buffer, 1, 0, num, mv);
 
