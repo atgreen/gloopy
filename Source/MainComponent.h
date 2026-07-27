@@ -586,6 +586,9 @@ private:
     juce::ValueTree toValueTree();
     void loadFromTree (const juce::ValueTree&);
     std::unique_ptr<Track> buildTrackFromTree (const juce::ValueTree& tr);   // one TRACK subtree -> a Track (no reload)
+    // Clip <-> ValueTree, shared by arrangement clips and session slots (and both save formats).
+    juce::ValueTree clipToTree (const Clip& c, const juce::Identifier& type = "CLIP");
+    Clip clipFromTree (const juce::ValueTree& cl);   // resolves referenced audio via formatManager
     void refreshUiAfterLoad();
 
     GloopyLookAndFeel     lookAndFeel;

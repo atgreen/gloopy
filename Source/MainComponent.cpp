@@ -3843,6 +3843,129 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     return false;
 }
 
+juce::ValueTree MainComponent::clipToTree (const Clip& c, const juce::Identifier& type)
+{
+    juce::ValueTree cl (type);
+    cl.setProperty ("ctype", (int) c.type, nullptr);
+    cl.setProperty ("name", c.name, nullptr);
+    cl.setProperty ("start", c.startBeat, nullptr);
+    cl.setProperty ("len", c.lengthBeats, nullptr);
+    cl.setProperty ("content", c.contentLenBeats, nullptr);
+    cl.setProperty ("looped", c.looped, nullptr);
+    if (c.transpose != 0) cl.setProperty ("transpose", c.transpose, nullptr);
+    if (c.velocityScale != 1.0f) cl.setProperty ("velscale", c.velocityScale, nullptr);
+    if (c.muted) cl.setProperty ("muted", true, nullptr);
+    if (c.colour.getARGB() != 0) cl.setProperty ("colour", (int) c.colour.getARGB(), nullptr);   // omit when inheriting
+    if (c.fadeInBeats  > 0.0) cl.setProperty ("fadein",  c.fadeInBeats,  nullptr);
+    if (c.fadeOutBeats > 0.0) cl.setProperty ("fadeout", c.fadeOutBeats, nullptr);
+    if (c.fadeShape != 0)     cl.setProperty ("fadeshape", c.fadeShape, nullptr);
+    if (c.isAudio() && c.audioFile.isNotEmpty())
+    {
+        // Referenced audio (recorded take / import) — store the path, not the blob.
+        cl.setProperty ("afile", c.audioFile, nullptr);
+        cl.setProperty ("again", c.audioGain, nullptr);
+        if (c.takeId.isNotEmpty()) cl.setProperty ("take", c.takeId, nullptr);
+    }
+    else if (c.isAudio() && c.audio != nullptr)
+    {
+        const auto& ab = *c.audio;
+        cl.setProperty ("arate", c.audioSourceRate, nullptr);
+        cl.setProperty ("again", c.audioGain, nullptr);
+        cl.setProperty ("achannels", ab.getNumChannels(), nullptr);
+        cl.setProperty ("aframes", ab.getNumSamples(), nullptr);
+        juce::MemoryBlock mb ((size_t) ab.getNumChannels() * (size_t) ab.getNumSamples() * sizeof (float));
+        auto* dst = (float*) mb.getData();
+        for (int ch = 0; ch < ab.getNumChannels(); ++ch)
+            for (int i = 0; i < ab.getNumSamples(); ++i)
+                *dst++ = ab.getSample (ch, i);
+        cl.setProperty ("adata", juce::Base64::toBase64 (mb.getData(), mb.getSize()), nullptr);
+    }
+    else
+    {
+        for (auto& n : c.notes)
+        {
+            juce::ValueTree nt ("NOTE");
+            nt.setProperty ("pitch", n.pitch, nullptr);
+            nt.setProperty ("start", n.startBeat, nullptr);
+            nt.setProperty ("nlen", n.lengthBeats, nullptr);
+            nt.setProperty ("vel", n.velocity, nullptr);
+            if (n.probability < 1.0f) nt.setProperty ("prob", n.probability, nullptr);
+            cl.addChild (nt, -1, nullptr);
+        }
+    }
+    return cl;
+}
+
+Clip MainComponent::clipFromTree (const juce::ValueTree& cl)
+{
+    Clip c;
+    c.type = (ClipType) (int) cl.getProperty ("ctype", (int) ClipType::Midi);
+    c.name = cl.getProperty ("name", "").toString();
+    c.startBeat = (double) cl.getProperty ("start", 0.0);
+    c.lengthBeats = (double) cl.getProperty ("len", 4.0);
+    c.contentLenBeats = (double) cl.getProperty ("content", 4.0);
+    c.looped = (bool) cl.getProperty ("looped", true);
+    c.transpose = (int) cl.getProperty ("transpose", 0);
+    c.velocityScale = (float) (double) cl.getProperty ("velscale", 1.0);
+    c.muted  = (bool) cl.getProperty ("muted", false);
+    c.colour = juce::Colour ((juce::uint32) (int) cl.getProperty ("colour", (int) 0));   // 0 = inherit track colour
+    c.fadeInBeats  = (double) cl.getProperty ("fadein", 0.0);
+    c.fadeOutBeats = (double) cl.getProperty ("fadeout", 0.0);
+    c.fadeShape    = (int) cl.getProperty ("fadeshape", 0);
+
+    if (c.isAudio() && cl.hasProperty ("afile"))
+    {
+        c.audioFile = cl.getProperty ("afile").toString();
+        c.takeId    = cl.getProperty ("take", "").toString();
+        c.audioGain = (float) (double) cl.getProperty ("again", 1.0);
+        const auto f = resolveSamplePath (c.audioFile);
+        if (std::unique_ptr<juce::AudioFormatReader> r (formatManager.createReaderFor (f)); r != nullptr)
+        {
+            auto buf = std::make_shared<juce::AudioBuffer<float>> ((int) r->numChannels, (int) r->lengthInSamples);
+            r->read (buf.get(), 0, (int) r->lengthInSamples, 0, true, true);
+            c.audio = buf;
+            c.audioSourceRate = r->sampleRate;
+            c.peaks = std::make_shared<std::vector<float>> (buildPeaks (*buf));
+        }
+        else
+            std::cout << "[load] missing referenced audio: " << f.getFullPathName() << std::endl;
+    }
+    else if (c.isAudio())
+    {
+        const int nch = juce::jmax (1, (int) cl.getProperty ("achannels", 1));
+        const int fr  = juce::jmax (0, (int) cl.getProperty ("aframes", 0));
+        auto buf = std::make_shared<juce::AudioBuffer<float>> (nch, fr);
+        buf->clear();
+        juce::MemoryOutputStream os;
+        juce::Base64::convertFromBase64 (os, cl.getProperty ("adata", "").toString());
+        const auto mb = os.getMemoryBlock();
+        const auto* src = (const float*) mb.getData();
+        const size_t count = mb.getSize() / sizeof (float);
+        size_t idx = 0;
+        for (int ch = 0; ch < nch; ++ch)
+            for (int j = 0; j < fr; ++j)
+                if (idx < count) buf->setSample (ch, j, src[idx++]);
+        c.audio = buf;
+        c.audioSourceRate = (double) cl.getProperty ("arate", 44100.0);
+        c.audioGain = (float) (double) cl.getProperty ("again", 1.0);
+        c.peaks = std::make_shared<std::vector<float>> (buildPeaks (*buf));
+    }
+    else
+    {
+        for (int n = 0; n < cl.getNumChildren(); ++n)
+        {
+            auto nt = cl.getChild (n);
+            if (! nt.hasType ("NOTE")) continue;
+            c.notes.push_back ({ (int) nt.getProperty ("pitch", 60),
+                                 (double) nt.getProperty ("start", 0.0),
+                                 (double) nt.getProperty ("nlen", 0.25),
+                                 (float) (double) nt.getProperty ("vel", 0.85),
+                                 (float) (double) nt.getProperty ("prob", 1.0) });
+        }
+    }
+    return c;
+}
+
 juce::ValueTree MainComponent::toValueTree()
 {
     const juce::ScopedLock sl (engineLock);
@@ -3942,60 +4065,32 @@ juce::ValueTree MainComponent::toValueTree()
         }
 
         for (auto& c : t->clips)
-        {
-            juce::ValueTree cl ("CLIP");
-            cl.setProperty ("ctype", (int) c.type, nullptr);
-            cl.setProperty ("name", c.name, nullptr);
-            cl.setProperty ("start", c.startBeat, nullptr);
-            cl.setProperty ("len", c.lengthBeats, nullptr);
-            cl.setProperty ("content", c.contentLenBeats, nullptr);
-            cl.setProperty ("looped", c.looped, nullptr);
-            if (c.transpose != 0) cl.setProperty ("transpose", c.transpose, nullptr);
-            if (c.velocityScale != 1.0f) cl.setProperty ("velscale", c.velocityScale, nullptr);
-            if (c.muted) cl.setProperty ("muted", true, nullptr);
-            if (c.colour.getARGB() != 0) cl.setProperty ("colour", (int) c.colour.getARGB(), nullptr);   // omit when inheriting
-            if (c.fadeInBeats  > 0.0) cl.setProperty ("fadein",  c.fadeInBeats,  nullptr);
-            if (c.fadeOutBeats > 0.0) cl.setProperty ("fadeout", c.fadeOutBeats, nullptr);
-            if (c.fadeShape != 0)     cl.setProperty ("fadeshape", c.fadeShape, nullptr);
-            if (c.isAudio() && c.audioFile.isNotEmpty())
+            tr.addChild (clipToTree (c), -1, nullptr);
+        // Session-view slots: one SCLIP child per non-empty slot, tagged with its scene index.
+        for (int s = 0; s < (int) t->sessionSlots.size(); ++s)
+            if (auto& slot = t->sessionSlots[(size_t) s])
             {
-                // Referenced audio (recorded take / import) — store the path, not the blob.
-                cl.setProperty ("afile", c.audioFile, nullptr);
-                cl.setProperty ("again", c.audioGain, nullptr);
-                if (c.takeId.isNotEmpty()) cl.setProperty ("take", c.takeId, nullptr);
+                auto sc = clipToTree (*slot, "SCLIP");
+                sc.setProperty ("scene", s, nullptr);
+                tr.addChild (sc, -1, nullptr);
             }
-            else if (c.isAudio() && c.audio != nullptr)
-            {
-                const auto& ab = *c.audio;
-                cl.setProperty ("arate", c.audioSourceRate, nullptr);
-                cl.setProperty ("again", c.audioGain, nullptr);
-                cl.setProperty ("achannels", ab.getNumChannels(), nullptr);
-                cl.setProperty ("aframes", ab.getNumSamples(), nullptr);
-                juce::MemoryBlock mb ((size_t) ab.getNumChannels() * (size_t) ab.getNumSamples() * sizeof (float));
-                auto* dst = (float*) mb.getData();
-                for (int ch = 0; ch < ab.getNumChannels(); ++ch)
-                    for (int i = 0; i < ab.getNumSamples(); ++i)
-                        *dst++ = ab.getSample (ch, i);
-                cl.setProperty ("adata", juce::Base64::toBase64 (mb.getData(), mb.getSize()), nullptr);
-            }
-            else
-            {
-                for (auto& n : c.notes)
-                {
-                    juce::ValueTree nt ("NOTE");
-                    nt.setProperty ("pitch", n.pitch, nullptr);
-                    nt.setProperty ("start", n.startBeat, nullptr);
-                    nt.setProperty ("nlen", n.lengthBeats, nullptr);
-                    nt.setProperty ("vel", n.velocity, nullptr);
-                    if (n.probability < 1.0f) nt.setProperty ("prob", n.probability, nullptr);
-                    cl.addChild (nt, -1, nullptr);
-                }
-            }
-            tr.addChild (cl, -1, nullptr);
-        }
         trks.addChild (tr, -1, nullptr);
     }
     root.addChild (trks, -1, nullptr);
+
+    // Global scene rows (session view).
+    if (! scenes.empty())
+    {
+        juce::ValueTree sc ("SCENES");
+        for (auto& s : scenes)
+        {
+            juce::ValueTree one ("SCENE");
+            one.setProperty ("name", s.name, nullptr);
+            if (s.colour.getARGB() != 0) one.setProperty ("colour", (int) s.colour.getARGB(), nullptr);
+            sc.addChild (one, -1, nullptr);
+        }
+        root.addChild (sc, -1, nullptr);
+    }
 
     juce::ValueTree mx ("MIXER");
     for (auto& mt : mixerTracks)
@@ -4337,73 +4432,17 @@ std::unique_ptr<Track> MainComponent::buildTrackFromTree (const juce::ValueTree&
         for (int ci = 0; ci < tr.getNumChildren(); ++ci)
         {
             auto cl = tr.getChild (ci);
-            if (! cl.hasType ("CLIP")) continue;
-            Clip c;
-            c.type = (ClipType) (int) cl.getProperty ("ctype", (int) ClipType::Midi);
-            c.name = cl.getProperty ("name", "").toString();
-            c.startBeat = (double) cl.getProperty ("start", 0.0);
-            c.lengthBeats = (double) cl.getProperty ("len", 4.0);
-            c.contentLenBeats = (double) cl.getProperty ("content", 4.0);
-            c.looped = (bool) cl.getProperty ("looped", true);
-            c.transpose = (int) cl.getProperty ("transpose", 0);
-            c.velocityScale = (float) (double) cl.getProperty ("velscale", 1.0);
-            c.muted  = (bool) cl.getProperty ("muted", false);
-            c.colour = juce::Colour ((juce::uint32) (int) cl.getProperty ("colour", (int) 0));   // 0 = inherit track colour
-            c.fadeInBeats  = (double) cl.getProperty ("fadein", 0.0);
-            c.fadeOutBeats = (double) cl.getProperty ("fadeout", 0.0);
-            c.fadeShape    = (int) cl.getProperty ("fadeshape", 0);
-
-            if (c.isAudio() && cl.hasProperty ("afile"))
+            if (cl.hasType ("CLIP"))
+                t->clips.push_back (clipFromTree (cl));
+            else if (cl.hasType ("SCLIP"))   // session-view slot at its scene index
             {
-                // Referenced audio: resolve the path and load the file for playback.
-                c.audioFile = cl.getProperty ("afile").toString();
-                c.takeId    = cl.getProperty ("take", "").toString();
-                c.audioGain = (float) (double) cl.getProperty ("again", 1.0);
-                const auto f = resolveSamplePath (c.audioFile);
-                if (std::unique_ptr<juce::AudioFormatReader> r (formatManager.createReaderFor (f)); r != nullptr)
+                const int scene = (int) cl.getProperty ("scene", -1);
+                if (scene >= 0)
                 {
-                    auto buf = std::make_shared<juce::AudioBuffer<float>> ((int) r->numChannels, (int) r->lengthInSamples);
-                    r->read (buf.get(), 0, (int) r->lengthInSamples, 0, true, true);
-                    c.audio = buf;
-                    c.audioSourceRate = r->sampleRate;
-                    c.peaks = std::make_shared<std::vector<float>> (buildPeaks (*buf));
-                }
-                else
-                    std::cout << "[load] missing referenced audio: " << f.getFullPathName() << std::endl;
-            }
-            else if (c.isAudio())
-            {
-                const int nch = juce::jmax (1, (int) cl.getProperty ("achannels", 1));
-                const int fr  = juce::jmax (0, (int) cl.getProperty ("aframes", 0));
-                auto buf = std::make_shared<juce::AudioBuffer<float>> (nch, fr);
-                buf->clear();
-                juce::MemoryOutputStream os;
-                juce::Base64::convertFromBase64 (os, cl.getProperty ("adata", "").toString());
-                const auto mb = os.getMemoryBlock();
-                const auto* src = (const float*) mb.getData();
-                const size_t count = mb.getSize() / sizeof (float);
-                size_t idx = 0;
-                for (int ch = 0; ch < nch; ++ch)
-                    for (int j = 0; j < fr; ++j)
-                        if (idx < count) buf->setSample (ch, j, src[idx++]);
-                c.audio = buf;
-                c.audioSourceRate = (double) cl.getProperty ("arate", 44100.0);
-                c.audioGain = (float) (double) cl.getProperty ("again", 1.0);
-                c.peaks = std::make_shared<std::vector<float>> (buildPeaks (*buf));
-            }
-            else
-            {
-                for (int n = 0; n < cl.getNumChildren(); ++n)
-                {
-                    auto nt = cl.getChild (n);
-                    c.notes.push_back ({ (int) nt.getProperty ("pitch", 60),
-                                         (double) nt.getProperty ("start", 0.0),
-                                         (double) nt.getProperty ("nlen", 0.25),
-                                         (float) (double) nt.getProperty ("vel", 0.85),
-                                         (float) (double) nt.getProperty ("prob", 1.0) });
+                    if ((int) t->sessionSlots.size() <= scene) ensureSlotCount (t->sessionSlots, scene + 1);
+                    t->sessionSlots[(size_t) scene] = std::make_shared<Clip> (clipFromTree (cl));
                 }
             }
-            t->clips.push_back (std::move (c));
         }
     return t;
 }
@@ -4425,14 +4464,26 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     tempoMap.clear();
     controllerMaps.clear();
     automationLanes.clear();
-    scenes.clear();                       // session grid persistence lands in the next slice
+    scenes.clear();
     sessionLauncher.reset();
     sessionBeat = 0.0;
     nextTrackId = 1;
 
+    // Session-view scene rows (before tracks, so slots can be normalized to the scene count).
+    if (auto sc = root.getChildWithName ("SCENES"); sc.isValid())
+        for (int i = 0; i < sc.getNumChildren(); ++i)
+        {
+            auto one = sc.getChild (i);
+            if (! one.hasType ("SCENE")) continue;
+            scenes.push_back ({ one.getProperty ("name", "Scene " + juce::String (i + 1)).toString(),
+                                juce::Colour ((juce::uint32) (int) one.getProperty ("colour", (int) 0)) });
+        }
+
     auto trks = root.getChildWithName ("TRACKS");
     for (int i = 0; i < trks.getNumChildren(); ++i)
         tracks.push_back (buildTrackFromTree (trks.getChild (i)));
+    // Keep every track's slot column rectangular (== scene count) after load.
+    for (auto& t : tracks) ensureSlotCount (t->sessionSlots, (int) scenes.size());
     sessionLauncher.setTrackCount ((int) tracks.size());
 
     auto mx = root.getChildWithName ("MIXER");
