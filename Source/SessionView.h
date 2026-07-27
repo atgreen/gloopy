@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include "Track.h"
+#include "MixerTrack.h"
 #include "SessionModel.h"
 #include "SessionLauncher.h"
 #include "Transport.h"
@@ -83,11 +84,12 @@ class SessionView : public juce::Component,
 {
 public:
     SessionView (std::vector<std::unique_ptr<Track>>& tracksRef,
+                 std::vector<std::unique_ptr<MixerTrack>>& mixerTracksRef,
                  std::vector<Scene>& scenesRef,
                  SessionLauncher& launcherRef,
                  Transport& transportRef,
                  juce::CriticalSection& engineLockRef)
-        : tracks (tracksRef), scenes (scenesRef), launcher (launcherRef),
+        : tracks (tracksRef), mixerTracks (mixerTracksRef), scenes (scenesRef), launcher (launcherRef),
           transport (transportRef), engineLock (engineLockRef)
     {
         startTimerHz (30);
@@ -114,6 +116,7 @@ public:
     std::function<std::vector<GroupInfo>()>            getGroups;     // groups + their member track indices
     std::function<void (int busIndex, float&, float&)> getBusLevels;  // a bus's L,R peak
     std::function<void (int busIndex, bool)>           onSetGroupFolded;   // collapse/expand a group's members
+    std::function<void (int busIndex)>                 onOpenBusFx;        // open a group/bus effect chain
 
     void rebuild()
     {
@@ -176,6 +179,39 @@ public:
             addAndMakeVisible (*s.solo); addAndMakeVisible (*s.mute); addAndMakeVisible (*s.arm); addAndMakeVisible (*s.fx);
             strips.push_back (std::move (s));
         }
+
+        // Group column strips — like a track strip but bound to the bus MixerTrack (no arm: you
+        // can't record a bus). vol/pan/mute/solo write the bus atomics directly; FX opens the chain.
+        groupStrips.clear();
+        for (const auto& col : cols)
+        {
+            if (col.bus < 0 || ! juce::isPositiveAndBelow (col.bus, (int) mixerTracks.size())) continue;
+            MixerTrack* bus = mixerTracks[(size_t) col.bus].get();
+            Strip s;
+            s.vol = std::make_unique<juce::Slider> (juce::Slider::LinearVertical, juce::Slider::NoTextBox);
+            s.vol->setRange (0.0, 1.0, 0.0);
+            s.vol->setValue (bus->volume.load(), juce::dontSendNotification);
+            s.vol->onValueChange = [bus, w = s.vol.get()] { bus->volume.store ((float) w->getValue()); };
+            s.pan = std::make_unique<juce::Slider> (juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::NoTextBox);
+            s.pan->setRange (-1.0, 1.0, 0.0);
+            s.pan->setValue (bus->pan.load(), juce::dontSendNotification);
+            s.pan->onValueChange = [bus, w = s.pan.get()] { bus->pan.store ((float) w->getValue()); };
+            s.solo = std::make_unique<juce::TextButton> ("S");
+            s.solo->setClickingTogglesState (true);
+            s.solo->setToggleState (bus->solo.load(), juce::dontSendNotification);
+            s.solo->onClick = [bus, w = s.solo.get()] { bus->solo.store (w->getToggleState()); };
+            s.mute = std::make_unique<juce::TextButton> ("M");
+            s.mute->setClickingTogglesState (true);
+            s.mute->setToggleState (bus->mute.load(), juce::dontSendNotification);
+            s.mute->setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xffb08a2a));
+            s.mute->onClick = [bus, w = s.mute.get()] { bus->mute.store (w->getToggleState()); };
+            s.fx = std::make_unique<juce::TextButton> ("FX");
+            s.fx->onClick = [this, b = col.bus] { if (onOpenBusFx) onOpenBusFx (b); };
+            addAndMakeVisible (*s.vol);  addAndMakeVisible (*s.pan);
+            addAndMakeVisible (*s.solo); addAndMakeVisible (*s.mute); addAndMakeVisible (*s.fx);
+            groupStrips[col.bus] = std::move (s);
+        }
+
         meterL.assign ((size_t) nt, 0.0f);
         meterR.assign ((size_t) nt, 0.0f);
         peakHoldL.assign ((size_t) nt, 0.0f);   // keep held-peak buffers in lockstep with meterL/R,
@@ -192,35 +228,52 @@ public:
 
     void resized() override
     {
-        // Hide every strip first; only the strips of visible track columns get shown + placed
-        // (folded-group members have no column, so their strips stay hidden).
-        for (auto& s : strips)
-        { s.vol->setVisible (false); s.pan->setVisible (false); s.solo->setVisible (false);
-          s.mute->setVisible (false); s.arm->setVisible (false); s.fx->setVisible (false); }
+        // Hide every strip first; only the strips of visible columns get shown + placed (folded
+        // members have no column, so their strips stay hidden).
+        auto hide = [] (Strip& s) { for (juce::Component* c : { (juce::Component*) s.vol.get(), (juce::Component*) s.pan.get(),
+                                                                (juce::Component*) s.solo.get(), (juce::Component*) s.mute.get(),
+                                                                (juce::Component*) s.arm.get(), (juce::Component*) s.fx.get() })
+                                        if (c) c->setVisible (false); };
+        for (auto& s : strips) hide (s);
+        for (auto& kv : groupStrips) hide (kv.second);
 
         for (int c = 0; c < numCols(); ++c)
         {
-            const int t = cols[(size_t) c].track;
-            if (t < 0 || t >= (int) strips.size()) continue;   // group columns have no track strip
-            auto& st = strips[(size_t) t];
-            st.vol->setVisible (true); st.pan->setVisible (true); st.solo->setVisible (true);
-            st.mute->setVisible (true); st.arm->setVisible (true); st.fx->setVisible (true);
+            const auto& col = cols[(size_t) c];
+            Strip* st = nullptr;
+            if (col.track >= 0 && col.track < (int) strips.size()) st = &strips[(size_t) col.track];
+            else if (col.bus >= 0) { auto it = groupStrips.find (col.bus); if (it != groupStrips.end()) st = &it->second; }
+            if (st == nullptr) continue;
+
+            st->vol->setVisible (true); st->pan->setVisible (true); st->solo->setVisible (true);
+            st->mute->setVisible (true); st->fx->setVisible (true); if (st->arm) st->arm->setVisible (true);
 
             auto r = colStripRect (c).reduced (6, 6);
             r.removeFromTop (14);                              // dB readout (drawn in paint)
-            st.pan->setBounds (r.removeFromTop (30).withSizeKeepingCentre (30, 30));   // rotary pan
+            st->pan->setBounds (r.removeFromTop (30).withSizeKeepingCentre (30, 30));   // rotary pan
             r.removeFromTop (2);
-            auto btn = r.removeFromBottom (18);                // S | M | ● | FX
+            auto btn = r.removeFromBottom (18);
             r.removeFromBottom (4);
             auto fader = r.removeFromLeft ((int) (r.getWidth() * 0.48f));
             r.removeFromLeft (4);
-            if (t < (int) meterRect.size()) meterRect[(size_t) t] = r;   // stereo VU (drawn in paint)
-            st.vol->setBounds (fader);
-            const int bw = (btn.getWidth() - 9) / 4;         // S | M | ● | FX
-            st.solo->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
-            st.mute->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
-            st.arm ->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
-            st.fx  ->setBounds (btn);
+            if (col.track >= 0) { if (col.track < (int) meterRect.size()) meterRect[(size_t) col.track] = r; }   // stereo VU
+            else                  groupMeterRect[col.bus] = r;
+            st->vol->setBounds (fader);
+            if (st->arm != nullptr)   // track strip: S | M | ● | FX
+            {
+                const int bw = (btn.getWidth() - 9) / 4;
+                st->solo->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
+                st->mute->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
+                st->arm ->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
+                st->fx  ->setBounds (btn);
+            }
+            else                      // group strip: S | M | FX (no arm — can't record a bus)
+            {
+                const int bw = (btn.getWidth() - 6) / 3;
+                st->solo->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
+                st->mute->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
+                st->fx  ->setBounds (btn);
+            }
         }
     }
 
@@ -363,24 +416,30 @@ public:
             }
         }
 
-        // Group/bus column strips (bottom band): a distinct fill, "GROUP" tag, and the bus meter.
+        // Group/bus column strips: distinct fill + dB readout (bus volume) + meter. The pan/fader/
+        // S/M/FX are real child components (bound to the bus) drawn on top.
         for (int c = 0; c < numCols(); ++c)
         {
             const auto& col = cols[(size_t) c];
-            if (col.bus < 0) continue;
+            if (col.bus < 0 || ! juce::isPositiveAndBelow (col.bus, (int) mixerTracks.size())) continue;
             auto strip = colStripRect (c);
             g.setColour (juce::Colour (0xff2a2431));
             g.fillRoundedRectangle (strip.toFloat().reduced (3.0f), 4.0f);
-            g.setColour (col.colour.withAlpha (0.9f));
-            g.setFont (juce::FontOptions (9.5f, juce::Font::bold));
-            g.drawText ("GROUP", strip.reduced (8, 5).removeFromTop (12).toFloat(), juce::Justification::centredLeft, false);
-            float mL = 0.0f, mR = 0.0f;
-            auto it = busMeter.find (col.bus);
-            if (it != busMeter.end()) { mL = it->second.first; mR = it->second.second; }
-            auto mArea = strip.reduced (10, 8); mArea.removeFromTop (16);
-            const int bw = (mArea.getWidth() - 2) / 2;
-            sv::drawMeter (g, mArea.withWidth (bw), mL, mL);
-            sv::drawMeter (g, mArea.withX (mArea.getRight() - bw).withWidth (bw), mR, mR);
+            g.setColour (juce::Colours::white.withAlpha (0.6f));
+            g.setFont (juce::FontOptions (9.5f));
+            const float v = mixerTracks[(size_t) col.bus]->volume.load();
+            const juce::String db = v <= 0.0001f ? juce::String (juce::CharPointer_UTF8 ("-\xe2\x88\x9e"))
+                                                 : juce::String (20.0f * std::log10 (v), 1) + " dB";
+            g.drawText (db, strip.reduced (8, 4).removeFromTop (14).toFloat(), juce::Justification::centredLeft, false);
+            auto it = groupMeterRect.find (col.bus);
+            if (it != groupMeterRect.end() && ! it->second.isEmpty())
+            {
+                float mL = 0.0f, mR = 0.0f;
+                auto bm = busMeter.find (col.bus); if (bm != busMeter.end()) { mL = bm->second.first; mR = bm->second.second; }
+                const int bw = (it->second.getWidth() - 2) / 2;
+                sv::drawMeter (g, it->second.withWidth (bw), mL, mL);
+                sv::drawMeter (g, it->second.withX (it->second.getRight() - bw).withWidth (bw), mR, mR);
+            }
         }
 
         if (nt == 0 || ns == 0)
@@ -524,11 +583,14 @@ private:
     }
 
     std::vector<std::unique_ptr<Track>>& tracks;
+    std::vector<std::unique_ptr<MixerTrack>>& mixerTracks;   // for group-column strips (bound to the bus)
     std::vector<Scene>&                  scenes;
     SessionLauncher&                     launcher;
     Transport&                           transport;
     juce::CriticalSection&               engineLock;
     std::vector<Strip>                   strips;
+    std::map<int, Strip>                 groupStrips;         // busIndex -> the group column's strip
+    std::map<int, juce::Rectangle<int>>  groupMeterRect;      // busIndex -> its meter bounds (set in resized)
     std::vector<float>                   meterL, meterR;         // smoothed stereo VU per track
     std::vector<float>                   peakHoldL, peakHoldR;   // held-peak markers per track
     std::vector<juce::Rectangle<int>>    meterRect;              // per-track meter bounds (set in resized)
@@ -761,11 +823,12 @@ class SessionPane : public juce::Component
 {
 public:
     SessionPane (std::vector<std::unique_ptr<Track>>& tracksRef,
+                 std::vector<std::unique_ptr<MixerTrack>>& mixerTracksRef,
                  std::vector<Scene>& scenesRef,
                  SessionLauncher& launcherRef,
                  Transport& transportRef,
                  juce::CriticalSection& engineLockRef)
-        : gridView (tracksRef, scenesRef, launcherRef, transportRef, engineLockRef),
+        : gridView (tracksRef, mixerTracksRef, scenesRef, launcherRef, transportRef, engineLockRef),
           sceneCol (tracksRef, scenesRef, launcherRef, transportRef, engineLockRef)
     {
         sceneVp.setViewedComponent (&sceneCol, false);

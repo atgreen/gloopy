@@ -631,7 +631,7 @@ MainComponent::MainComponent (bool headless)
     addAndMakeVisible (arrangeViewport);
 
     // ---- session view (clip-launch grid); Tab cycles Arrange -> Session -> Mixer ----
-    sessionPane = std::make_unique<SessionPane> (tracks, scenes, sessionLauncher, transport, engineLock);
+    sessionPane = std::make_unique<SessionPane> (tracks, mixerTracks, scenes, sessionLauncher, transport, engineLock);
     auto& grid  = sessionPane->grid();          // scrolling track grid (cells + mixer strips)
     auto& sceneCol = sessionPane->sceneColumn(); // frozen scene-launch + master column (pinned left)
     grid.onLaunchClip  = [this] (int ti, int s) { if (auto* t = trackByIndex (ti)) apiLaunchClip (t->id, s); };
@@ -738,6 +738,7 @@ MainComponent::MainComponent (bool headless)
           if (juce::isPositiveAndBelow (bus, (int) mixerTracks.size())) mixerTracks[(size_t) bus]->folded.store (folded); }
         if (sessionPane) sessionPane->rebuild();
     };
+    grid.onOpenBusFx = [this] (int) { setViewMode (ViewMode::Mixer); };   // edit the group's effects in the mixer
     sceneCol.getQuantumBeats   = [this] { return apiGetLaunchQuantumBeats(); };
     sceneCol.onSetQuantumBeats = [this] (double b) { apiSetLaunchQuantumBeats (b); };
     sceneCol.getMasterVolume   = [this] { return mixerTracks.empty() ? 0.8f : mixerTracks[0]->volume.load(); };
