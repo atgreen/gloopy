@@ -601,6 +601,7 @@ private:
     void refreshUiAfterLoad();
 
     GloopyLookAndFeel     lookAndFeel;
+    juce::TooltipWindow   tooltipWindow { this };     // one instance so the app's setTooltip() calls render
 
     Transport             transport;
     bool headlessCli { false };   // CLI tools: no OSC/gRPC/audio started
