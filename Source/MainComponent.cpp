@@ -4114,13 +4114,13 @@ juce::ValueTree MainComponent::toValueTree()
     }
     root.addChild (trks, -1, nullptr);
 
-    // Global scene rows (session view).
+    // Global scene rows (session view). Distinct node name from the mixer's SCENES/SCENE.
     if (! scenes.empty())
     {
-        juce::ValueTree sc ("SCENES");
+        juce::ValueTree sc ("SESSIONSCENES");
         for (auto& s : scenes)
         {
-            juce::ValueTree one ("SCENE");
+            juce::ValueTree one ("SSCENE");
             one.setProperty ("name", s.name, nullptr);
             if (s.colour.getARGB() != 0) one.setProperty ("colour", (int) s.colour.getARGB(), nullptr);
             sc.addChild (one, -1, nullptr);
@@ -4506,11 +4506,11 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     nextTrackId = 1;
 
     // Session-view scene rows (before tracks, so slots can be normalized to the scene count).
-    if (auto sc = root.getChildWithName ("SCENES"); sc.isValid())
+    if (auto sc = root.getChildWithName ("SESSIONSCENES"); sc.isValid())
         for (int i = 0; i < sc.getNumChildren(); ++i)
         {
             auto one = sc.getChild (i);
-            if (! one.hasType ("SCENE")) continue;
+            if (! one.hasType ("SSCENE")) continue;
             scenes.push_back ({ one.getProperty ("name", "Scene " + juce::String (i + 1)).toString(),
                                 juce::Colour ((juce::uint32) (int) one.getProperty ("colour", (int) 0)) });
         }
