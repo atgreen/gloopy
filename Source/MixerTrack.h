@@ -42,6 +42,10 @@ struct MixerTrack
     std::vector<Send> sends;
     bool isBus { false };
 
+    // Session-view fold state for a group/bus column: when true, its member track columns are
+    // collapsed in the session grid. Pure display state; persisted with the bus. Guarded/atomic.
+    std::atomic<bool> folded { false };
+
     // VCA-lite: the name of the control group this insert belongs to (empty = none).
     // The group's fader SCALES this insert's volume in the mix; it is not extra audio
     // routing. Membership travels with the insert, so it survives insert re-indexing.

@@ -714,6 +714,7 @@ MainComponent::MainComponent (bool headless)
             if (! mixerTracks[(size_t) b]->isBus) continue;
             SessionView::GroupInfo g;
             g.busIndex = b; g.name = mixerTracks[(size_t) b]->name; g.colour = juce::Colour (0xff6a6a72);
+            g.folded = mixerTracks[(size_t) b]->folded.load();
             for (int t = 0; t < (int) tracks.size(); ++t)
             {
                 const int ins = tracks[(size_t) t]->mixerTrack.load();
@@ -730,6 +731,12 @@ MainComponent::MainComponent (bool headless)
         const juce::ScopedLock sl (engineLock);
         if (juce::isPositiveAndBelow (bus, (int) mixerTracks.size()))
         { l = mixerTracks[(size_t) bus]->peakL.load(); r = mixerTracks[(size_t) bus]->peakR.load(); }
+    };
+    grid.onSetGroupFolded = [this] (int bus, bool folded)
+    {
+        { const juce::ScopedLock sl (engineLock);
+          if (juce::isPositiveAndBelow (bus, (int) mixerTracks.size())) mixerTracks[(size_t) bus]->folded.store (folded); }
+        if (sessionPane) sessionPane->rebuild();
     };
     sceneCol.getQuantumBeats   = [this] { return apiGetLaunchQuantumBeats(); };
     sceneCol.onSetQuantumBeats = [this] (double b) { apiSetLaunchQuantumBeats (b); };
@@ -4416,6 +4423,7 @@ juce::ValueTree MainComponent::toValueTree()
         t.setProperty ("solo", mt->solo.load(), nullptr);
         if (mt->isBus) t.setProperty ("bus", true, nullptr);
         if (mt->output.load() != 0) t.setProperty ("out", mt->output.load(), nullptr);   // group/bus routing
+        if (mt->folded.load()) t.setProperty ("fold", true, nullptr);                     // session group collapsed
         if (mt->group.isNotEmpty()) t.setProperty ("group", mt->group, nullptr);
         for (auto& sd : mt->sends)
         {
@@ -4813,6 +4821,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             mt->solo.store   ((bool) tv.getProperty ("solo", false));
             mt->isBus = (bool) tv.getProperty ("bus", false);
             mt->output.store ((int) tv.getProperty ("out", 0));
+            mt->folded.store ((bool) tv.getProperty ("fold", false));
             mt->group = tv.getProperty ("group", juce::String()).toString();
             mt->buffer.setSize (2, juce::jmax (16, currentBlockSize));
             for (int f = 0; f < tv.getNumChildren(); ++f)

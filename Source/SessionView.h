@@ -8,6 +8,7 @@
 #include <memory>
 #include <functional>
 #include <map>
+#include <algorithm>
 #include <cmath>
 #include "Track.h"
 #include "SessionModel.h"
@@ -109,9 +110,10 @@ public:
 
     // Group/bus columns (submix). A group is a bus fed by tracks' main outputs; it shows as a
     // no-clip column just before its contiguous members, carrying the bus name + meter.
-    struct GroupInfo { int busIndex; juce::String name; juce::Colour colour; std::vector<int> members; };
+    struct GroupInfo { int busIndex; juce::String name; juce::Colour colour; bool folded = false; std::vector<int> members; };
     std::function<std::vector<GroupInfo>()>            getGroups;     // groups + their member track indices
     std::function<void (int busIndex, float&, float&)> getBusLevels;  // a bus's L,R peak
+    std::function<void (int busIndex, bool)>           onSetGroupFolded;   // collapse/expand a group's members
 
     void rebuild()
     {
@@ -120,13 +122,21 @@ public:
         // before a group whose members form a contiguous run starting here (phase 1b). Non-
         // contiguous groups don't get a column yet — the gather gesture (phase 2) makes them so.
         const auto groups = getGroups ? getGroups() : std::vector<GroupInfo>{};
+        auto foldedMember = [&] (int t) -> bool   // a member of a collapsed, contiguous group
+        {
+            for (const auto& gr : groups)
+                if (gr.folded && isContiguousRun (gr.members)
+                      && std::find (gr.members.begin(), gr.members.end(), t) != gr.members.end())
+                    return true;
+            return false;
+        };
         cols.clear();
         for (int t = 0; t < nt; ++t)
         {
             for (const auto& gr : groups)
                 if (! gr.members.empty() && gr.members.front() == t && isContiguousRun (gr.members))
-                { Col gc; gc.bus = gr.busIndex; gc.name = gr.name; gc.colour = gr.colour; cols.push_back (gc); }
-            Col tc; tc.track = t; cols.push_back (tc);
+                { Col gc; gc.bus = gr.busIndex; gc.name = gr.name; gc.colour = gr.colour; gc.folded = gr.folded; cols.push_back (gc); }
+            if (! foldedMember (t)) { Col tc; tc.track = t; cols.push_back (tc); }   // collapsed members are hidden
         }
         strips.clear();
         for (int t = 0; t < nt; ++t)
@@ -182,24 +192,35 @@ public:
 
     void resized() override
     {
-        const int nt = juce::jmin ((int) tracks.size(), (int) strips.size());
-        for (int t = 0; t < nt; ++t)
+        // Hide every strip first; only the strips of visible track columns get shown + placed
+        // (folded-group members have no column, so their strips stay hidden).
+        for (auto& s : strips)
+        { s.vol->setVisible (false); s.pan->setVisible (false); s.solo->setVisible (false);
+          s.mute->setVisible (false); s.arm->setVisible (false); s.fx->setVisible (false); }
+
+        for (int c = 0; c < numCols(); ++c)
         {
-            auto r = mixerStripRect (t).reduced (6, 6);
+            const int t = cols[(size_t) c].track;
+            if (t < 0 || t >= (int) strips.size()) continue;   // group columns have no track strip
+            auto& st = strips[(size_t) t];
+            st.vol->setVisible (true); st.pan->setVisible (true); st.solo->setVisible (true);
+            st.mute->setVisible (true); st.arm->setVisible (true); st.fx->setVisible (true);
+
+            auto r = colStripRect (c).reduced (6, 6);
             r.removeFromTop (14);                              // dB readout (drawn in paint)
-            strips[(size_t) t].pan->setBounds (r.removeFromTop (30).withSizeKeepingCentre (30, 30));   // rotary pan
+            st.pan->setBounds (r.removeFromTop (30).withSizeKeepingCentre (30, 30));   // rotary pan
             r.removeFromTop (2);
             auto btn = r.removeFromBottom (18);                // S | M | ● | FX
             r.removeFromBottom (4);
             auto fader = r.removeFromLeft ((int) (r.getWidth() * 0.48f));
             r.removeFromLeft (4);
-            meterRect[(size_t) t] = r;                         // stereo VU (two bars, drawn in paint)
-            strips[(size_t) t].vol->setBounds (fader);
+            if (t < (int) meterRect.size()) meterRect[(size_t) t] = r;   // stereo VU (drawn in paint)
+            st.vol->setBounds (fader);
             const int bw = (btn.getWidth() - 9) / 4;         // S | M | ● | FX
-            strips[(size_t) t].solo->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
-            strips[(size_t) t].mute->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
-            strips[(size_t) t].arm ->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
-            strips[(size_t) t].fx  ->setBounds (btn);
+            st.solo->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
+            st.mute->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
+            st.arm ->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
+            st.fx  ->setBounds (btn);
         }
     }
 
@@ -230,10 +251,12 @@ public:
         for (int c = 1; c < numCols(); ++c)
             g.drawVerticalLine (sv::kPad + c * sv::kTrackW, (float) sv::kPad, (float) (getHeight() - sv::kPad));
 
-        // Track header row.
-        for (int t = 0; t < nt; ++t)
+        // Track header row (visible track columns only).
+        for (int c = 0; c < numCols(); ++c)
         {
-            auto h = trackHeaderRect (t);
+            const int t = cols[(size_t) c].track;
+            if (t < 0) continue;
+            auto h = colHeaderRect (c);
             g.setColour (trackCol[(size_t) t].withAlpha (0.85f));
             g.fillRect (h.removeFromTop (4.0f));
             g.setColour (juce::Colour (0xff2a2a30));
@@ -253,16 +276,26 @@ public:
             g.fillRect (h.removeFromTop (4.0f));
             g.setColour (juce::Colour (0xff322b38));              // faintly distinct from track headers
             g.fillRect (h);
+            // Fold triangle: right (collapsed) / down (expanded). Clicking the header toggles it.
+            auto tri = h.removeFromLeft (16).toFloat().reduced (5.0f, 0.0f);
+            const float cx = tri.getCentreX(), cy = tri.getCentreY(), rr = 4.0f;
+            juce::Path p;
+            if (col.folded) p.addTriangle (cx - rr * 0.6f, cy - rr, cx - rr * 0.6f, cy + rr, cx + rr, cy);   // >
+            else            p.addTriangle (cx - rr, cy - rr * 0.6f, cx + rr, cy - rr * 0.6f, cx, cy + rr);    // v
+            g.setColour (juce::Colours::white.withAlpha (0.75f));
+            g.fillPath (p);
             g.setColour (juce::Colours::white.withAlpha (0.9f));
             g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
-            g.drawText (col.name, h.reduced (6, 2), juce::Justification::centredLeft, true);
+            g.drawText (col.name, h.reduced (2, 2), juce::Justification::centredLeft, true);
         }
 
-        // Grid cells.
+        // Grid cells (visible track columns only).
         for (int s = 0; s < ns; ++s)
-            for (int t = 0; t < nt; ++t)
+            for (int c = 0; c < numCols(); ++c)
             {
-                auto r = cellRect (t, s).reduced (2.0f);
+                const int t = cols[(size_t) c].track;
+                if (t < 0) continue;
+                auto r = colCellRect (c, s).reduced (2.0f);
                 const bool has = hasClip (t, s);
                 const bool isPlaying = playing[(size_t) t] == s;
                 const bool isPending = pending[(size_t) t] == s;
@@ -305,9 +338,11 @@ public:
 
         // Per-column mini-mixer strips (bottom band): background, dB readout, VU meter. The
         // pan/fader/solo/mute are child components drawn on top.
-        for (int t = 0; t < nt && t < (int) meterRect.size(); ++t)
+        for (int c = 0; c < numCols(); ++c)
         {
-            auto strip = mixerStripRect (t);
+            const int t = cols[(size_t) c].track;
+            if (t < 0 || t >= (int) meterRect.size()) continue;
+            auto strip = colStripRect (c);
             g.setColour (juce::Colour (0xff232329));
             g.fillRoundedRectangle (strip.toFloat().reduced (3.0f), 4.0f);
 
@@ -361,26 +396,38 @@ public:
 
     void mouseDoubleClick (const juce::MouseEvent& e) override
     {
-        const int nt = (int) tracks.size(), ns = (int) scenes.size();
+        const int ns = (int) scenes.size();
         const auto p = e.position;
         for (int s = 0; s < ns; ++s)
-            for (int t = 0; t < nt; ++t)
-                if (cellRect (t, s).contains (p) && hasClip (t, s)) { if (onEditClip) onEditClip (t, s); return; }
+            for (int c = 0; c < numCols(); ++c)
+            {
+                const int t = cols[(size_t) c].track;
+                if (t >= 0 && colCellRect (c, s).contains (p) && hasClip (t, s)) { if (onEditClip) onEditClip (t, s); return; }
+            }
     }
 
     void mouseDown (const juce::MouseEvent& e) override
     {
-        const int nt = (int) tracks.size(), ns = (int) scenes.size();
+        const int ns = (int) scenes.size();
         const auto p = e.position;
+        // Click a group header -> collapse/expand its member columns.
+        for (int c = 0; c < numCols(); ++c)
+            if (cols[(size_t) c].bus >= 0 && colHeaderRect (c).contains (p))
+            { if (onSetGroupFolded) onSetGroupFolded (cols[(size_t) c].bus, ! cols[(size_t) c].folded); return; }
+
         for (int s = 0; s < ns; ++s)
-            for (int t = 0; t < nt; ++t)
-                if (cellRect (t, s).contains (p))
+            for (int c = 0; c < numCols(); ++c)
+            {
+                const int t = cols[(size_t) c].track;
+                if (t < 0) continue;
+                if (colCellRect (c, s).contains (p))
                 {
                     if (e.mods.isPopupMenu()) { cellMenu (t, s, e.getScreenPosition()); return; }
                     if (hasClip (t, s)) { if (onLaunchClip) onLaunchClip (t, s); }
                     else                { if (onEmptyCell)  onEmptyCell (t, s); }   // stop track / record into slot
                     return;
                 }
+            }
     }
 
 private:
@@ -393,7 +440,7 @@ private:
     // Display columns, left to right. Today every column is a track (one per track, in order);
     // group/bus columns will be interleaved here in phase 1b. `colX`/the rect helpers work in
     // column-position space so inserting a group column just shifts the tracks after it.
-    struct Col { int track = -1; int bus = -1; juce::String name; juce::Colour colour; };   // bus >= 0 -> group column
+    struct Col { int track = -1; int bus = -1; bool folded = false; juce::String name; juce::Colour colour; };   // bus >= 0 -> group column
     std::vector<Col> cols;
     std::map<int, std::pair<float, float>> busMeter;   // busIndex -> smoothed L,R for group columns
     int  numCols() const { return (int) cols.size(); }
