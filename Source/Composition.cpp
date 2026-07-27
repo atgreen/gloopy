@@ -276,6 +276,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
     man.blank().table ("locations").str ("file", "locations.toml");
     man.blank().table ("exports").str ("file", "exports.toml");
     man.blank().table ("scenes").str ("file", "scenes.toml");
+    man.blank().table ("session").str ("file", "session.toml");   // session-view scene rows
     man.blank().table ("groups").str ("file", "groups.toml");
     man.blank().table ("params").str ("file", "params.toml");
     man.blank().table ("mods").str ("file", "mods.toml");
@@ -389,6 +390,46 @@ bool MainComponent::saveComposition (const juce::File& dir)
             else                              // MIDI clip -> .notes sidecar
             {
                 const auto rel = "clips/" + slug + "/" + cslug + ".notes";
+                ctx.writeText (rel, buildNotes (cl));
+                w.str ("notes", rel);
+            }
+        }
+
+        // Session-view slots (SCLIP children), one [[session_clips]] item each, tagged with scene.
+        std::map<juce::String, int> sclipSeen;
+        for (int c = 0; c < tr.getNumChildren(); ++c)
+        {
+            auto cl = tr.getChild (c);
+            if (! cl.hasType ("SCLIP")) continue;
+            const int scene = (int) cl.getProperty ("scene", -1);
+            const auto cslug = uniqueSlug (slugify (cl.getProperty ("name").toString(), "s" + juce::String (scene)), sclipSeen);
+            w.blank().arrayItem ("session_clips")
+             .integer ("scene", scene).str ("name", cl.getProperty ("name").toString())
+             .integer ("ctype", (int) cl.getProperty ("ctype", 0))
+             .number ("length", cl.getProperty ("len", 4.0))
+             .number ("content_length", cl.getProperty ("content", 4.0))
+             .boolean ("looped", cl.getProperty ("looped", true));
+            if ((int) cl.getProperty ("transpose", 0) != 0) w.integer ("transpose", (int) cl.getProperty ("transpose", 0));
+            if ((float) (double) cl.getProperty ("velscale", 1.0) != 1.0f) w.number ("velocity_scale", (double) cl.getProperty ("velscale", 1.0));
+            if (cl.hasProperty ("afile"))
+            {
+                const auto ref = cl.getProperty ("afile").toString();
+                w.str ("audio_file", ref).number ("audio_gain", cl.getProperty ("again", 1.0));
+                if (cl.hasProperty ("take")) w.str ("take", cl.getProperty ("take").toString());
+                ctx.keep (ref);
+            }
+            else if (cl.hasProperty ("adata"))
+            {
+                const auto rel = "assets/audio/" + slug + "-session-" + cslug + ".wav";
+                ctx.writeBytes (rel, buildWav (cl.getProperty ("adata").toString(),
+                                               (int) cl.getProperty ("achannels", 1), (int) cl.getProperty ("aframes", 0),
+                                               (double) cl.getProperty ("arate", 44100.0)));
+                w.str ("audio_file", rel).number ("audio_rate", cl.getProperty ("arate", 44100.0))
+                 .number ("audio_gain", cl.getProperty ("again", 1.0));
+            }
+            else
+            {
+                const auto rel = "clips/" + slug + "/session-" + cslug + ".notes";
                 ctx.writeText (rel, buildNotes (cl));
                 w.str ("notes", rel);
             }
@@ -532,6 +573,18 @@ bool MainComponent::saveComposition (const juce::File& dir)
           .strArray ("inserts", insEnc).blank();
     }
     ctx.writeText ("scenes.toml", sw.str());
+
+    // --- session-view scene rows ---
+    toml::Writer ssw;
+    if (auto sess = root.getChildWithName ("SESSIONSCENES"); sess.isValid())
+        for (int i = 0; i < sess.getNumChildren(); ++i)
+        {
+            auto one = sess.getChild (i);
+            if (! one.hasType ("SSCENE")) continue;
+            ssw.arrayItem ("scene").str ("name", one.getProperty ("name").toString());
+            if (one.hasProperty ("colour")) ssw.integer ("colour", (juce::int64) (int) one.getProperty ("colour", 0));
+        }
+    ctx.writeText ("session.toml", ssw.str());
 
     // --- control groups (VCA-lite) ---
     // The group defs; membership is the `group` field on each mixer insert above.
@@ -827,6 +880,40 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                     }
                     tr.addChild (cl, -1, nullptr);
                 }
+            // Session-view slots -> SCLIP children tagged with their scene index.
+            if (auto* sclips = td.array ("session_clips"))
+                for (auto& cd : *sclips)
+                {
+                    juce::ValueTree cl ("SCLIP");
+                    cl.setProperty ("scene", cd.getInt ("scene", -1), nullptr);
+                    cl.setProperty ("ctype", cd.getInt ("ctype", 0), nullptr);
+                    cl.setProperty ("name", cd.getString ("name"), nullptr);
+                    cl.setProperty ("len", cd.getDouble ("length", 4.0), nullptr);
+                    cl.setProperty ("content", cd.getDouble ("content_length", 4.0), nullptr);
+                    cl.setProperty ("looped", cd.getBool ("looped"), nullptr);
+                    if (cd.getInt ("transpose", 0) != 0) cl.setProperty ("transpose", cd.getInt ("transpose", 0), nullptr);
+                    if (cd.getDouble ("velocity_scale", 1.0) != 1.0) cl.setProperty ("velscale", cd.getDouble ("velocity_scale", 1.0), nullptr);
+                    if (cd.has ("take"))
+                    {
+                        cl.setProperty ("afile", cd.getString ("audio_file"), nullptr);
+                        cl.setProperty ("take",  cd.getString ("take"), nullptr);
+                        cl.setProperty ("again", cd.getDouble ("audio_gain", 1.0), nullptr);
+                    }
+                    else if (cd.has ("audio_file"))
+                    {
+                        int ch = 1, fr = 0; double rate = 44100.0;
+                        cl.setProperty ("adata", wavToBase64 (dir.getChildFile (cd.getString ("audio_file")),
+                                                              formatManager, ch, fr, rate), nullptr);
+                        cl.setProperty ("achannels", ch, nullptr); cl.setProperty ("aframes", fr, nullptr);
+                        cl.setProperty ("arate", cd.getDouble ("audio_rate", rate), nullptr);
+                        cl.setProperty ("again", cd.getDouble ("audio_gain", 1.0), nullptr);
+                    }
+                    else if (cd.has ("notes"))
+                    {
+                        readNotes (dir.getChildFile (cd.getString ("notes")), cl);
+                    }
+                    tr.addChild (cl, -1, nullptr);
+                }
             tracksTree.addChild (tr, -1, nullptr);
         }
 
@@ -901,6 +988,18 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             sceneTree.addChild (sv, -1, nullptr);
         }
 
+    // Session-view scene rows.
+    juce::ValueTree sessionScenes ("SESSIONSCENES");
+    if (auto ssDoc = toml::parse (dir.getChildFile ("session.toml").loadFileAsString());
+        auto* rows = ssDoc.array ("scene"))
+        for (auto& sd : *rows)
+        {
+            juce::ValueTree one ("SSCENE");
+            one.setProperty ("name", sd.getString ("name"), nullptr);
+            if (sd.has ("colour")) one.setProperty ("colour", sd.getInt ("colour", 0), nullptr);
+            sessionScenes.addChild (one, -1, nullptr);
+        }
+
     root.addChild (tracksTree, -1, nullptr);
     root.addChild (mixerTree, -1, nullptr);
     root.addChild (autoTree, -1, nullptr);
@@ -938,6 +1037,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
         }
 
     root.addChild (sceneTree, -1, nullptr);
+    root.addChild (sessionScenes, -1, nullptr);
     // Control groups (VCA-lite).
     juce::ValueTree groupTree ("GROUPS");
     if (auto gDoc = toml::parse (dir.getChildFile ("groups.toml").loadFileAsString());
