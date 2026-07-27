@@ -28,6 +28,13 @@ struct MixerTrack
     std::vector<std::unique_ptr<Effect>> effects;   // guarded by the engine lock
     juce::AudioBuffer<float>             buffer;     // audio-thread scratch
 
+    // Main-output target: the mixer track this insert's post-fader signal sums INTO. 0 = master
+    // (default); a higher index = a group/bus (submix). Unlike a Send (a parallel copy), this is
+    // the insert's whole output — routing it to a bus means it no longer reaches master directly.
+    // Must be a higher index than this insert (processed later in the flat summing loop) or it
+    // falls back to master. Guarded by the engine lock / atomic for the audio thread.
+    std::atomic<int> output { 0 };
+
     // Aux sends: an additive tap of this insert's post-effects signal into another
     // mixer track (a bus). `isBus` marks a track that exists to receive sends and
     // sum to master (no track routes its main output to it). Guarded by engineLock.

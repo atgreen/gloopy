@@ -854,6 +854,12 @@ MainComponent::MainComponent (bool headless)
     mixerView->onSetSend     = [this] (int insert, int bus, float level, bool post) { apiSetSend (insert, bus, level, post); if (mixerView) mixerView->rebuild(); };
     mixerView->onAddBus      = [this] (const juce::String& name) { apiAddBus (name); if (mixerView) mixerView->rebuild(); };
     mixerView->onSetInsertName = [this] (int index, const juce::String& name) { apiSetInsertName (index, name); };
+    mixerView->onSetOutput   = [this] (int insert, int target) { apiSetInsertOutput (insert, target); if (mixerView) mixerView->rebuild(); };
+    mixerView->onInsertOutput = [this] (int insert)
+    {
+        const juce::ScopedLock sl (engineLock);
+        return juce::isPositiveAndBelow (insert, (int) mixerTracks.size()) ? mixerTracks[(size_t) insert]->output.load() : 0;
+    };
 
     // The Mixer is an embedded view (Tab cycles to it / the toolbar button switches to it),
     // not a floating window — so it sits in the main area like Arrange and Session.
@@ -3201,7 +3207,9 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         bool soloed = mt.solo.load();
         if (! soloed && anyGroupSolo && mt.group.isNotEmpty())
             if (auto* grp = findControlGroup (mt.group)) soloed = grp->solo.load();
-        bool audible = ! mt.mute.load() && ((! anyTrackSolo && ! anyGroupSolo) || soloed);
+        // A bus/group is solo-exempt: it must keep passing so a soloed member routed into it is
+        // still heard through the group's effects (v1 — soloing a bus itself is a later refinement).
+        bool audible = ! mt.mute.load() && (mt.isBus || (! anyTrackSolo && ! anyGroupSolo) || soloed);
         float v = mt.volume.load();
         // VCA-lite: an insert's control group scales its fader; a muted group silences it.
         if (mt.group.isNotEmpty())
@@ -3227,8 +3235,13 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         if (! audible) continue;
         const float pan = mt.pan.load();
         const float theta = (pan + 1.0f) * 0.25f * juce::MathConstants<float>::pi;
-        master.buffer.addFrom (0, 0, mt.buffer, 0, 0, num, v * std::cos (theta));
-        master.buffer.addFrom (1, 0, mt.buffer, 1, 0, num, v * std::sin (theta));
+        // Main output → master (0) by default, or into a group/bus insert. The target must be
+        // processed later in this loop (higher index) so it accumulates before it's summed; else
+        // fall back to master rather than lose/delay the signal.
+        const int out = mt.output.load();
+        auto& dest = (out > ti && out < numTracks) ? mixerTracks[(size_t) out]->buffer : master.buffer;
+        dest.addFrom (0, 0, mt.buffer, 0, 0, num, v * std::cos (theta));
+        dest.addFrom (1, 0, mt.buffer, 1, 0, num, v * std::sin (theta));
     }
 
     // --- master -> output ---
@@ -4369,6 +4382,7 @@ juce::ValueTree MainComponent::toValueTree()
         t.setProperty ("mute", mt->mute.load(), nullptr);
         t.setProperty ("solo", mt->solo.load(), nullptr);
         if (mt->isBus) t.setProperty ("bus", true, nullptr);
+        if (mt->output.load() != 0) t.setProperty ("out", mt->output.load(), nullptr);   // group/bus routing
         if (mt->group.isNotEmpty()) t.setProperty ("group", mt->group, nullptr);
         for (auto& sd : mt->sends)
         {
@@ -4765,6 +4779,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             mt->mute.store   ((bool) tv.getProperty ("mute", false));
             mt->solo.store   ((bool) tv.getProperty ("solo", false));
             mt->isBus = (bool) tv.getProperty ("bus", false);
+            mt->output.store ((int) tv.getProperty ("out", 0));
             mt->group = tv.getProperty ("group", juce::String()).toString();
             mt->buffer.setSize (2, juce::jmax (16, currentBlockSize));
             for (int f = 0; f < tv.getNumChildren(); ++f)

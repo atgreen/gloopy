@@ -496,6 +496,23 @@ void MixerView::showGroupMenu (int insertIndex)
         }
     }
 
+    // Main output routing (submix): send this strip's WHOLE signal to master or a group/bus,
+    // instead of a parallel copy like a send. Only buses that sum later (higher index) are valid.
+    if (insertIndex > 0 && onSetOutput)
+    {
+        const int curOut = onInsertOutput ? onInsertOutput (insertIndex) : 0;
+        juce::PopupMenu out;
+        out.addItem (700, "Master", true, curOut == 0);
+        for (int bi = 0; bi < (int) buses.size(); ++bi)
+        {
+            const int bidx = buses[(size_t) bi].index;
+            if (bidx <= insertIndex) continue;                       // must be summed later in the loop
+            out.addItem (701 + bi, buses[(size_t) bi].name, true, curOut == bidx);
+        }
+        m.addSeparator();
+        m.addSubMenu ("Output", out);
+    }
+
     m.showMenuAsync (juce::PopupMenu::Options(), [this, insertIndex, cur, groups, buses, sends] (int r)
     {
         if (r == 0) return;
@@ -533,6 +550,9 @@ void MixerView::showGroupMenu (int insertIndex)
         }
         if (r == 4 && onRemoveGroup) { onRemoveGroup (cur); return; }
         if (r == 6) { promptNewBus(); return; }
+        if (r == 700 && onSetOutput) { onSetOutput (insertIndex, 0); return; }            // -> master
+        if (r >= 701 && r < 701 + (int) buses.size() && onSetOutput)                      // -> bus
+        { onSetOutput (insertIndex, buses[(size_t) (r - 701)].index); return; }
         if (r >= 200 && r < 300) { onAssignGroup (insertIndex, groups[(size_t) (r - 200)].name); return; }
         if (r >= 300 && r < 305 && onGroupGain)
         {

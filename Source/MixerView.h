@@ -70,6 +70,9 @@ public:
     std::function<void (int, int, float, bool)>      onSetSend;     // insert, busIndex, level (<=0 removes), post-fader
     std::function<void (const juce::String&)>        onAddBus;      // create a bus by name
     std::function<void (int, const juce::String&)>   onSetInsertName;  // insert index, new strip name
+    // Main-output routing (submix / group): route a strip's whole signal to master (0) or a bus.
+    std::function<void (int, int)>                   onSetOutput;    // insert, target (0 = master, else bus index)
+    std::function<int (int)>                         onInsertOutput; // an insert's current output target (0 = master)
 
     // Plugin hooks (wired by the owner).
     std::function<void()>                                       ensurePlugins;

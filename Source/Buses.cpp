@@ -50,6 +50,10 @@ bool MainComponent::apiRemoveBus (int busIndex)
                 sends.erase (std::remove_if (sends.begin(), sends.end(),
                                  [&] (const MixerTrack::Send& s) { return s.bus == busIndex; }), sends.end());
                 for (auto& s : sends) if (s.bus > busIndex) --s.bus;
+                // Main-output routing follows the same index space as sends.
+                const int o = mt->output.load();
+                if      (o == busIndex) mt->output.store (0);        // routed to the removed bus -> master
+                else if (o >  busIndex) mt->output.store (o - 1);    // shifted down by the erase
             }
             ok = true;
         }
@@ -82,4 +86,40 @@ bool MainComponent::apiSetSend (int insert, int bus, float level, bool postFader
         else                        sends.push_back ({ bus, level, postFader });
         return true;
     });
+}
+
+// Route an insert's MAIN output into another mixer track: 0 = master (default), else a group/bus
+// (a submix). Unlike a send (a parallel copy), this is the insert's whole output — it no longer
+// sums to master directly. v1 constraint: the target must be a bus and higher-indexed than the
+// insert (so it's processed later in the flat summing loop and accumulates first).
+bool MainComponent::apiSetInsertOutput (int insert, int target)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        const juce::ScopedLock sl (engineLock);
+        if (! juce::isPositiveAndBelow (insert, (int) mixerTracks.size())) return false;
+        if (insert == 0) return false;                       // master has no output target
+        if (target != 0)                                     // 0 = master, always valid
+        {
+            if (! juce::isPositiveAndBelow (target, (int) mixerTracks.size())) return false;
+            if (! mixerTracks[(size_t) target]->isBus) return false;   // v1: only master or a bus
+            if (target <= insert) return false;              // must be summed later in the loop
+        }
+        mixerTracks[(size_t) insert]->output.store (target);
+        return true;
+    });
+}
+
+// The "Group" gesture: create a bus and route each member insert's main output into it. Returns
+// the new bus index (or -1). Members must be regular inserts (not master); the bus is appended so
+// it always outranks them.
+int MainComponent::apiGroupInserts (const std::vector<int>& inserts, const juce::String& name)
+{
+    const int bus = apiAddBus (name.isNotEmpty() ? name : "Group");   // appended -> highest index
+    if (bus < 0) return -1;
+    for (int i : inserts)
+        if (i > 0 && i < bus) apiSetInsertOutput (i, bus);
+    if (mixerView) mixerView->rebuild();
+    return bus;
 }
