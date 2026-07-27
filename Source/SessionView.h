@@ -43,7 +43,10 @@ public:
 
     // Owner callbacks -> api* methods.
     std::function<void (int, int)> onLaunchClip;      // (track index, scene)
-    std::function<void (int)>      onStopTrack;       // (track index) -> back to arrangement
+    std::function<void (int, int)> onEmptyCell;       // (track index, scene) -> stop track / record into slot
+    std::function<void (int, bool)> onArm;            // (track index, armed) -> record-enable the track
+    std::function<bool (int)>      isArmed;           // (track index) -> record-armed?
+    std::function<int (int)>       getRecordingScene; // (track index) -> scene being recorded, or -1
     std::function<void (int)>      onLaunchScene;     // (scene)
     std::function<void()>          onStopAll;
     std::function<void()>          onAddScene;
@@ -85,11 +88,17 @@ public:
             s.mute->setToggleState (tr->mute.load(), juce::dontSendNotification);
             s.mute->onClick = [tr, w = s.mute.get()] { tr->mute.store (w->getToggleState()); };
 
+            s.arm = std::make_unique<juce::TextButton> (juce::String (juce::CharPointer_UTF8 ("\xe2\x97\x8f")));   // ●
+            s.arm->setClickingTogglesState (true);
+            s.arm->setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xffcc3333));
+            s.arm->setToggleState (isArmed && isArmed (t), juce::dontSendNotification);
+            s.arm->onClick = [this, t, w = s.arm.get()] { if (onArm) onArm (t, w->getToggleState()); };
+
             s.fx = std::make_unique<juce::TextButton> ("FX");
             s.fx->onClick = [this, t] { if (onOpenTrackFx) onOpenTrackFx (t); };
 
             addAndMakeVisible (*s.vol);  addAndMakeVisible (*s.pan);
-            addAndMakeVisible (*s.solo); addAndMakeVisible (*s.mute); addAndMakeVisible (*s.fx);
+            addAndMakeVisible (*s.solo); addAndMakeVisible (*s.mute); addAndMakeVisible (*s.arm); addAndMakeVisible (*s.fx);
             strips.push_back (std::move (s));
         }
         meterL.assign ((size_t) nt, 0.0f);
@@ -118,10 +127,11 @@ public:
             r.removeFromLeft (4);
             meterRect[(size_t) t] = r;                         // stereo VU (two bars, drawn in paint)
             strips[(size_t) t].vol->setBounds (fader);
-            const int bw = (btn.getWidth() - 8) / 3;
-            strips[(size_t) t].solo->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (4);
-            strips[(size_t) t].mute->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (4);
-            strips[(size_t) t].fx->setBounds (btn);
+            const int bw = (btn.getWidth() - 9) / 4;         // S | M | ● | FX
+            strips[(size_t) t].solo->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
+            strips[(size_t) t].mute->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
+            strips[(size_t) t].arm ->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
+            strips[(size_t) t].fx  ->setBounds (btn);
         }
     }
 
@@ -205,6 +215,13 @@ public:
                     g.setColour (juce::Colours::white.withAlpha (isPlaying ? 0.95f : 0.75f));
                     g.setFont (juce::FontOptions (10.5f, isPlaying ? juce::Font::bold : juce::Font::plain));
                     g.drawText (clipName (t, s), r.withTrimmedLeft (18.0f).reduced (2, 0), juce::Justification::centredLeft, true);
+                }
+                else if (getRecordingScene && getRecordingScene (t) == s)   // recording into this slot
+                {
+                    g.setColour (juce::Colour (0xff5a1f1f).withAlpha (blinkOn ? 0.95f : 0.6f));
+                    g.fillRoundedRectangle (r, 3.0f);
+                    g.setColour (juce::Colour (0xffe04040));
+                    g.fillEllipse (r.withSizeKeepingCentre (10.0f, 10.0f));
                 }
                 else
                 {
@@ -321,7 +338,7 @@ public:
                 {
                     if (e.mods.isPopupMenu()) { cellMenu (t, s); return; }
                     if (hasClip (t, s)) { if (onLaunchClip) onLaunchClip (t, s); }
-                    else                { if (onStopTrack)  onStopTrack (t); }
+                    else                { if (onEmptyCell)  onEmptyCell (t, s); }   // stop track / record into slot
                     return;
                 }
         }
@@ -331,7 +348,7 @@ private:
     struct Strip
     {
         std::unique_ptr<juce::Slider> vol, pan;
-        std::unique_ptr<juce::TextButton> solo, mute, fx;
+        std::unique_ptr<juce::TextButton> solo, mute, arm, fx;
     };
 
     static constexpr int kPad = 8, kHeaderH = 30, kRowH = 30, kFooterH = 30, kTrackW = 128, kSceneW = 150, kMixerH = 150;

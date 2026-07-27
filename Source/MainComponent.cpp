@@ -625,7 +625,17 @@ MainComponent::MainComponent (bool headless)
     // ---- session view (clip-launch grid); Tab cycles Arrange -> Session -> Mixer ----
     sessionView = std::make_unique<SessionView> (tracks, scenes, sessionLauncher, transport, engineLock);
     sessionView->onLaunchClip  = [this] (int ti, int s) { if (auto* t = trackByIndex (ti)) apiLaunchClip (t->id, s); };
-    sessionView->onStopTrack   = [this] (int ti)        { if (auto* t = trackByIndex (ti)) apiStopTrackClip (t->id); };
+    sessionView->onEmptyCell   = [this] (int ti, int s)
+    {
+        auto* t = trackByIndex (ti);
+        if (t == nullptr) return;
+        if (sessionRecTrack == ti && sessionRecScene == s) finalizeRecording();   // click the recording cell -> finish
+        else if (t->recordArmed.load())                    startSessionRecord (ti, s);
+        else                                               apiStopTrackClip (t->id);
+    };
+    sessionView->onArm            = [this] (int ti, bool a) { if (auto* t = trackByIndex (ti)) t->recordArmed.store (a); };
+    sessionView->isArmed          = [this] (int ti) { auto* t = trackByIndex (ti); return t != nullptr && t->recordArmed.load(); };
+    sessionView->getRecordingScene= [this] (int ti) { return sessionRecTrack == ti ? sessionRecScene : -1; };
     sessionView->onLaunchScene = [this] (int s)         { apiLaunchScene (s); };
     sessionView->onStopAll     = [this]                 { apiStopAllClips(); };
     sessionView->onAddScene    = [this]                 { apiAddScene(); if (sessionView) sessionView->rebuild(); resized(); };
@@ -1026,10 +1036,26 @@ void MainComponent::startRecording()
     transport.setPlaying (true);
 }
 
+void MainComponent::startSessionRecord (int trackIndex, int scene)
+{
+    Track* t = trackByIndex (trackIndex);
+    if (t == nullptr || t->generator == nullptr) return;
+    if (recording.load()) finalizeRecording();      // finish any prior take first
+    recordTrackId.store (t->id);
+    recordStartSample = transport.getPlayheadSamples();
+    recordWrite.store (0);
+    sessionRecTrack = trackIndex; sessionRecScene = scene;
+    recording.store (true);
+    midiInputTarget.store (t->id);                  // route live input to this track
+    transport.setPlaying (true);                    // roll so the record clock advances
+}
+
 void MainComponent::finalizeRecording()
 {
     stopAudioRecording();               // finalize audio takes independently of MIDI
     if (! recording.exchange (false)) return;
+    const int srTrack = sessionRecTrack, srScene = sessionRecScene;   // session-record target (if any)
+    sessionRecTrack = sessionRecScene = -1;                           // clear regardless of outcome
     const int count = juce::jmin (recordWrite.load(), (int) recordBuffer.size());
     Track* t = resolveTrack (recordTrackId.load());
     if (count == 0 || t == nullptr) return;
@@ -1065,6 +1091,27 @@ void MainComponent::finalizeRecording()
     pushUndoSnapshot();
     double maxEnd = 0.0;
     for (auto& n : notes) maxEnd = juce::jmax (maxEnd, n.startBeat + n.lengthBeats);
+
+    if (srScene >= 0 && juce::isPositiveAndBelow (srTrack, (int) tracks.size()))
+    {
+        // Session recording -> a looping clip in the slot, length rounded up to a whole bar.
+        const double bar = juce::jmax (1.0, (double) transport.getTimeSigNumerator());
+        Clip c;
+        c.name = "Rec";
+        c.contentLenBeats = juce::jmax (bar, std::ceil (maxEnd / bar) * bar);
+        c.lengthBeats = c.contentLenBeats;
+        c.looped = true;
+        c.notes = std::move (notes);
+        {
+            const juce::ScopedLock sl (engineLock);
+            ensureSlotCount (tracks[(size_t) srTrack]->sessionSlots, juce::jmax ((int) scenes.size(), srScene + 1));
+            tracks[(size_t) srTrack]->sessionSlots[(size_t) srScene] = std::make_shared<Clip> (std::move (c));
+            sessionLauncher.requestClip (srTrack, srScene);   // start looping the freshly recorded clip
+        }
+        if (sessionView) sessionView->rebuild();
+        return;
+    }
+
     Clip c;
     c.name = "Recording";
     c.startBeat = startBeatAbs;

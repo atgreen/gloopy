@@ -727,6 +727,8 @@ private:
     // MIDI recording: audio thread appends played input, message thread drains to a clip.
     void startRecording();
     void finalizeRecording();
+    void startSessionRecord (int trackIndex, int scene);   // record live MIDI into a session slot
+    int  sessionRecTrack { -1 }, sessionRecScene { -1 };   // slot currently recording (-1 = none)
     struct RecordedEvent { juce::int64 sample; juce::MidiMessage msg; };
     std::vector<RecordedEvent> recordBuffer;         // preallocated in prepareToPlay
     std::atomic<int>  recordWrite { 0 };
