@@ -40,6 +40,7 @@
 class MainComponent : public juce::AudioAppComponent,
                       public juce::MidiInputCallback,
                       public juce::FileDragAndDropTarget,
+                      public juce::KeyListener,
                       private juce::Timer
 {
 public:
@@ -66,7 +67,11 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
-    bool keyPressed (const juce::KeyPress&) override;   // Ctrl+Z / Ctrl+Shift+Z
+    bool keyPressed (const juce::KeyPress&) override;   // Ctrl+Z / Ctrl+Shift+Z / Tab
+    // KeyListener on the top-level window: catches keys even when no component has focus, so Tab
+    // (view switch) works from a fresh screen without clicking in first.
+    bool keyPressed (const juce::KeyPress& k, juce::Component*) override { return keyPressed (k); }
+    void parentHierarchyChanged() override;             // (re)register the top-level key listener
 
     void apiUndo();
     void apiRedo();
@@ -830,10 +835,13 @@ private:
     std::unique_ptr<ArrangeView> arrangeView;
     juce::Viewport   sessionViewport;                 // holds the Session grid (Tab switches views)
     std::unique_ptr<SessionView> sessionView;
+    juce::Viewport   mixerViewport;                   // embedded Mixer (a view, not a floating window)
     enum class ViewMode { Arrange, Session, Mixer };
     ViewMode viewMode { ViewMode::Arrange };
     void cycleView();                                 // Tab: Arrange -> Session -> Mixer -> Arrange
-    void applyViewMode();                             // show/hide the viewports + mixer window
+    void setViewMode (ViewMode m);                    // switch directly (toolbar buttons)
+    void applyViewMode();                             // show/hide the three embedded views
+    juce::Component::SafePointer<juce::Component> keyListenerHost;   // top-level we listen to for Tab
     EditorPanel      editorPanel { transport };
 
     std::unique_ptr<MixerView>            mixerView;

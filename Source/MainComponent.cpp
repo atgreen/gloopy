@@ -210,7 +210,10 @@ MainComponent::MainComponent (bool headless)
     panicButton.onClick = [this] { apiPanic(); };
 
     addAndMakeVisible (mixerButton);
-    mixerButton.onClick = [this] { openMixer(); };
+    mixerButton.onClick = [this] { setViewMode (viewMode == ViewMode::Mixer ? ViewMode::Arrange : ViewMode::Mixer); };
+    setWantsKeyboardFocus (true);   // so Tab (view switch) reliably reaches keyPressed
+    // Grab focus once shown so the very first Tab works without clicking into the app first.
+    juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> (this)] { if (sp) sp->grabKeyboardFocus(); });
 
     // Collapsible left browser: tabbed categories that seed / open projects on click.
     browser = std::make_unique<BrowserSidebar>();
@@ -654,12 +657,15 @@ MainComponent::MainComponent (bool headless)
         if (sessionView) sessionView->rebuild();
         resized();
     };
-    sessionView->getTrackLevel = [this] (int ti) -> float
+    sessionView->getTrackLevels = [this] (int ti, float& l, float& r)
     {
-        if (ti < 0 || ti >= (int) tracks.size() || mixerTracks.empty()) return 0.0f;
+        l = r = 0.0f;
+        if (ti < 0 || ti >= (int) tracks.size() || mixerTracks.empty()) return;
         const int route = juce::jlimit (0, (int) mixerTracks.size() - 1, tracks[(size_t) ti]->mixerTrack.load());
-        return juce::jmax (mixerTracks[(size_t) route]->peakL.load(), mixerTracks[(size_t) route]->peakR.load());
+        l = mixerTracks[(size_t) route]->peakL.load();
+        r = mixerTracks[(size_t) route]->peakR.load();
     };
+    sessionView->onOpenTrackFx = [this] (int) { setViewMode (ViewMode::Mixer); };   // add effects in the mixer view
     sessionViewport.setViewedComponent (sessionView.get(), false);
     sessionViewport.setScrollBarsShown (true, true);
     addChildComponent (sessionViewport);             // hidden until Tab switches to Session
@@ -767,6 +773,12 @@ MainComponent::MainComponent (bool headless)
     mixerView->onAddBus      = [this] (const juce::String& name) { apiAddBus (name); if (mixerView) mixerView->rebuild(); };
     mixerView->onSetInsertName = [this] (int index, const juce::String& name) { apiSetInsertName (index, name); };
 
+    // The Mixer is an embedded view (Tab cycles to it / the toolbar button switches to it),
+    // not a floating window — so it sits in the main area like Arrange and Session.
+    mixerViewport.setViewedComponent (mixerView.get(), false);
+    mixerViewport.setScrollBarsShown (false, true);
+    addChildComponent (mixerViewport);
+
     // Start with an EMPTY project — no default tracks. Use File -> New from Template
     // (or the browser sidebar) to seed a drum kit / starter beat / lead+bass.
 
@@ -833,6 +845,7 @@ MainComponent::MainComponent (bool headless)
 
 MainComponent::~MainComponent()
 {
+    if (auto* host = keyListenerHost.getComponent()) host->removeKeyListener (this);
     stopTimer();
     teardownMidiInputs();        // stop MIDI callbacks before tracks/audio go away
     grpc.reset();                // stop gRPC (and its message-thread callbacks) first
@@ -3131,25 +3144,36 @@ void MainComponent::openMixer()
     mixerWindow->toFront (true);
 }
 
-// Tab cycles the main view: Arrange -> Session (clip-launch grid) -> Mixer (window) -> Arrange.
+// Tab cycles the main view: Arrange -> Session (clip-launch grid) -> Mixer -> Arrange. All three
+// are embedded in the main area (the Mixer is no longer a floating window).
 void MainComponent::cycleView()
 {
-    viewMode = viewMode == ViewMode::Arrange ? ViewMode::Session
-             : viewMode == ViewMode::Session ? ViewMode::Mixer
-                                             : ViewMode::Arrange;
-    applyViewMode();
+    setViewMode (viewMode == ViewMode::Arrange ? ViewMode::Session
+               : viewMode == ViewMode::Session ? ViewMode::Mixer
+                                               : ViewMode::Arrange);
+}
+
+void MainComponent::setViewMode (ViewMode m) { viewMode = m; applyViewMode(); }
+
+// Listen for keys on the top-level window so Tab switches views even when nothing has focus.
+void MainComponent::parentHierarchyChanged()
+{
+    auto* top = getTopLevelComponent();
+    if (top == keyListenerHost.getComponent()) return;
+    if (auto* old = keyListenerHost.getComponent()) old->removeKeyListener (this);
+    keyListenerHost = top;
+    if (top != nullptr) top->addKeyListener (this);
 }
 
 void MainComponent::applyViewMode()
 {
-    const bool session = (viewMode == ViewMode::Session);
-    arrangeViewport.setVisible (! session);           // arrangement shows in Arrange + Mixer modes
-    sessionViewport.setVisible (session);
-    if (session && sessionView) sessionView->rebuild();
-    if (viewMode == ViewMode::Mixer)   openMixer();
-    else if (mixerWindow != nullptr)   mixerWindow->setVisible (false);
+    arrangeViewport.setVisible (viewMode == ViewMode::Arrange);
+    sessionViewport.setVisible (viewMode == ViewMode::Session);
+    mixerViewport  .setVisible (viewMode == ViewMode::Mixer);
+    if (viewMode == ViewMode::Session && sessionView) sessionView->rebuild();
+    if (viewMode == ViewMode::Mixer   && mixerView)   mixerView->rebuild();
     resized();
-    if (auto* top = getTopLevelComponent()) top->grabKeyboardFocus();   // keep Tab reaching keyPressed
+    grabKeyboardFocus();   // keep Tab reaching keyPressed regardless of what had focus
 }
 
 void MainComponent::openMappings()
@@ -3491,9 +3515,10 @@ void MainComponent::resized()
     }
 
     // Arrangement | divider | editor.
-    // The top pane is the arrangement or the session grid, depending on the view mode.
-    Component* topPane = (viewMode == ViewMode::Session) ? (Component*) &sessionViewport
-                                                         : (Component*) &arrangeViewport;
+    // The top pane is the arrangement, the session grid, or the mixer, per the view mode.
+    Component* topPane = viewMode == ViewMode::Session ? (Component*) &sessionViewport
+                       : viewMode == ViewMode::Mixer   ? (Component*) &mixerViewport
+                                                       : (Component*) &arrangeViewport;
     Component* comps[] = { topPane, dividerBar.get(), &editorPanel };
     verticalLayout.layOutComponents (comps, 3, area.getX(), area.getY(),
                                      area.getWidth(), area.getHeight(), true, true);
@@ -3506,6 +3531,9 @@ void MainComponent::resized()
     if (sessionView)
         sessionView->setSize (juce::jmax (sessionView->preferredWidth(),  sessionViewport.getMaximumVisibleWidth()),
                               juce::jmax (sessionView->preferredHeight(), sessionViewport.getHeight()));
+    if (mixerView && viewMode == ViewMode::Mixer)
+        mixerView->setSize (juce::jmax (700, mixerViewport.getMaximumVisibleWidth()),
+                            juce::jmax (400, mixerViewport.getHeight()));
 }
 
 // ===========================================================================

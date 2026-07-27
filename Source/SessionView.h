@@ -51,7 +51,8 @@ public:
     std::function<void (int, int)> onNewClip;         // (track index, scene) -> empty MIDI clip
     std::function<void (int, int)> onCopySelectedClip;// (track index, scene) -> copy the selected arrangement clip
     std::function<void (int, int)> onClearSlot;       // (track index, scene)
-    std::function<float (int)>     getTrackLevel;     // (track index) -> 0..1 peak for the VU meter
+    std::function<void (int, float&, float&)> getTrackLevels;   // (track index) -> L,R peak for the stereo VU
+    std::function<void (int)>      onOpenTrackFx;     // (track index) -> open that track's effects (mixer view)
 
     void rebuild()
     {
@@ -66,7 +67,7 @@ public:
             s.vol->setValue (tr->volume.load(), juce::dontSendNotification);
             s.vol->onValueChange = [tr, w = s.vol.get()] { tr->volume.store ((float) w->getValue()); };
 
-            s.pan = std::make_unique<juce::Slider> (juce::Slider::LinearHorizontal, juce::Slider::NoTextBox);
+            s.pan = std::make_unique<juce::Slider> (juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::NoTextBox);
             s.pan->setRange (-1.0, 1.0, 0.0);
             s.pan->setValue (tr->pan.load(), juce::dontSendNotification);
             s.pan->onValueChange = [tr, w = s.pan.get()] { tr->pan.store ((float) w->getValue()); };
@@ -81,11 +82,15 @@ public:
             s.mute->setToggleState (tr->mute.load(), juce::dontSendNotification);
             s.mute->onClick = [tr, w = s.mute.get()] { tr->mute.store (w->getToggleState()); };
 
+            s.fx = std::make_unique<juce::TextButton> ("FX");
+            s.fx->onClick = [this, t] { if (onOpenTrackFx) onOpenTrackFx (t); };
+
             addAndMakeVisible (*s.vol);  addAndMakeVisible (*s.pan);
-            addAndMakeVisible (*s.solo); addAndMakeVisible (*s.mute);
+            addAndMakeVisible (*s.solo); addAndMakeVisible (*s.mute); addAndMakeVisible (*s.fx);
             strips.push_back (std::move (s));
         }
-        meter.assign ((size_t) nt, 0.0f);
+        meterL.assign ((size_t) nt, 0.0f);
+        meterR.assign ((size_t) nt, 0.0f);
         meterRect.assign ((size_t) nt, {});
         updateSize();
         resized();
@@ -102,17 +107,18 @@ public:
         {
             auto r = mixerStripRect (t).reduced (6, 6);
             r.removeFromTop (14);                              // dB readout (drawn in paint)
-            strips[(size_t) t].pan->setBounds (r.removeFromTop (14));
-            r.removeFromTop (4);
-            auto btn = r.removeFromBottom (18);
+            strips[(size_t) t].pan->setBounds (r.removeFromTop (30).withSizeKeepingCentre (30, 30));   // rotary pan
+            r.removeFromTop (2);
+            auto btn = r.removeFromBottom (18);                // S | M | FX
             r.removeFromBottom (4);
-            auto fader = r.removeFromLeft ((int) (r.getWidth() * 0.5f));
+            auto fader = r.removeFromLeft ((int) (r.getWidth() * 0.48f));
             r.removeFromLeft (4);
-            meterRect[(size_t) t] = r;                         // VU meter fills the rest (drawn in paint)
+            meterRect[(size_t) t] = r;                         // stereo VU (two bars, drawn in paint)
             strips[(size_t) t].vol->setBounds (fader);
-            strips[(size_t) t].solo->setBounds (btn.removeFromLeft (btn.getWidth() / 2 - 2));
-            btn.removeFromLeft (4);
-            strips[(size_t) t].mute->setBounds (btn);
+            const int bw = (btn.getWidth() - 8) / 3;
+            strips[(size_t) t].solo->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (4);
+            strips[(size_t) t].mute->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (4);
+            strips[(size_t) t].fx->setBounds (btn);
         }
     }
 
@@ -243,18 +249,23 @@ public:
                                                  : juce::String (20.0f * std::log10 (v), 1) + " dB";
             g.drawText (db, strip.reduced (8, 4).removeFromTop (14).toFloat(), juce::Justification::centredLeft, false);
 
-            // VU meter (routed mixer-track peak, smoothed), track-colored, with a frame.
+            // Stereo VU meter (routed mixer-track peakL/R, smoothed), track-colored, two bars.
             auto m = meterRect[(size_t) t];
             if (! m.isEmpty())
             {
-                g.setColour (juce::Colour (0xff141417));
-                g.fillRect (m);
-                const float lvl = juce::jlimit (0.0f, 1.0f, meter[(size_t) t]);
-                auto fill = m.toFloat().withTrimmedTop (m.getHeight() * (1.0f - lvl));
-                g.setColour (trackCol[(size_t) t].withAlpha (0.85f));
-                g.fillRect (fill);
-                g.setColour (juce::Colours::white.withAlpha (0.15f));
-                g.drawRect (m, 1);
+                const int bw = (m.getWidth() - 2) / 2;
+                auto drawBar = [&] (juce::Rectangle<int> bar, float lvl)
+                {
+                    g.setColour (juce::Colour (0xff141417));
+                    g.fillRect (bar);
+                    auto fill = bar.toFloat().withTrimmedTop (bar.getHeight() * (1.0f - juce::jlimit (0.0f, 1.0f, lvl)));
+                    g.setColour (trackCol[(size_t) t].withAlpha (0.9f));
+                    g.fillRect (fill);
+                    g.setColour (juce::Colours::white.withAlpha (0.12f));
+                    g.drawRect (bar, 1);
+                };
+                drawBar (m.withWidth (bw), meterL[(size_t) t]);
+                drawBar (m.withX (m.getRight() - bw).withWidth (bw), meterR[(size_t) t]);
             }
         }
 
@@ -299,7 +310,7 @@ private:
     struct Strip
     {
         std::unique_ptr<juce::Slider> vol, pan;
-        std::unique_ptr<juce::TextButton> solo, mute;
+        std::unique_ptr<juce::TextButton> solo, mute, fx;
     };
 
     static constexpr int kPad = 8, kHeaderH = 30, kRowH = 30, kFooterH = 30, kTrackW = 128, kSceneW = 150, kMixerH = 150;
@@ -362,11 +373,13 @@ private:
     void timerCallback() override
     {
         const int nt = (int) tracks.size();
-        if ((int) meter.size() != nt) meter.assign ((size_t) nt, 0.0f);
+        if ((int) meterL.size() != nt) { meterL.assign ((size_t) nt, 0.0f); meterR.assign ((size_t) nt, 0.0f); }
         for (int t = 0; t < nt; ++t)
         {
-            const float lv = getTrackLevel ? getTrackLevel (t) : 0.0f;
-            meter[(size_t) t] = juce::jmax (lv, meter[(size_t) t] * 0.80f);   // fast attack, smooth decay
+            float l = 0.0f, r = 0.0f;
+            if (getTrackLevels) getTrackLevels (t, l, r);
+            meterL[(size_t) t] = juce::jmax (l, meterL[(size_t) t] * 0.80f);   // fast attack, smooth decay
+            meterR[(size_t) t] = juce::jmax (r, meterR[(size_t) t] * 0.80f);
         }
         if (transport.isPlaying() && ++blink % 15 == 0) blinkOn = ! blinkOn;
         repaint();
@@ -378,8 +391,8 @@ private:
     Transport&                           transport;
     juce::CriticalSection&               engineLock;
     std::vector<Strip>                   strips;
-    std::vector<float>                   meter;       // smoothed VU per track
-    std::vector<juce::Rectangle<int>>    meterRect;   // per-track meter bounds (set in resized)
+    std::vector<float>                   meterL, meterR;   // smoothed stereo VU per track
+    std::vector<juce::Rectangle<int>>    meterRect;        // per-track meter bounds (set in resized)
     int  blink { 0 };
     bool blinkOn { true };
 };
