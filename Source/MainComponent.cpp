@@ -38,6 +38,7 @@ MainComponent::MainComponent (bool headless)
     stopButton.onClick = [this]
     {
         if (recording.load()) { finalizeRecording(); recordButton.setToggleState (false, juce::dontSendNotification); }
+        if (sessionCapture.load()) { finalizeSessionCapture(); recordButton.setToggleState (false, juce::dontSendNotification); }
         transport.setPlaying (false);
         transport.requestReset();
         playButton.setToggleState (false, juce::dontSendNotification);
@@ -48,6 +49,13 @@ MainComponent::MainComponent (bool headless)
     recordButton.setTooltip ("Record MIDI into the selected instrument track");
     recordButton.onClick = [this]
     {
+        if (viewMode == ViewMode::Session)   // in Session view, Record captures the jam to the arrangement
+        {
+            if (sessionCapture.load()) { finalizeSessionCapture(); playButton.setToggleState (transport.isPlaying(), juce::dontSendNotification); }
+            else                       { startSessionCapture();   playButton.setToggleState (true, juce::dontSendNotification); playButton.setIcon (IconButton::Pause); }
+            recordButton.setToggleState (sessionCapture.load(), juce::dontSendNotification);
+            return;
+        }
         if (recording.load()) { finalizeRecording(); transport.setPlaying (false); playButton.setToggleState (false, juce::dontSendNotification); playButton.setIcon (IconButton::Play); }
         else                  { startRecording(); playButton.setToggleState (true, juce::dontSendNotification); playButton.setIcon (IconButton::Pause); }
         recordButton.setToggleState (recording.load(), juce::dontSendNotification);
@@ -654,6 +662,20 @@ MainComponent::MainComponent (bool headless)
         }
     };
     sessionView->onEditClip    = [this] (int ti, int s) { selectSessionClip (ti, s); };
+    sessionView->onCopyToArrangement = [this] (int ti, int s)
+    {
+        auto* t = trackByIndex (ti);
+        if (t == nullptr) return;
+        std::shared_ptr<Clip> src;
+        { const juce::ScopedLock sl (engineLock); src = slotClip (t->sessionSlots, s); }
+        if (src == nullptr) return;
+        pushUndoSnapshot();
+        Clip c = *src;                                   // copy notes / length / loop
+        c.startBeat = juce::jmax (0.0, samplesToBeats (transport.getPlayheadSamples()).inBeats());   // at the playhead
+        { const juce::ScopedLock sl (engineLock); t->clips.push_back (std::move (c)); }
+        if (arrangeView) arrangeView->rebuild();
+        setViewMode (ViewMode::Arrange);                 // reveal the result on the timeline
+    };
     sessionView->onCopySelectedClip = [this] (int ti, int s)
     {
         auto* t = trackByIndex (ti);
@@ -1054,6 +1076,52 @@ void MainComponent::startSessionRecord (int trackIndex, int scene)
     transport.setPlaying (true);                    // roll so the record clock advances
 }
 
+void MainComponent::startSessionCapture()
+{
+    const juce::ScopedLock sl (engineLock);        // audio thread try-locks, so this is safe
+    if (captureSegs.size() < 8192) captureSegs.resize (8192);
+    captureWrite.store (0);
+    const double arrBeat = juce::jmax (0.0, samplesToBeats (transport.getPlayheadSamples()).inBeats());
+    capturePrevSlot.assign (tracks.size(), -1);
+    captureStartBeat.assign (tracks.size(), arrBeat);
+    captureLastBeat = arrBeat;
+    sessionCapture.store (true);
+    transport.setPlaying (true);
+}
+
+void MainComponent::finalizeSessionCapture()
+{
+    if (! sessionCapture.exchange (false)) return;
+    pushUndoSnapshot();
+    int built = 0;
+    {
+        const juce::ScopedLock sl (engineLock);
+        // Flush spans for clips still playing at stop.
+        for (int ti = 0; ti < (int) tracks.size() && ti < (int) capturePrevSlot.size(); ++ti)
+            if (capturePrevSlot[(size_t) ti] >= 0)
+            {
+                const int idx = captureWrite.fetch_add (1);
+                if (idx < (int) captureSegs.size())
+                    captureSegs[(size_t) idx] = { ti, capturePrevSlot[(size_t) ti], captureStartBeat[(size_t) ti], captureLastBeat };
+            }
+        const int n = juce::jmin (captureWrite.load(), (int) captureSegs.size());
+        for (int i = 0; i < n; ++i)
+        {
+            const auto& seg = captureSegs[(size_t) i];
+            if (! juce::isPositiveAndBelow (seg.track, (int) tracks.size()) || seg.endBeat <= seg.startBeat + 1.0e-6) continue;
+            auto src = slotClip (tracks[(size_t) seg.track]->sessionSlots, seg.scene);
+            if (src == nullptr) continue;
+            Clip c = *src;                                  // copy notes / content / loop
+            c.startBeat   = juce::jmax (0.0, seg.startBeat);
+            c.lengthBeats = juce::jmax (0.25, seg.endBeat - seg.startBeat);   // as long as it played; content tiles (looped)
+            tracks[(size_t) seg.track]->clips.push_back (std::move (c));
+            ++built;
+        }
+    }
+    if (built > 0 && arrangeView) arrangeView->rebuild();
+    if (built > 0) setViewMode (ViewMode::Arrange);         // reveal the captured performance
+}
+
 void MainComponent::finalizeRecording()
 {
     stopAudioRecording();               // finalize audio takes independently of MIDI
@@ -1131,7 +1199,7 @@ void MainComponent::finalizeRecording()
 // gRPC control API  (transport = atomic/direct; structural = message thread)
 // ===========================================================================
 void MainComponent::apiPlay()  { clearClipIndicators(); transport.setPlaying (true); }
-void MainComponent::apiStop()  { if (recording.load()) finalizeRecording(); transport.setPlaying (false); transport.requestReset(); }
+void MainComponent::apiStop()  { if (recording.load()) finalizeRecording(); if (sessionCapture.load()) finalizeSessionCapture(); transport.setPlaying (false); transport.requestReset(); }
 // MIDI panic: request the audio thread to send all-notes-off to every generator (clears stuck
 // notes). Thread-safe from any caller (UI / gRPC / OSC) — just flips an atomic.
 void MainComponent::apiPanic() { panicRequested.store (true); }
@@ -2927,6 +2995,30 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     {
         sessionLauncher.advance (sessionBeat, sessionBeat + blockBeats);   // apply pending at boundaries
         sessionBeat += blockBeats;
+
+        // Arrangement capture: log each session clip's played span onto the timeline.
+        if (sessionCapture.load())
+        {
+            const double arrBeat = tc.sampleToBeat (blockStartPlayhead);
+            const int nt = (int) tracks.size();
+            if ((int) capturePrevSlot.size() != nt) { capturePrevSlot.assign ((size_t) nt, -1); captureStartBeat.assign ((size_t) nt, arrBeat); }
+            for (int ti = 0; ti < nt; ++ti)
+            {
+                const int ns = sessionLauncher.playingSlot (ti);
+                if (ns != capturePrevSlot[(size_t) ti])
+                {
+                    if (capturePrevSlot[(size_t) ti] >= 0)   // a clip just stopped -> record the span it played
+                    {
+                        const int idx = captureWrite.fetch_add (1, std::memory_order_relaxed);
+                        if (idx < (int) captureSegs.size())
+                            captureSegs[(size_t) idx] = { ti, capturePrevSlot[(size_t) ti], captureStartBeat[(size_t) ti], arrBeat };
+                    }
+                    captureStartBeat[(size_t) ti] = arrBeat;
+                    capturePrevSlot[(size_t) ti]  = ns;
+                }
+            }
+            captureLastBeat = arrBeat + blockBeats;   // trailing spans (still playing at stop) end here
+        }
     }
 
     const int numTracks = (int) mixerTracks.size();

@@ -729,6 +729,20 @@ private:
     void finalizeRecording();
     void startSessionRecord (int trackIndex, int scene);   // record live MIDI into a session slot
     int  sessionRecTrack { -1 }, sessionRecScene { -1 };   // slot currently recording (-1 = none)
+
+    // "Arrangement Record from Session": while armed, the audio thread logs each session clip's
+    // played span (start/end arrangement beat) as it launches/stops; finalize drops those spans
+    // onto the arrangement timeline as clips (Ableton's capture-a-session-jam workflow).
+    void startSessionCapture();
+    void finalizeSessionCapture();
+    bool sessionCapturing() const { return sessionCapture.load(); }
+    std::atomic<bool> sessionCapture { false };
+    struct CaptureSeg { int track; int scene; double startBeat; double endBeat; };
+    std::vector<CaptureSeg> captureSegs;                   // preallocated FIFO (audio thread writes)
+    std::atomic<int>        captureWrite { 0 };
+    std::vector<int>        capturePrevSlot;               // audio-thread: last playing slot per track
+    std::vector<double>     captureStartBeat;              // audio-thread: current span start per track
+    double                  captureLastBeat { 0.0 };       // audio-thread: latest arrangement beat
     struct RecordedEvent { juce::int64 sample; juce::MidiMessage msg; };
     std::vector<RecordedEvent> recordBuffer;         // preallocated in prepareToPlay
     std::atomic<int>  recordWrite { 0 };

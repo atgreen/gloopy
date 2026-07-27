@@ -55,6 +55,7 @@ public:
     std::function<void (int, int)> onCopySelectedClip;// (track index, scene) -> copy the selected arrangement clip
     std::function<void (int, int)> onClearSlot;       // (track index, scene)
     std::function<void (int, int)> onEditClip;        // (track index, scene) -> load into the piano-roll editor
+    std::function<void (int, int)> onCopyToArrangement;   // (track index, scene) -> drop a copy onto the timeline
     std::function<void (int, float&, float&)> getTrackLevels;   // (track index) -> L,R peak for the stereo VU
     std::function<void (int)>      onOpenTrackFx;     // (track index) -> open that track's effects (mixer view)
     std::function<double()>        getQuantumBeats;   // current launch quantum (beats; 0 = off)
@@ -445,14 +446,16 @@ private:
         m.addItem (1, "New empty clip", ! has);
         m.addItem (2, "Copy selected clip here");
         m.addItem (4, "Edit clip", has);
+        m.addItem (5, "Copy to arrangement", has);
         m.addItem (3, "Clear", has);
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this),
                          [this, t, s] (int r)
                          {
-                             if      (r == 1 && onNewClip)          onNewClip (t, s);
-                             else if (r == 2 && onCopySelectedClip) onCopySelectedClip (t, s);
-                             else if (r == 4 && onEditClip)         onEditClip (t, s);
-                             else if (r == 3 && onClearSlot)        onClearSlot (t, s);
+                             if      (r == 1 && onNewClip)           onNewClip (t, s);
+                             else if (r == 2 && onCopySelectedClip)  onCopySelectedClip (t, s);
+                             else if (r == 4 && onEditClip)          onEditClip (t, s);
+                             else if (r == 5 && onCopyToArrangement) onCopyToArrangement (t, s);
+                             else if (r == 3 && onClearSlot)         onClearSlot (t, s);
                          });
     }
     void sceneMenu (int s)
