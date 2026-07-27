@@ -635,6 +635,7 @@ private:
     std::atomic<juce::int64> diagDropouts       { 0 };
     std::atomic<double>      diagRenderSpeedX   { 0.0 };   // last offline bounce, x realtime
     juce::AudioBuffer<float> mixBuffer;
+    std::vector<char>        soloImplied;   // audio-thread scratch: transitive insert-solo path (grow-only)
 
     int selTrack { -1 }, selClip { -1 };
     // Session-clip editing: when selSessionScene >= 0 the editor edits that track's session slot

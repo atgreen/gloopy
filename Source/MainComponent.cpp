@@ -3232,6 +3232,23 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     bool anyGroupSolo = false;
     for (auto& g : controlGroups) if (g->solo.load()) { anyGroupSolo = true; break; }
 
+    // Transitive insert-solo path: an insert is "solo-lit" if any node in its output chain is
+    // soloed (it feeds a soloed bus) OR it is downstream of a soloed node (a soloed insert's
+    // output chain passes through it). So soloing a group lights its members, and soloing a member
+    // keeps its group passing. (Grow-only scratch; no per-block allocation once sized.)
+    if ((int) soloImplied.size() < numTracks) soloImplied.assign ((size_t) numTracks, 0);
+    else std::fill (soloImplied.begin(), soloImplied.begin() + numTracks, (char) 0);
+    if (anyTrackSolo)
+    {
+        auto outOf = [&] (int i) { const int o = mixerTracks[(size_t) i]->output.load(); return (o > 0 && o < numTracks && o != i) ? o : -1; };
+        for (int i = 1; i < numTracks; ++i)                                  // (A) i feeds / is a soloed node
+            for (int j = i; j >= 1; j = outOf (j))
+                if (mixerTracks[(size_t) j]->solo.load()) { soloImplied[(size_t) i] = 1; break; }
+        for (int x = 1; x < numTracks; ++x)                                  // (B) i is downstream of a soloed node
+            if (mixerTracks[(size_t) x]->solo.load())
+                for (int j = outOf (x); j >= 1; j = outOf (j)) soloImplied[(size_t) j] = 1;
+    }
+
     MixerTrack& master = *mixerTracks[0];
     const double fxBpm = juce::jmax (1.0, transport.getBpm());   // tempo for tempo-synced effects this block
     for (int ti = 1; ti < numTracks; ++ti)
@@ -3243,14 +3260,13 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         if (mpL >= 1.0f || mpR >= 1.0f) mt.clipped.store (true);
 
         // Compute the fader gain + audibility first — post-fader sends need them.
-        // Solo: an insert is audible only if nothing is soloed, or it is directly soloed, or
-        // it belongs to a soloed control group (VCA solo). Track-solo and group-solo combine.
-        bool soloed = mt.solo.load();
+        // Solo: audible if nothing is soloed, or this insert is on the transitive solo path
+        // (soloImplied — direct/bus solo, incl. soloing a group lighting its members), or it
+        // belongs to a soloed control group (VCA solo). Track-solo and group-solo combine.
+        bool soloed = soloImplied[(size_t) ti] != 0;
         if (! soloed && anyGroupSolo && mt.group.isNotEmpty())
             if (auto* grp = findControlGroup (mt.group)) soloed = grp->solo.load();
-        // A bus/group is solo-exempt: it must keep passing so a soloed member routed into it is
-        // still heard through the group's effects (v1 — soloing a bus itself is a later refinement).
-        bool audible = ! mt.mute.load() && (mt.isBus || (! anyTrackSolo && ! anyGroupSolo) || soloed);
+        bool audible = ! mt.mute.load() && ((! anyTrackSolo && ! anyGroupSolo) || soloed);
         float v = mt.volume.load();
         // VCA-lite: an insert's control group scales its fader; a muted group silences it.
         if (mt.group.isNotEmpty())
