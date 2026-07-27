@@ -681,6 +681,10 @@ MainComponent::MainComponent (bool headless)
     sessionView->onOpenTrackFx = [this] (int) { setViewMode (ViewMode::Mixer); };   // add effects in the mixer view
     sessionView->getQuantumBeats   = [this] { return apiGetLaunchQuantumBeats(); };
     sessionView->onSetQuantumBeats = [this] (double b) { apiSetLaunchQuantumBeats (b); };
+    sessionView->getMasterVolume   = [this] { return mixerTracks.empty() ? 0.8f : mixerTracks[0]->volume.load(); };
+    sessionView->onSetMasterVolume = [this] (float v) { if (! mixerTracks.empty()) mixerTracks[0]->volume.store (v); };
+    sessionView->getMasterLevels   = [this] (float& l, float& r)
+    { l = r = 0.0f; if (! mixerTracks.empty()) { l = mixerTracks[0]->peakL.load(); r = mixerTracks[0]->peakR.load(); } };
     sessionViewport.setViewedComponent (sessionView.get(), false);
     sessionViewport.setScrollBarsShown (true, true);
     addChildComponent (sessionViewport);             // hidden until Tab switches to Session

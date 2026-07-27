@@ -59,6 +59,9 @@ public:
     std::function<void (int)>      onOpenTrackFx;     // (track index) -> open that track's effects (mixer view)
     std::function<double()>        getQuantumBeats;   // current launch quantum (beats; 0 = off)
     std::function<void (double)>   onSetQuantumBeats; // cycle the launch quantum
+    std::function<float()>         getMasterVolume;   // master fader (0..1)
+    std::function<void (float)>    onSetMasterVolume;
+    std::function<void (float&, float&)> getMasterLevels;   // master L,R peak
 
     void rebuild()
     {
@@ -104,6 +107,14 @@ public:
         meterL.assign ((size_t) nt, 0.0f);
         meterR.assign ((size_t) nt, 0.0f);
         meterRect.assign ((size_t) nt, {});
+
+        // Master strip fader (scene-column bottom band).
+        masterVol = std::make_unique<juce::Slider> (juce::Slider::LinearVertical, juce::Slider::NoTextBox);
+        masterVol->setRange (0.0, 1.0, 0.0);
+        masterVol->setValue (getMasterVolume ? getMasterVolume() : 0.8, juce::dontSendNotification);
+        masterVol->onValueChange = [this] { if (onSetMasterVolume) onSetMasterVolume ((float) masterVol->getValue()); };
+        addAndMakeVisible (*masterVol);
+
         updateSize();
         resized();
         repaint();
@@ -132,6 +143,13 @@ public:
             strips[(size_t) t].mute->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
             strips[(size_t) t].arm ->setBounds (btn.removeFromLeft (bw)); btn.removeFromLeft (3);
             strips[(size_t) t].fx  ->setBounds (btn);
+        }
+        if (masterVol != nullptr)
+        {
+            auto r = masterStripRect().reduced (8, 8);
+            r.removeFromTop (16);                              // "MASTER" + dB label (drawn in paint)
+            masterMeterRect = r.removeFromRight (r.getWidth() / 2 - 3);
+            masterVol->setBounds (r);
         }
     }
 
@@ -297,6 +315,34 @@ public:
             }
         }
 
+        // Master strip (scene column): label, dB, stereo meter; the fader is a child component.
+        if (masterVol != nullptr && nt > 0)
+        {
+            auto strip = masterStripRect();
+            g.setColour (juce::Colour (0xff26262e));
+            g.fillRoundedRectangle (strip.toFloat().reduced (3.0f), 4.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.8f));
+            g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+            const float mv = getMasterVolume ? getMasterVolume() : 0.8f;
+            const juce::String db = mv <= 0.0001f ? juce::String (juce::CharPointer_UTF8 ("-\xe2\x88\x9e"))
+                                                  : juce::String (20.0f * std::log10 (mv), 1) + " dB";
+            g.drawText ("MASTER  " + db, strip.reduced (8, 5).removeFromTop (14).toFloat(),
+                        juce::Justification::centredLeft, false);
+            if (! masterMeterRect.isEmpty())
+            {
+                const int bw = (masterMeterRect.getWidth() - 2) / 2;
+                auto mbar = [&] (juce::Rectangle<int> bar, float lvl)
+                {
+                    g.setColour (juce::Colour (0xff141417)); g.fillRect (bar);
+                    auto fill = bar.toFloat().withTrimmedTop (bar.getHeight() * (1.0f - juce::jlimit (0.0f, 1.0f, lvl)));
+                    g.setColour (juce::Colour (0xff33dd88)); g.fillRect (fill);
+                    g.setColour (juce::Colours::white.withAlpha (0.12f)); g.drawRect (bar, 1);
+                };
+                mbar (masterMeterRect.withWidth (bw), masterMeterL);
+                mbar (masterMeterRect.withX (masterMeterRect.getRight() - bw).withWidth (bw), masterMeterR);
+            }
+        }
+
         if (nt == 0 || ns == 0)
         {
             g.setColour (juce::Colours::white.withAlpha (0.4f));
@@ -365,6 +411,8 @@ private:
     { return { (float) (kPad + (int) tracks.size() * kTrackW), (float) (kPad + kHeaderH + s * kRowH), (float) kSceneW, (float) kRowH }; }
     juce::Rectangle<float> addSceneRect() const
     { return { (float) (kPad + (int) tracks.size() * kTrackW), (float) (kPad + kHeaderH + (int) scenes.size() * kRowH), (float) kSceneW, (float) kFooterH }; }
+    juce::Rectangle<int> masterStripRect() const
+    { return { kPad + (int) tracks.size() * kTrackW, juce::jmax (kPad, getHeight() - kPad - kMixerH), kSceneW, kMixerH }; }
     juce::Rectangle<int> mixerStripRect (int t) const
     { return { kPad + t * kTrackW, juce::jmax (kPad, getHeight() - kPad - kMixerH), kTrackW, kMixerH }; }
 
@@ -444,6 +492,8 @@ private:
             meterL[(size_t) t] = juce::jmax (l, meterL[(size_t) t] * 0.80f);   // fast attack, smooth decay
             meterR[(size_t) t] = juce::jmax (r, meterR[(size_t) t] * 0.80f);
         }
+        { float l = 0.0f, r = 0.0f; if (getMasterLevels) getMasterLevels (l, r);
+          masterMeterL = juce::jmax (l, masterMeterL * 0.80f); masterMeterR = juce::jmax (r, masterMeterR * 0.80f); }
         if (transport.isPlaying() && ++blink % 15 == 0) blinkOn = ! blinkOn;
         repaint();
     }
@@ -456,6 +506,9 @@ private:
     std::vector<Strip>                   strips;
     std::vector<float>                   meterL, meterR;   // smoothed stereo VU per track
     std::vector<juce::Rectangle<int>>    meterRect;        // per-track meter bounds (set in resized)
+    std::unique_ptr<juce::Slider>        masterVol;        // master strip fader (scene column)
+    juce::Rectangle<int>                 masterMeterRect;
+    float                                masterMeterL { 0.0f }, masterMeterR { 0.0f };
     int  blink { 0 };
     bool blinkOn { true };
 };
