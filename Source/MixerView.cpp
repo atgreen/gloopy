@@ -658,6 +658,13 @@ void MixerView::paint (juce::Graphics& g)
     g.fillRect (ed.getX(), ed.getY(), ed.getWidth(), 1);
 }
 
+void MixerView::revealLastStrip()
+{
+    const int contentW = (int) strips.size() * stripWidth;
+    const int visibleW = stripViewport.getMaximumVisibleWidth();
+    stripViewport.setViewPosition (juce::jmax (0, contentW - visibleW), stripViewport.getViewPositionY());
+}
+
 void MixerView::resized()
 {
     auto area = getLocalBounds();

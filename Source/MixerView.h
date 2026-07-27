@@ -23,6 +23,7 @@ public:
     ~MixerView() override;
 
     void rebuild();
+    void revealLastStrip();   // scroll the strip row to show the rightmost strip (e.g. a just-added bus)
     void paint (juce::Graphics&) override;
     void resized() override;
     void mouseDown (const juce::MouseEvent&) override;   // right-click FX param -> MIDI Learn

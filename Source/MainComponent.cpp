@@ -901,7 +901,7 @@ MainComponent::MainComponent (bool headless)
         return out;
     };
     mixerView->onSetSend     = [this] (int insert, int bus, float level, bool post) { apiSetSend (insert, bus, level, post); if (mixerView) mixerView->rebuild(); };
-    mixerView->onAddBus      = [this] (const juce::String& name) { apiAddBus (name); if (mixerView) mixerView->rebuild(); };
+    mixerView->onAddBus      = [this] (const juce::String& name) { apiAddBus (name); if (mixerView) { mixerView->rebuild(); mixerView->revealLastStrip(); } };   // scroll to show the new bus
     mixerView->onSetInsertName = [this] (int index, const juce::String& name) { apiSetInsertName (index, name); };
     mixerView->onSetOutput   = [this] (int insert, int target)
     {
