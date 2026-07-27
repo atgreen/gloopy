@@ -7,6 +7,7 @@
 #include <vector>
 #include <memory>
 #include <functional>
+#include <map>
 #include <cmath>
 #include "Track.h"
 #include "SessionModel.h"
@@ -106,11 +107,27 @@ public:
     std::function<void (int, float&, float&)> getTrackLevels;   // (track index) -> L,R peak for the stereo VU
     std::function<void (int)>      onOpenTrackFx;     // (track index) -> open that track's effects (mixer view)
 
+    // Group/bus columns (submix). A group is a bus fed by tracks' main outputs; it shows as a
+    // no-clip column just before its contiguous members, carrying the bus name + meter.
+    struct GroupInfo { int busIndex; juce::String name; juce::Colour colour; std::vector<int> members; };
+    std::function<std::vector<GroupInfo>()>            getGroups;     // groups + their member track indices
+    std::function<void (int busIndex, float&, float&)> getBusLevels;  // a bus's L,R peak
+
     void rebuild()
     {
         const int nt = (int) tracks.size();
+        // Build display columns: each track is a column; a group/bus column is inserted just
+        // before a group whose members form a contiguous run starting here (phase 1b). Non-
+        // contiguous groups don't get a column yet — the gather gesture (phase 2) makes them so.
+        const auto groups = getGroups ? getGroups() : std::vector<GroupInfo>{};
         cols.clear();
-        for (int t = 0; t < nt; ++t) cols.push_back ({ t });   // phase 1a: one track column per track
+        for (int t = 0; t < nt; ++t)
+        {
+            for (const auto& gr : groups)
+                if (! gr.members.empty() && gr.members.front() == t && isContiguousRun (gr.members))
+                { Col gc; gc.bus = gr.busIndex; gc.name = gr.name; gc.colour = gr.colour; cols.push_back (gc); }
+            Col tc; tc.track = t; cols.push_back (tc);
+        }
         strips.clear();
         for (int t = 0; t < nt; ++t)
         {
@@ -226,6 +243,21 @@ public:
             g.drawText (trackName[(size_t) t], h.reduced (6, 2), juce::Justification::centredLeft, true);
         }
 
+        // Group/bus column headers (a submix column — no clip cells below it).
+        for (int c = 0; c < numCols(); ++c)
+        {
+            const auto& col = cols[(size_t) c];
+            if (col.bus < 0) continue;
+            auto h = colHeaderRect (c);
+            g.setColour (col.colour.withAlpha (0.85f));
+            g.fillRect (h.removeFromTop (4.0f));
+            g.setColour (juce::Colour (0xff322b38));              // faintly distinct from track headers
+            g.fillRect (h);
+            g.setColour (juce::Colours::white.withAlpha (0.9f));
+            g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+            g.drawText (col.name, h.reduced (6, 2), juce::Justification::centredLeft, true);
+        }
+
         // Grid cells.
         for (int s = 0; s < ns; ++s)
             for (int t = 0; t < nt; ++t)
@@ -296,6 +328,26 @@ public:
             }
         }
 
+        // Group/bus column strips (bottom band): a distinct fill, "GROUP" tag, and the bus meter.
+        for (int c = 0; c < numCols(); ++c)
+        {
+            const auto& col = cols[(size_t) c];
+            if (col.bus < 0) continue;
+            auto strip = colStripRect (c);
+            g.setColour (juce::Colour (0xff2a2431));
+            g.fillRoundedRectangle (strip.toFloat().reduced (3.0f), 4.0f);
+            g.setColour (col.colour.withAlpha (0.9f));
+            g.setFont (juce::FontOptions (9.5f, juce::Font::bold));
+            g.drawText ("GROUP", strip.reduced (8, 5).removeFromTop (12).toFloat(), juce::Justification::centredLeft, false);
+            float mL = 0.0f, mR = 0.0f;
+            auto it = busMeter.find (col.bus);
+            if (it != busMeter.end()) { mL = it->second.first; mR = it->second.second; }
+            auto mArea = strip.reduced (10, 8); mArea.removeFromTop (16);
+            const int bw = (mArea.getWidth() - 2) / 2;
+            sv::drawMeter (g, mArea.withWidth (bw), mL, mL);
+            sv::drawMeter (g, mArea.withX (mArea.getRight() - bw).withWidth (bw), mR, mR);
+        }
+
         if (nt == 0 || ns == 0)
         {
             g.setColour (juce::Colours::white.withAlpha (0.4f));
@@ -341,10 +393,13 @@ private:
     // Display columns, left to right. Today every column is a track (one per track, in order);
     // group/bus columns will be interleaved here in phase 1b. `colX`/the rect helpers work in
     // column-position space so inserting a group column just shifts the tracks after it.
-    struct Col { int track = -1; };            // (group columns will add a bus field)
+    struct Col { int track = -1; int bus = -1; juce::String name; juce::Colour colour; };   // bus >= 0 -> group column
     std::vector<Col> cols;
+    std::map<int, std::pair<float, float>> busMeter;   // busIndex -> smoothed L,R for group columns
     int  numCols() const { return (int) cols.size(); }
     int  colOfTrack (int t) const { for (int c = 0; c < numCols(); ++c) if (cols[(size_t) c].track == t) return c; return t; }
+    static bool isContiguousRun (const std::vector<int>& m)   // ascending consecutive track indices
+    { for (size_t i = 1; i < m.size(); ++i) if (m[i] != m[i - 1] + 1) return false; return ! m.empty(); }
 
     juce::Rectangle<float> colHeaderRect (int c) const
     { return { (float) (sv::kPad + c * sv::kTrackW), (float) sv::kPad, (float) sv::kTrackW, (float) sv::kHeaderH }; }
@@ -409,6 +464,14 @@ private:
             peakHoldL[(size_t) t] = sv::holdPeak (l, peakHoldL[(size_t) t]);    // held-peak marker (slow fall)
             peakHoldR[(size_t) t] = sv::holdPeak (r, peakHoldR[(size_t) t]);
         }
+        for (const auto& col : cols)                                           // group/bus column meters
+            if (col.bus >= 0 && getBusLevels)
+            {
+                float l = 0.0f, r = 0.0f; getBusLevels (col.bus, l, r);
+                auto& bm = busMeter[col.bus];
+                bm.first  = juce::jmax (l, bm.first  * 0.80f);
+                bm.second = juce::jmax (r, bm.second * 0.80f);
+            }
         if (transport.isPlaying() && ++blink % 15 == 0) blinkOn = ! blinkOn;
         repaint();
     }

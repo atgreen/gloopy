@@ -703,6 +703,34 @@ MainComponent::MainComponent (bool headless)
         r = mixerTracks[(size_t) route]->peakR.load();
     };
     grid.onOpenTrackFx = [this] (int) { setViewMode (ViewMode::Mixer); };   // add effects in the mixer view
+    grid.getGroups = [this]
+    {
+        // A group = a bus that tracks route their MAIN output into. Members are those tracks, in
+        // track order; the group column shows before them (when contiguous).
+        std::vector<SessionView::GroupInfo> out;
+        const juce::ScopedLock sl (engineLock);
+        for (int b = 1; b < (int) mixerTracks.size(); ++b)
+        {
+            if (! mixerTracks[(size_t) b]->isBus) continue;
+            SessionView::GroupInfo g;
+            g.busIndex = b; g.name = mixerTracks[(size_t) b]->name; g.colour = juce::Colour (0xff6a6a72);
+            for (int t = 0; t < (int) tracks.size(); ++t)
+            {
+                const int ins = tracks[(size_t) t]->mixerTrack.load();
+                if (juce::isPositiveAndBelow (ins, (int) mixerTracks.size()) && mixerTracks[(size_t) ins]->output.load() == b)
+                    g.members.push_back (t);
+            }
+            if (! g.members.empty()) { g.colour = tracks[(size_t) g.members.front()]->colour; out.push_back (std::move (g)); }
+        }
+        return out;
+    };
+    grid.getBusLevels = [this] (int bus, float& l, float& r)
+    {
+        l = r = 0.0f;
+        const juce::ScopedLock sl (engineLock);
+        if (juce::isPositiveAndBelow (bus, (int) mixerTracks.size()))
+        { l = mixerTracks[(size_t) bus]->peakL.load(); r = mixerTracks[(size_t) bus]->peakR.load(); }
+    };
     sceneCol.getQuantumBeats   = [this] { return apiGetLaunchQuantumBeats(); };
     sceneCol.onSetQuantumBeats = [this] (double b) { apiSetLaunchQuantumBeats (b); };
     sceneCol.getMasterVolume   = [this] { return mixerTracks.empty() ? 0.8f : mixerTracks[0]->volume.load(); };
