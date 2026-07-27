@@ -21,6 +21,7 @@
 #include "MixerTrack.h"
 #include "MappingsView.h"
 #include "MixerView.h"
+#include "DevicePanel.h"
 #include "BrowserSidebar.h"
 #include "Effects.h"
 #include "PluginHost.h"
@@ -417,6 +418,10 @@ private:
             pianoBtn.setClickingTogglesState (true);
             addAndMakeVisible (stepBtn);
             addAndMakeVisible (pianoBtn);
+
+            // Swap the whole bottom area to the selected track's effect chain (owner wires onClick).
+            devicesBtn.setTooltip ("Show the selected track's device chain (effects)");
+            addAndMakeVisible (devicesBtn);
             addAndMakeVisible (steps);
             addChildComponent (roll);
 
@@ -492,6 +497,7 @@ private:
         {
             auto a = getLocalBounds();
             auto h = a.removeFromTop (26).reduced (0, 3);
+            devicesBtn.setBounds (h.removeFromRight (68).reduced (2, 0));
             pianoBtn.setBounds (h.removeFromRight (58).reduced (2, 0));
             stepBtn .setBounds (h.removeFromRight (58).reduced (2, 0));
             chordCombo.setBounds (h.removeFromRight (74).reduced (2, 0));
@@ -508,6 +514,7 @@ private:
         juce::Label      title;
         juce::TextButton stepBtn  { "STEPS" };
         juce::TextButton pianoBtn { "PIANO" };
+        juce::TextButton devicesBtn { "DEVICES" };
         juce::TextButton auditionBtn { "AUDITION" };
         juce::TextButton strumBtn { "STRUM" };
         juce::TextButton legatoBtn { "LEGATO" };
@@ -530,6 +537,7 @@ private:
     void writeBackEditor();
     void setEditorMode (int mode);
     void loadSelectedClipIntoEditor();
+    void refreshDevicePanel();                          // point the device panel at the selected track's insert
 
     void setupMixer();
     void openMixer();
@@ -867,6 +875,10 @@ private:
     void applyViewMode();                             // show/hide the three embedded views
     juce::Component::SafePointer<juce::Component> keyListenerHost;   // top-level we listen to for Tab
     EditorPanel      editorPanel { transport };
+    DevicePanel      devicePanel;                    // bottom-area effect chain for the selected track
+    enum class BottomMode { Clip, Devices };
+    BottomMode       bottomMode { BottomMode::Clip };
+    int              deviceTrack { -1 };             // track whose device chain the panel shows
 
     std::unique_ptr<MixerView>            mixerView;
     std::unique_ptr<BrowserSidebar>       browser;          // collapsible left browser (templates, ...)

@@ -726,7 +726,48 @@ MainComponent::MainComponent (bool headless)
     editorPanel.stepBtn.onClick  = [this] { setEditorMode (1); };
     editorPanel.auditionBtn.onClick = [this]
     { editorPanel.roll.setAuditionEnabled (editorPanel.auditionBtn.getToggleState()); };
+    editorPanel.devicesBtn.onClick = [this]
+    { bottomMode = BottomMode::Devices; refreshDevicePanel(); resized(); };
     setEditorMode (editorMode);
+
+    // Device panel — the selected track's effect chain, shown in the bottom area in place of the
+    // clip editor (Ableton "Device View"). Hidden until the DEVICES button is pressed.
+    addChildComponent (devicePanel);
+    devicePanel.onShowClip = [this] { bottomMode = BottomMode::Clip; resized(); };
+    devicePanel.getEffectTypes = []
+    {
+        return juce::StringArray { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher",
+                                   "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo",
+                                   "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate",
+                                   "Auto-wah", "Ring Mod" };
+    };
+    devicePanel.getTitle = [this]
+    {
+        const juce::ScopedLock sl (engineLock);
+        if (! juce::isPositiveAndBelow (deviceTrack, (int) mixerTracks.size())) return juce::String ("DEVICES");
+        const juce::String bullet (juce::CharPointer_UTF8 ("\xe2\x80\xa2"));
+        return "DEVICES   " + bullet + "   " + mixerTracks[(size_t) deviceTrack]->name.toUpperCase();
+    };
+    devicePanel.getChain = [this]
+    {
+        std::vector<std::pair<juce::String, bool>> out;
+        const juce::ScopedLock sl (engineLock);
+        if (juce::isPositiveAndBelow (deviceTrack, (int) mixerTracks.size()))
+            for (auto& fx : mixerTracks[(size_t) deviceTrack]->effects)
+                out.push_back ({ fx->name(), fx->bypassed.load() });
+        return out;
+    };
+    devicePanel.getParams = [this] (int slot)
+    {
+        std::vector<DevicePanel::Param> out;
+        for (auto& p : apiGetEffectParams (deviceTrack, slot))
+            out.push_back ({ p.name, p.value, p.min, p.max });
+        return out;
+    };
+    devicePanel.onAddEffect    = [this] (int type)                        { apiAddEffect (deviceTrack, type); };
+    devicePanel.onRemoveEffect = [this] (int slot)                        { apiRemoveEffect (deviceTrack, slot); };
+    devicePanel.onSetBypass    = [this] (int slot, bool b)                { apiSetEffectBypass (deviceTrack, slot, b); };
+    devicePanel.onSetParam     = [this] (int slot, const juce::String& n, float v) { apiSetEffectParam (deviceTrack, slot, n, v); };
 
     verticalLayout.setItemLayout (0, 120.0, -0.85, -0.60);   // arrangement
     verticalLayout.setItemLayout (1, 6.0, 6.0, 6.0);         // divider
@@ -2647,6 +2688,7 @@ void MainComponent::selectClip (int track, int clip)
     midiInputTarget.store (juce::isPositiveAndBelow (track, (int) tracks.size())
                              && tracks[(size_t) track]->generator != nullptr
                            ? tracks[(size_t) track]->id : -1);
+    if (bottomMode == BottomMode::Devices) refreshDevicePanel();
 }
 
 void MainComponent::selectSessionClip (int trackIndex, int scene)
@@ -2658,6 +2700,21 @@ void MainComponent::selectSessionClip (int trackIndex, int scene)
     midiInputTarget.store (juce::isPositiveAndBelow (trackIndex, (int) tracks.size())
                              && tracks[(size_t) trackIndex]->generator != nullptr
                            ? tracks[(size_t) trackIndex]->id : -1);
+    if (bottomMode == BottomMode::Devices) refreshDevicePanel();
+}
+
+// Point the device panel at the mixer insert of the currently selected track (arrangement or
+// session). Called on selection changes while the device view is showing, and when it opens.
+void MainComponent::refreshDevicePanel()
+{
+    const int tIdx = selTrack >= 0 ? selTrack : selSessionTrack;
+    {
+        const juce::ScopedLock sl (engineLock);
+        deviceTrack = juce::isPositiveAndBelow (tIdx, (int) tracks.size())
+                        ? juce::jlimit (0, (int) mixerTracks.size() - 1, tracks[(size_t) tIdx]->mixerTrack.load())
+                        : -1;
+    }
+    devicePanel.refresh();
 }
 
 // The clip currently loaded in the editor — a session slot (if selected) or an arrangement clip.
@@ -3697,7 +3754,12 @@ void MainComponent::resized()
     Component* topPane = viewMode == ViewMode::Session ? (Component*) &sessionViewport
                        : viewMode == ViewMode::Mixer   ? (Component*) &mixerViewport
                                                        : (Component*) &arrangeViewport;
-    Component* comps[] = { topPane, dividerBar.get(), &editorPanel };
+    // The bottom pane is the clip editor or the device chain, per bottomMode.
+    const bool devices = bottomMode == BottomMode::Devices;
+    editorPanel.setVisible (! devices);
+    devicePanel.setVisible (devices);
+    Component* bottomPane = devices ? (Component*) &devicePanel : (Component*) &editorPanel;
+    Component* comps[] = { topPane, dividerBar.get(), bottomPane };
     verticalLayout.layOutComponents (comps, 3, area.getX(), area.getY(),
                                      area.getWidth(), area.getHeight(), true, true);
 
