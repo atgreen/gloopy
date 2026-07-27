@@ -3323,13 +3323,12 @@ void MainComponent::openMixer()
     mixerWindow->toFront (true);
 }
 
-// Tab cycles the main view: Arrange -> Session (clip-launch grid) -> Mixer -> Arrange. All three
-// are embedded in the main area (the Mixer is no longer a floating window).
+// Tab toggles the two main views — Arrange <-> Session — like Ableton. The Mixer is opened via
+// its toolbar button (a full console), not a Tab stop; effects are edited in the bottom Device
+// panel. From the Mixer, Tab returns to the Arrangement.
 void MainComponent::cycleView()
 {
-    setViewMode (viewMode == ViewMode::Arrange ? ViewMode::Session
-               : viewMode == ViewMode::Session ? ViewMode::Mixer
-                                               : ViewMode::Arrange);
+    setViewMode (viewMode == ViewMode::Arrange ? ViewMode::Session : ViewMode::Arrange);
 }
 
 void MainComponent::setViewMode (ViewMode m) { viewMode = m; applyViewMode(); }
