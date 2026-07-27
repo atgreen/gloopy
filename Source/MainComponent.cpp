@@ -639,8 +639,11 @@ MainComponent::MainComponent (bool headless)
             apiSetSessionClip (t->id, s, c);
             if (sessionView) sessionView->rebuild();
             resized();
+            selectSessionClip (ti, s);         // open the new clip in the editor to add notes
+            setEditorMode (0);                 // piano roll
         }
     };
+    sessionView->onEditClip    = [this] (int ti, int s) { selectSessionClip (ti, s); };
     sessionView->onCopySelectedClip = [this] (int ti, int s)
     {
         auto* t = trackByIndex (ti);
@@ -2516,12 +2519,42 @@ bool MainComponent::apiNewFromTemplate (const juce::String& name)
 void MainComponent::selectClip (int track, int clip)
 {
     selTrack = track; selClip = clip;
+    selSessionTrack = selSessionScene = -1;            // arrangement selection wins
     if (arrangeView) arrangeView->setSelection (track, clip);
     loadSelectedClipIntoEditor();
     // Arm the selected instrument track for live MIDI input.
     midiInputTarget.store (juce::isPositiveAndBelow (track, (int) tracks.size())
                              && tracks[(size_t) track]->generator != nullptr
                            ? tracks[(size_t) track]->id : -1);
+}
+
+void MainComponent::selectSessionClip (int trackIndex, int scene)
+{
+    selSessionTrack = trackIndex; selSessionScene = scene;
+    selTrack = selClip = -1;                            // editing a session slot, not an arrangement clip
+    if (arrangeView) arrangeView->setSelection (-1, -1);
+    loadSelectedClipIntoEditor();
+    midiInputTarget.store (juce::isPositiveAndBelow (trackIndex, (int) tracks.size())
+                             && tracks[(size_t) trackIndex]->generator != nullptr
+                           ? tracks[(size_t) trackIndex]->id : -1);
+}
+
+// The clip currently loaded in the editor — a session slot (if selected) or an arrangement clip.
+// Caller must hold engineLock. Sets outTrackIndex to the owning track, or -1 if none.
+Clip* MainComponent::editingClip (int& outTrackIndex)
+{
+    outTrackIndex = -1;
+    if (selSessionScene >= 0 && juce::isPositiveAndBelow (selSessionTrack, (int) tracks.size()))
+    {
+        auto& slots = tracks[(size_t) selSessionTrack]->sessionSlots;
+        if (selSessionScene < (int) slots.size() && slots[(size_t) selSessionScene] != nullptr)
+        { outTrackIndex = selSessionTrack; return slots[(size_t) selSessionScene].get(); }
+        return nullptr;
+    }
+    if (juce::isPositiveAndBelow (selTrack, (int) tracks.size())
+          && juce::isPositiveAndBelow (selClip, (int) tracks[(size_t) selTrack]->clips.size()))
+    { outTrackIndex = selTrack; return &tracks[(size_t) selTrack]->clips[(size_t) selClip]; }
+    return nullptr;
 }
 
 void MainComponent::setEditorMode (int mode)
@@ -2544,34 +2577,37 @@ void MainComponent::loadSelectedClipIntoEditor()
     juce::String trackName;
     {
         const juce::ScopedLock sl (engineLock);
-        if (juce::isPositiveAndBelow (selTrack, (int) tracks.size())
-              && juce::isPositiveAndBelow (selClip, (int) tracks[(size_t) selTrack]->clips.size()))
+        int et = -1;
+        if (Clip* cp = editingClip (et))
         {
-            const auto& c = tracks[(size_t) selTrack]->clips[(size_t) selClip];
-            trackName = tracks[(size_t) selTrack]->name;
+            const auto& c = *cp;
+            trackName = tracks[(size_t) et]->name;
             if (c.isAudio())
                 isAudio = true;
             else
             {
                 notes = c.notes;
                 contentLen = c.looped ? c.contentLenBeats : c.lengthBeats;
-                pitch = tracks[(size_t) selTrack]->defaultPitch;
+                pitch = tracks[(size_t) et]->defaultPitch;
                 valid = true;
 
-                // Ghost notes: other instrument tracks' notes overlapping this clip's
-                // time window, mapped to clip-relative beats (read-only reference).
-                const double selStart = c.startBeat;
-                for (int ti = 0; ti < (int) tracks.size(); ++ti)
+                // Ghost notes only for arrangement clips (they map to a timeline position); a
+                // session clip is a free-floating loop, so it gets none.
+                if (selSessionScene < 0)
                 {
-                    if (ti == selTrack || tracks[(size_t) ti]->generator == nullptr) continue;
-                    for (const auto& gc : tracks[(size_t) ti]->clips)
+                    const double selStart = c.startBeat;
+                    for (int ti = 0; ti < (int) tracks.size(); ++ti)
                     {
-                        if (gc.isAudio()) continue;
-                        for (const auto& gn : gc.notes)
+                        if (ti == et || tracks[(size_t) ti]->generator == nullptr) continue;
+                        for (const auto& gc : tracks[(size_t) ti]->clips)
                         {
-                            const double rel = (gc.startBeat + gn.startBeat) - selStart;
-                            if (rel >= 0.0 && rel < contentLen)
-                                ghosts.push_back ({ gn.pitch, rel, gn.lengthBeats, gn.velocity });
+                            if (gc.isAudio()) continue;
+                            for (const auto& gn : gc.notes)
+                            {
+                                const double rel = (gc.startBeat + gn.startBeat) - selStart;
+                                if (rel >= 0.0 && rel < contentLen)
+                                    ghosts.push_back ({ gn.pitch, rel, gn.lengthBeats, gn.velocity });
+                            }
                         }
                     }
                 }
@@ -2587,8 +2623,10 @@ void MainComponent::loadSelectedClipIntoEditor()
     editorPanel.steps.loadNotes (notes);
     editorPanel.steps.setEnabledEditing (valid);
 
+    const juce::String dot = "  " + juce::String (juce::CharPointer_UTF8 ("\xe2\x80\xa2")) + "  ";   // UTF-8 bullet
     if (valid)
-        editorPanel.title.setText ("EDITOR   \xe2\x80\xa2   " + trackName.toUpperCase() + "  \xe2\x80\xa2  CLIP",
+        editorPanel.title.setText ("EDITOR" + dot + trackName.toUpperCase()
+                                     + dot + (selSessionScene >= 0 ? "SESSION CLIP" : "CLIP"),
                                    juce::dontSendNotification);
     else if (isAudio)
         editorPanel.title.setText ("EDITOR   \xe2\x80\xa2   AUDIO CLIP (no MIDI)", juce::dontSendNotification);
@@ -2601,16 +2639,12 @@ void MainComponent::writeBackEditor()
     auto notes = (editorMode == 0) ? editorPanel.roll.getNotes() : editorPanel.steps.getNotes();
     {
         const juce::ScopedLock sl (engineLock);
-        if (juce::isPositiveAndBelow (selTrack, (int) tracks.size())
-              && juce::isPositiveAndBelow (selClip, (int) tracks[(size_t) selTrack]->clips.size()))
+        int et = -1;
+        if (Clip* cp = editingClip (et); cp != nullptr && ! cp->isAudio())
         {
-            auto& c = tracks[(size_t) selTrack]->clips[(size_t) selClip];
-            if (! c.isAudio())
-            {
-                c.notes = notes;
-                if (tracks[(size_t) selTrack]->arp.enabled)
-                    applyArpToTrack (*tracks[(size_t) selTrack]);   // keep the live-arp expansion current
-            }
+            cp->notes = notes;
+            if (selSessionScene < 0 && tracks[(size_t) et]->arp.enabled)
+                applyArpToTrack (*tracks[(size_t) et]);   // arrangement clip: keep the live-arp expansion current
         }
     }
     if (arrangeView) arrangeView->repaint();

@@ -51,6 +51,7 @@ public:
     std::function<void (int, int)> onNewClip;         // (track index, scene) -> empty MIDI clip
     std::function<void (int, int)> onCopySelectedClip;// (track index, scene) -> copy the selected arrangement clip
     std::function<void (int, int)> onClearSlot;       // (track index, scene)
+    std::function<void (int, int)> onEditClip;        // (track index, scene) -> load into the piano-roll editor
     std::function<void (int, float&, float&)> getTrackLevels;   // (track index) -> L,R peak for the stereo VU
     std::function<void (int)>      onOpenTrackFx;     // (track index) -> open that track's effects (mixer view)
 
@@ -280,6 +281,15 @@ public:
         }
     }
 
+    void mouseDoubleClick (const juce::MouseEvent& e) override
+    {
+        const int nt = (int) tracks.size(), ns = (int) scenes.size();
+        const auto p = e.position;
+        for (int s = 0; s < ns; ++s)
+            for (int t = 0; t < nt; ++t)
+                if (cellRect (t, s).contains (p) && hasClip (t, s)) { if (onEditClip) onEditClip (t, s); return; }
+    }
+
     void mouseDown (const juce::MouseEvent& e) override
     {
         const int nt = (int) tracks.size(), ns = (int) scenes.size();
@@ -347,12 +357,14 @@ private:
         const bool has = hasClip (t, s);
         m.addItem (1, "New empty clip", ! has);
         m.addItem (2, "Copy selected clip here");
+        m.addItem (4, "Edit clip", has);
         m.addItem (3, "Clear", has);
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this),
                          [this, t, s] (int r)
                          {
                              if      (r == 1 && onNewClip)          onNewClip (t, s);
                              else if (r == 2 && onCopySelectedClip) onCopySelectedClip (t, s);
+                             else if (r == 4 && onEditClip)         onEditClip (t, s);
                              else if (r == 3 && onClearSlot)        onClearSlot (t, s);
                          });
     }

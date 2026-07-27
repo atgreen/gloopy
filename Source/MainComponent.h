@@ -526,6 +526,7 @@ private:
     juce::StringArray builtinTemplateNames() const;
     juce::File findPianoSfz() const;                        // installed piano SFZ for the Piano template, if any
     void selectClip (int track, int clip);
+    void selectSessionClip (int trackIndex, int scene);   // load a session slot's clip into the editor
     void writeBackEditor();
     void setEditorMode (int mode);
     void loadSelectedClipIntoEditor();
@@ -622,6 +623,10 @@ private:
     juce::AudioBuffer<float> mixBuffer;
 
     int selTrack { -1 }, selClip { -1 };
+    // Session-clip editing: when selSessionScene >= 0 the editor edits that track's session slot
+    // (Track::sessionSlots) instead of an arrangement clip. Mutually exclusive with selTrack/selClip.
+    int selSessionTrack { -1 }, selSessionScene { -1 };
+    Clip* editingClip (int& outTrackIndex);   // the clip loaded in the editor (arrangement or session); caller holds engineLock
     int editorMode { 1 };   // 0 = piano roll, 1 = step grid
 
     // --- UI ---
