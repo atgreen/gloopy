@@ -109,6 +109,8 @@ public:
     void rebuild()
     {
         const int nt = (int) tracks.size();
+        cols.clear();
+        for (int t = 0; t < nt; ++t) cols.push_back ({ t });   // phase 1a: one track column per track
         strips.clear();
         for (int t = 0; t < nt; ++t)
         {
@@ -158,7 +160,7 @@ public:
         repaint();
     }
 
-    int preferredWidth()  const { return (int) tracks.size() * sv::kTrackW + 2 * sv::kPad; }
+    int preferredWidth()  const { return juce::jmax ((int) tracks.size(), numCols()) * sv::kTrackW + 2 * sv::kPad; }
     int preferredHeight() const { return sv::contentHeight ((int) scenes.size()); }
 
     void resized() override
@@ -208,8 +210,8 @@ public:
 
         // Faint full-height column dividers so the empty middle reads as columns.
         g.setColour (juce::Colours::white.withAlpha (0.05f));
-        for (int t = 1; t < nt; ++t)
-            g.drawVerticalLine (sv::kPad + t * sv::kTrackW, (float) sv::kPad, (float) (getHeight() - sv::kPad));
+        for (int c = 1; c < numCols(); ++c)
+            g.drawVerticalLine (sv::kPad + c * sv::kTrackW, (float) sv::kPad, (float) (getHeight() - sv::kPad));
 
         // Track header row.
         for (int t = 0; t < nt; ++t)
@@ -336,12 +338,24 @@ private:
         std::unique_ptr<juce::TextButton> solo, mute, arm, fx;
     };
 
-    juce::Rectangle<float> trackHeaderRect (int t) const
-    { return { (float) (sv::kPad + t * sv::kTrackW), (float) sv::kPad, (float) sv::kTrackW, (float) sv::kHeaderH }; }
-    juce::Rectangle<float> cellRect (int t, int s) const
-    { return { (float) (sv::kPad + t * sv::kTrackW), (float) (sv::kPad + sv::kHeaderH + s * sv::kRowH), (float) sv::kTrackW, (float) sv::kRowH }; }
-    juce::Rectangle<int> mixerStripRect (int t) const
-    { return { sv::kPad + t * sv::kTrackW, juce::jmax (sv::kPad, getHeight() - sv::kPad - sv::kMixerH), sv::kTrackW, sv::kMixerH }; }
+    // Display columns, left to right. Today every column is a track (one per track, in order);
+    // group/bus columns will be interleaved here in phase 1b. `colX`/the rect helpers work in
+    // column-position space so inserting a group column just shifts the tracks after it.
+    struct Col { int track = -1; };            // (group columns will add a bus field)
+    std::vector<Col> cols;
+    int  numCols() const { return (int) cols.size(); }
+    int  colOfTrack (int t) const { for (int c = 0; c < numCols(); ++c) if (cols[(size_t) c].track == t) return c; return t; }
+
+    juce::Rectangle<float> colHeaderRect (int c) const
+    { return { (float) (sv::kPad + c * sv::kTrackW), (float) sv::kPad, (float) sv::kTrackW, (float) sv::kHeaderH }; }
+    juce::Rectangle<float> colCellRect (int c, int s) const
+    { return { (float) (sv::kPad + c * sv::kTrackW), (float) (sv::kPad + sv::kHeaderH + s * sv::kRowH), (float) sv::kTrackW, (float) sv::kRowH }; }
+    juce::Rectangle<int> colStripRect (int c) const
+    { return { sv::kPad + c * sv::kTrackW, juce::jmax (sv::kPad, getHeight() - sv::kPad - sv::kMixerH), sv::kTrackW, sv::kMixerH }; }
+    // Track-indexed convenience (maps the track to its display column).
+    juce::Rectangle<float> trackHeaderRect (int t) const { return colHeaderRect (colOfTrack (t)); }
+    juce::Rectangle<float> cellRect (int t, int s) const { return colCellRect (colOfTrack (t), s); }
+    juce::Rectangle<int> mixerStripRect (int t) const { return colStripRect (colOfTrack (t)); }
 
     bool hasClip (int t, int s) const
     {
