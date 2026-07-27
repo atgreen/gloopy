@@ -654,6 +654,12 @@ MainComponent::MainComponent (bool headless)
         if (sessionView) sessionView->rebuild();
         resized();
     };
+    sessionView->getTrackLevel = [this] (int ti) -> float
+    {
+        if (ti < 0 || ti >= (int) tracks.size() || mixerTracks.empty()) return 0.0f;
+        const int route = juce::jlimit (0, (int) mixerTracks.size() - 1, tracks[(size_t) ti]->mixerTrack.load());
+        return juce::jmax (mixerTracks[(size_t) route]->peakL.load(), mixerTracks[(size_t) route]->peakR.load());
+    };
     sessionViewport.setViewedComponent (sessionView.get(), false);
     sessionViewport.setScrollBarsShown (true, true);
     addChildComponent (sessionViewport);             // hidden until Tab switches to Session

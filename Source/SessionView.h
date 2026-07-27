@@ -7,21 +7,24 @@
 #include <vector>
 #include <memory>
 #include <functional>
+#include <cmath>
 #include "Track.h"
 #include "SessionModel.h"
 #include "SessionLauncher.h"
 #include "Transport.h"
 
-/** Session view — the Ableton-style clip-launch grid (columns = tracks, rows = global scenes).
-    Simplified, color-coded style (per docs/session-view.md): each cell is a colored bar for a
-    launchable looping clip, a right scene-launch column fires a whole row. Left-click a clip to
-    launch it (or an empty cell to stop that track); left-click a scene to launch the row.
-    Right-click a cell for a menu (new empty clip / copy the selected clip here / clear). Playing
-    cells glow; queued (pending) cells pulse. The owner routes the callbacks to the api* launch/
-    grid methods and calls rebuild() when tracks/scenes change.
+/** Session view — the Ableton-style clip-launch grid (columns = tracks, rows = global scenes),
+    with a per-column **mini-mixer strip** at the bottom (pan / volume fader / VU meter / solo /
+    mute), matching the simplified redesign in docs/session-view.md.
 
-    Custom-drawn (no child components); reads launcher/slot state briefly under the engine lock in
-    paint(), repainting at 30 Hz so playing/queued feedback animates. */
+    Simplified, color-coded cells: each is a track-colored bar for a launchable looping clip; a
+    right scene-launch column fires a whole row. Left-click a clip to launch it (an empty cell to
+    stop that track); left-click a scene to launch the row. Right-click a cell for a menu (new
+    empty clip / copy the selected clip here / clear). Playing cells glow; queued cells pulse.
+
+    The clip grid is custom-drawn; the mixer controls are real JUCE child components (they write
+    the Track atomics directly, like ArrangeView) so dragging/toggling is robust. The VU meter is
+    drawn from the routed mixer track's peak via getTrackLevel. Repaints at 30 Hz. */
 class SessionView : public juce::Component,
                     private juce::Timer
 {
@@ -48,11 +51,70 @@ public:
     std::function<void (int, int)> onNewClip;         // (track index, scene) -> empty MIDI clip
     std::function<void (int, int)> onCopySelectedClip;// (track index, scene) -> copy the selected arrangement clip
     std::function<void (int, int)> onClearSlot;       // (track index, scene)
+    std::function<float (int)>     getTrackLevel;     // (track index) -> 0..1 peak for the VU meter
 
-    void rebuild() { updateSize(); repaint(); }
+    void rebuild()
+    {
+        const int nt = (int) tracks.size();
+        strips.clear();
+        for (int t = 0; t < nt; ++t)
+        {
+            Track* tr = tracks[(size_t) t].get();
+            Strip s;
+            s.vol = std::make_unique<juce::Slider> (juce::Slider::LinearVertical, juce::Slider::NoTextBox);
+            s.vol->setRange (0.0, 1.0, 0.0);
+            s.vol->setValue (tr->volume.load(), juce::dontSendNotification);
+            s.vol->onValueChange = [tr, w = s.vol.get()] { tr->volume.store ((float) w->getValue()); };
+
+            s.pan = std::make_unique<juce::Slider> (juce::Slider::LinearHorizontal, juce::Slider::NoTextBox);
+            s.pan->setRange (-1.0, 1.0, 0.0);
+            s.pan->setValue (tr->pan.load(), juce::dontSendNotification);
+            s.pan->onValueChange = [tr, w = s.pan.get()] { tr->pan.store ((float) w->getValue()); };
+
+            s.solo = std::make_unique<juce::TextButton> ("S");
+            s.solo->setClickingTogglesState (true);
+            s.solo->setToggleState (tr->solo.load(), juce::dontSendNotification);
+            s.solo->onClick = [tr, w = s.solo.get()] { tr->solo.store (w->getToggleState()); };
+
+            s.mute = std::make_unique<juce::TextButton> ("M");
+            s.mute->setClickingTogglesState (true);
+            s.mute->setToggleState (tr->mute.load(), juce::dontSendNotification);
+            s.mute->onClick = [tr, w = s.mute.get()] { tr->mute.store (w->getToggleState()); };
+
+            addAndMakeVisible (*s.vol);  addAndMakeVisible (*s.pan);
+            addAndMakeVisible (*s.solo); addAndMakeVisible (*s.mute);
+            strips.push_back (std::move (s));
+        }
+        meter.assign ((size_t) nt, 0.0f);
+        meterRect.assign ((size_t) nt, {});
+        updateSize();
+        resized();
+        repaint();
+    }
 
     int preferredWidth()  const { return (int) tracks.size() * kTrackW + kSceneW + 2 * kPad; }
-    int preferredHeight() const { return kHeaderH + (int) scenes.size() * kRowH + kFooterH + 2 * kPad; }
+    int preferredHeight() const { return kHeaderH + (int) scenes.size() * kRowH + kFooterH + kMixerH + 3 * kPad; }
+
+    void resized() override
+    {
+        const int nt = juce::jmin ((int) tracks.size(), (int) strips.size());
+        for (int t = 0; t < nt; ++t)
+        {
+            auto r = mixerStripRect (t).reduced (6, 6);
+            r.removeFromTop (14);                              // dB readout (drawn in paint)
+            strips[(size_t) t].pan->setBounds (r.removeFromTop (14));
+            r.removeFromTop (4);
+            auto btn = r.removeFromBottom (18);
+            r.removeFromBottom (4);
+            auto fader = r.removeFromLeft ((int) (r.getWidth() * 0.5f));
+            r.removeFromLeft (4);
+            meterRect[(size_t) t] = r;                         // VU meter fills the rest (drawn in paint)
+            strips[(size_t) t].vol->setBounds (fader);
+            strips[(size_t) t].solo->setBounds (btn.removeFromLeft (btn.getWidth() / 2 - 2));
+            btn.removeFromLeft (4);
+            strips[(size_t) t].mute->setBounds (btn);
+        }
+    }
 
     void paint (juce::Graphics& g) override
     {
@@ -60,10 +122,10 @@ public:
         const int nt = (int) tracks.size();
         const int ns = (int) scenes.size();
 
-        // Snapshot the launch state (brief lock; drawing happens after).
         std::vector<int> playing ((size_t) nt, SessionLauncher::kArrangement), pending ((size_t) nt, SessionLauncher::kNone);
         std::vector<juce::Colour> trackCol ((size_t) nt, juce::Colour (0xff6a6a72));
         std::vector<juce::String> trackName ((size_t) nt);
+        std::vector<float> vol ((size_t) nt, 0.8f);
         {
             const juce::ScopedLock sl (engineLock);
             for (int t = 0; t < nt; ++t)
@@ -72,8 +134,14 @@ public:
                 pending[(size_t) t]   = launcher.pendingSlot (t);
                 trackCol[(size_t) t]  = tracks[(size_t) t]->colour;
                 trackName[(size_t) t] = tracks[(size_t) t]->name;
+                vol[(size_t) t]       = tracks[(size_t) t]->volume.load();
             }
         }
+
+        // Faint full-height column dividers so the empty middle reads as columns.
+        g.setColour (juce::Colours::white.withAlpha (0.05f));
+        for (int t = 1; t < nt; ++t)
+            g.drawVerticalLine (kPad + t * kTrackW, (float) kPad, (float) (getHeight() - kPad));
 
         // Track header row.
         for (int t = 0; t < nt; ++t)
@@ -88,7 +156,7 @@ public:
             g.drawText (trackName[(size_t) t], h.reduced (6, 2), juce::Justification::centredLeft, true);
         }
 
-        // Scene-column header: a global "stop all clips" button.
+        // Scene-column header: "Stop All".
         {
             auto h = stopAllRect();
             g.setColour (juce::Colour (0xff3a2a2a));
@@ -101,45 +169,39 @@ public:
 
         // Grid cells.
         for (int s = 0; s < ns; ++s)
-        {
             for (int t = 0; t < nt; ++t)
             {
                 auto r = cellRect (t, s).reduced (2.0f);
                 const bool has = hasClip (t, s);
                 const bool isPlaying = playing[(size_t) t] == s;
-                const bool isPending = pending[(size_t) t] == s;   // queued launch of this cell
+                const bool isPending = pending[(size_t) t] == s;
                 auto base = trackCol[(size_t) t];
 
                 if (has)
                 {
-                    const float a = isPlaying ? 0.95f : 0.42f;
-                    g.setColour (base.withAlpha (a));
+                    g.setColour (base.withAlpha (isPlaying ? 0.95f : 0.42f));
                     g.fillRoundedRectangle (r, 3.0f);
-                    // Play triangle + clip name.
                     g.setColour (juce::Colours::black.withAlpha (isPlaying ? 0.85f : 0.6f));
                     juce::Path tri; auto tb = r.withWidth (14.0f).reduced (4.0f).translated (2.0f, 0.0f);
                     tri.addTriangle (tb.getX(), tb.getY(), tb.getX(), tb.getBottom(), tb.getRight(), tb.getCentreY());
                     g.fillPath (tri);
                     g.setColour (juce::Colours::white.withAlpha (isPlaying ? 0.95f : 0.75f));
                     g.setFont (juce::FontOptions (10.5f, isPlaying ? juce::Font::bold : juce::Font::plain));
-                    g.drawText (clipName (t, s), r.withTrimmedLeft (18.0f).reduced (2, 0),
-                                juce::Justification::centredLeft, true);
+                    g.drawText (clipName (t, s), r.withTrimmedLeft (18.0f).reduced (2, 0), juce::Justification::centredLeft, true);
                 }
                 else
                 {
                     g.setColour (juce::Colour (0xff242429));
                     g.fillRoundedRectangle (r, 3.0f);
-                    g.setColour (juce::Colours::white.withAlpha (0.12f));           // empty-slot "stop" dot
+                    g.setColour (juce::Colours::white.withAlpha (0.12f));
                     g.drawRect (r.withSizeKeepingCentre (9.0f, 9.0f), 1.4f);
                 }
-
-                if (isPending)                                                     // queued: pulsing outline
+                if (isPending)
                 {
                     g.setColour (juce::Colours::white.withAlpha (blinkOn ? 0.9f : 0.25f));
                     g.drawRoundedRectangle (r, 3.0f, 1.6f);
                 }
             }
-        }
 
         // Scene-launch column.
         for (int s = 0; s < ns; ++s)
@@ -153,8 +215,7 @@ public:
             g.fillPath (tri);
             g.setColour (juce::Colours::white.withAlpha (0.85f));
             g.setFont (juce::FontOptions (10.5f, juce::Font::bold));
-            g.drawText (scenes[(size_t) s].name, r.withTrimmedLeft (18.0f).reduced (2, 0),
-                        juce::Justification::centredLeft, true);
+            g.drawText (scenes[(size_t) s].name, r.withTrimmedLeft (18.0f).reduced (2, 0), juce::Justification::centredLeft, true);
         }
 
         // Footer: "+ Scene".
@@ -167,14 +228,44 @@ public:
             g.drawText ("+ Scene", r, juce::Justification::centred, false);
         }
 
+        // Per-column mini-mixer strips (bottom band): background, dB readout, VU meter. The
+        // pan/fader/solo/mute are child components drawn on top.
+        for (int t = 0; t < nt && t < (int) meterRect.size(); ++t)
+        {
+            auto strip = mixerStripRect (t);
+            g.setColour (juce::Colour (0xff232329));
+            g.fillRoundedRectangle (strip.toFloat().reduced (3.0f), 4.0f);
+
+            g.setColour (juce::Colours::white.withAlpha (0.6f));
+            g.setFont (juce::FontOptions (9.5f));
+            const float v = vol[(size_t) t];
+            const juce::String db = v <= 0.0001f ? juce::String (juce::CharPointer_UTF8 ("-\xe2\x88\x9e"))
+                                                 : juce::String (20.0f * std::log10 (v), 1) + " dB";
+            g.drawText (db, strip.reduced (8, 4).removeFromTop (14).toFloat(), juce::Justification::centredLeft, false);
+
+            // VU meter (routed mixer-track peak, smoothed), track-colored, with a frame.
+            auto m = meterRect[(size_t) t];
+            if (! m.isEmpty())
+            {
+                g.setColour (juce::Colour (0xff141417));
+                g.fillRect (m);
+                const float lvl = juce::jlimit (0.0f, 1.0f, meter[(size_t) t]);
+                auto fill = m.toFloat().withTrimmedTop (m.getHeight() * (1.0f - lvl));
+                g.setColour (trackCol[(size_t) t].withAlpha (0.85f));
+                g.fillRect (fill);
+                g.setColour (juce::Colours::white.withAlpha (0.15f));
+                g.drawRect (m, 1);
+            }
+        }
+
         if (nt == 0 || ns == 0)
         {
             g.setColour (juce::Colours::white.withAlpha (0.4f));
             g.setFont (juce::FontOptions (13.0f));
             g.drawText (nt == 0 ? "Add an instrument track to start a session grid"
                                 : "Right-click a cell to add a clip, then click it to launch",
-                        getLocalBounds().reduced (20).withTrimmedTop (kHeaderH + 10),
-                        juce::Justification::centredTop, true);
+                        juce::Rectangle<int> (kPad, kHeaderH + 16, juce::jmax (200, getWidth() - 2 * kPad), 24),
+                        juce::Justification::centredLeft, true);
         }
     }
 
@@ -182,7 +273,6 @@ public:
     {
         const int nt = (int) tracks.size(), ns = (int) scenes.size();
         const auto p = e.position;
-
         if (addSceneRect().contains (p)) { if (onAddScene) onAddScene(); return; }
         if (stopAllRect().contains (p))  { if (onStopAll)  onStopAll();  return; }
 
@@ -198,16 +288,21 @@ public:
                 if (cellRect (t, s).contains (p))
                 {
                     if (e.mods.isPopupMenu()) { cellMenu (t, s); return; }
-                    if (hasClip (t, s))       { if (onLaunchClip) onLaunchClip (t, s); }
-                    else                      { if (onStopTrack)  onStopTrack (t); }   // empty cell = stop the track
+                    if (hasClip (t, s)) { if (onLaunchClip) onLaunchClip (t, s); }
+                    else                { if (onStopTrack)  onStopTrack (t); }
                     return;
                 }
         }
     }
 
 private:
-    // --- geometry ---
-    static constexpr int kPad = 8, kHeaderH = 30, kRowH = 30, kFooterH = 30, kTrackW = 128, kSceneW = 150;
+    struct Strip
+    {
+        std::unique_ptr<juce::Slider> vol, pan;
+        std::unique_ptr<juce::TextButton> solo, mute;
+    };
+
+    static constexpr int kPad = 8, kHeaderH = 30, kRowH = 30, kFooterH = 30, kTrackW = 128, kSceneW = 150, kMixerH = 150;
 
     juce::Rectangle<float> trackHeaderRect (int t) const
     { return { (float) (kPad + t * kTrackW), (float) kPad, (float) kTrackW, (float) kHeaderH }; }
@@ -219,6 +314,8 @@ private:
     { return { (float) (kPad + (int) tracks.size() * kTrackW), (float) (kPad + kHeaderH + s * kRowH), (float) kSceneW, (float) kRowH }; }
     juce::Rectangle<float> addSceneRect() const
     { return { (float) (kPad + (int) tracks.size() * kTrackW), (float) (kPad + kHeaderH + (int) scenes.size() * kRowH), (float) kSceneW, (float) kFooterH }; }
+    juce::Rectangle<int> mixerStripRect (int t) const
+    { return { kPad + t * kTrackW, juce::jmax (kPad, getHeight() - kPad - kMixerH), kTrackW, kMixerH }; }
 
     bool hasClip (int t, int s) const
     {
@@ -261,10 +358,17 @@ private:
                          });
     }
 
-    void updateSize() { setSize (juce::jmax (preferredWidth(), getWidth()), preferredHeight()); }
+    void updateSize() { setSize (juce::jmax (preferredWidth(), getWidth()), juce::jmax (preferredHeight(), getHeight())); }
     void timerCallback() override
     {
-        if (transport.isPlaying() && ++blink % 15 == 0) blinkOn = ! blinkOn;   // pulse queued cells while rolling
+        const int nt = (int) tracks.size();
+        if ((int) meter.size() != nt) meter.assign ((size_t) nt, 0.0f);
+        for (int t = 0; t < nt; ++t)
+        {
+            const float lv = getTrackLevel ? getTrackLevel (t) : 0.0f;
+            meter[(size_t) t] = juce::jmax (lv, meter[(size_t) t] * 0.80f);   // fast attack, smooth decay
+        }
+        if (transport.isPlaying() && ++blink % 15 == 0) blinkOn = ! blinkOn;
         repaint();
     }
 
@@ -273,6 +377,9 @@ private:
     SessionLauncher&                     launcher;
     Transport&                           transport;
     juce::CriticalSection&               engineLock;
+    std::vector<Strip>                   strips;
+    std::vector<float>                   meter;       // smoothed VU per track
+    std::vector<juce::Rectangle<int>>    meterRect;   // per-track meter bounds (set in resized)
     int  blink { 0 };
     bool blinkOn { true };
 };
