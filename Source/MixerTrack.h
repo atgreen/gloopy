@@ -46,6 +46,10 @@ struct MixerTrack
     // collapsed in the session grid. Pure display state; persisted with the bus. Guarded/atomic.
     std::atomic<bool> folded { false };
 
+    // Optional group/bus colour (transparent = none: the session column derives it from the first
+    // member). Guarded by the engine lock; persisted with the bus.
+    juce::Colour colour { juce::Colour (0u) };
+
     // VCA-lite: the name of the control group this insert belongs to (empty = none).
     // The group's fader SCALES this insert's volume in the mix; it is not extra audio
     // routing. Membership travels with the insert, so it survives insert re-indexing.

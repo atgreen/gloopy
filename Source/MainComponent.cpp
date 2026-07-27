@@ -721,7 +721,13 @@ MainComponent::MainComponent (bool headless)
                 if (juce::isPositiveAndBelow (ins, (int) mixerTracks.size()) && mixerTracks[(size_t) ins]->output.load() == b)
                     g.members.push_back (t);
             }
-            if (! g.members.empty()) { g.colour = tracks[(size_t) g.members.front()]->colour; out.push_back (std::move (g)); }
+            if (! g.members.empty())
+            {
+                // Use the bus's own colour if set, else derive from the first member.
+                g.colour = mixerTracks[(size_t) b]->colour.getARGB() != 0 ? mixerTracks[(size_t) b]->colour
+                                                                          : tracks[(size_t) g.members.front()]->colour;
+                out.push_back (std::move (g));
+            }
         }
         return out;
     };
@@ -739,6 +745,13 @@ MainComponent::MainComponent (bool headless)
         if (sessionPane) sessionPane->rebuild();
     };
     grid.onOpenBusFx = [this] (int) { setViewMode (ViewMode::Mixer); };   // edit the group's effects in the mixer
+    grid.onSetGroupColour = [this] (int bus, juce::Colour col)
+    {
+        { const juce::ScopedLock sl (engineLock);
+          if (juce::isPositiveAndBelow (bus, (int) mixerTracks.size())) mixerTracks[(size_t) bus]->colour = col; }
+        if (sessionPane) sessionPane->rebuild();
+        if (mixerView)   mixerView->rebuild();
+    };
     sceneCol.getQuantumBeats   = [this] { return apiGetLaunchQuantumBeats(); };
     sceneCol.onSetQuantumBeats = [this] (double b) { apiSetLaunchQuantumBeats (b); };
     sceneCol.getMasterVolume   = [this] { return mixerTracks.empty() ? 0.8f : mixerTracks[0]->volume.load(); };
@@ -4441,6 +4454,7 @@ juce::ValueTree MainComponent::toValueTree()
         if (mt->isBus) t.setProperty ("bus", true, nullptr);
         if (mt->output.load() != 0) t.setProperty ("out", mt->output.load(), nullptr);   // group/bus routing
         if (mt->folded.load()) t.setProperty ("fold", true, nullptr);                     // session group collapsed
+        if (mt->colour.getARGB() != 0) t.setProperty ("col", (int) mt->colour.getARGB(), nullptr);   // group colour
         if (mt->group.isNotEmpty()) t.setProperty ("group", mt->group, nullptr);
         for (auto& sd : mt->sends)
         {
@@ -4839,6 +4853,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             mt->isBus = (bool) tv.getProperty ("bus", false);
             mt->output.store ((int) tv.getProperty ("out", 0));
             mt->folded.store ((bool) tv.getProperty ("fold", false));
+            if (tv.hasProperty ("col")) mt->colour = juce::Colour ((juce::uint32) (int) tv.getProperty ("col", 0));
             mt->group = tv.getProperty ("group", juce::String()).toString();
             mt->buffer.setSize (2, juce::jmax (16, currentBlockSize));
             for (int f = 0; f < tv.getNumChildren(); ++f)

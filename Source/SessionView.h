@@ -117,6 +117,7 @@ public:
     std::function<void (int busIndex, float&, float&)> getBusLevels;  // a bus's L,R peak
     std::function<void (int busIndex, bool)>           onSetGroupFolded;   // collapse/expand a group's members
     std::function<void (int busIndex)>                 onOpenBusFx;        // open a group/bus effect chain
+    std::function<void (int busIndex, juce::Colour)>   onSetGroupColour;   // recolour a group (transparent = auto)
 
     void rebuild()
     {
@@ -469,10 +470,14 @@ public:
     {
         const int ns = (int) scenes.size();
         const auto p = e.position;
-        // Click a group header -> collapse/expand its member columns.
+        // Group header: left-click collapses/expands; right-click opens the colour menu.
         for (int c = 0; c < numCols(); ++c)
             if (cols[(size_t) c].bus >= 0 && colHeaderRect (c).contains (p))
-            { if (onSetGroupFolded) onSetGroupFolded (cols[(size_t) c].bus, ! cols[(size_t) c].folded); return; }
+            {
+                if (e.mods.isPopupMenu()) groupHeaderMenu (cols[(size_t) c].bus, e.getScreenPosition());
+                else if (onSetGroupFolded) onSetGroupFolded (cols[(size_t) c].bus, ! cols[(size_t) c].folded);
+                return;
+            }
 
         for (int s = 0; s < ns; ++s)
             for (int c = 0; c < numCols(); ++c)
@@ -487,6 +492,28 @@ public:
                     return;
                 }
             }
+    }
+
+    static inline const juce::Colour kGroupSwatches[8] = {
+        juce::Colour (0xffe0553a), juce::Colour (0xffe6a23c), juce::Colour (0xffd8c341), juce::Colour (0xff5fbf6a),
+        juce::Colour (0xff37c0d4), juce::Colour (0xff3a6ea5), juce::Colour (0xff9b6fd4), juce::Colour (0xffcf5aa0) };
+    void groupHeaderMenu (int bus, juce::Point<int> screenPos)
+    {
+        if (! onSetGroupColour) return;
+        static const char* names[] = { "Red", "Orange", "Yellow", "Green", "Teal", "Blue", "Purple", "Pink" };
+        juce::PopupMenu m;
+        m.addSectionHeader ("Group colour");
+        for (int i = 0; i < 8; ++i)
+            m.addColouredItem (100 + i, juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xa0")) + "  " + names[i], kGroupSwatches[i]);
+        m.addSeparator();
+        m.addItem (200, "Auto (from first track)");
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this)
+                             .withTargetScreenArea ({ screenPos.x, screenPos.y, 1, 1 }),
+                         [this, bus] (int r)
+                         {
+                             if      (r >= 100 && r < 108) onSetGroupColour (bus, kGroupSwatches[r - 100]);
+                             else if (r == 200)            onSetGroupColour (bus, juce::Colour (0u));   // auto
+                         });
     }
 
 private:
