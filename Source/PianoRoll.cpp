@@ -294,14 +294,22 @@ void PianoRoll::paint (juce::Graphics& g)
         }
     }
 
-    // Beat / bar grid (note area only).
+    // Beat / bar grid (note area), three brightness tiers so the metre reads at a glance:
+    // faint 16th subdivisions, medium beats, bright bar boundaries.
     const int beats = (int) std::ceil (editLength);
+    const float beatW = xForBeat (1.0) - xForBeat (0.0);
+    if (beatW > 44.0f)                                   // 16th sub-lines only when there's room
+    {
+        g.setColour (Palette::lineSoft.withAlpha (0.5f));
+        for (int beat = 0; beat < beats; ++beat)
+            for (int sub = 1; sub < 4; ++sub)
+                g.drawVerticalLine ((int) xForBeat (beat + sub * 0.25), 0.0f, h);
+    }
     for (int beat = 0; beat <= beats; ++beat)
     {
-        const float x = xForBeat ((double) beat);
         const bool bar = (beat % 4 == 0);
-        g.setColour (bar ? Palette::line : Palette::lineSoft);
-        g.drawVerticalLine ((int) x, 0.0f, h);
+        g.setColour (bar ? Palette::line.brighter (0.35f) : Palette::line.withAlpha (0.6f));
+        g.drawVerticalLine ((int) xForBeat ((double) beat), 0.0f, h);
     }
 
     // Ghost notes (other tracks' notes in this time range) — dim, behind the real notes.
@@ -348,6 +356,8 @@ void PianoRoll::paint (juce::Graphics& g)
     {
         const float top = gridBottom();
         g.setColour (Palette::inset);
+        g.fillRect (gx, top, w - gx, (float) velStripH);
+        g.setColour (Palette::accent.withAlpha (0.05f));    // faint tint marks the velocity zone
         g.fillRect (gx, top, w - gx, (float) velStripH);
         g.setColour (Palette::line);
         g.drawHorizontalLine ((int) top, 0.0f, w);

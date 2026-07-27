@@ -27,6 +27,9 @@ namespace Palette
     inline const juce::Colour textDim    { 0xff7f838d };
     inline const juce::Colour textBright { 0xfff0f2f6 };
 
+    // One corner radius for the whole app (buttons, panels, cells, meters).
+    inline constexpr float radius = 6.0f;
+
     // Accents.
     inline const juce::Colour accent     { 0xff37c0d4 };  // teal (primary)
     inline const juce::Colour accentDim  { 0xff236f79 };

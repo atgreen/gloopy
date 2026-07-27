@@ -52,9 +52,9 @@ void GloopyLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& b
     else if (highlighted) base = base.brighter (0.06f);
 
     g.setColour (base);
-    g.fillRoundedRectangle (bounds, 4.0f);
+    g.fillRoundedRectangle (bounds, Palette::radius);
     g.setColour (b.getToggleState() ? Palette::accent.withAlpha (0.9f) : Palette::line);
-    g.drawRoundedRectangle (bounds, 4.0f, 1.0f);
+    g.drawRoundedRectangle (bounds, Palette::radius, 1.0f);
 }
 
 void GloopyLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,
@@ -121,9 +121,9 @@ void GloopyLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height, 
 {
     auto bounds = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height).reduced (0.5f);
     g.setColour (box.findColour (juce::ComboBox::backgroundColourId));
-    g.fillRoundedRectangle (bounds, 4.0f);
+    g.fillRoundedRectangle (bounds, Palette::radius);
     g.setColour (box.findColour (juce::ComboBox::outlineColourId));
-    g.drawRoundedRectangle (bounds, 4.0f, 1.0f);
+    g.drawRoundedRectangle (bounds, Palette::radius, 1.0f);
 
     juce::Path arrow;
     const float ax = (float) width - 14.0f, ay = (float) height * 0.5f;

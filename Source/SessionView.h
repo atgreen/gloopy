@@ -276,11 +276,11 @@ public:
             r.removeFromTop (2);
             auto btn = r.removeFromBottom (18);
             r.removeFromBottom (4);
-            auto fader = r.removeFromLeft ((int) (r.getWidth() * 0.48f));
-            r.removeFromLeft (4);
-            if (col.track >= 0) { if (col.track < (int) meterRect.size()) meterRect[(size_t) col.track] = r; }   // stereo VU
-            else                  groupMeterRect[col.bus] = r;
-            st->vol->setBounds (fader);
+            auto meterCol = r.removeFromRight (16);   // narrow stereo meter (thin bars read as "expensive")
+            r.removeFromRight (6);
+            if (col.track >= 0) { if (col.track < (int) meterRect.size()) meterRect[(size_t) col.track] = meterCol; }   // stereo VU
+            else                  groupMeterRect[col.bus] = meterCol;
+            st->vol->setBounds (r);                    // fader takes the rest
             if (st->arm != nullptr)   // track strip: S | M | ● | FX
             {
                 const int bw = (btn.getWidth() - 9) / 4;

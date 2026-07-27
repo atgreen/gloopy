@@ -112,10 +112,14 @@ public:
 
     void paint (juce::Graphics& g) override
     {
+        // Separate strips by shade + gap, not an outline (only Master keeps an accent edge).
         g.setColour (index == 0 ? Palette::header : Palette::panel);
-        g.fillRoundedRectangle (getLocalBounds().toFloat().reduced (2.0f), 4.0f);
-        g.setColour (index == 0 ? Palette::accent.withAlpha (0.5f) : Palette::line);
-        g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (2.0f), 4.0f, 1.0f);
+        g.fillRoundedRectangle (getLocalBounds().toFloat().reduced (2.0f), Palette::radius);
+        if (index == 0)
+        {
+            g.setColour (Palette::accent.withAlpha (0.5f));
+            g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (2.0f), Palette::radius, 1.0f);
+        }
 
         // Routing cue under the name (GROUP/RETURN/BUS, or "-> target").
         if (cueText.isNotEmpty())
@@ -157,10 +161,11 @@ public:
         solo.setBounds (ms.reduced (1, 0));
         pan.setBounds  (a.removeFromBottom (16));
         a.removeFromBottom (4);
-        auto meterCol = a.removeFromRight (12);
+        a.removeFromRight (2);
+        auto meterCol = a.removeFromRight (9);   // thin stereo meter
         clipLedArea = meterCol.removeFromTop (6);
         meterArea = meterCol;
-        fader.setBounds (a);
+        fader.setBounds (a.reduced (2, 0));
     }
 
     MixerTrack* track;
