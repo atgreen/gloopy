@@ -248,10 +248,12 @@ public:
                     g.setColour (juce::Colours::white.withAlpha (0.12f));
                     g.drawRect (r.withSizeKeepingCentre (9.0f, 9.0f), 1.4f);
                 }
-                if (isPending)
+                if (isPending)   // queued to launch at the next quantum boundary — pulse green
                 {
-                    g.setColour (juce::Colours::white.withAlpha (blinkOn ? 0.9f : 0.25f));
-                    g.drawRoundedRectangle (r, 3.0f, 1.6f);
+                    g.setColour (juce::Colour (0xff33dd66).withAlpha (blinkOn ? 0.35f : 0.10f));
+                    g.fillRoundedRectangle (r, 3.0f);
+                    g.setColour (juce::Colour (0xff33dd66).withAlpha (blinkOn ? 1.0f : 0.4f));
+                    g.drawRoundedRectangle (r, 3.0f, 2.0f);
                 }
             }
 
@@ -259,8 +261,15 @@ public:
         for (int s = 0; s < ns; ++s)
         {
             auto r = sceneRect (s).reduced (2.0f);
+            bool sceneQueued = false;   // any track queued to launch this scene's slot
+            for (int t = 0; t < nt; ++t) if (pending[(size_t) t] == s) { sceneQueued = true; break; }
             g.setColour (juce::Colour (0xff30303a));
             g.fillRoundedRectangle (r, 3.0f);
+            if (sceneQueued)
+            {
+                g.setColour (juce::Colour (0xff33dd66).withAlpha (blinkOn ? 0.9f : 0.35f));
+                g.drawRoundedRectangle (r, 3.0f, 2.0f);
+            }
             g.setColour (juce::Colour (0xff33dd66).withAlpha (0.9f));
             juce::Path tri; auto tb = r.withWidth (14.0f).reduced (4.0f).translated (2.0f, 0.0f);
             tri.addTriangle (tb.getX(), tb.getY(), tb.getX(), tb.getBottom(), tb.getRight(), tb.getCentreY());
