@@ -7,6 +7,7 @@
 #include <vector>
 #include <memory>
 #include <functional>
+#include "Palette.h"
 
 /** Device panel — the selected track's effect chain, shown in the bottom area (the Ableton
     "Device View"): add / remove / bypass effects and edit the selected device's parameters as
@@ -20,7 +21,7 @@ public:
     DevicePanel()
     {
         title.setJustificationType (juce::Justification::centredLeft);
-        title.setColour (juce::Label::textColourId, juce::Colour (0xffb0b0b8));
+        title.setColour (juce::Label::textColourId, Palette::textDim);
         title.setFont (juce::FontOptions (12.0f, juce::Font::bold));
         addAndMakeVisible (title);
 
@@ -34,7 +35,7 @@ public:
 
         bypassBtn.setButtonText ("Bypass");
         bypassBtn.setClickingTogglesState (true);
-        bypassBtn.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xffb08a2a));
+        bypassBtn.setColour (juce::TextButton::buttonOnColourId, Palette::warm);
         bypassBtn.onClick = [this] { if (selectedSlot >= 0 && onSetBypass) onSetBypass (selectedSlot, bypassBtn.getToggleState()); };
         addAndMakeVisible (bypassBtn);
 
@@ -66,8 +67,8 @@ public:
             b->setClickingTogglesState (true);
             b->setRadioGroupId (7001);
             b->setToggleState (i == selectedSlot, juce::dontSendNotification);
-            b->setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff3a6ea5));
-            if (chain[(size_t) i].second) b->setColour (juce::TextButton::textColourOffId, juce::Colour (0xff888888));  // bypassed = dim
+            b->setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
+            if (chain[(size_t) i].second) b->setColour (juce::TextButton::textColourOffId, Palette::textDim);  // bypassed = dim
             b->onClick = [this, i] { selectedSlot = i; rebuildParams(); resized(); repaint(); };
             addAndMakeVisible (*b);
             deviceBtns.push_back (std::move (b));
@@ -79,25 +80,25 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        g.fillAll (juce::Colour (0xff1b1b1f));
-        g.setColour (juce::Colour (0xff2a2a30));
+        g.fillAll (Palette::panel);
+        g.setColour (Palette::header);
         g.fillRect (getLocalBounds().removeFromTop (26));
-        g.setColour (juce::Colour (0xff3a3a44));
+        g.setColour (Palette::line);
         g.fillRect (0, 25, getWidth(), 1);
         if (deviceBtns.empty())
         {
-            g.setColour (juce::Colours::white.withAlpha (0.4f));
+            g.setColour (Palette::textDim);
             g.setFont (juce::FontOptions (13.0f));
-            g.drawText ("No devices on this track — click \"+ Device\" to add one",
+            g.drawText (juce::String (juce::CharPointer_UTF8 ("No devices on this track \xe2\x80\x94 click \"+ Device\" to add one")),
                         getLocalBounds().withTrimmedTop (60), juce::Justification::centredTop, false);
         }
         // Value readouts under each param knob.
-        g.setColour (juce::Colours::white.withAlpha (0.75f));
+        g.setColour (Palette::text);
         g.setFont (juce::FontOptions (10.0f));
         for (int i = 0; i < (int) paramSliders.size(); ++i)
         {
             auto r = paramSliders[(size_t) i]->getBounds();
-            g.setColour (juce::Colours::white.withAlpha (0.85f));
+            g.setColour (Palette::text);
             g.drawText (paramNames[(size_t) i], r.getX() - 6, r.getBottom() - 2, r.getWidth() + 12, 14,
                         juce::Justification::centred, false);
         }
