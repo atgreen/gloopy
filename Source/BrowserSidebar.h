@@ -57,8 +57,8 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        g.fillAll (Palette::bg);
-        g.setColour (Palette::line);                          // right border + tab-bar underline
+        g.fillAll (Palette::panel);                           // own surface shade, so the seam can be soft
+        g.setColour (Palette::lineSoft);                      // subtle right seam
         g.drawVerticalLine (getWidth() - 1, 0.0f, (float) getHeight());
         g.setColour (Palette::accent);                        // active-tab underline (per its own row)
         if (active >= 0 && active < (int) tabButtons.size())

@@ -53,8 +53,11 @@ void GloopyLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& b
 
     g.setColour (base);
     g.fillRoundedRectangle (bounds, Palette::radius);
-    g.setColour (b.getToggleState() ? Palette::accent.withAlpha (0.9f) : Palette::line);
-    g.drawRoundedRectangle (bounds, Palette::radius, 1.0f);
+    if (b.getToggleState())   // separate by shade; only an active button gets an accent edge
+    {
+        g.setColour (Palette::accent.withAlpha (0.9f));
+        g.drawRoundedRectangle (bounds, Palette::radius, 1.0f);
+    }
 }
 
 void GloopyLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,

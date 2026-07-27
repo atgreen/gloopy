@@ -370,7 +370,7 @@ void ArrangeView::paint (juce::Graphics& g)
     }
 
     // Header divider + playhead (with a grab handle in the ruler).
-    g.setColour (Palette::line);
+    g.setColour (Palette::lineSoft);
     g.drawVerticalLine (headerWidth, 0.0f, h);
     const float px = xForBeat (transport.getPlayheadBeats());
     if (px >= headerWidth)

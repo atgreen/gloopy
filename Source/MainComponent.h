@@ -493,7 +493,7 @@ private:
         {
             g.setColour (Palette::header);
             g.fillRect (getLocalBounds().removeFromTop (26));
-            g.setColour (Palette::line);
+            g.setColour (Palette::lineSoft);
             g.fillRect (0, 25, getWidth(), 1);
         }
         void resized() override

@@ -25,9 +25,8 @@ public:
         else if (highlighted) base = base.brighter (0.06f);
 
         g.setColour (base);
-        g.fillRoundedRectangle (b, 4.0f);
-        g.setColour (getToggleState() ? Palette::accent : Palette::line);
-        g.drawRoundedRectangle (b, 4.0f, 1.0f);
+        g.fillRoundedRectangle (b, Palette::radius);
+        if (getToggleState()) { g.setColour (Palette::accent); g.drawRoundedRectangle (b, Palette::radius, 1.0f); }
 
         const auto c = b.getCentre();
         const float s = juce::jmin (b.getWidth(), b.getHeight()) * 0.30f;

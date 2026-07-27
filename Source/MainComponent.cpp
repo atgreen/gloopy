@@ -3752,9 +3752,9 @@ void MainComponent::paint (juce::Graphics& g)
 {
     g.fillAll (Palette::bg);
 
-    g.setColour (Palette::panel);
+    g.setColour (Palette::panel);              // toolbar reads as a raised surface (shade), with only a soft seam
     g.fillRect (toolbarBounds);
-    g.setColour (Palette::line);
+    g.setColour (Palette::lineSoft);
     g.fillRect (toolbarBounds.getX(), toolbarBounds.getBottom() - 1, toolbarBounds.getWidth(), 1);
 
     // Wordmark.
@@ -3769,18 +3769,16 @@ void MainComponent::paint (juce::Graphics& g)
     if (! transportBounds.isEmpty())
     {
         g.setColour (Palette::inset);
-        g.fillRoundedRectangle (transportBounds.toFloat(), 5.0f);
+        g.fillRoundedRectangle (transportBounds.toFloat(), Palette::radius);
     }
 
     // Tempo / position display.
     if (! displayBounds.isEmpty())
     {
-        g.setColour (Palette::inset);
-        g.fillRoundedRectangle (displayBounds.toFloat(), 4.0f);
-        g.setColour (Palette::line);
-        g.drawRoundedRectangle (displayBounds.toFloat().reduced (0.5f), 4.0f, 1.0f);
+        g.setColour (Palette::inset);          // the sunken fill is the display's edge; no hard outline
+        g.fillRoundedRectangle (displayBounds.toFloat(), Palette::radius);
         const int half = displayBounds.getWidth() / 2;
-        g.setColour (Palette::line);
+        g.setColour (Palette::lineSoft);
         g.fillRect (displayBounds.getX() + half, displayBounds.getY() + 5, 1, displayBounds.getHeight() - 10);
         g.setColour (Palette::textDim);
         g.setFont (Palette::sectionFont());
