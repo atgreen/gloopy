@@ -53,6 +53,31 @@ public:
         pan.addMouseListener (this, false);
         // Right-click the strip name -> control-group (VCA-lite) menu. Not for master.
         name.addMouseListener (this, false);
+
+        // Routing cue drawn under the name: a bus shows its role (fed by main outputs = GROUP,
+        // by sends = RETURN, neither = BUS); a routed insert shows "-> target". Recomputed each
+        // rebuild (routing changes rebuild the strips), so it stays current.
+        const juce::ScopedLock sl (owner.engineLock);
+        if (t->isBus)
+        {
+            bool hasMembers = false, hasSends = false;
+            for (auto& mt : owner.tracks)
+            {
+                if (mt->output.load() == index) hasMembers = true;
+                for (auto& sd : mt->sends) if (sd.bus == index) hasSends = true;
+            }
+            cueText   = hasMembers ? "GROUP" : hasSends ? "RETURN" : "BUS";
+            cueColour = hasMembers ? Palette::accent : hasSends ? Palette::warm : Palette::textDim;
+        }
+        else if (index > 0)
+        {
+            const int out = t->output.load();
+            if (out > 0 && out < (int) owner.tracks.size())
+            {
+                cueText   = juce::String (juce::CharPointer_UTF8 ("\xe2\x86\x92")) + " " + owner.tracks[(size_t) out]->name;
+                cueColour = Palette::accent;
+            }
+        }
     }
 
     void updateMeter()
@@ -92,6 +117,14 @@ public:
         g.setColour (index == 0 ? Palette::accent.withAlpha (0.5f) : Palette::line);
         g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (2.0f), 4.0f, 1.0f);
 
+        // Routing cue under the name (GROUP/RETURN/BUS, or "-> target").
+        if (cueText.isNotEmpty())
+        {
+            g.setColour (cueColour);
+            g.setFont (juce::FontOptions (9.5f, juce::Font::bold));
+            g.drawText (cueText, cueArea, juce::Justification::centred, false);
+        }
+
         // Clip LED (red when the insert has hit >= 0 dBFS; click to reset).
         g.setColour (track->clipped.load() ? Palette::red : Palette::inset.brighter (0.15f));
         g.fillRect (clipLedArea.reduced (1));
@@ -117,6 +150,7 @@ public:
     {
         auto a = getLocalBounds().reduced (5, 4);
         name.setBounds (a.removeFromTop (16));
+        cueArea = a.removeFromTop (11);              // routing cue line (drawn in paint)
         fx.setBounds   (a.removeFromBottom (20));
         auto ms = a.removeFromBottom (20);
         mute.setBounds (ms.removeFromLeft (ms.getWidth() / 2).reduced (1, 0));
@@ -137,8 +171,10 @@ private:
     juce::Label name;
     juce::Slider fader, pan;
     juce::TextButton mute { "M" }, solo { "S" }, fx { "FX" };
-    juce::Rectangle<int> meterArea, clipLedArea;
+    juce::Rectangle<int> meterArea, clipLedArea, cueArea;
     float meterL { 0.0f }, meterR { 0.0f };
+    juce::String  cueText;                           // routing cue: GROUP/RETURN/BUS or "-> target"
+    juce::Colour  cueColour { Palette::textDim };
 };
 
 // ===========================================================================
