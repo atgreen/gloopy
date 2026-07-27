@@ -882,7 +882,12 @@ MainComponent::MainComponent (bool headless)
     mixerView->onSetSend     = [this] (int insert, int bus, float level, bool post) { apiSetSend (insert, bus, level, post); if (mixerView) mixerView->rebuild(); };
     mixerView->onAddBus      = [this] (const juce::String& name) { apiAddBus (name); if (mixerView) mixerView->rebuild(); };
     mixerView->onSetInsertName = [this] (int index, const juce::String& name) { apiSetInsertName (index, name); };
-    mixerView->onSetOutput   = [this] (int insert, int target) { apiSetInsertOutput (insert, target); if (mixerView) mixerView->rebuild(); };
+    mixerView->onSetOutput   = [this] (int insert, int target)
+    {
+        apiSetInsertOutput (insert, target);
+        if (target > 0) apiGatherGroup (target);   // grouping reorders members contiguous (Ableton-style)
+        if (mixerView) mixerView->rebuild();
+    };
     mixerView->onInsertOutput = [this] (int insert)
     {
         const juce::ScopedLock sl (engineLock);

@@ -111,6 +111,52 @@ bool MainComponent::apiSetInsertOutput (int insert, int target)
     });
 }
 
+// Gather a group's member tracks contiguous (Ableton-style: grouping reorders tracks so the group
+// is a solid block). Members = tracks whose insert routes its main output to `busIndex`; they are
+// clustered at the first member's slot, everyone keeping relative order. No-op if <2 members or
+// already contiguous. Shared arrangement order, so this moves them in the arrange view too.
+bool MainComponent::apiGatherGroup (int busIndex)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto isMember = [&] (int t) -> bool
+        {
+            const int ins = tracks[(size_t) t]->mixerTrack.load();
+            return juce::isPositiveAndBelow (ins, (int) mixerTracks.size()) && mixerTracks[(size_t) ins]->output.load() == busIndex;
+        };
+        // Decide whether a gather is needed without mutating (so we don't snapshot a no-op).
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (busIndex, (int) mixerTracks.size())) return false;
+            const int n = (int) tracks.size();
+            int count = 0, firstAt = -1;
+            for (int t = 0; t < n; ++t) if (isMember (t)) { ++count; if (firstAt < 0) firstAt = t; }
+            if (count < 2) return false;
+            bool contig = true;
+            for (int t = firstAt; t < firstAt + count; ++t) if (t >= n || ! isMember (t)) { contig = false; break; }
+            if (contig) return false;
+        }
+        pushUndoSnapshot();
+        {
+            const juce::ScopedLock sl (engineLock);
+            std::vector<std::unique_ptr<Track>> mems, result;
+            int insertAt = -1;
+            for (int t = 0; t < (int) tracks.size(); ++t)
+            {
+                if (isMember (t)) { if (insertAt < 0) insertAt = (int) result.size(); mems.push_back (std::move (tracks[(size_t) t])); }
+                else               result.push_back (std::move (tracks[(size_t) t]));
+            }
+            result.insert (result.begin() + insertAt, std::make_move_iterator (mems.begin()), std::make_move_iterator (mems.end()));
+            tracks = std::move (result);
+        }
+        emitChange ("track_moved", -1);
+        if (arrangeView) arrangeView->rebuild();
+        if (sessionPane) sessionPane->rebuild();
+        resized();
+        return true;
+    });
+}
+
 // The "Group" gesture: create a bus and route each member insert's main output into it. Returns
 // the new bus index (or -1). Members must be regular inserts (not master); the bus is appended so
 // it always outranks them.
