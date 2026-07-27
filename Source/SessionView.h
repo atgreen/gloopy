@@ -8,6 +8,7 @@
 #include <memory>
 #include <functional>
 #include <map>
+#include <set>
 #include <algorithm>
 #include <cmath>
 #include "Track.h"
@@ -112,7 +113,7 @@ public:
 
     // Group/bus columns (submix). A group is a bus fed by tracks' main outputs; it shows as a
     // no-clip column just before its contiguous members, carrying the bus name + meter.
-    struct GroupInfo { int busIndex; juce::String name; juce::Colour colour; bool folded = false; std::vector<int> members; };
+    struct GroupInfo { int busIndex; int output = 0; juce::String name; juce::Colour colour; bool folded = false; std::vector<int> members; };
     std::function<std::vector<GroupInfo>()>            getGroups;     // groups + their member track indices
     std::function<void (int busIndex, float&, float&)> getBusLevels;  // a bus's L,R peak
     std::function<void (int busIndex, bool)>           onSetGroupFolded;   // collapse/expand a group's members
@@ -122,25 +123,45 @@ public:
     void rebuild()
     {
         const int nt = (int) tracks.size();
-        // Build display columns: each track is a column; a group/bus column is inserted just
-        // before a group whose members form a contiguous run starting here (phase 1b). Non-
-        // contiguous groups don't get a column yet — the gather gesture (phase 2) makes them so.
+        // Build display columns with nesting: each track's group ancestry (outer -> inner) gets a
+        // group column emitted before its first member; a track/inner column is hidden when any
+        // ancestor group is folded (the folded group shows collapsed). Relies on the gather gesture
+        // keeping each group's tracks a contiguous block.
         const auto groups = getGroups ? getGroups() : std::vector<GroupInfo>{};
-        auto foldedMember = [&] (int t) -> bool   // a member of a collapsed, contiguous group
+        std::map<int, const GroupInfo*> byBus;
+        for (const auto& gr : groups) byBus[gr.busIndex] = &gr;
+        auto ancestryOf = [&] (int t) -> std::vector<int>       // group buses, outer -> inner
         {
-            for (const auto& gr : groups)
-                if (gr.folded && isContiguousRun (gr.members)
-                      && std::find (gr.members.begin(), gr.members.end(), t) != gr.members.end())
-                    return true;
-            return false;
+            std::vector<int> anc;
+            int cur = tracks[(size_t) t]->mixerTrack.load();
+            for (int guard = 0; guard < (int) mixerTracks.size() && juce::isPositiveAndBelow (cur, (int) mixerTracks.size()); ++guard)
+            {
+                const int o = mixerTracks[(size_t) cur]->output.load();
+                if (o <= 0 || o >= (int) mixerTracks.size() || o == cur) break;
+                if (byBus.count (o)) anc.push_back (o);
+                cur = o;
+            }
+            std::reverse (anc.begin(), anc.end());
+            return anc;
         };
         cols.clear();
+        std::set<int> emitted;
         for (int t = 0; t < nt; ++t)
         {
-            for (const auto& gr : groups)
-                if (! gr.members.empty() && gr.members.front() == t && isContiguousRun (gr.members))
-                { Col gc; gc.bus = gr.busIndex; gc.name = gr.name; gc.colour = gr.colour; gc.folded = gr.folded; cols.push_back (gc); }
-            if (! foldedMember (t)) { Col tc; tc.track = t; cols.push_back (tc); }   // collapsed members are hidden
+            const auto anc = ancestryOf (t);
+            bool trackHidden = false;
+            for (int i = 0; i < (int) anc.size(); ++i)
+            {
+                const int b = anc[(size_t) i];
+                const GroupInfo* gi = byBus[b];
+                if (! emitted.count (b))
+                {
+                    Col gc; gc.bus = b; gc.name = gi->name; gc.colour = gi->colour; gc.folded = gi->folded; gc.depth = i;
+                    cols.push_back (gc); emitted.insert (b);
+                }
+                if (gi->folded) { trackHidden = true; break; }   // collapsed group hides everything inside it
+            }
+            if (! trackHidden) { Col tc; tc.track = t; tc.depth = (int) anc.size(); cols.push_back (tc); }
         }
         strips.clear();
         for (int t = 0; t < nt; ++t)
@@ -330,6 +351,8 @@ public:
             g.fillRect (h.removeFromTop (4.0f));
             g.setColour (juce::Colour (0xff322b38));              // faintly distinct from track headers
             g.fillRect (h);
+            if (col.depth > 0)                                   // nesting indent (darker gutter)
+            { g.setColour (juce::Colours::black.withAlpha (0.28f)); g.fillRect (h.removeFromLeft ((float) (col.depth * 10))); }
             // Fold triangle: right (collapsed) / down (expanded). Clicking the header toggles it.
             auto tri = h.removeFromLeft (16).toFloat().reduced (5.0f, 0.0f);
             const float cx = tri.getCentreX(), cy = tri.getCentreY(), rr = 4.0f;
@@ -526,7 +549,7 @@ private:
     // Display columns, left to right. Today every column is a track (one per track, in order);
     // group/bus columns will be interleaved here in phase 1b. `colX`/the rect helpers work in
     // column-position space so inserting a group column just shifts the tracks after it.
-    struct Col { int track = -1; int bus = -1; bool folded = false; juce::String name; juce::Colour colour; };   // bus >= 0 -> group column
+    struct Col { int track = -1; int bus = -1; bool folded = false; int depth = 0; juce::String name; juce::Colour colour; };   // bus >= 0 -> group column
     std::vector<Col> cols;
     std::map<int, std::pair<float, float>> busMeter;   // busIndex -> smoothed L,R for group columns
     int  numCols() const { return (int) cols.size(); }

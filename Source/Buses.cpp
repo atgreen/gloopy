@@ -119,10 +119,20 @@ bool MainComponent::apiGatherGroup (int busIndex)
 {
     return callOnMessageThread ([&] () -> bool
     {
+        // Transitive: a track is a member if busIndex is anywhere in its insert's output chain
+        // (so gathering an outer group also pulls in the tracks of its nested sub-groups).
         auto isMember = [&] (int t) -> bool
         {
-            const int ins = tracks[(size_t) t]->mixerTrack.load();
-            return juce::isPositiveAndBelow (ins, (int) mixerTracks.size()) && mixerTracks[(size_t) ins]->output.load() == busIndex;
+            const int N = (int) mixerTracks.size();
+            int cur = tracks[(size_t) t]->mixerTrack.load();
+            for (int guard = 0; guard < N && juce::isPositiveAndBelow (cur, N); ++guard)
+            {
+                const int o = mixerTracks[(size_t) cur]->output.load();
+                if (o == busIndex) return true;
+                if (o <= 0 || o >= N || o == cur) break;
+                cur = o;
+            }
+            return false;
         };
         // Decide whether a gather is needed without mutating (so we don't snapshot a no-op).
         {

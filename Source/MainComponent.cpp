@@ -705,29 +705,40 @@ MainComponent::MainComponent (bool headless)
     grid.onOpenTrackFx = [this] (int) { setViewMode (ViewMode::Mixer); };   // add effects in the mixer view
     grid.getGroups = [this]
     {
-        // A group = a bus that tracks route their MAIN output into. Members are those tracks, in
-        // track order; the group column shows before them (when contiguous).
+        // A group = a bus that tracks route into, directly OR through nested sub-buses. Members are
+        // the TRANSITIVE tracks (in track order); `output` is the parent bus (0 = master) so the
+        // session view can nest group columns.
         std::vector<SessionView::GroupInfo> out;
         const juce::ScopedLock sl (engineLock);
-        for (int b = 1; b < (int) mixerTracks.size(); ++b)
+        const int N = (int) mixerTracks.size();
+        auto ancestry = [&] (int insert, std::vector<int>& anc)   // buses innermost -> outermost
+        {
+            int cur = insert;
+            for (int guard = 0; guard < N && juce::isPositiveAndBelow (cur, N); ++guard)
+            {
+                const int o = mixerTracks[(size_t) cur]->output.load();
+                if (o <= 0 || o >= N || o == cur) break;
+                anc.push_back (o); cur = o;
+            }
+        };
+        std::map<int, std::vector<int>> members;   // bus -> transitive track members, in track order
+        for (int t = 0; t < (int) tracks.size(); ++t)
+        {
+            std::vector<int> anc; ancestry (tracks[(size_t) t]->mixerTrack.load(), anc);
+            for (int b : anc) members[b].push_back (t);
+        }
+        for (int b = 1; b < N; ++b)
         {
             if (! mixerTracks[(size_t) b]->isBus) continue;
+            auto it = members.find (b);
+            if (it == members.end() || it->second.empty()) continue;   // not a group (no tracks flow through it)
             SessionView::GroupInfo g;
-            g.busIndex = b; g.name = mixerTracks[(size_t) b]->name; g.colour = juce::Colour (0xff6a6a72);
-            g.folded = mixerTracks[(size_t) b]->folded.load();
-            for (int t = 0; t < (int) tracks.size(); ++t)
-            {
-                const int ins = tracks[(size_t) t]->mixerTrack.load();
-                if (juce::isPositiveAndBelow (ins, (int) mixerTracks.size()) && mixerTracks[(size_t) ins]->output.load() == b)
-                    g.members.push_back (t);
-            }
-            if (! g.members.empty())
-            {
-                // Use the bus's own colour if set, else derive from the first member.
-                g.colour = mixerTracks[(size_t) b]->colour.getARGB() != 0 ? mixerTracks[(size_t) b]->colour
-                                                                          : tracks[(size_t) g.members.front()]->colour;
-                out.push_back (std::move (g));
-            }
+            g.busIndex = b; g.output = mixerTracks[(size_t) b]->output.load();
+            g.name = mixerTracks[(size_t) b]->name; g.folded = mixerTracks[(size_t) b]->folded.load();
+            g.members = it->second;
+            g.colour = mixerTracks[(size_t) b]->colour.getARGB() != 0 ? mixerTracks[(size_t) b]->colour
+                                                                      : tracks[(size_t) g.members.front()]->colour;
+            out.push_back (std::move (g));
         }
         return out;
     };
