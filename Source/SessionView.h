@@ -322,7 +322,7 @@ public:
             for (int t = 0; t < nt; ++t)
                 if (cellRect (t, s).contains (p))
                 {
-                    if (e.mods.isPopupMenu()) { cellMenu (t, s); return; }
+                    if (e.mods.isPopupMenu()) { cellMenu (t, s, e.getScreenPosition()); return; }
                     if (hasClip (t, s)) { if (onLaunchClip) onLaunchClip (t, s); }
                     else                { if (onEmptyCell)  onEmptyCell (t, s); }   // stop track / record into slot
                     return;
@@ -356,7 +356,7 @@ private:
         return {};
     }
 
-    void cellMenu (int t, int s)
+    void cellMenu (int t, int s, juce::Point<int> screenPos)
     {
         juce::PopupMenu m;
         const bool has = hasClip (t, s);
@@ -365,7 +365,8 @@ private:
         m.addItem (4, "Edit clip", has);
         m.addItem (5, "Copy to arrangement", has);
         m.addItem (3, "Clear", has);
-        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this),
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this)
+                             .withTargetScreenArea ({ screenPos.x, screenPos.y, 1, 1 }),   // at the cursor
                          [this, t, s] (int r)
                          {
                              if      (r == 1 && onNewClip)           onNewClip (t, s);
@@ -564,7 +565,7 @@ public:
         for (int s = 0; s < ns; ++s)
             if (sceneRect (s).contains (p))
             {
-                if (e.mods.isPopupMenu()) sceneMenu (s);
+                if (e.mods.isPopupMenu()) sceneMenu (s, e.getScreenPosition());
                 else if (onLaunchScene) onLaunchScene (s);
                 return;
             }
@@ -582,12 +583,13 @@ private:
     juce::Rectangle<int> masterStripRect() const
     { return { sv::kPad, juce::jmax (sv::kPad, getHeight() - sv::kPad - sv::kMixerH), sv::kSceneW, sv::kMixerH }; }
 
-    void sceneMenu (int s)
+    void sceneMenu (int s, juce::Point<int> screenPos)
     {
         juce::PopupMenu m;
         m.addItem (1, "Launch scene");
         m.addItem (2, "Delete scene");
-        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this),
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this)
+                             .withTargetScreenArea ({ screenPos.x, screenPos.y, 1, 1 }),   // at the cursor
                          [this, s] (int r)
                          {
                              if      (r == 1 && onLaunchScene) onLaunchScene (s);
