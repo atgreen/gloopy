@@ -659,8 +659,22 @@ void MixerView::paint (juce::Graphics& g)
     auto ed = juce::Rectangle<int> (0, getHeight() - editorHeight, getWidth(), editorHeight);
     g.setColour (Palette::panel);
     g.fillRect (ed);
-    g.setColour (Palette::line);
+    g.setColour (Palette::lineSoft);
     g.fillRect (ed.getX(), ed.getY(), ed.getWidth(), 1);
+
+    if (selectedEffect < 0)   // empty FX editor: a faint knobs watermark instead of black space
+    {
+        const auto ctr = ed.toFloat().getCentre();
+        g.setColour (Palette::textDim.withAlpha (0.13f));
+        const float r = 15.0f, gap = 48.0f;
+        for (int i = -1; i <= 1; ++i)
+        {
+            const float cx = ctr.x + (float) i * gap, cy = ctr.y - 4.0f;
+            g.drawEllipse (cx - r, cy - r, 2 * r, 2 * r, 1.6f);
+            const float a = juce::MathConstants<float>::pi * (0.72f + (float) i * 0.16f);   // varied pointer angles
+            g.drawLine (cx, cy, cx + std::cos (a) * r * 0.78f, cy + std::sin (a) * r * 0.78f, 1.6f);
+        }
+    }
 }
 
 void MixerView::revealLastStrip()

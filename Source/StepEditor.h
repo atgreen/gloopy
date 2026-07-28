@@ -72,12 +72,24 @@ public:
 
         if (! editable)
         {
-            g.setColour (Palette::bg.withAlpha (0.55f));
+            g.setColour (Palette::bg.withAlpha (0.6f));
             g.fillAll();
+            // Faint watermark: a row of step cells (the sequencer motif) above the prompt.
+            const auto ctr = getLocalBounds().toFloat().getCentre();
+            const float cw = 22.0f, ch = 26.0f, gap = 9.0f, total = 8 * cw + 7 * gap;
+            float x = ctr.x - total * 0.5f;
+            for (int i = 0; i < 8; ++i)
+            {
+                juce::Rectangle<float> cell (x, ctr.y - ch - 16.0f, cw, ch);
+                g.setColour (Palette::textDim.withAlpha (0.16f));
+                g.drawRoundedRectangle (cell, 4.0f, 1.4f);
+                if (i % 4 == 0) { g.setColour (Palette::accent.withAlpha (0.18f)); g.fillRoundedRectangle (cell.reduced (4.5f), 3.0f); }
+                x += cw + gap;
+            }
             g.setColour (Palette::textDim);
-            g.setFont (juce::FontOptions (15.0f));
+            g.setFont (juce::FontOptions (14.0f));
             g.drawText ("Select an instrument clip to edit its steps",
-                        getLocalBounds(), juce::Justification::centred, false);
+                        getLocalBounds().withTrimmedTop ((int) ctr.y - 2), juce::Justification::centredTop, false);
         }
     }
 

@@ -3800,18 +3800,19 @@ void MainComponent::resized()
     // docks — the conventional home for a left-sidebar toggle.
     browseButton.setBounds (bar.removeFromLeft (30)); bar.removeFromLeft (12);
 
-    fileButton.setBounds (bar.removeFromLeft (52)); bar.removeFromLeft (12);
+    fileButton.setBounds (bar.removeFromLeft (52)); bar.removeFromLeft (14);   // a little room before transport
 
-    // Transport cluster.
+    // Transport cluster — Play is the hero (wider), stop/record secondary.
     transportBounds = bar.removeFromLeft (128).expanded (0, 1);
     {
         auto t = transportBounds.reduced (4, 2);
-        const int bw = (t.getWidth() - 8) / 3;
-        playButton  .setBounds (t.removeFromLeft (bw)); t.removeFromLeft (4);
+        const int playW = (int) (t.getWidth() * 0.42f);
+        const int bw = (t.getWidth() - playW - 8) / 2;
+        playButton  .setBounds (t.removeFromLeft (playW)); t.removeFromLeft (4);
         stopButton  .setBounds (t.removeFromLeft (bw)); t.removeFromLeft (4);
         recordButton.setBounds (t.removeFromLeft (bw));
     }
-    bar.removeFromLeft (12);
+    bar.removeFromLeft (14);   // a little room after transport
 
     displayBounds = bar.removeFromLeft (206).expanded (0, 1);
     {
