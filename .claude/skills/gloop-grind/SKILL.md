@@ -189,6 +189,14 @@ product surface, and the session-view/engine tails* — not foundational plumbin
   5. **Clients** — regenerate stubs (`python/gen.sh`) and add thin wrappers to
      `python/gloopy/client.py` (and the CL client where it earns it).
   6. **Register the source** in `CMakeLists.txt` `target_sources` if it's a new `.cpp`.
+  7. **Document it** — every new feature/capability lands in the **user-facing manual**
+     (`docs/`, Material for MkDocs) *as part of the slice*, not later: what it does and how to
+     use it, in the right Diátaxis bucket (User guide for musicians, Control & scripting for
+     integrators). Document the domain model **once** in `control-scripting/concepts/model.md`
+     and link to it — don't re-explain nouns per language. Keep it out of implementation-language
+     framing (describe what it does, not "the C++/JUCE…"). `mkdocs build --strict` must stay
+     green. This is not optional: a slice that isn't in the manual is half-built, same as one
+     missing its gRPC or desktop surface.
 - **Build & prove, synchronously, in one place:**
   ```sh
   cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -213,7 +221,8 @@ product surface, and the session-view/engine tails* — not foundational plumbin
   frequently** to `origin` (`cave@cave.moxielogic.com:atgreen/gloopy.git`) — one green,
   verified slice = one commit, pushed right away (standing authorization for this repo; see
   AGENTS.md). Commit only a coherent, verified slice; branch first only if asked. Update `docs/ROADMAP.md` (or a new design doc) with the feature's
-  goal/approach, and check the item off in this skill's backlog.
+  goal/approach, **document the new capability in the user-facing manual (`docs/`) — step 7 of
+  the full stack, part of the same commit**, and check the item off in this skill's backlog.
 - **A slice may span sessions — that's fine.** If you must stop mid-slice: commit the
   green sub-step, and write the exact resumption state (done / half-built / next
   concrete action / open question) into `docs/ROADMAP.md`. Don't fake "done" to
@@ -2074,7 +2083,9 @@ gate them later.
    composition, `RenderToFile`, and assert the WAV/JSON in a script. Add the assertion
    to `tests/smoke.sh` (renders) or `GloopyTests` (pure logic).
 4. Green build + `ctest` + `tests/smoke.sh` before committing. One slice per commit
-   (co-author trailer). Update `docs/ROADMAP.md` and check the item off in this skill.
+   (co-author trailer), pushed to `origin` right away. **Document the new capability in the
+   user-facing manual (`docs/`, `mkdocs build --strict` green)** — part of the slice, not a
+   follow-up. Update `docs/ROADMAP.md` and check the item off in this skill.
 5. If the slice is large and the session is ending, stop cleanly: commit the green
    sub-step, checkpoint the resumption state in `docs/ROADMAP.md`, hand off. Multi-
    session slices are normal — don't fake completion.
