@@ -74,6 +74,9 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.snippets
+  - pymdownx.emoji:               # render :material-*: icon shortcodes (e.g. in .md-button links)
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
 # The design records already in docs/ (PRD, ROADMAP, session-view, surge-embed,
 # the older CONTROL-API spec) are internal notes, not the manual. Keep them in the
@@ -110,9 +113,11 @@ nav:
           - The Gloopy model: control-scripting/concepts/model.md
       - Tutorials:
           - Drive Gloopy from Python: control-scripting/tutorials/python-quickstart.md
+          - Drive Gloopy from Common Lisp: control-scripting/tutorials/lisp-quickstart.md
       - How-to guides:
           - control-scripting/how-to/index.md
           - Let an AI agent drive Gloopy (MCP): control-scripting/how-to/mcp-server.md
+          - Subscribe to the playhead and meters: control-scripting/how-to/subscribe-playhead-meters.md
       - Reference:
           - control-scripting/reference/index.md
           - gRPC API: control-scripting/reference/grpc/index.md

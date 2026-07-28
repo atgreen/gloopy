@@ -63,15 +63,19 @@ The same connection can **subscribe** to a live feed of transport position and
 meters:
 
 ```python
+import itertools
+
 with Gloopy() as g:
     g.play()
-    for event in g.subscribe(transport=True, meters=True, seconds=3):
+    for event in itertools.islice(g.subscribe(transport=True, meters=True), 20):
         print(event)
     g.stop()
 ```
 
 This is the streaming half of gRPC — Gloopy pushes state to you, rather than you
-polling.
+polling. `subscribe` yields events until you stop reading; here `islice` takes
+the first 20. For meters, sync, and CI recipes, see
+[Subscribe to the playhead and meters](../how-to/subscribe-playhead-meters.md).
 
 ## 5. Bounce to a WAV
 
@@ -93,6 +97,6 @@ You now have a rendered mix on disk.
 - What "structural vs. live" really means → [the two control lanes](../concepts/model.md#the-two-control-lanes).
 
 !!! tip "Prefer Lisp?"
-    The [Common Lisp client](../reference/lisp/index.md) mirrors this exactly:
+    The [Common Lisp quickstart](lisp-quickstart.md) mirrors this exactly:
     `(connect)`, `(add-synth-track "Lead" :wave :saw)`, `(add-clip …)`, `(play)`,
     `(render "/tmp/mix.wav")`.

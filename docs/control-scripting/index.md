@@ -19,14 +19,18 @@ them. See [the two control lanes](concepts/model.md#the-two-control-lanes).
 ## Get moving
 
 [:material-language-python: Drive Gloopy from Python](tutorials/python-quickstart.md){ .md-button }
+[:material-code-parentheses: Drive Gloopy from Common Lisp](tutorials/lisp-quickstart.md){ .md-button }
 
 ## This section
 
 - **[Concepts](concepts/model.md)** — the domain model and the two control lanes,
   defined once, language-agnostic. Every reference page links here.
-- **[Tutorials](tutorials/python-quickstart.md)** — end-to-end lessons.
-- **[How-to guides](how-to/index.md)** — task recipes (set up a control surface,
-  sync transport, bulk-import notes).
+- **[Tutorials](tutorials/python-quickstart.md)** — end-to-end lessons, in
+  [Python](tutorials/python-quickstart.md) and
+  [Common Lisp](tutorials/lisp-quickstart.md).
+- **[How-to guides](how-to/index.md)** — task recipes: let an
+  [AI agent drive Gloopy](how-to/mcp-server.md), or
+  [subscribe to the playhead and meters](how-to/subscribe-playhead-meters.md).
 - **Reference** — the interfaces themselves:
   [gRPC](reference/grpc/index.md) · [OSC](reference/osc/index.md) ·
   [Python](reference/python/index.md) · [Common Lisp](reference/lisp/index.md).
