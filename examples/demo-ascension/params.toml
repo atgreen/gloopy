@@ -1,0 +1,752 @@
+[[params]]
+id = "track/1/volume"
+value = 0.60000002384185791
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/1/pan"
+value = 0.20000000298023224
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/1/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/1/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/2/volume"
+value = 0.41999998688697815
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/2/pan"
+value = 0
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/2/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/2/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/3/volume"
+value = 0.62000000476837158
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/3/pan"
+value = 0.05000000074505806
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/3/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/3/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/4/volume"
+value = 0.85000002384185791
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/4/pan"
+value = -0.15000000596046448
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/4/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/4/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/5/volume"
+value = 0.55000001192092896
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/5/pan"
+value = 0
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/5/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/5/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/6/volume"
+value = 0.89999997615814209
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/6/pan"
+value = 0
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/6/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/6/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/7/volume"
+value = 0.55000001192092896
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/7/pan"
+value = 0.10000000149011612
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/7/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/7/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/8/volume"
+value = 0.80000001192092896
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/8/pan"
+value = -0.10000000149011612
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/8/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/8/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/9/volume"
+value = 0.89999997615814209
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/9/pan"
+value = -0.25
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/9/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/9/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/10/volume"
+value = 0.60000002384185791
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/10/pan"
+value = 0.15000000596046448
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/10/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/10/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/11/volume"
+value = 0.72000002861022949
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/11/pan"
+value = 0.25
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "track/11/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "track/11/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "insert/0/volume"
+value = 0.89999997615814209
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/0/pan"
+value = 0
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/0/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "insert/0/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "effect/0/0/Room"
+value = 0.5
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "effect/0/0/Damp"
+value = 0.5
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "effect/0/0/Wet"
+value = 0.33000001311302185
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "effect/0/1/Thresh dB"
+value = -1
+min = -24
+max = 0
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "effect/0/1/Release ms"
+value = 80
+min = 1
+max = 500
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/1/volume"
+value = 0.80000001192092896
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/1/pan"
+value = 0
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/1/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "insert/1/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "effect/1/0/Cutoff"
+value = 240
+min = 20
+max = 18000
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "effect/1/0/Reso"
+value = 0.30000001192092896
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "effect/1/0/HP?"
+value = 1
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/2/volume"
+value = 0.80000001192092896
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/2/pan"
+value = 0
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/2/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "insert/2/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "effect/2/0/Cutoff"
+value = 260
+min = 20
+max = 18000
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "effect/2/0/Reso"
+value = 0.30000001192092896
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "effect/2/0/HP?"
+value = 1
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/3/volume"
+value = 0.80000001192092896
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/3/pan"
+value = 0
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/3/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "insert/3/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "effect/3/0/Cutoff"
+value = 150
+min = 20
+max = 18000
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "effect/3/0/Reso"
+value = 0.30000001192092896
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "effect/3/0/HP?"
+value = 1
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/4/volume"
+value = 0.80000001192092896
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/4/pan"
+value = 0
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/4/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "insert/4/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "insert/5/volume"
+value = 0.80000001192092896
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/5/pan"
+value = 0
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/5/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "insert/5/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "insert/6/volume"
+value = 0.80000001192092896
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/6/pan"
+value = 0
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/6/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "insert/6/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "insert/7/volume"
+value = 0.80000001192092896
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/7/pan"
+value = 0
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/7/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "insert/7/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "insert/8/volume"
+value = 0.80000001192092896
+min = 0
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/8/pan"
+value = 0
+min = -1
+max = 1
+scaling = "linear"
+unit = ""
+
+[[params]]
+id = "insert/8/mute"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+
+[[params]]
+id = "insert/8/solo"
+value = 0
+min = 0
+max = 1
+scaling = "bool"
+unit = ""
+

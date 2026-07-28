@@ -1,4 +1,5 @@
 .gloopy-cache/
 exports/
+assets/recordings/raw/
 *.wav.tmp
 plugins/scans/

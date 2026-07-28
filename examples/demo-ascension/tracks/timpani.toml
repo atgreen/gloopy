@@ -1,9 +1,10 @@
 id = "timpani"
+tid = 5
 name = "Timpani"
 type = 0
 colour = -11890471
 default_pitch = 60
-volume = 0.85000002384185791
+volume = 0.55000001192092896
 pan = 0
 mute = false
 solo = false

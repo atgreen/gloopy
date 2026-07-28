@@ -2,7 +2,13 @@ format = "gloopy-composition"
 version = 1
 title = "demo-ascension"
 bpm = 140
+ts_num = 4
+ts_den = 4
 swing = 0.5
+launch_quantum = 4
+scale_root = 0
+scale_name = "chromatic"
+scale_intervals = [ "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11" ]
 
 [[tracks]]
 id = "pad-strings"
@@ -43,3 +49,33 @@ file = "mixer/inserts.toml"
 
 [automation]
 file = "automation/lanes.toml"
+
+[locations]
+file = "locations.toml"
+
+[exports]
+file = "exports.toml"
+
+[scenes]
+file = "scenes.toml"
+
+[session]
+file = "session.toml"
+
+[groups]
+file = "groups.toml"
+
+[params]
+file = "params.toml"
+
+[mods]
+file = "mods.toml"
+
+[tempo]
+file = "tempo.toml"
+
+[controllers]
+file = "controllers.toml"
+
+[notes]
+file = "notes.md"
