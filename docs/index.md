@@ -33,6 +33,7 @@ This manual has **two front doors**. Pick the one that matches what you're doing
 
 ## New here?
 
+- Get it → [Install Gloopy](user-guide/install.md) (RPM, DEB, or a Windows zip).
 - Musician → [Record your first track](user-guide/tutorials/first-track.md).
 - Developer → [Drive Gloopy from Python](control-scripting/tutorials/python-quickstart.md),
   then read [The Gloopy model](control-scripting/concepts/model.md).

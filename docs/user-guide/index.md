@@ -5,9 +5,11 @@ code instead, use [Control & scripting](../control-scripting/index.md).
 
 ## Start here
 
-New to Gloopy? Do the tutorial first:
+Need to get Gloopy first? See [Install Gloopy](install.md). New to it? Do the
+tutorial:
 
 [:material-play: Your first track](tutorials/first-track.md){ .md-button .md-button--primary }
+[:material-download: Install Gloopy](install.md){ .md-button }
 
 Not sure which feature to reach for? **[What to use for what](what-to-use-for-what.md)**
 is the quick decision guide — Arrange vs. Session, Save vs. Export, Automation vs.
