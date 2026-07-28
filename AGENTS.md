@@ -17,12 +17,13 @@ JUCE is **pinned at `8.0.15`** in `CMakeLists.txt` (FetchContent). The embedded 
 vendors its *own* JUCE under `third_party/surge/libs/JUCE`, separate from Gloopy's — a
 JUCE bump moves only the FetchContent pin, not surge's copy.
 
-## Composition (directory) format — Phase 1
+## Composition (directory) format — the project format
 
-Besides the single-file `.gloopy` XML (still the default), Gloopy can serialise a
-project as a **composition directory** for diff-friendly, "song as repo" workflows
-(design: `gloop-compositions.md`). `Source/Composition.cpp` maps the same ValueTree
-that `toValueTree`/`loadFromTree` use to a tree of TOML manifests + line-oriented
+A project is a **composition directory** — the default, diff-friendly "song as repo"
+format (design: `gloop-compositions.md`). There is **no XML** any more; the single-file
+`.gloopy` is now a **zip of the composition folder** (a shareable archive; `.zip` is
+accepted too). `Source/Composition.cpp` maps the same ValueTree that
+`toValueTree`/`loadFromTree` use to a tree of TOML manifests + line-oriented
 `.notes`/`.points` files + binary WAV/plugin sidecars:
 
 ```
@@ -32,8 +33,9 @@ assets/samples/*.wav  plugins/state/*  .gitignore
 ```
 
 `SaveComposition`/`LoadComposition` gRPC RPCs drive it, and it's first-class in the
-File menu (open a `.gloopy` / composition folder / `.zip`; save-as either format;
-`LoadProject` auto-detects a directory / `gloopy.toml` / `.zip`). Saves are
+File menu (open a composition folder or a `.gloopy`/`.zip` archive; save as a folder or
+archive; `LoadProject`/`openAny` auto-detect a directory / `gloopy.toml` / `.gloopy` / `.zip`).
+`SaveProject` writes a `.gloopy` archive (a zipped composition); there is no XML. Saves are
 **content-addressed** (dirty-file tracking): a no-op re-save writes nothing, one
 fader rewrites one file, removed objects prune their files, and `dir → runtime →
 dir` is byte-stable — so don't expect a `deleteRecursively`+rewrite. TOML is a
@@ -119,8 +121,10 @@ ffmpeg -f x11grab -video_size 1600x1000 -i :99 -frames:v 1 shot.png
   right away**; don't let local commits pile up. (Standing authorization for this repo: you
   don't need to ask before pushing here.) The docs-deploy workflow still targets GitHub Pages,
   not this forge.
-- **`.gloopy` is XML.** To stand up a bus/group test topology fast, hand-edit the `MTRACK`
-  `out`/`bus` attrs directly instead of scripting a dozen routing RPCs.
+- **A `.gloopy` is a zip of a composition folder** (no XML). To inspect or hand-edit a
+  project, open the composition **directory** (readable TOML) — `mixer/inserts.toml` for
+  bus/group `output`/`bus` routing, `tracks/<slug>.toml` for tracks/clips. Unzip a `.gloopy`
+  to get the same tree.
 
 ## Plugin hosting (VST3 + LV2)
 

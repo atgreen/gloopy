@@ -13,8 +13,8 @@ timeline, and each track owns the clips placed along it. There is no separate
 ### Composition (project)
 The whole song: its tracks, mixer, transport settings, tempo map, locations,
 automation, and metadata. "Composition" and "project" are the same thing.
-A composition has two on-disk forms — a single `.gloopy` file or a
-[composition-as-repo directory](#on-disk-two-forms).
+On disk a composition is a [composition-as-repo directory](#on-disk-two-forms)
+(the default), or a single-file `.gloopy` archive (a zip of that folder).
 
 ### Track
 A **sound source plus a row of clips on the timeline, plus its mix settings**.
@@ -200,17 +200,18 @@ identity — you create a track over gRPC, learn its `id`, then play it over OSC
 
 ## On disk: two forms
 
-A composition serialises from the same in-memory model two ways:
+A composition serialises from the same in-memory model two ways — both are the
+**directory** format; one is just zipped:
 
-1. **`.gloopy` file** — a single XML file with embedded sample and plugin-state
-   blobs. Compact; good for interchange.
-2. **Composition-as-repo directory** — a folder with a `gloopy.toml` manifest,
-   human-readable TOML/text for tracks, clips (`.notes`), mixer, automation
-   (`.points`), locations, scenes, and binary assets as sidecars under
+1. **Composition-as-repo directory** (the default) — a folder with a `gloopy.toml`
+   manifest, human-readable TOML/text for tracks, clips (`.notes`), mixer,
+   automation (`.points`), locations, scenes, and binary assets as sidecars under
    `assets/`. Designed for **readable diffs and version control** — a no-op
-   re-save writes nothing. `gloopy pack` zips one up.
+   re-save writes nothing.
+2. **`.gloopy` archive** — a single-file **zip of that folder**, for sharing a
+   project as one file. (`.zip` is accepted too.) `gloopy pack` also produces one.
 
-Both round-trip losslessly; the loader auto-detects file vs. directory vs. `.zip`.
+Both round-trip losslessly; the loader auto-detects a directory vs. an archive.
 
 ---
 

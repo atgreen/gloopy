@@ -2073,16 +2073,17 @@ bool MainComponent::apiLoadProject (const juce::String& path)
     {
         auto f = juce::File::isAbsolutePath (path) ? juce::File (path)
                     : juce::File::getCurrentWorkingDirectory().getChildFile (path);
-        // Accept a composition directory / gloopy.toml / .zip as well as a .gloopy file.
+        // Accept a composition directory / gloopy.toml, or a single-file `.gloopy`/`.zip` archive.
         if (f.isDirectory() && f.getChildFile ("gloopy.toml").existsAsFile())
             return loadComposition (f);
         if (f.getFileName() == "gloopy.toml" && f.existsAsFile())
             return loadComposition (f.getParentDirectory());
-        if (f.existsAsFile() && f.hasFileExtension ("zip"))
-            return loadComposition (f);
-        if (! f.existsAsFile()) return false;
-        openProject (f);
-        return true;
+        if (f.existsAsFile() && f.hasFileExtension ("gloopy;zip"))
+        {
+            openProject (f);
+            return currentProjectFile == f;   // openProject sets it only on a successful load
+        }
+        return false;
     });
 }
 
@@ -2920,8 +2921,10 @@ bool MainComponent::apiSaveAsTemplate (const juce::String& name)
         if (! dir.createDirectory()) return false;
         auto file = dir.getChildFile (clean + ".gloopy");
         const auto prev = currentProjectFile;   // saving a template must not retitle the open project
+        const bool wasModified = projectModified;   // ...nor clear its unsaved-changes flag
         saveProject (file);
         currentProjectFile = prev;
+        projectModified = wasModified;
         return file.existsAsFile();
     });
 }
@@ -4985,13 +4988,13 @@ void MainComponent::resized()
 // ===========================================================================
 // Project save / load
 // ===========================================================================
-// Open a .gloopy file, a composition directory (or its gloopy.toml), or a .zip.
+// Open a composition directory (or its gloopy.toml), or a single-file archive
+// (`.gloopy` / `.zip` — a zipped composition). There is no XML project format any more.
 void MainComponent::openAny (const juce::File& f)
 {
     if (f.isDirectory() && f.getChildFile ("gloopy.toml").existsAsFile())      loadComposition (f);
     else if (f.getFileName() == "gloopy.toml" && f.existsAsFile())             loadComposition (f.getParentDirectory());
-    else if (f.existsAsFile() && f.hasFileExtension ("zip"))                   loadComposition (f);
-    else if (f.existsAsFile())                                                 openProject (f);
+    else if (f.existsAsFile() && f.hasFileExtension ("gloopy;zip"))            openProject (f);
 }
 
 bool MainComponent::isInterestedInFileDrag (const juce::StringArray& files)
@@ -5035,13 +5038,13 @@ void MainComponent::showFileMenu()
     const auto templates = apiListTemplates();
     for (int i = 0; i < (int) templates.size(); ++i) templatesMenu.addItem (100 + i, templates[(size_t) i]);
     menu.addSubMenu ("New from Template", templatesMenu);
-    menu.addItem (2, "Open...");                         // .gloopy or .zip
-    menu.addItem (6, "Open Composition Folder...");
+    menu.addItem (6, "Open Composition Folder...");      // the default directory format
+    menu.addItem (2, "Open Archive...");                 // a single-file .gloopy / .zip (zipped composition)
     menu.addItem (9, "Import MIDI File...");             // .mid/.midi -> synth track + clip per track
     menu.addSeparator();
     menu.addItem (3, "Save", haveProject);
-    menu.addItem (4, "Save As .gloopy...");
-    menu.addItem (7, "Save As Composition...");
+    menu.addItem (7, "Save As Composition Folder...");   // directory format (default)
+    menu.addItem (4, "Save As .gloopy Archive...");      // single-file zip of a composition
     menu.addItem (10, "Save as Template...");
     menu.addItem (13, "Export MIDI File...");          // whole project -> .mid (loops tiled)
     menu.addItem (14, "Export Audio (WAV)...");        // whole mix -> offline WAV bounce
@@ -5249,7 +5252,7 @@ void MainComponent::showFileMenu()
             }
             else if (result == 4)
             {
-                fileChooser = std::make_unique<juce::FileChooser> ("Save as .gloopy", juce::File(), "*.gloopy");
+                fileChooser = std::make_unique<juce::FileChooser> ("Save as .gloopy archive", juce::File(), "*.gloopy");
                 fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
                                             | juce::FileBrowserComponent::warnAboutOverwriting,
                     [this] (const juce::FileChooser& fc)
@@ -5502,11 +5505,13 @@ void MainComponent::saveCurrentProject()
         else                                                   saveProject (currentProjectFile);
         return;
     }
-    fileChooser = std::make_unique<juce::FileChooser> ("Save as .gloopy", juce::File(), "*.gloopy");
-    fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
-                                | juce::FileBrowserComponent::warnAboutOverwriting,
+    // Never saved: default to the directory (composition folder) format.
+    fileChooser = std::make_unique<juce::FileChooser> ("Save as composition folder", juce::File());
+    fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectDirectories,
         [this] (const juce::FileChooser& fc)
-        { auto f = fc.getResult(); if (f != juce::File()) saveProject (f.withFileExtension ("gloopy")); });
+        { auto d = fc.getResult();
+          if (d != juce::File() && saveComposition (d))
+              currentProjectFile = d.getChildFile ("gloopy.toml"); });
 }
 
 juce::ValueTree MainComponent::clipToTree (const Clip& c, const juce::Identifier& type)
@@ -5924,28 +5929,20 @@ juce::ValueTree MainComponent::toValueTree()
     return root;
 }
 
+// Save to a single-file `.gloopy` archive (a zipped composition). The directory format
+// (saveComposition) is the default; this is the shareable one-file form.
 void MainComponent::saveProject (const juce::File& file)
 {
     if (file == juce::File()) return;
-    if (auto xml = toValueTree().createXml())
-    {
-        xml->writeTo (file);
-        currentProjectFile = file;
-        markSaved();
-    }
+    if (saveCompositionZip (file))       // markSaved() runs inside saveComposition
+        currentProjectFile = file;       // the project now lives in this archive
 }
 
+// Open a single-file `.gloopy`/`.zip` archive: unzip + load the composition inside.
 void MainComponent::openProject (const juce::File& file)
 {
-    currentProjectFile = file;   // set first so sample-path resolution can use the project dir
-    if (auto xml = juce::parseXML (file))
-    {
-        undoSuppressed = true;
-        loadFromTree (juce::ValueTree::fromXml (*xml));
-        undoSuppressed = false;
-        undoStack.clear(); redoStack.clear();
-        refreshUiAfterLoad();
-    }
+    if (loadComposition (file))          // unzips to a temp workspace and loads it
+        currentProjectFile = file;       // but the project's home is the archive itself, not the temp
 }
 
 // Resolve a stored sample/SFZ reference to an actual file. Handles absolute

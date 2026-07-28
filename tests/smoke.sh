@@ -38,6 +38,17 @@ trap cleanup EXIT
 
 g() { grpcurl -plaintext -import-path "$PROTO_DIR" -proto gloopy.proto "$@"; }
 
+# The insert (mixer strip) index backing a track, found by name via the API — replaces the
+# old trick of parsing the `mixerTrack` attr out of a saved XML .gloopy (projects are now
+# saved as composition dirs / zipped .gloopy archives, so there's no XML to grep).
+insert_index_of() {   # $1 = track/strip name -> its mixerTracks index
+  g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListInserts \
+    | python3 -c "import json,sys
+name='$1'
+for i in json.load(sys.stdin).get('inserts',[]):
+    if i.get('name')==name: print(i.get('index',0)); break"
+}
+
 # Wait for the gRPC server to accept connections.
 for i in $(seq 1 30); do
     if g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetTransport >/dev/null 2>&1; then break; fi
@@ -606,17 +617,17 @@ g -d "{\"path\":\"$WORK/stems_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloop
 RCT=$(g -d '{"name":"rcsrc","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
 g -d "{\"track_id\":$RCT,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
 g -d "{\"track_id\":$RCT,\"index\":0,\"name\":\"Chorus\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenameClip >/dev/null
-g -d "{\"path\":\"$WORK/renclip.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
-grep -q 'name="Chorus"' "$WORK/renclip.gloopy" && echo "smoke: PASS — RenameClip labelled the clip 'Chorus' (persisted to the .gloopy)" || { echo 'smoke: rename clip wrong' >&2; exit 1; }
-# Clip colour override: set a clip to red -> a second colour= attr appears (track + clip);
-# clearing it ("") drops back to one (just the track colour). juce wraps long tags across
-# lines, so count colour= occurrences rather than matching within a single CLIP tag.
+g -d "{\"path\":\"$WORK/renclip\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+grep -rq 'name = "Chorus"' "$WORK/renclip/tracks" && echo "smoke: PASS — RenameClip labelled the clip 'Chorus' (persisted to the composition)" || { echo 'smoke: rename clip wrong' >&2; exit 1; }
+# Clip colour override: set a clip to red -> one extra `colour =` line appears in the saved
+# composition (track colours + the clip override); clearing it ("") drops back (just track
+# colours). Count `colour =` occurrences across the composition; the delta is the clip override.
 g -d "{\"track_id\":$RCT,\"index\":0,\"colour\":\"ffef5350\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipColour >/dev/null
-g -d "{\"path\":\"$WORK/clipcol.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
-NSET=$(grep -o 'colour=' "$WORK/clipcol.gloopy" | wc -l)
+g -d "{\"path\":\"$WORK/clipcol\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+NSET=$(grep -rho 'colour =' "$WORK/clipcol/tracks" | wc -l)
 g -d "{\"track_id\":$RCT,\"index\":0,\"colour\":\"\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipColour >/dev/null   # clear -> inherit
-g -d "{\"path\":\"$WORK/clipcol2.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
-NCLR=$(grep -o 'colour=' "$WORK/clipcol2.gloopy" | wc -l)
+g -d "{\"path\":\"$WORK/clipcol2\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+NCLR=$(grep -rho 'colour =' "$WORK/clipcol2/tracks" | wc -l)
 [ "$((NSET - NCLR))" -eq 1 ] && echo "smoke: PASS — SetClipColour added exactly one per-clip colour override (colour= $NSET vs $NCLR after clearing)" || { echo "smoke: clip colour wrong (set=$NSET clear=$NCLR)" >&2; exit 1; }
 g -d "{\"id\":$RCT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   # isolate
 
@@ -1401,11 +1412,24 @@ g -d "{\"id\":$CR}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 # sample buffer was actually cut to exactly the 2-beat window (~2*60/bpm*rate frames),
 # proving the source samples were trimmed, not merely re-anchored. A clip named "src"
 # (the WAV basename) isolates it in the save.
-clipattr() {   # $1=saved .gloopy  $2=attr  -> value of that attr on the clip named "src"
+# The cropped "src" audio clip's start/len/rate + its embedded wav frame count, read from
+# a saved composition (the clip embeds as a wav sidecar; its frame count proves the trim).
+# The sidecar is a 32-bit float WAV (python's `wave` reads only PCM), so parse the header
+# manually: frames = data-chunk-size / (channels * bytes-per-sample).
+clip_src_info() {   # $1 = composition dir -> "start len rate frames"
   python3 -c "
-import xml.etree.ElementTree as ET
-for c in ET.parse('$1').getroot().iter('CLIP'):
-    if c.get('name')=='src': print(c.get('$2')); break
+import tomllib,glob,os,struct
+d='$1'
+def wav_frames(p):
+    b=open(p,'rb').read()
+    fi=b.find(b'fmt '); ch=struct.unpack('<H',b[fi+10:fi+12])[0]; bits=struct.unpack('<H',b[fi+22:fi+24])[0]
+    di=b.find(b'data'); size=struct.unpack('<I',b[di+4:di+8])[0]
+    return size//(ch*(bits//8))
+for f in glob.glob(d+'/tracks/*.toml'):
+    t=tomllib.load(open(f,'rb'))
+    for c in t.get('clips',[]):
+        if c.get('name')=='src':
+            print(c.get('start',0), c.get('length',0), c.get('audio_rate',0), wav_frames(os.path.join(d,c['audio_file']))); raise SystemExit
 "; }
 BPM=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetTransport | python3 -c "import json,sys;print(json.load(sys.stdin).get('bpm',120))")
 ACS=$(g -d '{"name":"cropsrc","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.8,"release":0.2,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
@@ -1416,9 +1440,8 @@ g -d "{\"id\":$ACS}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null   #
 AUT=$(g -d '{"name":"cropaud"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddAudioTrack | grep -o '[0-9]\+' | head -1)
 g -d "{\"track_id\":$AUT,\"start_beat\":0,\"path\":\"$ASRC\",\"gain\":1.0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddAudioClip >/dev/null
 g -d "{\"track_id\":$AUT,\"index\":0,\"start_beat\":2,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/CropClip >/dev/null
-g -d "{\"path\":\"$WORK/acrop.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
-ASTART=$(clipattr "$WORK/acrop.gloopy" start); ALEN=$(clipattr "$WORK/acrop.gloopy" len)
-ARATE=$(clipattr "$WORK/acrop.gloopy" arate);  AF1=$(clipattr "$WORK/acrop.gloopy" aframes)
+g -d "{\"path\":\"$WORK/acrop\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+read -r ASTART ALEN ARATE AF1 < <(clip_src_info "$WORK/acrop")
 python3 -c "
 st,ln,rate,f1,bpm=float('$ASTART'),float('$ALEN'),float('$ARATE'),int('$AF1'),float('$BPM')
 want=2.0*60.0/bpm*rate                      # the [2,4) window = 2 beats of source samples
@@ -1441,13 +1464,15 @@ g -d "{\"track_id\":$FST,\"index\":0,\"shape\":1}" 127.0.0.1:$PORT gloopy.v1.Glo
 g -d "{\"path\":\"$WORK/fs_ep.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$FST}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
 g -d "{\"track_id\":$FST,\"index\":0,\"shape\":2}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetClipFadeShape >/dev/null
 g -d "{\"path\":\"$WORK/fs_exp.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$FST}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
-g -d "{\"path\":\"$WORK/fs.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d "{\"path\":\"$WORK/fsdir\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
 FSSHAPE=$(python3 -c "
-import xml.etree.ElementTree as ET
-for c in ET.parse('$WORK/fs.gloopy').getroot().iter('CLIP'):
-    if c.get('name')=='src': print(c.get('fadeshape')); break
+import tomllib,glob
+for f in glob.glob('$WORK/fsdir/tracks/*.toml'):
+    t=tomllib.load(open(f,'rb'))
+    for c in t.get('clips',[]):
+        if c.get('name')=='src': print(int(c.get('fade_shape',0))); raise SystemExit
 ")
-g -d "{\"path\":\"$WORK/fs.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null
+g -d "{\"path\":\"$WORK/fsdir\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
 FST2=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print([t['id'] for t in json.load(sys.stdin)['tracks']][-1])")
 g -d "{\"path\":\"$WORK/fs_exp2.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$FST2}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
 python3 -c "
@@ -1475,11 +1500,15 @@ ns=sorted((round(n.get('startBeat',0),3),n['pitch']) for n in json.load(sys.stdi
 assert ns==[(0.0,60),(1.0,62),(2.0,60),(3.0,62)], 'consolidate wrong: %s'%ns
 print('smoke: PASS — ConsolidateClip flattened 2 reps to notes at 0/1/2/3')
 " || { echo 'smoke: ConsolidateClip flattened wrong' >&2; exit 1; }
-g -d "{\"path\":\"$WORK/consol.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d "{\"path\":\"$WORK/consoldir\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
 python3 -c "
-import xml.etree.ElementTree as ET
-c=[c for c in ET.parse('$WORK/consol.gloopy').getroot().iter('CLIP') if len(list(c))==4][0]
-assert c.get('looped')=='0' and abs(float(c.get('content'))-4.0)<1e-6, 'not un-looped: looped=%s content=%s'%(c.get('looped'),c.get('content'))
+import tomllib,glob
+c=None
+for f in glob.glob('$WORK/consoldir/tracks/*.toml'):
+    t=tomllib.load(open(f,'rb'))
+    if t.get('name')=='contest': c=t['clips'][0]
+assert c is not None, 'contest track not found'
+assert c.get('looped')==False and abs(c.get('content_length',0)-4.0)<1e-6, 'not un-looped: looped=%s content=%s'%(c.get('looped'),c.get('content_length'))
 print('smoke: PASS — consolidated clip is un-looped (content=len=4)')
 " || { echo 'smoke: ConsolidateClip did not un-loop' >&2; exit 1; }
 g -d "{\"id\":$CN}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
@@ -1593,13 +1622,16 @@ ns=sorted((n['pitch'],round(n.get('startBeat',0),3),round(n['lengthBeats'],3)) f
 assert ns==[(60,0.0,0.5),(62,1.0,0.5),(64,2.0,0.5)], 'time-scale note times wrong: %s'%ns
 print('smoke: PASS — ScaleClipTime 0.5 (double-time) halved note starts/lengths (0/1/2, len 0.5)')
 " || { echo 'smoke: time-scale notes wrong' >&2; exit 1; }
-g -d "{\"path\":\"$WORK/ts.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d "{\"path\":\"$WORK/tsdir\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
 python3 -c "
-import xml.etree.ElementTree as ET
-cl=list(ET.parse('$WORK/ts.gloopy').getroot().iter('CLIP'))[-1]
-assert abs(float(cl.get('len'))-3.0)<1e-6, 'clip slot length not halved: %s'%cl.get('len')
-assert abs(float(cl.get('content'))-3.0)<1e-6, 'content length not halved: %s'%cl.get('content')
-print('smoke: PASS — ScaleClipTime halved the clip slot + content length (6 -> 3)')
+import tomllib,glob
+for f in glob.glob('$WORK/tsdir/tracks/*.toml'):
+    t=tomllib.load(open(f,'rb'))
+    if t.get('name')=='clipops':
+        cl=t['clips'][$TSC]
+        assert abs(cl.get('length',0)-3.0)<1e-6, 'clip slot length not halved: %s'%cl.get('length')
+        assert abs(cl.get('content_length',0)-3.0)<1e-6, 'content length not halved: %s'%cl.get('content_length')
+        print('smoke: PASS — ScaleClipTime halved the clip slot + content length (6 -> 3)'); raise SystemExit
 " || { echo 'smoke: time-scale clip length wrong' >&2; exit 1; }
 # MIDI echo: one note (vel 0.8) + echo delay 0.5, 3 repeats, feedback 0.5 -> decaying copies
 # at 0.5/1.0/1.5 with vel 0.4/0.2/0.1. The original is kept.
@@ -1776,14 +1808,15 @@ RC=$(g -d '{"name":"reptk","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSy
 g -d "{\"track_id\":$RC,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":false,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":0.5,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
 ADDED=$(g -d "{\"track_id\":$RC,\"index\":0,\"copies\":3}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RepeatClip | python3 -c "import json,sys;print(json.load(sys.stdin).get('slices',0))")
 [ "$ADDED" = 3 ] || { echo "smoke: RepeatClip added wrong count ($ADDED, expected 3)" >&2; exit 1; }
-g -d "{\"path\":\"$WORK/rep.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d "{\"path\":\"$WORK/repdir\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
 python3 -c "
-import xml.etree.ElementTree as ET
-r=ET.parse('$WORK/rep.gloopy').getroot()
-tr=[t for t in r.iter('TRACK') if t.get('name')=='reptk'][0]
-starts=sorted(round(float(c.get('start')),3) for c in tr.iter('CLIP'))
-assert starts==[0.0,2.0,4.0,6.0], 'repeat tiled to wrong beats: %s'%starts
-print('smoke: PASS — RepeatClip tiled a 2-beat clip to 4 (starts 0/2/4/6)')
+import tomllib,glob
+for f in glob.glob('$WORK/repdir/tracks/*.toml'):
+    t=tomllib.load(open(f,'rb'))
+    if t.get('name')=='reptk':
+        starts=sorted(round(c.get('start',0),3) for c in t.get('clips',[]))
+        assert starts==[0.0,2.0,4.0,6.0], 'repeat tiled to wrong beats: %s'%starts
+        print('smoke: PASS — RepeatClip tiled a 2-beat clip to 4 (starts 0/2/4/6)'); raise SystemExit
 " || { echo 'smoke: RepeatClip tiled wrong' >&2; exit 1; }
 # Split into N: a 4-beat clip (notes at 0/1/2/3) chopped into 4 -> 4 one-beat clips, each
 # carrying its own note (rebased to 0). Uses a fresh track to isolate the clip indices.
@@ -2875,11 +2908,7 @@ print('smoke: PASS — mixer scene restores aux-send level (%.2f)'%lv)
 g -d "{\"path\":\"$WORK/pp_session.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null   # snapshot to restore after the reload test
 PFT=$(g -d '{"name":"prepost","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.1,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
 g -d "{\"track_id\":$PFT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":57,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.95}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
-g -d "{\"path\":\"$WORK/ppre.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
-PFI=$(python3 -c "
-import xml.etree.ElementTree as ET
-t=[t for t in ET.parse('$WORK/ppre.gloopy').getroot().iter('TRACK') if t.get('name')=='prepost'][0]
-print(t.get('mixerTrack'))")
+PFI=$(insert_index_of prepost)
 PFB=$(g -d '{"name":"AuxBus"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddBus | python3 -c "import json,sys;print(json.load(sys.stdin).get('id',0))")
 g -d "{\"index\":$PFI,\"volume\":0.8,\"mute\":true}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetInsertParams >/dev/null   # mute the direct output
 g -d "{\"insert\":$PFI,\"bus\":$PFB,\"level\":1.0,\"post_fader\":false}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSend >/dev/null
@@ -2890,7 +2919,7 @@ g -d "{\"path\":\"$WORK/pp.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProje
 g -d "{\"path\":\"$WORK/pp.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null
 g -d "{\"path\":\"$WORK/pp_post2.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
 python3 -c "
-import wave,xml.etree.ElementTree as ET
+import wave
 def rd(p):
     w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),3)]
 def rms(x): return (sum(v*v for v in x)/max(1,len(x)))**0.5
@@ -2899,8 +2928,7 @@ pre=rd('$WORK/pp_pre.wav');post=rd('$WORK/pp_post.wav');post2=rd('$WORK/pp_post2
 assert rms(pre[:n]) > rms(post[:n]) + 20000, 'pre-fader send did not route a muted source (pre %.0f vs post %.0f)'%(rms(pre[:n]),rms(post[:n]))
 d=sum(abs(pre[i]-post[i]) for i in range(n))/n
 assert d > 5000, 'pre vs post-fader renders barely differ (%.0f)'%d
-snd=[s for s in ET.parse('$WORK/pp.gloopy').getroot().iter('SEND') if s.get('post')=='1']
-assert snd, 'post-fader flag not saved on the SEND'
+# the post-fader flag persisted iff the reloaded project re-renders identically (post2 is loaded from the saved archive)
 m2=min(len(post),len(post2)); assert post[:m2]==post2[:m2], 'post-fader send not preserved across a project round-trip'
 print('smoke: PASS — pre-fader routes a muted source to the bus, post-fader silences it (pre %.0f vs post %.0f); post round-trips'%(rms(pre[:n]),rms(post[:n])))
 " || { echo 'smoke: pre/post-fader send wrong' >&2; exit 1; }
@@ -2911,11 +2939,7 @@ g -d "{\"path\":\"$WORK/pp_session.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/L
 # mute -> silent; and the group + membership survive a project round-trip.
 CG=$(g -d '{"name":"vcatk","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.8,"release":0.2,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
 g -d "{\"track_id\":$CG,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":57,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
-g -d "{\"path\":\"$WORK/cgpre.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
-CGI=$(python3 -c "
-import xml.etree.ElementTree as ET
-t=[t for t in ET.parse('$WORK/cgpre.gloopy').getroot().iter('TRACK') if t.get('name')=='vcatk'][0]
-print(t.get('mixerTrack'))")   # the track's routed insert index
+CGI=$(insert_index_of vcatk)   # the track's routed insert index
 cgpk() { g -d "{\"path\":\"$1\",\"tail_seconds\":0.3,\"start_beat\":0,\"end_beat\":4,\"track_id\":$CG}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null; g -d "{\"path\":\"$1\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AnalyzeFile | python3 -c "import json,sys;print(json.load(sys.stdin).get('peakDbfs',-120))"; }
 CGBASE=$(cgpk "$WORK/cg0.wav")
 g -d "{\"insert\":$CGI,\"group\":\"VCA\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AssignInsertToGroup >/dev/null
@@ -2930,18 +2954,8 @@ assert mute < -60, 'muted group should be silent, got %.1f dBFS'%mute
 print('smoke: PASS — VCA group: gain 0.5 drops %.1f dB, mute silences (%.0f dBFS)'%(base-half,mute))
 " || { echo 'smoke: control-group scaling wrong' >&2; exit 1; }
 g -d '{"name":"VCA","mute":false}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetControlGroupMute >/dev/null
-g -d "{\"path\":\"$WORK/cg.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
-python3 -c "
-import xml.etree.ElementTree as ET
-r=ET.parse('$WORK/cg.gloopy').getroot()
-grp=[x for x in r.iter('GROUP') if x.get('name')=='VCA']
-assert grp and abs(float(grp[0].get('gain'))-0.5)<1e-6, 'group gain not saved: %s'%[ (x.get('name'),x.get('gain')) for x in r.iter('GROUP')]
-mem=[m for m in r.iter('MTRACK') if m.get('group')=='VCA']
-assert mem, 'no insert saved with group=VCA'
-print('smoke: PASS — control group + membership round-trip (gain 0.5, %d member)'%len(mem))
-" || { echo 'smoke: control group did not round-trip' >&2; exit 1; }
 # Composition (TOML repo-format) round-trip: the group + membership must survive
-# SaveComposition -> LoadComposition, not just the .gloopy SaveProject above.
+# SaveComposition -> LoadComposition (the canonical project format).
 g -d "{\"path\":\"$WORK/cgcomp\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
 grep -q 'name = "VCA"' "$WORK/cgcomp/groups.toml" || { echo "smoke: groups.toml missing the VCA group" >&2; exit 1; }
 g -d "{\"path\":\"$WORK/cgcomp\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
@@ -2960,11 +2974,7 @@ GS1=$(g -d '{"name":"gsA","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.8,"
 g -d "{\"track_id\":$GS1,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":57,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
 GS2=$(g -d '{"name":"gsB","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.8,"release":0.1,"gain":0.9}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -o '[0-9]\+' | head -1)
 g -d "{\"track_id\":$GS2,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":64,\"start_beat\":0,\"length_beats\":4,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
-g -d "{\"path\":\"$WORK/gspre.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
-GSI=$(python3 -c "
-import xml.etree.ElementTree as ET
-t=[t for t in ET.parse('$WORK/gspre.gloopy').getroot().iter('TRACK') if t.get('name')=='gsA'][0]
-print(t.get('mixerTrack'))")   # gsA's routed insert index
+GSI=$(insert_index_of gsA)   # gsA's routed insert index
 g -d "{\"insert\":$GSI,\"group\":\"gs\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AssignInsertToGroup >/dev/null
 g -d "{\"path\":\"$WORK/gs_t1.wav\",\"tail_seconds\":0,\"end_beat\":4,\"track_id\":$GS1}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null   # T1 alone
 g -d "{\"path\":\"$WORK/gs_full.wav\",\"tail_seconds\":0,\"end_beat\":4}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null                    # full mix

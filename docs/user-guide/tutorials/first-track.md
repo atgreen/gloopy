@@ -69,9 +69,9 @@ later, add effects.
 
 **File → Save As**. You can save either as:
 
-- a single **`.gloopy`** file — one portable file, or
-- a **composition folder** — a directory of readable text files that works well
-  with version control.
+- a **composition folder** (the default) — a directory of readable text files that
+  works well with version control, or
+- a single **`.gloopy` archive** — that same folder zipped into one portable file.
 
 Either reopens with **File → Open**.
 

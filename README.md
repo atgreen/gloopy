@@ -53,10 +53,10 @@ bounce it to a WAV.
   anything): **gRPC** for structural commands/queries and streamed feedback,
   **OSC** for low-latency live notes and knob turns. See
   [Control & scripting](docs/control-scripting/index.md).
-- **Save / Load / Render** — projects persist either to a single `.gloopy` file
-  (XML with embedded sample and plugin-state data) or to a diff-friendly
-  **composition-as-repo** directory (readable TOML + `.notes`/`.points` + WAV
-  sidecars). `--render` bounces to a WAV offline, and named **export profiles**
+- **Save / Load / Render** — projects persist to a diff-friendly
+  **composition-as-repo** directory (the default: readable TOML + `.notes`/`.points` + WAV
+  sidecars), or a single-file **`.gloopy` archive** (a zip of that folder) for sharing.
+  `--render` bounces to a WAV offline, and named **export profiles**
   (mix / range / track / stems) drive batch renders.
 - **Headless + scriptable** — every capability is reachable over the control API,
   plus offline CLI utilities (`scan`, `analyze`, `inspect`/`validate`/`pack`,

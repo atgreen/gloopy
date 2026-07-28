@@ -730,6 +730,7 @@ private:
     void saveProject (const juce::File&);
     void openProject (const juce::File&);
     bool saveComposition (const juce::File& dir);   // implemented in Composition.cpp
+    bool saveCompositionZip (const juce::File& zipFile);   // .gloopy single-file archive (zipped composition)
     bool loadComposition (const juce::File& dir);
     juce::ValueTree toValueTree();
     void loadFromTree (const juce::ValueTree&);

@@ -12,7 +12,7 @@ settings. Dry and complete — no tutorials or rationale here (those live in
     - The editor: step grid and piano roll
     - Track header controls
     - Mixer strip controls
-    - File formats: `.gloopy` vs. composition folder
+    - File formats: composition folder vs. `.gloopy` archive
 
 For the control-API side (gRPC, OSC, Python, Lisp), see the
 [Control & scripting reference](../../control-scripting/reference/index.md).

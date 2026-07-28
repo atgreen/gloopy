@@ -7,7 +7,8 @@
 // ValueTree <-> directory mapping and leaves the runtime<->tree mapping untouched:
 //   saveComposition: toValueTree()  -> write TOML/notes/points/asset files
 //   loadComposition: read those files -> ValueTree -> loadFromTree()
-// .gloopy XML stays the default; the directory loader is read-only for now.
+// The directory is the canonical project format (no XML). A single-file `.gloopy` is a
+// zip of this folder (saveCompositionZip writes it; loadComposition unzips + reads it).
 
 #include "MainComponent.h"
 #include "Toml.h"
@@ -304,6 +305,20 @@ bool MainComponent::saveComposition (const juce::File& dir)
          .boolean ("solo", tr.getProperty ("solo", false));
         const int mtIdx = (int) tr.getProperty ("mixerTrack", 0);
         w.str ("mixer_insert", juce::isPositiveAndBelow (mtIdx, insertSlug.size()) ? insertSlug[mtIdx] : juce::String (mtIdx));
+        if ((bool) tr.getProperty ("polarity", false)) w.boolean ("polarity", true);   // phase invert
+        // Live arpeggiator (per-track MIDI effect) — omit when off.
+        if ((bool) tr.getProperty ("arpOn", false))
+        {
+            w.boolean ("arp", true)
+             .number  ("arp_rate",    (double) tr.getProperty ("arpRate", 0.25))
+             .integer ("arp_octaves", (int)    tr.getProperty ("arpOct", 1))
+             .number  ("arp_gate",    (double) tr.getProperty ("arpGate", 0.5))
+             .integer ("arp_mode",    (int)    tr.getProperty ("arpMode", 0))
+             .number  ("arp_swing",   (double) tr.getProperty ("arpSwing", 0.5))
+             .boolean ("arp_hold",    (bool)   tr.getProperty ("arpHold", false));
+            if ((float) (double) tr.getProperty ("arpProb", 1.0) < 1.0f)
+                w.number ("arp_probability", (double) tr.getProperty ("arpProb", 1.0));
+        }
         w.blank();
 
         // generator subtable
@@ -373,6 +388,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
             if ((double) cl.getProperty ("fadein", 0.0)  > 0.0) w.number ("fade_in",  cl.getProperty ("fadein", 0.0));
             if ((double) cl.getProperty ("fadeout", 0.0) > 0.0) w.number ("fade_out", cl.getProperty ("fadeout", 0.0));
             if ((int) cl.getProperty ("fadeshape", 0) != 0) w.number ("fade_shape", (double) (int) cl.getProperty ("fadeshape", 0));
+            if ((int) cl.getProperty ("colour", 0) != 0) w.integer ("colour", (juce::int64) (int) cl.getProperty ("colour", 0));   // per-clip colour override
 
             if (cl.hasProperty ("afile"))    // referenced audio (recorded take / import)
             {
@@ -414,6 +430,11 @@ bool MainComponent::saveComposition (const juce::File& dir)
              .boolean ("looped", cl.getProperty ("looped", true));
             if ((int) cl.getProperty ("transpose", 0) != 0) w.integer ("transpose", (int) cl.getProperty ("transpose", 0));
             if ((float) (double) cl.getProperty ("velscale", 1.0) != 1.0f) w.number ("velocity_scale", (double) cl.getProperty ("velscale", 1.0));
+            if ((bool) cl.getProperty ("muted", false)) w.boolean ("muted", true);
+            if ((double) cl.getProperty ("fadein", 0.0)  > 0.0) w.number ("fade_in",  cl.getProperty ("fadein", 0.0));
+            if ((double) cl.getProperty ("fadeout", 0.0) > 0.0) w.number ("fade_out", cl.getProperty ("fadeout", 0.0));
+            if ((int) cl.getProperty ("fadeshape", 0) != 0) w.number ("fade_shape", (double) (int) cl.getProperty ("fadeshape", 0));
+            if ((int) cl.getProperty ("colour", 0) != 0) w.integer ("colour", (juce::int64) (int) cl.getProperty ("colour", 0));
             if (cl.hasProperty ("afile"))
             {
                 const auto ref = cl.getProperty ("afile").toString();
@@ -450,6 +471,9 @@ bool MainComponent::saveComposition (const juce::File& dir)
           .number ("volume", mt.getProperty ("vol", 0.8)).number ("pan", mt.getProperty ("pan", 0.0))
           .boolean ("mute", mt.getProperty ("mute", false)).boolean ("solo", mt.getProperty ("solo", false));
         if ((bool) mt.getProperty ("bus", false)) mw.boolean ("bus", true);
+        if ((int) mt.getProperty ("out", 0) != 0) mw.integer ("output", (int) mt.getProperty ("out", 0));   // group/bus routing (mixerTracks index)
+        if ((bool) mt.getProperty ("fold", false)) mw.boolean ("folded", true);                              // session group collapsed
+        if ((int) mt.getProperty ("col", 0) != 0) mw.integer ("colour", (juce::int64) (int) mt.getProperty ("col", 0));   // group colour
         if (mt.getProperty ("group").toString().isNotEmpty()) mw.str ("group", mt.getProperty ("group").toString());
         {
             juce::StringArray sendEnc;   // "busIndex,level[,post]"
@@ -675,13 +699,42 @@ bool MainComponent::saveComposition (const juce::File& dir)
 // ═════════════════════════════════════════════════════════════════════════════
 // LOAD : directory -> ValueTree -> runtime  (read-only)
 // ═════════════════════════════════════════════════════════════════════════════
+// Save the project as a single-file `.gloopy` archive: a zip of the composition folder.
+// This is the shareable one-file form of the directory format (the directory is the default);
+// there is no XML any more. loadComposition() reads it back (it unzips to a temp workspace).
+bool MainComponent::saveCompositionZip (const juce::File& zipFile)
+{
+    auto tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                 .getChildFile ("gloopy-zip-" + juce::String (juce::Time::getMillisecondCounterHiRes()));
+    tmp.deleteRecursively();
+    // Wrap the composition in a folder named after the archive, so unzipping yields
+    // `<name>/gloopy.toml` (loadComposition finds the manifest at the root or one level down).
+    const auto compDir = tmp.getChildFile (zipFile.getFileNameWithoutExtension());
+    if (! compDir.createDirectory()) { tmp.deleteRecursively(); return false; }
+
+    const bool saved = saveComposition (compDir);
+    if (saved)
+    {
+        juce::ZipFile::Builder b;
+        for (auto& f : compDir.findChildFiles (juce::File::findFiles, true))
+            b.addFile (f, 9, f.getRelativePathFrom (tmp));   // relative to tmp -> "<name>/..." inside the zip
+        zipFile.deleteFile();
+        if (auto os = zipFile.createOutputStream())
+            b.writeToStream (*os, nullptr);
+        else { tmp.deleteRecursively(); return false; }
+    }
+    tmp.deleteRecursively();
+    return saved && zipFile.existsAsFile();
+}
+
 bool MainComponent::loadComposition (const juce::File& pathIn)
 {
     juce::File dir = pathIn;
 
-    // A .zip archive: unpack to a read-only temp workspace and load that. The
-    // gloopy.toml may sit at the root or inside a single top-level folder.
-    if (pathIn.existsAsFile() && pathIn.hasFileExtension ("zip"))
+    // A single-file archive (`.gloopy` / `.zip` — a zipped composition): unpack to a
+    // read-only temp workspace and load that. The gloopy.toml may sit at the root or
+    // inside a single top-level folder.
+    if (pathIn.existsAsFile() && pathIn.hasFileExtension ("gloopy;zip"))
     {
         auto tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
                      .getChildFile ("gloopy-comp-" + juce::String (juce::Time::getMillisecondCounter()));
@@ -729,6 +782,9 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             mt.setProperty ("mute", in.getBool ("mute"), nullptr);
             mt.setProperty ("solo", in.getBool ("solo"), nullptr);
             if (in.getBool ("bus")) mt.setProperty ("bus", true, nullptr);
+            if (in.getInt ("output", 0) != 0) mt.setProperty ("out", in.getInt ("output", 0), nullptr);   // group/bus routing
+            if (in.getBool ("folded")) mt.setProperty ("fold", true, nullptr);                              // session group collapsed
+            if (in.getInt ("colour", 0) != 0) mt.setProperty ("col", in.getInt ("colour", 0), nullptr);    // group colour
             if (in.getString ("group").isNotEmpty()) mt.setProperty ("group", in.getString ("group"), nullptr);
             for (auto& enc : in.getStringArray ("sends"))
             {
@@ -803,6 +859,19 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             tr.setProperty ("type", td.root.getInt ("type", 0), nullptr);
             const auto insRef = td.root.getString ("mixer_insert");
             tr.setProperty ("mixerTrack", insertIndex.count (insRef) ? insertIndex[insRef] : insRef.getIntValue(), nullptr);
+            if (td.root.getBool ("polarity")) tr.setProperty ("polarity", true, nullptr);
+            if (td.root.getBool ("arp"))       // live arpeggiator
+            {
+                tr.setProperty ("arpOn", true, nullptr);
+                tr.setProperty ("arpRate",  td.root.getDouble ("arp_rate", 0.25), nullptr);
+                tr.setProperty ("arpOct",   td.root.getInt ("arp_octaves", 1), nullptr);
+                tr.setProperty ("arpGate",  td.root.getDouble ("arp_gate", 0.5), nullptr);
+                tr.setProperty ("arpMode",  td.root.getInt ("arp_mode", 0), nullptr);
+                tr.setProperty ("arpSwing", td.root.getDouble ("arp_swing", 0.5), nullptr);
+                tr.setProperty ("arpHold",  td.root.getBool ("arp_hold"), nullptr);
+                if (td.root.getDouble ("arp_probability", 1.0) < 1.0)
+                    tr.setProperty ("arpProb", td.root.getDouble ("arp_probability", 1.0), nullptr);
+            }
 
             if (auto* g = td.table ("generator"))
             {
@@ -870,6 +939,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                     if (cd.getDouble ("fade_in", 0.0)  > 0.0) cl.setProperty ("fadein",  cd.getDouble ("fade_in", 0.0), nullptr);
                     if (cd.getDouble ("fade_out", 0.0) > 0.0) cl.setProperty ("fadeout", cd.getDouble ("fade_out", 0.0), nullptr);
                     if ((int) cd.getDouble ("fade_shape", 0.0) != 0) cl.setProperty ("fadeshape", (int) cd.getDouble ("fade_shape", 0.0), nullptr);
+                    if (cd.getInt ("colour", 0) != 0) cl.setProperty ("colour", cd.getInt ("colour", 0), nullptr);   // per-clip colour override
                     if (cd.has ("take"))          // referenced take/asset — keep the reference
                     {
                         cl.setProperty ("afile", cd.getString ("audio_file"), nullptr);
@@ -904,6 +974,11 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                     cl.setProperty ("looped", cd.getBool ("looped"), nullptr);
                     if (cd.getInt ("transpose", 0) != 0) cl.setProperty ("transpose", cd.getInt ("transpose", 0), nullptr);
                     if (cd.getDouble ("velocity_scale", 1.0) != 1.0) cl.setProperty ("velscale", cd.getDouble ("velocity_scale", 1.0), nullptr);
+                    if (cd.getBool ("muted")) cl.setProperty ("muted", true, nullptr);
+                    if (cd.getDouble ("fade_in", 0.0)  > 0.0) cl.setProperty ("fadein",  cd.getDouble ("fade_in", 0.0), nullptr);
+                    if (cd.getDouble ("fade_out", 0.0) > 0.0) cl.setProperty ("fadeout", cd.getDouble ("fade_out", 0.0), nullptr);
+                    if ((int) cd.getDouble ("fade_shape", 0.0) != 0) cl.setProperty ("fadeshape", (int) cd.getDouble ("fade_shape", 0.0), nullptr);
+                    if (cd.getInt ("colour", 0) != 0) cl.setProperty ("colour", cd.getInt ("colour", 0), nullptr);
                     if (cd.has ("take"))
                     {
                         cl.setProperty ("afile", cd.getString ("audio_file"), nullptr);
