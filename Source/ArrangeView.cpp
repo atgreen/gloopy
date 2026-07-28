@@ -521,6 +521,8 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             m.addSeparator();
             m.addItem (6, "Export track (WAV)...");             // bounce this track to a stem
             if (sc.isSampler) { m.addSeparator(); m.addItem (2, "Sampler playback window..."); }
+            m.addSeparator();
+            m.addItem (7, "Delete track");                      // remove the track + its mixer insert (undoable)
             m.showMenuAsync (juce::PopupMenu::Options(), [this, tk, curName, sc, curPolarity] (int r)
             {
                 if (r >= 10 && r < 10 + (int) numElementsInArray (kColours))
@@ -531,6 +533,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 else if (r == 4) { if (onMoveTrack) onMoveTrack (tk, +1); }   // down
                 else if (r == 5) { if (onSetTrackPolarity) onSetTrackPolarity (tk, ! curPolarity); }   // toggle phase
                 else if (r == 6) { if (onExportTrack) onExportTrack (tk); }   // export stem
+                else if (r == 7) { if (onRemoveTrack) onRemoveTrack (tk); }   // delete track
                 else if (r == 8) { if (onDuplicateTrack) onDuplicateTrack (tk); }   // clone track
                 else if (r == 1)
                 {

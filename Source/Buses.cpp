@@ -216,6 +216,62 @@ int MainComponent::apiGroupInserts (const std::vector<int>& inserts, const juce:
     return bus;
 }
 
+// --- dynamic per-track inserts -------------------------------------------------------------
+// Each track owns one insert; buses always sit above the track inserts. These keep the routing
+// index space (sends.bus, MixerTrack::output, Track::mixerTrack) consistent when an insert is
+// added or removed. Callers hold engineLock (it is recursive, so re-locking is harmless).
+
+int MainComponent::firstBusIndex() const
+{
+    for (int i = 1; i < (int) mixerTracks.size(); ++i)
+        if (mixerTracks[(size_t) i]->isBus) return i;
+    return (int) mixerTracks.size();
+}
+
+void MainComponent::insertMixerTrackAt (int pos, std::unique_ptr<MixerTrack> mt)
+{
+    pos = juce::jlimit (1, (int) mixerTracks.size(), pos);   // never before Master
+    mixerTracks.insert (mixerTracks.begin() + pos, std::move (mt));
+    for (auto& m : mixerTracks)
+    {
+        for (auto& s : m->sends) if (s.bus >= pos) ++s.bus;             // send targets shifted up
+        const int o = m->output.load(); if (o >= pos) m->output.store (o + 1);   // 0 (master) stays 0
+    }
+    for (auto& t : tracks) { const int mi = t->mixerTrack.load(); if (mi >= pos) t->mixerTrack.store (mi + 1); }
+}
+
+void MainComponent::removeMixerTrackAt (int pos)
+{
+    if (! juce::isPositiveAndBelow (pos, (int) mixerTracks.size()) || pos == 0) return;   // never remove Master
+    mixerTracks.erase (mixerTracks.begin() + pos);
+    for (auto& m : mixerTracks)
+    {
+        auto& sends = m->sends;
+        sends.erase (std::remove_if (sends.begin(), sends.end(),
+                        [&] (const MixerTrack::Send& s) { return s.bus == pos; }), sends.end());   // sends to it dropped
+        for (auto& s : sends) if (s.bus > pos) --s.bus;
+        const int o = m->output.load();
+        if      (o == pos) m->output.store (0);        // routed to the removed insert -> master
+        else if (o >  pos) m->output.store (o - 1);
+    }
+    for (auto& t : tracks)
+    { const int mi = t->mixerTrack.load(); if (mi == pos) t->mixerTrack.store (0); else if (mi > pos) t->mixerTrack.store (mi - 1); }
+}
+
+// Legacy projects (and the old startup) carried a fixed pool of 8 "Ins N" strips; drop any non-bus
+// insert that no track uses, so a loaded project ends up with exactly Master + per-track inserts + buses.
+void MainComponent::pruneUnbackedInserts()
+{
+    const juce::ScopedLock sl (engineLock);
+    for (int i = (int) mixerTracks.size() - 1; i >= 1; --i)   // high -> low so indices below stay stable
+    {
+        if (mixerTracks[(size_t) i]->isBus) continue;
+        bool backed = false;
+        for (auto& t : tracks) if (t->mixerTrack.load() == i) { backed = true; break; }
+        if (! backed) removeMixerTrackAt (i);
+    }
+}
+
 // A "group" is a bus that at least one insert routes its main output into (i.e. shows as a session
 // group column). Fold/unfold every such bus at once.
 void MainComponent::foldAllGroups (bool fold)

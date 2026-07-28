@@ -56,6 +56,7 @@ public:
     std::function<void (int, bool)>                     onSetTrackPolarity; // track index, invert
     std::function<void (int)>                           onExportTrack;   // track index -> bounce a stem
     std::function<void (int)>                           onDuplicateTrack; // track index -> clone the track
+    std::function<void (int)>                           onRemoveTrack;   // track index -> delete the track (+ its insert)
     /** Right-click an empty part of a track -> "Paste notes here": (track, beat). The
         owner reads JSON notes from the system clipboard and builds a clip at that beat. */
     std::function<void (int, double)> onPasteNotes;

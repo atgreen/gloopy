@@ -563,6 +563,11 @@ MainComponent::MainComponent (bool headless)
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
         apiRenameTrack (tracks[(size_t) trackIdx]->id, name);    // map view index -> stable API id
     };
+    arrangeView->onRemoveTrack = [this] (int trackIdx)
+    {
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+        apiRemoveTrack (tracks[(size_t) trackIdx]->id);         // deletes the track + its mixer insert
+    };
 
     arrangeView->onSetTrackColour = [this] (int trackIdx, const juce::String& hex)
     {
@@ -1095,7 +1100,11 @@ void MainComponent::addTrack (std::unique_ptr<Track> track)
     track->liveMidi.reset (currentSampleRate);
     {
         const juce::ScopedLock sl (engineLock);
-        track->mixerTrack.store (juce::jmin ((int) tracks.size() + 1, (int) mixerTracks.size() - 1));
+        // Give the track its own mixer insert, placed just after the last track insert (before any
+        // buses) so buses stay higher-indexed than the channels routing into them.
+        const int pos = firstBusIndex();
+        insertMixerTrackAt (pos, std::make_unique<MixerTrack> (track->name));
+        track->mixerTrack.store (pos);
         ensureSlotCount (track->sessionSlots, (int) scenes.size());   // rectangular session grid
         tracks.push_back (std::move (track));
         sessionLauncher.setTrackCount ((int) tracks.size());
@@ -1104,6 +1113,7 @@ void MainComponent::addTrack (std::unique_ptr<Track> track)
     if (! undoSuppressed && ! tracks.empty()) emitChange ("track_added", tracks.back()->id);
     if (arrangeView) arrangeView->rebuild();
     if (sessionPane) sessionPane->rebuild();
+    if (mixerView)   mixerView->rebuild();   // a new insert appeared
     resized();
 }
 
@@ -2006,7 +2016,14 @@ bool MainComponent::apiRemoveTrack (int id)
         {
             const juce::ScopedLock sl (engineLock);
             for (size_t i = 0; i < tracks.size(); ++i)
-                if (tracks[i]->id == id) { tracks.erase (tracks.begin() + (long) i); ok = true; break; }
+                if (tracks[i]->id == id)
+                {
+                    const int mi = tracks[i]->mixerTrack.load();   // remove the track's own insert too
+                    tracks.erase (tracks.begin() + (long) i);
+                    if (mi >= 1 && mi < (int) mixerTracks.size() && ! mixerTracks[(size_t) mi]->isBus)
+                        removeMixerTrackAt (mi);
+                    ok = true; break;
+                }
             // Track positions shifted — reset session playback and resize (transient state only).
             sessionLauncher.reset();
             sessionLauncher.setTrackCount ((int) tracks.size());
@@ -2016,6 +2033,7 @@ bool MainComponent::apiRemoveTrack (int id)
         emitChange ("track_removed", id);
         if (arrangeView) arrangeView->rebuild();
         if (sessionPane) sessionPane->rebuild();
+        if (mixerView)   mixerView->rebuild();   // its insert is gone
         selectClip (-1, -1);
         resized();
         return true;
@@ -3515,8 +3533,8 @@ void MainComponent::setupMixer()
     mixerTracks.clear();
     mixerTracks.push_back (std::make_unique<MixerTrack> ("Master"));
     mixerTracks[0]->volume.store (0.9f);
-    for (int i = 1; i <= 8; ++i)
-        mixerTracks.push_back (std::make_unique<MixerTrack> ("Ins " + juce::String (i)));
+    // No fixed insert pool: each track creates its own insert in addTrack (Master + per-track
+    // inserts + buses). This is what keeps the mixer showing exactly one strip per track.
 }
 
 std::unique_ptr<Effect> MainComponent::makeEffect (const juce::String& type)
@@ -5001,12 +5019,16 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             mixerTracks.push_back (std::move (mt));
         }
     }
-    if (mixerTracks.empty())
+    if (mixerTracks.empty())   // legacy project with no MIXER node: one insert per track
     {
         mixerTracks.push_back (std::make_unique<MixerTrack> ("Master"));
-        for (int i = 1; i <= 8; ++i)
-            mixerTracks.push_back (std::make_unique<MixerTrack> ("Ins " + juce::String (i)));
+        for (auto& t : tracks)
+        {
+            mixerTracks.push_back (std::make_unique<MixerTrack> (t->name));
+            t->mixerTrack.store ((int) mixerTracks.size() - 1);
+        }
     }
+    pruneUnbackedInserts();   // drop any leftover fixed-pool "Ins N" strips no track uses
 
     auto grps = root.getChildWithName ("GROUPS");
     for (int i = 0; i < grps.getNumChildren(); ++i)

@@ -267,6 +267,13 @@ public:
     int  apiGroupInserts (const std::vector<int>& inserts, const juce::String& name);   // create a bus + route members into it
     bool apiUngroup (int busIndex);                                  // dissolve a group bus: reparent members, then remove it
     bool apiGatherGroup (int busIndex);                              // reorder a bus's member tracks contiguous
+    // Dynamic per-track inserts: each arrangement track owns exactly one mixer insert, created and
+    // removed with it (Master + track inserts + buses — no fixed pool). These keep the routing index
+    // space consistent (sends, main outputs, tracks' mixerTrack). Callers hold engineLock.
+    int  firstBusIndex() const;                                      // index of the first bus, or size() if none
+    void insertMixerTrackAt (int pos, std::unique_ptr<MixerTrack> mt);   // insert + reindex references above it
+    void removeMixerTrackAt (int pos);                               // erase + reindex references above it
+    void pruneUnbackedInserts();                                     // drop legacy fixed-pool leftovers (unbacked non-bus inserts)
     void foldAllGroups (bool fold);                                  // fold/unfold every group column (session)
     void toggleFoldAllGroups();                                      // any open -> fold all, else unfold all
 
