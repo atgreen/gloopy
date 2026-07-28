@@ -137,6 +137,9 @@ nav:
           - Subscribe to the playhead and meters: control-scripting/how-to/subscribe-playhead-meters.md
           - Add and control effects from a script: control-scripting/how-to/effects-from-a-script.md
           - Play Gloopy live over OSC: control-scripting/how-to/play-live-over-osc.md
+          - Bulk-import a generated MIDI sequence: control-scripting/how-to/import-generated-notes.md
+          - Bind a hardware knob to a parameter: control-scripting/how-to/bind-a-controller.md
+          - Render export profiles from a script or CI: control-scripting/how-to/export-profiles-ci.md
       - Reference:
           - control-scripting/reference/index.md
           - gRPC API: control-scripting/reference/grpc/index.md

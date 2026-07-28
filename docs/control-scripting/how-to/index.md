@@ -16,11 +16,17 @@ Task recipes for driving Gloopy from code or hardware. Each assumes you've read
   Lisp, and grpcurl.
 - **[Play Gloopy live over OSC](play-live-over-osc.md)** — fire notes, sweep
   knobs, and drive the transport in real time from Common Lisp or any OSC sender.
+- **[Bulk-import a generated MIDI sequence](import-generated-notes.md)** — hand
+  Gloopy a whole part as JSON in one call.
+- **[Bind a hardware knob to any parameter (MIDI-learn)](bind-a-controller.md)** —
+  map a CC or OSC source to any parameter, scaled and invertible.
+- **[Render export profiles from a script or CI](export-profiles-ci.md)** —
+  named, repeatable bounces (mix / range / track / stems).
 
 !!! note "Being written"
-    Planned guides:
-
-    - Sync transport with an external clock
+    Still planned: syncing the transport to an external clock (Gloopy can be
+    *driven* over OSC today — see the live-OSC guide — but following an incoming
+    MIDI clock isn't implemented yet).
     - Bulk-import a generated MIDI sequence (`ImportNotesJSON`)
     - Bind a hardware knob to any parameter (MIDI-learn)
     - Render named export profiles from a script or CI
