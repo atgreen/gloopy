@@ -54,6 +54,21 @@ Open **File → History** to see the list of commits, newest first — each with
 identifier, the message you wrote, and who made it when. It's the timeline of how your
 song evolved, and the reference for the version-navigation features coming next.
 
+## Try an idea on a branch
+
+A **branch** is a parallel version of your song — perfect for an alternate arrangement or
+a remix you want to explore without disturbing the main version. Open **File → Branches**
+to see your branches (the current one is ticked) and:
+
+- **New branch…** — start a fresh line of work from where you are, and switch to it.
+- click a branch — **switch** to it (commit your changes first; Gloopy reloads the song
+  as it was on that branch).
+- **Merge into <current>** — fold another branch's changes into the one you're on.
+- **Delete branch** / **Rename current branch…** — housekeeping.
+
+Work on a branch, commit as you go, then either merge it back into your main version or
+leave it as an alternate take you can return to any time.
+
 ## From a script
 
 The same status is available to scripts and agents through the control API, so you can

@@ -885,6 +885,36 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.GitLogRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.GitLogResult.FromString,
                 _registered_method=True)
+        self.GitBranches = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitBranches',
+                request_serializer=gloopy__pb2.GitDir.SerializeToString,
+                response_deserializer=gloopy__pb2.GitBranchList.FromString,
+                _registered_method=True)
+        self.GitBranchCreate = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitBranchCreate',
+                request_serializer=gloopy__pb2.GitBranchRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitCheckout = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitCheckout',
+                request_serializer=gloopy__pb2.GitRefRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitMerge = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitMerge',
+                request_serializer=gloopy__pb2.GitRefRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitBranchDelete = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitBranchDelete',
+                request_serializer=gloopy__pb2.GitBranchRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitBranchRename = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitBranchRename',
+                request_serializer=gloopy__pb2.GitBranchRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.NewProject = channel.unary_unary(
                 '/gloopy.v1.Gloopy/NewProject',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -2116,6 +2146,48 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GitBranches(self, request, context):
+        """current branch + all local branches
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitBranchCreate(self, request, context):
+        """create a branch (optionally from start_point)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitCheckout(self, request, context):
+        """switch to a branch/tag/commit (changes the tree)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitMerge(self, request, context):
+        """merge a branch into the current one
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitBranchDelete(self, request, context):
+        """delete a branch (force = -D)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitBranchRename(self, request, context):
+        """rename (name -> new_name)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def NewProject(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -3102,6 +3174,36 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.GitLog,
                     request_deserializer=gloopy__pb2.GitLogRequest.FromString,
                     response_serializer=gloopy__pb2.GitLogResult.SerializeToString,
+            ),
+            'GitBranches': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitBranches,
+                    request_deserializer=gloopy__pb2.GitDir.FromString,
+                    response_serializer=gloopy__pb2.GitBranchList.SerializeToString,
+            ),
+            'GitBranchCreate': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitBranchCreate,
+                    request_deserializer=gloopy__pb2.GitBranchRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitCheckout': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitCheckout,
+                    request_deserializer=gloopy__pb2.GitRefRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitMerge': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitMerge,
+                    request_deserializer=gloopy__pb2.GitRefRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitBranchDelete': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitBranchDelete,
+                    request_deserializer=gloopy__pb2.GitBranchRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitBranchRename': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitBranchRename,
+                    request_deserializer=gloopy__pb2.GitBranchRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'NewProject': grpc.unary_unary_rpc_method_handler(
                     servicer.NewProject,
@@ -7795,6 +7897,168 @@ class Gloopy:
             '/gloopy.v1.Gloopy/GitLog',
             gloopy__pb2.GitLogRequest.SerializeToString,
             gloopy__pb2.GitLogResult.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitBranches(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitBranches',
+            gloopy__pb2.GitDir.SerializeToString,
+            gloopy__pb2.GitBranchList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitBranchCreate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitBranchCreate',
+            gloopy__pb2.GitBranchRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitCheckout(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitCheckout',
+            gloopy__pb2.GitRefRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitMerge(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitMerge',
+            gloopy__pb2.GitRefRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitBranchDelete(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitBranchDelete',
+            gloopy__pb2.GitBranchRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitBranchRename(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitBranchRename',
+            gloopy__pb2.GitBranchRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,
             insecure,

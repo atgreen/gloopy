@@ -3716,6 +3716,120 @@ void MainComponent::openHistory()
     historyWindow->toFront (true);
 }
 
+void MainComponent::showBranchMenu()
+{
+    // Branches = alternate arrangements. Checkout / merge change files on disk, so we
+    // reload the project after them; both are guarded against an uncommitted working tree
+    // (stash-choice arrives in a later slice — for now: commit first).
+    if (currentProjectFile.getFileName() != "gloopy.toml") return;
+    const auto dir = currentProjectFile.getParentDirectory().getFullPathName();
+    if (! apiGitStatus (dir).isRepo)
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+            "Branches", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+        return;
+    }
+
+    auto b = apiGitBranches (dir);
+    const auto current = b.current;
+    auto others = b.branches;
+    others.removeString (current);
+
+    juce::PopupMenu m;
+    m.addItem (-1, "On branch: " + (current.isNotEmpty() ? current : juce::String ("(detached)")), false);
+    m.addSeparator();
+    for (int i = 0; i < b.branches.size(); ++i)                       // click a branch to check it out
+        m.addItem (1000 + i, b.branches[i], true, b.branches[i] == current);
+    m.addSeparator();
+    m.addItem (1, "New branch...");
+    if (others.size() > 0)
+    {
+        juce::PopupMenu mergeM, delM;
+        for (int i = 0; i < others.size(); ++i) mergeM.addItem (2000 + i, others[i]);
+        for (int i = 0; i < others.size(); ++i) delM.addItem (3000 + i, others[i]);
+        m.addSubMenu ("Merge into " + current, mergeM);
+        m.addSubMenu ("Delete branch", delM);
+    }
+    if (current.isNotEmpty()) m.addItem (2, "Rename current branch...");
+
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
+        [this, dir, allBranches = b.branches, others] (int r)
+        {
+            if (r == 0) return;
+            auto dirty = [this, dir] { return ! apiGitStatus (dir).changes.empty(); };
+            auto reloadProject = [this] { openAny (currentProjectFile);
+                                          if (sourceControlWindow != nullptr && sourceControlWindow->isVisible()) openSourceControl(); };
+            auto ok = [] (const juce::String& title, const GitResult& res)
+            {
+                if (! res.ok) juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, title, res.error);
+                return res.ok;
+            };
+
+            if (r >= 1000 && r < 2000)          // checkout a branch (reloads the project)
+            {
+                const auto name = allBranches[r - 1000];
+                if (name == apiGitBranches (dir).current) return;
+                if (dirty()) { juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+                    "Checkout", "Commit your changes before switching branches."); return; }
+                if (ok ("Checkout", apiGitCheckout (dir, name))) reloadProject();
+            }
+            else if (r >= 2000 && r < 3000)     // merge a branch into the current one (reloads)
+            {
+                const auto name = others[r - 2000];
+                if (dirty()) { juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+                    "Merge", "Commit your changes before merging."); return; }
+                if (ok ("Merge", apiGitMerge (dir, name))) reloadProject();
+            }
+            else if (r >= 3000)                 // delete a branch (safe -d; git refuses if unmerged)
+            {
+                ok ("Delete branch", apiGitBranchDelete (dir, others[r - 3000], false));
+            }
+            else if (r == 1)                    // new branch from the current commit, then switch to it
+            {
+                auto* aw = new juce::AlertWindow ("New branch",
+                    "Name the new branch (created from the current commit).", juce::MessageBoxIconType::NoIcon);
+                aw->addTextEditor ("name", "", "Branch name");
+                aw->addButton ("Create + switch", 1, juce::KeyPress (juce::KeyPress::returnKey));
+                aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+                aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, dir] (int rr)
+                {
+                    if (rr == 1)
+                    {
+                        const auto name = aw->getTextEditorContents ("name").trim();
+                        if (name.isNotEmpty())
+                        {
+                            auto res = apiGitBranchCreate (dir, name, {});
+                            if (res.ok) res = apiGitCheckout (dir, name);   // same commit -> no reload needed
+                            if (! res.ok) juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "New branch", res.error);
+                            else if (sourceControlWindow != nullptr && sourceControlWindow->isVisible()) openSourceControl();
+                        }
+                    }
+                    delete aw;
+                }), false);
+            }
+            else if (r == 2)                    // rename the current branch
+            {
+                const auto cur = apiGitBranches (dir).current;
+                auto* aw = new juce::AlertWindow ("Rename branch", "Rename '" + cur + "' to:", juce::MessageBoxIconType::NoIcon);
+                aw->addTextEditor ("name", cur, "New name");
+                aw->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
+                aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+                aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, dir, cur] (int rr)
+                {
+                    if (rr == 1)
+                    {
+                        const auto nn = aw->getTextEditorContents ("name").trim();
+                        if (nn.isNotEmpty() && nn != cur)
+                            if (! apiGitBranchRename (dir, cur, nn).ok)
+                                juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Rename branch",
+                                    "Could not rename the branch.");
+                    }
+                    delete aw;
+                }), false);
+            }
+        });
+}
+
 void MainComponent::showCommitDialog()
 {
     // The IDE commit surface: save the current edits, list what changed, and let the
@@ -4237,6 +4351,7 @@ void MainComponent::showFileMenu()
     menu.addItem (19, "Enable Git", isComposition);    // git init the open composition folder
     menu.addItem (22, "Commit...", isComposition);     // save + stage all + commit (Git.cpp)
     menu.addItem (23, "History...", isComposition);    // git commit log (Git.cpp)
+    menu.addItem (24, "Branches...", isComposition);   // branch popup (Git.cpp)
     // Live MIDI status (read-only): the input sources Gloopy hears + which track they play.
     juce::PopupMenu midiMenu;
     const auto midiIns = apiListMidiInputs();
@@ -4301,6 +4416,7 @@ void MainComponent::showFileMenu()
             }
             if (result == 22) { showCommitDialog(); return; }   // save + stage all + commit
             if (result == 23) { openHistory(); return; }        // git commit log
+            if (result == 24) { showBranchMenu(); return; }     // branch popup
             if (result == 20) { undo(); return; }
             if (result == 21) { redo(); return; }
             if (result >= 100)                                  // New from Template

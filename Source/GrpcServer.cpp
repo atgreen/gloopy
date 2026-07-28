@@ -575,6 +575,25 @@ namespace
             }
             return Status::OK;
         }
+        static void setAck (pb::Ack* r, const MainComponent::GitResult& res)
+        { r->set_ok (res.ok); if (! res.ok) r->set_error (res.error.toStdString()); }
+        Status GitBranches (ServerContext*, const pb::GitDir* q, pb::GitBranchList* r) override
+        {
+            auto b = main.apiGitBranches (js (q->dir()));
+            r->set_current (b.current.toStdString());
+            for (auto& n : b.branches) r->add_branches (n.toStdString());
+            return Status::OK;
+        }
+        Status GitBranchCreate (ServerContext*, const pb::GitBranchRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitBranchCreate (js (q->dir()), js (q->name()), js (q->start_point()))); return Status::OK; }
+        Status GitCheckout (ServerContext*, const pb::GitRefRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitCheckout (js (q->dir()), js (q->ref()))); return Status::OK; }
+        Status GitMerge (ServerContext*, const pb::GitRefRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitMerge (js (q->dir()), js (q->ref()))); return Status::OK; }
+        Status GitBranchDelete (ServerContext*, const pb::GitBranchRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitBranchDelete (js (q->dir()), js (q->name()), q->force())); return Status::OK; }
+        Status GitBranchRename (ServerContext*, const pb::GitBranchRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitBranchRename (js (q->dir()), js (q->name()), js (q->new_name()))); return Status::OK; }
 
         // ---- project / state ----
         Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override

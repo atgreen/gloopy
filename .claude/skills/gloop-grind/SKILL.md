@@ -1957,11 +1957,18 @@ commit messages are user-authored; auto-commit-on-save is opt-in only.
       full commit-graph panel. smoke: two commits → GitLog is newest-first with the newest's parents
       linking to the oldest's hash; screenshot-validated (a 2-commit repo showing `(HEAD -> main)`).
       **Not yet:** the DAG lines / per-commit diff / filter (a richer panel in a later pass).
-    - `[ ]` **5 — branches (alternate arrangements).** `apiGitBranchList / Create / Checkout /
-      Rename / Delete / Merge`. **Desktop:** a branch popup — current branch, checkout, new-branch-
-      from-here, merge-into-current; **guard a dirty checkout** (offer stash / commit / cancel).
-      Reload the project after a checkout that changes the tree. *Done when:* create → checkout →
-      commit-on-branch → merge back, verified via `git log --all`, headless.
+    - `[x]` **5 — branches LANDED** (`Source/Git.cpp`, commit): `apiGitBranches(dir)`→{current,
+      branches[]} + `apiGitBranchCreate/Checkout/Merge/BranchDelete/BranchRename` (thin runGit
+      wrappers via a shared `gitWrite` helper that captures stderr). GitBranches/GitBranchCreate/
+      GitCheckout/GitMerge/GitBranchDelete/GitBranchRename RPCs (`GitBranchList`/`GitBranchRequest`/
+      `GitRefRequest`) + Python. **Desktop:** File → "Branches..." (`showBranchMenu`) opens a popup —
+      "On branch: <current>", each branch (current ✓, click = checkout), New branch... (create +
+      switch), Merge into <current> ▸, Delete branch ▸, Rename current. **Checkout + merge change
+      the working tree, so they reload the project** (`openAny(currentProjectFile)`) and are
+      **guarded against a dirty tree** (commit first — stash-choice is slice 9). smoke: create feat →
+      checkout → commit-on-feat → checkout main → merge → GitLog shows the feature commit on main;
+      screenshot-validated (the popup on a 2-branch repo, main ticked). Branches = alternate
+      arrangements. **Not yet:** stash-on-dirty-checkout (slice 9), merge-conflict UI (slice 11).
     - `[ ]` **6 — tags (milestone mixes).** `apiGitTagList / Create (lightweight + annotated) /
       Delete / Checkout`. **Desktop:** "Tag this version..." (name + optional message) on the Source
       Control panel + File menu; a tag list. *Done when:* tag a commit → it lists → checkout by tag

@@ -215,11 +215,19 @@ public:
     struct GitCommitInfo { juce::String hash; juce::StringArray parents;
                            juce::String refs, author, date, subject; };
     std::vector<GitCommitInfo> apiGitLog (const juce::String& dir, int maxCount);   // newest first
+    struct GitBranches { juce::String current; juce::StringArray branches; };
+    GitBranches apiGitBranches (const juce::String& dir);
+    GitResult apiGitBranchCreate (const juce::String& dir, const juce::String& name, const juce::String& startPoint);
+    GitResult apiGitCheckout (const juce::String& dir, const juce::String& ref);   // changes the working tree
+    GitResult apiGitMerge (const juce::String& dir, const juce::String& name);     // merge <name> into current
+    GitResult apiGitBranchDelete (const juce::String& dir, const juce::String& name, bool force);
+    GitResult apiGitBranchRename (const juce::String& dir, const juce::String& oldName, const juce::String& newName);
     juce::String gitStatusReport();                     // human-readable status text (Git.cpp)
     juce::String gitHistoryReport();                    // human-readable commit log (Git.cpp)
     void openSourceControl();                           // UI: a Source Control status window (MainComponent.cpp)
     void showCommitDialog();                            // UI: stage-all + commit dialog (MainComponent.cpp)
     void openHistory();                                 // UI: a commit-history window (MainComponent.cpp)
+    void showBranchMenu();                              // UI: branch popup — checkout/create/merge (MainComponent.cpp)
 
     // --- waveform thumbnail cache (Waveform.cpp) ---
     // Min/max peaks per bucket for an audio file, cached by path+mtime+size. Feeds

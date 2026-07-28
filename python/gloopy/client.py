@@ -956,6 +956,31 @@ class Gloopy:
         return [{"hash": c.hash, "parents": list(c.parents), "refs": c.refs,
                  "author": c.author, "date": c.date, "subject": c.subject} for c in r.commits]
 
+    def git_branches(self, dir: str) -> dict:
+        """Current branch + all local branches in `dir`."""
+        r = self.stub.GitBranches(pb.GitDir(dir=dir))
+        return {"current": r.current, "branches": list(r.branches)}
+
+    def git_branch_create(self, dir: str, name: str, start_point: str = "") -> None:
+        """Create a branch `name` (from `start_point`, or the current HEAD)."""
+        self._ack(self.stub.GitBranchCreate(pb.GitBranchRequest(dir=dir, name=name, start_point=start_point)))
+
+    def git_checkout(self, dir: str, ref: str) -> None:
+        """Switch the working tree to a branch, tag, or commit (changes files on disk)."""
+        self._ack(self.stub.GitCheckout(pb.GitRefRequest(dir=dir, ref=ref)))
+
+    def git_merge(self, dir: str, name: str) -> None:
+        """Merge branch `name` into the current branch."""
+        self._ack(self.stub.GitMerge(pb.GitRefRequest(dir=dir, ref=name)))
+
+    def git_branch_delete(self, dir: str, name: str, force: bool = False) -> None:
+        """Delete branch `name` (force=True for -D)."""
+        self._ack(self.stub.GitBranchDelete(pb.GitBranchRequest(dir=dir, name=name, force=force)))
+
+    def git_branch_rename(self, dir: str, name: str, new_name: str) -> None:
+        """Rename branch `name` to `new_name`."""
+        self._ack(self.stub.GitBranchRename(pb.GitBranchRequest(dir=dir, name=name, new_name=new_name)))
+
     def diagnostics(self) -> dict:
         """Engine health: device settings, callback timing, DSP load, dropouts, render speed."""
         d = self.stub.GetDiagnostics(pb.Empty())

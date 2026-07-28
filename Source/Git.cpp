@@ -247,6 +247,78 @@ std::vector<MainComponent::GitCommitInfo> MainComponent::apiGitLog (const juce::
     return out;
 }
 
+MainComponent::GitBranches MainComponent::apiGitBranches (const juce::String& dir)
+{
+    GitBranches b;
+    juce::String version;
+    if (! apiGitAvailable (version) || dir.isEmpty())
+        return b;
+
+    juce::String cur;
+    if (runGit ({ "-C", dir, "branch", "--show-current" }, cur) == 0)
+        b.current = cur.trim();
+
+    juce::String list;
+    if (runGit ({ "-C", dir, "for-each-ref", "--format=%(refname:short)", "refs/heads" }, list) == 0)
+    {
+        b.branches = juce::StringArray::fromLines (list);
+        b.branches.removeEmptyStrings();
+        b.branches.trim();
+    }
+    return b;
+}
+
+// Small helper for the branch write-ops: check git + a non-empty dir, then run the args.
+static MainComponent::GitResult gitWrite (MainComponent& m, const juce::StringArray& args, const juce::String& dir)
+{
+    MainComponent::GitResult r;
+    juce::String version;
+    if (! m.apiGitAvailable (version)) { r.error = "git is not installed or not on PATH"; return r; }
+    if (dir.isEmpty())                 { r.error = "no directory given"; return r; }
+    // Defined in Git.cpp's anonymous namespace above; re-declare via a lambda-free call:
+    juce::StringArray argv; argv.add ("git"); argv.addArray (args);
+    juce::ChildProcess proc;
+    if (! proc.start (argv, juce::ChildProcess::wantStdOut | juce::ChildProcess::wantStdErr))
+    { r.error = "could not launch git"; return r; }
+    const auto out = proc.readAllProcessOutput();
+    proc.waitForProcessToFinish (10000);
+    if (proc.getExitCode() != 0) { r.error = out.trim().isNotEmpty() ? out.trim() : "git command failed"; return r; }
+    r.ok = true;
+    return r;
+}
+
+MainComponent::GitResult MainComponent::apiGitBranchCreate (const juce::String& dir, const juce::String& name, const juce::String& startPoint)
+{
+    if (name.trim().isEmpty()) { GitResult r; r.error = "a branch name is required"; return r; }
+    juce::StringArray args { "-C", dir, "branch", name.trim() };
+    if (startPoint.trim().isNotEmpty()) args.add (startPoint.trim());
+    return gitWrite (*this, args, dir);
+}
+
+MainComponent::GitResult MainComponent::apiGitCheckout (const juce::String& dir, const juce::String& ref)
+{
+    if (ref.trim().isEmpty()) { GitResult r; r.error = "a ref is required"; return r; }
+    return gitWrite (*this, { "-C", dir, "checkout", ref.trim() }, dir);
+}
+
+MainComponent::GitResult MainComponent::apiGitMerge (const juce::String& dir, const juce::String& name)
+{
+    if (name.trim().isEmpty()) { GitResult r; r.error = "a branch to merge is required"; return r; }
+    return gitWrite (*this, { "-C", dir, "merge", "--no-edit", name.trim() }, dir);
+}
+
+MainComponent::GitResult MainComponent::apiGitBranchDelete (const juce::String& dir, const juce::String& name, bool force)
+{
+    if (name.trim().isEmpty()) { GitResult r; r.error = "a branch name is required"; return r; }
+    return gitWrite (*this, { "-C", dir, "branch", force ? "-D" : "-d", name.trim() }, dir);
+}
+
+MainComponent::GitResult MainComponent::apiGitBranchRename (const juce::String& dir, const juce::String& oldName, const juce::String& newName)
+{
+    if (oldName.trim().isEmpty() || newName.trim().isEmpty()) { GitResult r; r.error = "both names are required"; return r; }
+    return gitWrite (*this, { "-C", dir, "branch", "-m", oldName.trim(), newName.trim() }, dir);
+}
+
 juce::String MainComponent::gitHistoryReport()
 {
     juce::String version;

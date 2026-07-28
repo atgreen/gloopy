@@ -229,6 +229,20 @@ if command -v git >/dev/null; then
     g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitLog \
         | python3 -c "import json,sys;c=json.load(sys.stdin)['commits'];assert len(c)>=2 and c[0]['subject']=='second smoke commit' and c[1]['subject']=='smoke commit','log order wrong: %r'%c;assert c[1]['hash'] in c[0]['parents'],'parent linkage wrong: %r'%c;print('smoke: PASS — GitLog lists commits newest-first with correct parent linkage')" \
         || { echo "smoke: GitLog wrong" >&2; exit 1; }
+    # Branches (Wave 9 slice 5): create -> checkout -> commit-on-branch -> merge back into main.
+    g -d "{\"dir\":\"$NEWG\",\"name\":\"feat\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitBranchCreate >/dev/null
+    g -d "{\"dir\":\"$NEWG\",\"ref\":\"feat\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCheckout >/dev/null
+    g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitBranches \
+        | python3 -c "import json,sys;d=json.load(sys.stdin);assert d['current']=='feat' and 'main' in d['branches'],'branch switch wrong: %r'%d;print('smoke: PASS — GitBranchCreate + GitCheckout switched to feat')" \
+        || { echo "smoke: branch create/checkout failed" >&2; exit 1; }
+    echo "onfeat" > "$NEWG/FEATURE.txt"
+    g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAdd >/dev/null
+    g -d "{\"dir\":\"$NEWG\",\"message\":\"feature work\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit >/dev/null
+    g -d "{\"dir\":\"$NEWG\",\"ref\":\"main\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCheckout >/dev/null
+    g -d "{\"dir\":\"$NEWG\",\"ref\":\"feat\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitMerge >/dev/null
+    g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitLog \
+        | python3 -c "import json,sys;subs=[c['subject'] for c in json.load(sys.stdin)['commits']];assert 'feature work' in subs,'merge did not bring the feature commit onto main: %r'%subs;print('smoke: PASS — merged the feature branch back into main')" \
+        || { echo "smoke: branch merge failed" >&2; exit 1; }
 else
     echo "smoke: SKIP — git not installed (GitStatus check)"
 fi

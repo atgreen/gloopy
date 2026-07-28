@@ -328,6 +328,9 @@ message GitCommitInfo {
   string author = 4; string date = 5; string subject = 6;
 }
 message GitLogResult { repeated GitCommitInfo commits = 1; }             // newest first
+message GitBranchList    { string current = 1; repeated string branches = 2; }
+message GitBranchRequest { string dir = 1; string name = 2; string start_point = 3; string new_name = 4; bool force = 5; }
+message GitRefRequest    { string dir = 1; string ref = 2; }
 message RenderRequest {                       // offline bounce to WAV
   string path = 1;
   double tail_seconds = 2;
@@ -581,6 +584,12 @@ service Gloopy {
   rpc GitAdd      (GitAddRequest)    returns (Ack);   // stage files (empty paths = stage all)
   rpc GitCommit   (GitCommitRequest) returns (Ack);   // commit staged changes with a message
   rpc GitLog      (GitLogRequest)    returns (GitLogResult);   // recent commits (newest first)
+  rpc GitBranches    (GitDir)           returns (GitBranchList);   // current branch + all local branches
+  rpc GitBranchCreate(GitBranchRequest) returns (Ack);            // create a branch (optionally from start_point)
+  rpc GitCheckout    (GitRefRequest)    returns (Ack);            // switch to a branch/tag/commit (changes the tree)
+  rpc GitMerge       (GitRefRequest)    returns (Ack);            // merge a branch into the current one
+  rpc GitBranchDelete(GitBranchRequest) returns (Ack);            // delete a branch (force = -D)
+  rpc GitBranchRename(GitBranchRequest) returns (Ack);            // rename (name -> new_name)
   rpc NewProject (Empty)    returns (Ack);
   rpc ListTemplates  (Empty)       returns (TemplateList);   // built-in + user project templates
   rpc NewFromTemplate(TemplateRef) returns (Ack);            // empty + seed a template
