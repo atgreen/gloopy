@@ -120,9 +120,14 @@ public:
     std::function<void (int busIndex)>                 onOpenBusFx;        // open a group/bus effect chain
     std::function<void (int busIndex, juce::Colour)>   onSetGroupColour;   // recolour a group (transparent = auto)
     std::function<void (int busIndex)>                 onUngroup;          // dissolve the group (reparent members, remove bus)
+    std::function<void (const std::vector<int>&)>      onGroupTracks;      // group these track columns (track indices)
+    // Multi-select in the session grid: click a track column header to select it (Shift/Ctrl to
+    // extend), then group/ungroup — the arrangement-view counterpart of the mixer's strip select.
+    // groupSelectedTracks() / ungroupSelectedTracks() are defined below (called from Cmd+G handling).
 
     void rebuild()
     {
+        trackSel.clear();   // track indices/columns shift on any structural change; drop a stale selection
         const int nt = (int) tracks.size();
         // Build display columns with nesting: each track's group ancestry (outer -> inner) gets a
         // group column emitted before its first member; a track/inner column is hidden when any
@@ -333,13 +338,19 @@ public:
             const int t = cols[(size_t) c].track;
             if (t < 0) continue;
             auto h = colHeaderRect (c);
+            const bool sel = trackSel.count (t) > 0;
             g.setColour (trackCol[(size_t) t].withAlpha (0.85f));
             g.fillRect (h.removeFromTop (4.0f));
-            g.setColour (juce::Colour (0xff2a2a30));
+            g.setColour (sel ? juce::Colour (0xff37c0d4).withAlpha (0.16f) : juce::Colour (0xff2a2a30));
             g.fillRect (h);
             g.setColour (juce::Colours::white.withAlpha (0.9f));
             g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
             g.drawText (trackName[(size_t) t], h.reduced (6, 2), juce::Justification::centredLeft, true);
+            if (sel)   // selected for grouping: accent ring (matches the mixer strip selection)
+            {
+                g.setColour (juce::Colour (0xff37c0d4));
+                g.drawRoundedRectangle (colHeaderRect (c).reduced (1.5f), 3.0f, 1.6f);
+            }
         }
 
         // Group/bus column headers (a submix column — no clip cells below it).
@@ -503,6 +514,15 @@ public:
                 return;
             }
 
+        // Track header: left-click selects it for grouping (Shift/Ctrl extends); right-click menu.
+        for (int c = 0; c < numCols(); ++c)
+            if (cols[(size_t) c].track >= 0 && colHeaderRect (c).contains (p))
+            {
+                if (e.mods.isPopupMenu()) trackHeaderMenu (cols[(size_t) c].track, e.getScreenPosition());
+                else                      toggleTrackSel (cols[(size_t) c].track, e.mods);
+                return;
+            }
+
         for (int s = 0; s < ns; ++s)
             for (int c = 0; c < numCols(); ++c)
             {
@@ -545,6 +565,61 @@ public:
                          });
     }
 
+    // --- track-column multi-select (group/ungroup from the session grid) ---
+    void toggleTrackSel (int t, const juce::ModifierKeys& mods)
+    {
+        const bool extend = mods.isShiftDown() || mods.isCommandDown() || mods.isCtrlDown();
+        if (extend)                                        { if (trackSel.count (t)) trackSel.erase (t); else trackSel.insert (t); }
+        else if (trackSel.size() == 1 && trackSel.count (t)) trackSel.clear();                 // click the sole selection -> clear
+        else                                               { trackSel.clear(); trackSel.insert (t); }   // plain click -> single
+        repaint (juce::Rectangle<int> (sv::kPad, sv::kPad, getWidth(), sv::kHeaderH));
+    }
+
+    // The group bus this track routes into (its immediate parent group), or -1 if ungrouped.
+    int groupOfTrack (int t) const
+    {
+        const juce::ScopedLock sl (engineLock);
+        if (! juce::isPositiveAndBelow (t, (int) tracks.size())) return -1;
+        const int ins = tracks[(size_t) t]->mixerTrack.load();
+        if (! juce::isPositiveAndBelow (ins, (int) mixerTracks.size())) return -1;
+        const int o = mixerTracks[(size_t) ins]->output.load();
+        return (o > 0 && juce::isPositiveAndBelow (o, (int) mixerTracks.size()) && mixerTracks[(size_t) o]->isBus) ? o : -1;
+    }
+
+    void trackHeaderMenu (int t, juce::Point<int> screenPos)
+    {
+        juce::PopupMenu m;
+        if (onGroupTracks && trackSel.size() >= 2 && trackSel.count (t))
+            m.addItem (1, "Group " + juce::String ((int) trackSel.size()) + " selected tracks");
+        const int bus = groupOfTrack (t);
+        if (onUngroup && bus >= 0) m.addItem (2, "Ungroup");
+        if (m.getNumItems() == 0) return;
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this)
+                             .withTargetScreenArea ({ screenPos.x, screenPos.y, 1, 1 }),
+                         [this, bus] (int r)
+                         {
+                             if      (r == 1) groupSelectedTracks();
+                             else if (r == 2 && onUngroup) onUngroup (bus);
+                         });
+    }
+
+public:
+    void groupSelectedTracks()
+    {
+        if (! onGroupTracks || trackSel.size() < 2) return;
+        const std::vector<int> ts (trackSel.begin(), trackSel.end());   // std::set is sorted ascending
+        trackSel.clear();
+        onGroupTracks (ts);   // owner maps tracks -> inserts, creates the bus, gathers, rebuilds
+    }
+
+    void ungroupSelectedTracks()
+    {
+        if (! onUngroup || trackSel.empty()) return;
+        int bus = -1;
+        for (int t : trackSel) { bus = groupOfTrack (t); if (bus >= 0) break; }   // the group the selection belongs to
+        if (bus >= 0) { trackSel.clear(); onUngroup (bus); }
+    }
+
 private:
     struct Strip
     {
@@ -558,6 +633,7 @@ private:
     struct Col { int track = -1; int bus = -1; bool folded = false; int depth = 0; juce::String name; juce::Colour colour; };   // bus >= 0 -> group column
     std::vector<Col> cols;
     std::map<int, std::pair<float, float>> busMeter;   // busIndex -> smoothed L,R for group columns
+    std::set<int> trackSel;                            // track columns selected for grouping (highlighted)
     int  numCols() const { return (int) cols.size(); }
     int  colOfTrack (int t) const { for (int c = 0; c < numCols(); ++c) if (cols[(size_t) c].track == t) return c; return t; }
     static bool isContiguousRun (const std::vector<int>& m)   // ascending consecutive track indices

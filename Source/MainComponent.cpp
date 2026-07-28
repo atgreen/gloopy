@@ -770,6 +770,27 @@ MainComponent::MainComponent (bool headless)
         if (mixerView)   mixerView->rebuild();
         if (sessionPane) sessionPane->rebuild();
     };
+    grid.onGroupTracks = [this] (const std::vector<int>& trackIdx)   // session Cmd+G: map tracks -> their inserts, group
+    {
+        closeAllPluginWindows();
+        std::vector<int> inserts;
+        {
+            const juce::ScopedLock sl (engineLock);
+            for (int t : trackIdx)
+                if (juce::isPositiveAndBelow (t, (int) tracks.size()))
+                {
+                    const int ins = tracks[(size_t) t]->mixerTrack.load();
+                    if (ins > 0 && juce::isPositiveAndBelow (ins, (int) mixerTracks.size())
+                        && std::find (inserts.begin(), inserts.end(), ins) == inserts.end())
+                        inserts.push_back (ins);
+                }
+        }
+        if (inserts.size() < 2) return;
+        const int bus = apiGroupInserts (inserts, "Group");
+        if (bus > 0) apiGatherGroup (bus);
+        if (mixerView)   mixerView->rebuild();
+        if (sessionPane) sessionPane->rebuild();
+    };
     sceneCol.getQuantumBeats   = [this] { return apiGetLaunchQuantumBeats(); };
     sceneCol.onSetQuantumBeats = [this] (double b) { apiSetLaunchQuantumBeats (b); };
     sceneCol.getMasterVolume   = [this] { return mixerTracks.empty() ? 0.8f : mixerTracks[0]->volume.load(); };
@@ -4205,6 +4226,10 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     { mixerView->groupSelected(); return true; }                                              // group selected strips
     if (key == juce::KeyPress ('g', MK::commandModifier | MK::shiftModifier, 0) && viewMode == ViewMode::Mixer && mixerView)
     { mixerView->ungroupSelected(); return true; }                                            // ungroup the selection's group
+    if (key == juce::KeyPress ('g', MK::commandModifier, 0) && viewMode == ViewMode::Session && sessionPane)
+    { sessionPane->grid().groupSelectedTracks(); return true; }                               // group selected track columns
+    if (key == juce::KeyPress ('g', MK::commandModifier | MK::shiftModifier, 0) && viewMode == ViewMode::Session && sessionPane)
+    { sessionPane->grid().ungroupSelectedTracks(); return true; }                             // ungroup the selection's group
     if (key == juce::KeyPress ('f', MK::commandModifier | MK::shiftModifier, 0)) { toggleFoldAllGroups(); return true; }  // fold/unfold all groups
     if (key == juce::KeyPress ('z', MK::commandModifier, 0))                      { undo(); return true; }
     if (key == juce::KeyPress ('z', MK::commandModifier | MK::shiftModifier, 0))  { redo(); return true; }
