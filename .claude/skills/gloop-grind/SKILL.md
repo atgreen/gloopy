@@ -1910,11 +1910,19 @@ commit messages are user-authored; auto-commit-on-save is opt-in only.
       sidecars, commit templates.
 
     Sliced sequence (one green commit each; build the substrate first, then breadth):
-    - `[ ]` **1 — availability + status.** Detect `git` at startup (`apiGitAvailable` → present +
-      version; git UI greys out with a hint when absent). The `Source/Git.cpp` `runGit()` substrate.
-      `apiGitStatus(dir)` → {is_repo, branch, detached?, ahead / behind, dirty files [path + XY]}.
-      Track the open project's working dir. **Desktop:** a "Source Control" panel (branch + dirty
-      count). *Done when:* a temp repo reports clean → dirty across an edit, headless.
+    - `[x]` **1 — availability + status LANDED** (`Source/Git.cpp`, commit): `runGit()` substrate
+      shells out to the system git via `juce::ChildProcess` (off the audio thread; git not yet
+      used elsewhere). `apiGitAvailable(version)` (`git --version`) + `apiGitStatus(dirOverride)`
+      → {available, is_repo, detached, branch (or "(<short-hash>)" detached), ahead/behind, dir,
+      changes[xy,path]} parsed from `status --porcelain=v1 --branch` (+ `branch --show-current`).
+      Resolves the open project's folder (gloopy.toml parent / .gloopy parent) via
+      callOnMessageThread, then runs git on the caller thread so gRPC calls don't stall the message
+      thread. GitAvailable/GitStatus RPCs (`GitVersion`/`GitDir`/`GitState`) + Python
+      `git_available`/`git_status`. **Desktop:** File → "Source Control..." opens a read-only status
+      window (branch + dirty file list; the seed of the full panel). smoke.sh: GitAvailable, a
+      scratch repo clean→dirty (untracked `??`), and a non-repo dir reported as not-a-repo (all
+      headless, git-absent-skipped). Manual how-to page + `mkdocs --strict` green.
+      **Follow-up:** the panel grows a Refresh button + live dirty-count indicator in later slices.
     - `[ ]` **2 — init / enable git.** **File → New Git Project...** → dir chooser → `apiGitInit(dir)`
       → save the composition in as a folder repo → write a sensible `.gitignore` (exports/, caches,
       plugin-scan artefacts). Also **"Enable Git"** for an already-open folder project. *Done when:*

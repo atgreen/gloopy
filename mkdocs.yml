@@ -98,7 +98,9 @@ nav:
       - user-guide/index.md
       - Tutorials:
           - Your first track: user-guide/tutorials/first-track.md
-      - How-to guides: user-guide/how-to/index.md
+      - How-to guides:
+          - user-guide/how-to/index.md
+          - Version your project with git: user-guide/how-to/version-with-git.md
       - Explanation: user-guide/explanation/index.md
       - Reference: user-guide/reference/index.md
   - Control & scripting:

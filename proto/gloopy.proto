@@ -306,6 +306,20 @@ message Diagnostics {
   double callback_us = 5; double max_callback_us = 6; double dsp_load = 7;
   int64 dropouts = 8; double render_speed_x = 9;   // last offline bounce, x realtime
 }
+// Git — source control over the composition-as-repo (Git.cpp).
+message GitVersion { bool available = 1; string version = 2; }   // e.g. "git version 2.43.0"
+message GitDir     { string dir = 1; }                           // empty = the open project's dir
+message GitFileChange { string xy = 1; string path = 2; }        // porcelain status code (e.g. " M", "??") + path
+message GitState {
+  bool available = 1;            // git binary present
+  bool is_repo = 2;              // dir is inside a git work tree
+  bool detached = 3;             // detached HEAD
+  string branch = 4;             // current branch (or "(<short-hash>)" when detached)
+  int32 ahead = 5;               // commits ahead of upstream
+  int32 behind = 6;              // commits behind upstream
+  string dir = 7;                // the working dir inspected
+  repeated GitFileChange changes = 8;   // dirty / untracked files
+}
 message RenderRequest {                       // offline bounce to WAV
   string path = 1;
   double tail_seconds = 2;
@@ -552,6 +566,9 @@ service Gloopy {
   rpc GetDiagnostics(Empty) returns (Diagnostics);   // engine health / RT metrics
   rpc SetProjectNotes(TextValue) returns (Ack);      // free-form markdown, saved with the song
   rpc GetProjectNotes(Empty)     returns (TextValue);
+  // Git project management (Git.cpp) — shell out to the system git over the composition dir.
+  rpc GitAvailable(Empty)  returns (GitVersion);   // is the git binary present + its version
+  rpc GitStatus   (GitDir) returns (GitState);     // repo status of the project's (or given) dir
   rpc NewProject (Empty)    returns (Ack);
   rpc ListTemplates  (Empty)       returns (TemplateList);   // built-in + user project templates
   rpc NewFromTemplate(TemplateRef) returns (Ack);            // empty + seed a template

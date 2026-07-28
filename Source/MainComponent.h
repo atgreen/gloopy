@@ -193,6 +193,24 @@ public:
     void apiSetProjectNotes (const juce::String& text);
     void openNotes();                                   // UI: a notes editor window
 
+    // --- git project management (Git.cpp) ---
+    // Version control over the composition-as-repo by shelling out to the system git
+    // (juce::ChildProcess, off the audio thread). Git state lives in .git, out of band.
+    struct GitFileChange { juce::String xy, path; };    // porcelain code (" M", "??") + path
+    struct GitStatusSnap {
+        bool available = false;                         // git binary present
+        bool isRepo = false;                            // dir is inside a git work tree
+        bool detached = false;                          // detached HEAD
+        juce::String branch;                            // branch, or "(<short-hash>)" when detached
+        int ahead = 0, behind = 0;                      // vs upstream
+        juce::String dir;                               // the working dir inspected
+        std::vector<GitFileChange> changes;             // dirty / untracked files
+    };
+    bool apiGitAvailable (juce::String& version);       // true + fills version if git is on PATH
+    GitStatusSnap apiGitStatus (const juce::String& dirOverride = {});   // empty = the open project's dir
+    juce::String gitStatusReport();                     // human-readable status text (Git.cpp)
+    void openSourceControl();                           // UI: a Source Control status window (MainComponent.cpp)
+
     // --- waveform thumbnail cache (Waveform.cpp) ---
     // Min/max peaks per bucket for an audio file, cached by path+mtime+size. Feeds
     // audio-clip / sampler display and external visualisers.
@@ -903,6 +921,8 @@ private:
     std::unique_ptr<juce::DocumentWindow> mixerWindow;
     juce::String projectNotes;                          // free-form markdown (message thread)
     std::unique_ptr<juce::DocumentWindow> notesWindow;
+    std::unique_ptr<juce::DocumentWindow> sourceControlWindow;   // git status readout (Git.cpp)
+    juce::TextEditor sourceControlEditor;
     MappingsView mappingsView;
     std::unique_ptr<juce::DocumentWindow> mappingsWindow;
     juce::TextEditor notesEditor;

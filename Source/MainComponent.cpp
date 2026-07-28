@@ -3665,6 +3665,32 @@ void MainComponent::openNotes()
     notesWindow->toFront (true);
 }
 
+void MainComponent::openSourceControl()
+{
+    // Seed of the full Source Control panel — read-only git status for now
+    // (branches / commits / diff / commit land in later Wave-9 slices). The git
+    // logic + report text live in Git.cpp; this just hosts it in a window.
+    if (sourceControlWindow == nullptr)
+    {
+        sourceControlEditor.setMultiLine (true);
+        sourceControlEditor.setReadOnly (true);
+        sourceControlEditor.setScrollbarsShown (true);
+        sourceControlEditor.setFont (juce::Font (juce::FontOptions (
+            juce::Font::getDefaultMonospacedFontName(), 13.0f, juce::Font::plain)));
+
+        auto w = std::make_unique<HideOnCloseWindow>();
+        w->setName ("Source Control");
+        w->setContentNonOwned (&sourceControlEditor, false);
+        w->setResizable (true, false);
+        w->setSize (560, 420);
+        w->centreWithSize (560, 420);
+        sourceControlWindow = std::move (w);
+    }
+    sourceControlEditor.setText (gitStatusReport(), juce::dontSendNotification);
+    sourceControlWindow->setVisible (true);
+    sourceControlWindow->toFront (true);
+}
+
 void MainComponent::beginRenderMode (const juce::File& out)
 {
     renderFile = out;
@@ -4132,6 +4158,7 @@ void MainComponent::showFileMenu()
     menu.addItem (12, "Reset Tuning (Equal)", tuned);
     menu.addSeparator();
     menu.addItem (8, "Project Notes...");
+    menu.addItem (17, "Source Control...");            // git status of the project's dir (Git.cpp)
     // Live MIDI status (read-only): the input sources Gloopy hears + which track they play.
     juce::PopupMenu midiMenu;
     const auto midiIns = apiListMidiInputs();
@@ -4151,6 +4178,7 @@ void MainComponent::showFileMenu()
         [this, isComposition] (int result)
         {
             if (result == 8) { openNotes(); return; }
+            if (result == 17) { openSourceControl(); return; }
             if (result == 20) { undo(); return; }
             if (result == 21) { redo(); return; }
             if (result >= 100)                                  // New from Template

@@ -855,6 +855,16 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
                 response_deserializer=gloopy__pb2.TextValue.FromString,
                 _registered_method=True)
+        self.GitAvailable = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitAvailable',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.GitVersion.FromString,
+                _registered_method=True)
+        self.GitStatus = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitStatus',
+                request_serializer=gloopy__pb2.GitDir.SerializeToString,
+                response_deserializer=gloopy__pb2.GitState.FromString,
+                _registered_method=True)
         self.NewProject = channel.unary_unary(
                 '/gloopy.v1.Gloopy/NewProject',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -2043,6 +2053,21 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GitAvailable(self, request, context):
+        """Git project management (Git.cpp) — shell out to the system git over the composition dir.
+        is the git binary present + its version
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitStatus(self, request, context):
+        """repo status of the project's (or given) dir
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def NewProject(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2999,6 +3024,16 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.GetProjectNotes,
                     request_deserializer=gloopy__pb2.Empty.FromString,
                     response_serializer=gloopy__pb2.TextValue.SerializeToString,
+            ),
+            'GitAvailable': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitAvailable,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.GitVersion.SerializeToString,
+            ),
+            'GitStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitStatus,
+                    request_deserializer=gloopy__pb2.GitDir.FromString,
+                    response_serializer=gloopy__pb2.GitState.SerializeToString,
             ),
             'NewProject': grpc.unary_unary_rpc_method_handler(
                     servicer.NewProject,
@@ -7530,6 +7565,60 @@ class Gloopy:
             '/gloopy.v1.Gloopy/GetProjectNotes',
             gloopy__pb2.Empty.SerializeToString,
             gloopy__pb2.TextValue.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitAvailable(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitAvailable',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.GitVersion.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitStatus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitStatus',
+            gloopy__pb2.GitDir.SerializeToString,
+            gloopy__pb2.GitState.FromString,
             options,
             channel_credentials,
             insecure,

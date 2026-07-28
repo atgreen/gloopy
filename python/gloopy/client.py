@@ -926,6 +926,18 @@ class Gloopy:
     def get_project_notes(self) -> str:
         return self.stub.GetProjectNotes(pb.Empty()).text
 
+    def git_available(self) -> dict:
+        """Whether the system git binary is present, and its version string."""
+        r = self.stub.GitAvailable(pb.Empty())
+        return {"available": r.available, "version": r.version}
+
+    def git_status(self, dir: str = "") -> dict:
+        """Git status of the project's dir (or `dir`): branch, ahead/behind, dirty files."""
+        r = self.stub.GitStatus(pb.GitDir(dir=dir))
+        return {"available": r.available, "is_repo": r.is_repo, "detached": r.detached,
+                "branch": r.branch, "ahead": r.ahead, "behind": r.behind, "dir": r.dir,
+                "changes": [{"xy": c.xy, "path": c.path} for c in r.changes]}
+
     def diagnostics(self) -> dict:
         """Engine health: device settings, callback timing, DSP load, dropouts, render speed."""
         d = self.stub.GetDiagnostics(pb.Empty())

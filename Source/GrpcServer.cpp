@@ -516,6 +516,29 @@ namespace
         Status GetProjectNotes (ServerContext*, const pb::Empty*, pb::TextValue* r) override
         { r->set_text (main.apiGetProjectNotes().toStdString()); return Status::OK; }
 
+        Status GitAvailable (ServerContext*, const pb::Empty*, pb::GitVersion* r) override
+        {
+            juce::String v;
+            r->set_available (main.apiGitAvailable (v));
+            r->set_version (v.toStdString());
+            return Status::OK;
+        }
+        Status GitStatus (ServerContext*, const pb::GitDir* q, pb::GitState* r) override
+        {
+            auto s = main.apiGitStatus (js (q->dir()));
+            r->set_available (s.available); r->set_is_repo (s.isRepo); r->set_detached (s.detached);
+            r->set_branch (s.branch.toStdString());
+            r->set_ahead (s.ahead); r->set_behind (s.behind);
+            r->set_dir (s.dir.toStdString());
+            for (auto& c : s.changes)
+            {
+                auto* e = r->add_changes();
+                e->set_xy (c.xy.toStdString());
+                e->set_path (c.path.toStdString());
+            }
+            return Status::OK;
+        }
+
         // ---- project / state ----
         Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override
         {

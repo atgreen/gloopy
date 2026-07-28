@@ -174,6 +174,30 @@ g -d "{\"path\":\"$NCOMP\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/
 g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetProjectNotes | python3 -c "import json,sys;assert 'XYZZY' in json.load(sys.stdin).get('text',''),'notes lost on reload';print('smoke: PASS — project notes survive composition round-trip')" \
     || { echo "smoke: project notes did not round-trip" >&2; exit 1; }
 
+# Git source control (Wave 9 slice 1): shell out to the system git over a scratch
+# repo — availability, clean vs dirty (untracked file), and non-repo detection.
+# Read-only; no project mutation. Skipped where git is absent.
+if command -v git >/dev/null; then
+    g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAvailable \
+        | python3 -c "import json,sys;assert json.load(sys.stdin)['available'],'git not reported available';print('smoke: PASS — GitAvailable reports the system git')" \
+        || { echo "smoke: GitAvailable failed" >&2; exit 1; }
+    GREPO="$WORK/gitrepo"; mkdir -p "$GREPO"
+    git -C "$GREPO" init -q; git -C "$GREPO" config user.email t@t; git -C "$GREPO" config user.name t
+    echo one > "$GREPO/song.txt"; git -C "$GREPO" add -A; git -C "$GREPO" commit -qm init
+    g -d "{\"dir\":\"$GREPO\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitStatus \
+        | python3 -c "import json,sys;d=json.load(sys.stdin);assert d['isRepo'] and d['branch'] and not d.get('changes'),'clean repo not clean: %r'%d;print('smoke: PASS — GitStatus clean repo on branch %s'%d['branch'])" \
+        || { echo "smoke: GitStatus (clean) failed" >&2; exit 1; }
+    echo two > "$GREPO/new.txt"
+    g -d "{\"dir\":\"$GREPO\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitStatus \
+        | python3 -c "import json,sys;d=json.load(sys.stdin);ch=d.get('changes',[]);assert any(c.get('path')=='new.txt' and c.get('xy')=='??' for c in ch),'untracked file not reported: %r'%d;print('smoke: PASS — GitStatus sees the untracked new.txt (dirty)')" \
+        || { echo "smoke: GitStatus (dirty) failed" >&2; exit 1; }
+    g -d "{\"dir\":\"$WORK\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitStatus \
+        | python3 -c "import json,sys;d=json.load(sys.stdin);assert not d.get('isRepo'),'non-repo dir wrongly reported as a repo: %r'%d;print('smoke: PASS — GitStatus reports a non-repo dir as not a repo')" \
+        || { echo "smoke: GitStatus (non-repo) failed" >&2; exit 1; }
+else
+    echo "smoke: SKIP — git not installed (GitStatus check)"
+fi
+
 # Rename track: create -> rename -> GetState shows the new name -> survives a
 # composition round-trip (names serialise); empty names are rejected. The round-trip
 # is destructive (NewProject), so snapshot the session and restore it at the end.
