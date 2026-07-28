@@ -134,9 +134,10 @@ jobs:
           path: build/*.deb
 
   # =====================================================================
-  # Windows (x64) — a portable zip: the .exe, its vcpkg runtime DLLs, and the
-  # bundled assets. Built lean (GLOOPY_WITH_SURGE=OFF) like the Windows CI; the
-  # Linux .lv2 Surge bundle is not shipped on Windows yet.
+  # Windows (x64) — a portable zip: the .exe, its vcpkg runtime DLLs, the bundled
+  # assets, and the featured Surge XT synth as a VST3 (Windows hosts VST3, not the
+  # Linux .lv2). gloopy itself is built lean (GLOOPY_WITH_SURGE=OFF, no embedded
+  # core) like the Windows CI; Surge is hosted from the bundled VST3 instead.
   # =====================================================================
   windows:
     if: ${{ github.event_name == 'push' || github.event.inputs.packages == 'all' || github.event.inputs.packages == 'windows' }}
@@ -164,6 +165,14 @@ jobs:
       - name: Build
         run: cmake --build build --config Release
 
+      # Build the featured Surge XT synth as a VST3 and stage it (+ its first-party
+      # factory data) at third_party/surge-plugin/. Heavy (Surge + JUCE) — this and the
+      # vcpkg-grpc step are why the Windows job is slow; a manual dispatch can pick
+      # `packages: linux` to skip both. Runs under Git Bash (find/cp/tar), MSVC compile.
+      - name: Build bundled Surge XT (VST3)
+        shell: bash
+        run: bash scripts/build-surge-vst3.sh
+
       # Assemble a self-contained folder. The vcpkg toolchain (app-local deps) copies
       # the dependent DLLs next to gloopy.exe at build time, so the Release artefact dir
       # is already runnable; we add the vendored assets exe-adjacent, because the
@@ -178,15 +187,24 @@ jobs:
           Copy-Item build/Gloopy_artefacts/Release/* $stage -Recurse -Force
           New-Item -ItemType Directory -Force -Path "$stage/assets" | Out-Null
           Copy-Item third_party/SalamanderGrandPiano "$stage/assets/" -Recurse -Force
+          # Bundled Surge XT VST3 (+ its SurgeXTData) beside gloopy.exe, in plugins/ — the
+          # dir PluginHost scans (<exeDir>/plugins). Surge finds its data via the plugins/
+          # sibling by walking up from its DLL. Fail if the VST3 build didn't produce it.
+          if (-not (Test-Path "third_party/surge-plugin/*.vst3")) {
+            throw "no Surge VST3 staged at third_party/surge-plugin/ — did build-surge-vst3.sh run?"
+          }
+          New-Item -ItemType Directory -Force -Path "$stage/plugins" | Out-Null
+          Copy-Item third_party/surge-plugin/* "$stage/plugins/" -Recurse -Force
           @"
           Gloopy - portable Windows build (x64)
 
           Run gloopy.exe. This is self-contained: the app plus its runtime DLLs and
-          bundled assets. Needs the Microsoft Visual C++ 2015-2022 Redistributable
-          (x64) if it isn't already installed.
+          bundled assets, including the Surge XT synth (in plugins\). Needs the
+          Microsoft Visual C++ 2015-2022 Redistributable (x64) if it isn't already
+          installed.
 
-          The Surge XT synth is not bundled in this Windows build yet; the built-in
-          Basic synth, sampler, SFZ, and hosted VST3 plugins all work.
+          + Synth -> Surge XT (full editor) works out of the box, alongside the
+          built-in Basic synth, the sampler, SFZ instruments, and hosted VST3 plugins.
           "@ | Set-Content -Path "$stage/README.txt" -Encoding utf8
           Compress-Archive -Path $stage -DestinationPath gloopy-windows-x64.zip -Force
 

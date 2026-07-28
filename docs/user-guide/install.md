@@ -8,7 +8,7 @@ your system.
 |--------|----------|----------|
 | **Fedora / RHEL** | `gloopy-<version>.x86_64.rpm` | Full build, with the bundled Surge XT synth |
 | **Debian / Ubuntu** | `gloopy_<version>_amd64.deb` | Full build, with the bundled Surge XT synth |
-| **Windows (x64)** | `gloopy-windows-x64.zip` | Portable build (see the note below) |
+| **Windows (x64)** | `gloopy-windows-x64.zip` | Portable build, with the bundled Surge XT synth (VST3) |
 
 ## Fedora / RHEL (RPM)
 
@@ -45,9 +45,9 @@ things to know:
 
 - It needs the **[Microsoft Visual C++ 2015–2022 Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe)**,
   which most machines already have.
-- The **Surge XT** synth isn't bundled on Windows yet. Everything else — the
-  built-in Basic synth, the sampler, SFZ instruments, and hosted VST3 plugins —
-  works.
+- The featured **Surge XT** synth is bundled as a VST3 (in `plugins\`), so
+  **+ Synth → Surge XT** works out of the box — alongside the built-in Basic
+  synth, the sampler, SFZ instruments, and hosted VST3 plugins.
 
 ## macOS
 
