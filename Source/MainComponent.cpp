@@ -727,17 +727,24 @@ MainComponent::MainComponent (bool headless)
             std::vector<int> anc; ancestry (tracks[(size_t) t]->mixerTrack.load(), anc);
             for (int b : anc) members[b].push_back (t);
         }
+        std::set<int> sendFed;                     // buses that receive at least one aux send (returns)
+        for (auto& mt : mixerTracks)
+            for (auto& sd : mt->sends) sendFed.insert (sd.bus);
         for (int b = 1; b < N; ++b)
         {
             if (! mixerTracks[(size_t) b]->isBus) continue;
             auto it = members.find (b);
-            if (it == members.end() || it->second.empty()) continue;   // not a group (no tracks flow through it)
+            const bool hasMembers = (it != members.end() && ! it->second.empty());
+            const bool hasSends   = sendFed.count (b) > 0;
+            if (! hasMembers && ! hasSends) continue;   // unrouted bus -> shows in the mixer only, not the session
             SessionView::GroupInfo g;
             g.busIndex = b; g.output = mixerTracks[(size_t) b]->output.load();
             g.name = mixerTracks[(size_t) b]->name; g.folded = mixerTracks[(size_t) b]->folded.load();
-            g.members = it->second;
+            g.isReturn = ! hasMembers;              // send-fed with no main-output members = a return
+            if (hasMembers) g.members = it->second;
             g.colour = mixerTracks[(size_t) b]->colour.getARGB() != 0 ? mixerTracks[(size_t) b]->colour
-                                                                      : tracks[(size_t) g.members.front()]->colour;
+                     : hasMembers ? tracks[(size_t) g.members.front()]->colour
+                                  : juce::Colour (0xffe6a23c);   // returns default to the warm accent
             out.push_back (std::move (g));
         }
         return out;

@@ -113,7 +113,7 @@ public:
 
     // Group/bus columns (submix). A group is a bus fed by tracks' main outputs; it shows as a
     // no-clip column just before its contiguous members, carrying the bus name + meter.
-    struct GroupInfo { int busIndex; int output = 0; juce::String name; juce::Colour colour; bool folded = false; std::vector<int> members; };
+    struct GroupInfo { int busIndex; int output = 0; juce::String name; juce::Colour colour; bool folded = false; bool isReturn = false; std::vector<int> members; };   // isReturn = send-fed, no output members
     std::function<std::vector<GroupInfo>()>            getGroups;     // groups + their member track indices
     std::function<void (int busIndex, float&, float&)> getBusLevels;  // a bus's L,R peak
     std::function<void (int busIndex, bool)>           onSetGroupFolded;   // collapse/expand a group's members
@@ -169,6 +169,14 @@ public:
             }
             if (! trackHidden) { Col tc; tc.track = t; tc.depth = (int) anc.size(); cols.push_back (tc); }
         }
+        // Return buses (send-fed, no member tracks) aren't in any track's output ancestry, so the
+        // loop above never emits them — append them as standalone columns at the right (Ableton-style).
+        for (const auto& gr : groups)
+            if (gr.isReturn && ! emitted.count (gr.busIndex))
+            {
+                Col rc; rc.bus = gr.busIndex; rc.name = gr.name; rc.colour = gr.colour; rc.isReturn = true;
+                cols.push_back (rc); emitted.insert (gr.busIndex);
+            }
         strips.clear();
         for (int t = 0; t < nt; ++t)
         {
@@ -365,14 +373,25 @@ public:
             g.fillRect (h);
             if (col.depth > 0)                                   // nesting indent (darker gutter)
             { g.setColour (juce::Colours::black.withAlpha (0.28f)); g.fillRect (h.removeFromLeft ((float) (col.depth * 10))); }
-            // Fold triangle: right (collapsed) / down (expanded). Clicking the header toggles it.
-            auto tri = h.removeFromLeft (16).toFloat().reduced (5.0f, 0.0f);
-            const float cx = tri.getCentreX(), cy = tri.getCentreY(), rr = 4.0f;
-            juce::Path p;
-            if (col.folded) p.addTriangle (cx - rr * 0.6f, cy - rr, cx - rr * 0.6f, cy + rr, cx + rr, cy);   // >
-            else            p.addTriangle (cx - rr, cy - rr * 0.6f, cx + rr, cy - rr * 0.6f, cx, cy + rr);    // v
-            g.setColour (juce::Colours::white.withAlpha (0.75f));
-            g.fillPath (p);
+            // Role tag, right-aligned: GROUP (fed by main outputs) vs RETURN (fed by sends) — same
+            // language as the mixer strip cue, so the two views name a bus the same way.
+            {
+                g.setColour ((col.isReturn ? juce::Colour (0xffe6a23c) : juce::Colour (0xff37c0d4)).withAlpha (0.9f));
+                g.setFont (juce::FontOptions (8.5f, juce::Font::bold));
+                g.drawText (col.isReturn ? "RETURN" : "GROUP", h.removeFromRight (46.0f).reduced (3, 0),
+                            juce::Justification::centredRight, false);
+            }
+            if (! col.isReturn)   // fold triangle (groups only — a return has no members to collapse)
+            {
+                auto tri = h.removeFromLeft (16).toFloat().reduced (5.0f, 0.0f);
+                const float cx = tri.getCentreX(), cy = tri.getCentreY(), rr = 4.0f;
+                juce::Path p;
+                if (col.folded) p.addTriangle (cx - rr * 0.6f, cy - rr, cx - rr * 0.6f, cy + rr, cx + rr, cy);   // >
+                else            p.addTriangle (cx - rr, cy - rr * 0.6f, cx + rr, cy - rr * 0.6f, cx, cy + rr);    // v
+                g.setColour (juce::Colours::white.withAlpha (0.75f));
+                g.fillPath (p);
+            }
+            else h.removeFromLeft (5.0f);   // small pad so a return's name isn't flush to the edge
             g.setColour (juce::Colours::white.withAlpha (0.9f));
             g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
             g.drawText (col.name, h.reduced (2, 2), juce::Justification::centredLeft, true);
@@ -505,12 +524,14 @@ public:
     {
         const int ns = (int) scenes.size();
         const auto p = e.position;
-        // Group header: left-click collapses/expands; right-click opens the colour menu.
+        // Bus header: a group left-click collapses/expands (a return has nothing to fold);
+        // right-click opens the colour menu.
         for (int c = 0; c < numCols(); ++c)
             if (cols[(size_t) c].bus >= 0 && colHeaderRect (c).contains (p))
             {
-                if (e.mods.isPopupMenu()) groupHeaderMenu (cols[(size_t) c].bus, e.getScreenPosition());
-                else if (onSetGroupFolded) onSetGroupFolded (cols[(size_t) c].bus, ! cols[(size_t) c].folded);
+                const auto& col = cols[(size_t) c];
+                if (e.mods.isPopupMenu()) groupHeaderMenu (col.bus, col.isReturn, e.getScreenPosition());
+                else if (! col.isReturn && onSetGroupFolded) onSetGroupFolded (col.bus, ! col.folded);
                 return;
             }
 
@@ -541,19 +562,19 @@ public:
     static inline const juce::Colour kGroupSwatches[8] = {
         juce::Colour (0xffe0553a), juce::Colour (0xffe6a23c), juce::Colour (0xffd8c341), juce::Colour (0xff5fbf6a),
         juce::Colour (0xff37c0d4), juce::Colour (0xff3a6ea5), juce::Colour (0xff9b6fd4), juce::Colour (0xffcf5aa0) };
-    void groupHeaderMenu (int bus, juce::Point<int> screenPos)
+    void groupHeaderMenu (int bus, bool isReturn, juce::Point<int> screenPos)
     {
         if (! onSetGroupColour) return;
         static const char* names[] = { "Red", "Orange", "Yellow", "Green", "Teal", "Blue", "Purple", "Pink" };
         bool folded = false;
         for (auto& col : cols) if (col.bus == bus) { folded = col.folded; break; }
         juce::PopupMenu m;
-        if (onSetGroupFolded) { m.addItem (300, folded ? "Unfold group" : "Fold group"); m.addSeparator(); }
-        m.addSectionHeader ("Group colour");
+        if (! isReturn && onSetGroupFolded) { m.addItem (300, folded ? "Unfold group" : "Fold group"); m.addSeparator(); }
+        m.addSectionHeader (isReturn ? "Return colour" : "Group colour");
         for (int i = 0; i < 8; ++i)
             m.addColouredItem (100 + i, juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xa0")) + "  " + names[i], kGroupSwatches[i]);
         m.addItem (200, "Auto (from first track)");
-        if (onUngroup) { m.addSeparator(); m.addItem (301, "Ungroup"); }
+        if (! isReturn && onUngroup) { m.addSeparator(); m.addItem (301, "Ungroup"); }
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this)
                              .withTargetScreenArea ({ screenPos.x, screenPos.y, 1, 1 }),
                          [this, bus, folded] (int r)
@@ -630,7 +651,7 @@ private:
     // Display columns, left to right. Today every column is a track (one per track, in order);
     // group/bus columns will be interleaved here in phase 1b. `colX`/the rect helpers work in
     // column-position space so inserting a group column just shifts the tracks after it.
-    struct Col { int track = -1; int bus = -1; bool folded = false; int depth = 0; juce::String name; juce::Colour colour; };   // bus >= 0 -> group column
+    struct Col { int track = -1; int bus = -1; bool folded = false; bool isReturn = false; int depth = 0; juce::String name; juce::Colour colour; };   // bus >= 0 -> group/return column
     std::vector<Col> cols;
     std::map<int, std::pair<float, float>> busMeter;   // busIndex -> smoothed L,R for group columns
     std::set<int> trackSel;                            // track columns selected for grouping (highlighted)
