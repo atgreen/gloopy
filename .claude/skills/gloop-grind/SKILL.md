@@ -1087,8 +1087,23 @@ measurably single-core-bound on a heavy multi-track session. See Wave 7 for why.
       ~0.02, peak ~0.36). Screenshot-validated end-to-end (the DEVICES view → selecting the Scope draws a
       live cyan sine of the playing tone). Manual model doc notes the scope analyzer; mkdocs --strict
       green. No OSC lane (a read-only snapshot fits gRPC request/response, not a live knob).
-      **Not yet:** spectrum / vectorscope analyzers (the ScopeFx capture + GetAnalyzerData pattern
-      generalises; spectrum needs an FFT/filterbank since juce_dsp isn't linked).
+    - `[x]` **Spectrum analyzer (octave-band RTA) landed** (commit): `SpectrumFx` — the second
+      non-mutating analyzer, built on the ScopeFx infrastructure (`Effect::analyzerSnapshot` +
+      `GetAnalyzerData` — **no new RPC**). Passes audio through unchanged; runs the mono (left) signal
+      through a bank of **10 octave bandpass filters** (31 Hz..16 kHz, TPT-SVF bandpass, per-band Q 2.9)
+      each followed by a peak envelope follower — a classic real-time analyzer, **no FFT** (juce_dsp
+      isn't linked). The audio thread writes only `std::atomic<float>` per-band levels (no lock, no
+      allocation, principle 4); `analyzerSnapshot` returns the band levels. EffectType SPECTRUM=19,
+      appended across all registries (proto enum, `types()`, `create()`, both names[] + DevicePanel
+      type list, Python EFFECTS); serialises by name. **Desktop:** a `SpectrumView` (24 Hz Timer)
+      special-cased in DevicePanel alongside ScopeView — a dB-scaled bar graph, one bar per octave band,
+      brightness scaling with level; reuses the existing `getAnalyzerData` wiring. smoke (NewProject-
+      isolated so only the test tone hits the master analyzer): a ~988 Hz tone (pitch 83) peaks the
+      1 kHz octave band (1.01) and dominates its neighbours >2× (0.23/0.22). Screenshot-validated
+      end-to-end (the DEVICES view → selecting Spectrum draws a live 10-band RTA of a spread chord).
+      Manual model doc notes both analyzers; mkdocs --strict green.
+      **Not yet:** a vectorscope / goniometer (L-R correlation — the same GetAnalyzerData pattern,
+      capturing both channels); FFT-resolution spectrum (would need juce_dsp or a hand-rolled FFT).
 
 ### Wave 6 — Product surface & UI (deferred: harder to verify headless; keep layout simple)
 

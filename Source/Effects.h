@@ -1081,9 +1081,92 @@ private:
     int decimCount { 0 };                               // audio-thread only
 };
 
+// ---------------------------------------------------------------------------
+// Spectrum analyzer (RTA) — a NON-MUTATING analyzer insert. Passes audio through
+// unchanged but runs the mono (left) signal through a bank of octave bandpass
+// filters (10 bands, 31 Hz..16 kHz), each followed by an envelope follower, and
+// exposes the per-band levels over the control API — a classic real-time analyzer
+// (no FFT). The audio thread writes only std::atomic<float> band levels (no lock,
+// no allocation; principle 4).
+// ---------------------------------------------------------------------------
+class SpectrumFx : public Effect
+{
+public:
+    static constexpr int kBands = 10;                   // octave bands 31.25 Hz .. 16 kHz
+
+    void prepare (double sampleRate, int, int) override
+    {
+        sr = (float) sampleRate;
+        const float k = 1.0f / q;                       // SVF resonance term (shared)
+        for (int band = 0; band < kBands; ++band)
+        {
+            float fc = juce::jlimit (20.0f, sr * 0.49f, centreHz (band));
+            const float g = std::tan (juce::MathConstants<float>::pi * fc / sr);
+            a1[band] = 1.0f / (1.0f + g * (g + k));
+            a2[band] = g * a1[band];
+            a3[band] = g * a2[band];
+        }
+        atCoef = std::exp (-1.0f / (0.005f * sr));       // 5 ms attack
+        rlCoef = std::exp (-1.0f / (0.150f * sr));       // 150 ms release
+        reset();
+    }
+
+    void reset() override
+    {
+        for (auto& s : ic1) s = 0.0f;
+        for (auto& s : ic2) s = 0.0f;
+        for (auto& e : env) e = 0.0f;
+        for (auto& l : level) l.store (0.0f);
+    }
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        if (b.getNumChannels() < 1) return;              // non-mutating: never writes the buffer
+        const int n = b.getNumSamples();
+        const auto* x = b.getReadPointer (0);
+        for (int i = 0; i < n; ++i)
+        {
+            const float in = x[i];
+            for (int band = 0; band < kBands; ++band)
+            {
+                const float v3 = in - ic2[(size_t) band];             // TPT SVF; v1 = bandpass output
+                const float v1 = a1[band] * ic1[(size_t) band] + a2[band] * v3;
+                const float v2 = ic2[(size_t) band] + a2[band] * ic1[(size_t) band] + a3[band] * v3;
+                ic1[(size_t) band] = 2.0f * v1 - ic1[(size_t) band];
+                ic2[(size_t) band] = 2.0f * v2 - ic2[(size_t) band];
+                const float a = std::abs (v1 * q);                    // compensate the bandpass gain (~1/q)
+                float& e = env[(size_t) band];
+                e = a > e ? atCoef * (e - a) + a : rlCoef * (e - a) + a;
+            }
+        }
+        for (int band = 0; band < kBands; ++band)
+            level[(size_t) band].store (env[(size_t) band], std::memory_order_relaxed);
+    }
+
+    juce::String name() const override { return "Spectrum"; }
+    std::vector<EffectParam> parameters() override { return {}; }    // no knobs — the display is the UI
+
+    int analyzerSnapshot (float* out, int maxN) const override
+    {
+        const int count = juce::jmin (maxN, kBands);
+        for (int i = 0; i < count; ++i)
+            out[i] = level[(size_t) i].load (std::memory_order_relaxed);
+        return count;
+    }
+
+private:
+    static float centreHz (int band) { return 31.25f * std::pow (2.0f, (float) band); }
+
+    static constexpr float q = 2.9f;                    // per-band bandpass Q (separates adjacent tones)
+    float sr { 44100.0f }, atCoef { 0.0f }, rlCoef { 0.0f };
+    std::array<float, kBands> a1 {}, a2 {}, a3 {};      // per-band SVF coeffs (prepare-time)
+    std::array<float, kBands> ic1 {}, ic2 {}, env {};   // audio-thread state
+    std::array<std::atomic<float>, kBands> level {};    // published band levels
+};
+
 namespace EffectFactory
 {
-    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate", "Auto-wah", "Ring Mod", "Scope" }; }
+    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate", "Auto-wah", "Ring Mod", "Scope", "Spectrum" }; }
 
     inline std::unique_ptr<Effect> create (const juce::String& type)
     {
@@ -1106,6 +1189,7 @@ namespace EffectFactory
         if (type == "Auto-wah")   return std::make_unique<AutoWahFx>();
         if (type == "Ring Mod")   return std::make_unique<RingModFx>();
         if (type == "Scope")      return std::make_unique<ScopeFx>();
+        if (type == "Spectrum")   return std::make_unique<SpectrumFx>();
         return nullptr;
     }
 }

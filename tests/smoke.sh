@@ -2530,6 +2530,31 @@ print('smoke: PASS — oscilloscope analyzer: flat when stopped (var %.2e), capt
 " || { echo 'smoke: scope analyzer wrong' >&2; exit 1; }
 g -d "{\"path\":\"$WORK/scope-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore
 
+# Spectrum analyzer (Wave 5 #15): a non-mutating octave-band RTA. A tone at a known pitch
+# should peak the band that contains its fundamental. Isolated via a SaveProject snapshot.
+g -d "{\"path\":\"$WORK/spec-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null   # empty, so only the test tone reaches the master analyzer
+g -d '{"name":"SpecTone","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.1,"gain":0.5}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack >/dev/null
+SP_TID=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListTracks | python3 -c "import json,sys; t=json.load(sys.stdin).get('tracks',[]); print(t[-1]['id'])")
+# pitch 83 ~ 988 Hz -> the 1 kHz octave band (index 5); pitch 45 ~ 110 Hz -> the 125 Hz band (index 2)
+g -d "{\"track_id\":$SP_TID,\"start_beat\":0,\"length_beats\":8,\"content_len_beats\":8,\"looped\":true,\"notes\":[{\"pitch\":83,\"start_beat\":0,\"length_beats\":8,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d '{"insert":0,"type":19}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null   # Spectrum on master
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/Play >/dev/null
+python3 -c "import time; time.sleep(1.0)"
+SP_HIGH=$(g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetAnalyzerData)
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/Stop >/dev/null
+python3 -c "
+import json
+d = json.loads('''$SP_HIGH''').get('samples', [])
+assert len(d) == 10, 'expected 10 octave bands, got %d' % len(d)
+centres = [31.25 * 2**k for k in range(10)]
+mx = max(range(10), key=lambda i: d[i])
+assert centres[mx] == 1000, 'a ~988 Hz tone should peak the 1 kHz band, peaked %d Hz (%s)' % (centres[mx], [round(x,3) for x in d])
+assert d[mx] > 2 * d[mx-1] and d[mx] > 2 * d[mx+1], 'the peak band should dominate its neighbours'
+print('smoke: PASS — spectrum analyzer (octave-band RTA): a ~988 Hz tone peaks the 1 kHz band (%.2f vs %.2f/%.2f neighbours) via the API' % (d[mx], d[mx-1], d[mx+1]))
+" || { echo 'smoke: spectrum analyzer wrong' >&2; exit 1; }
+g -d "{\"path\":\"$WORK/spec-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore
+
 # MIDI file export/import round-trip (last — import resets the project). Export the
 # loaded project to an SMF, reimport into a fresh project, and confirm notes survive
 # as playable clips.

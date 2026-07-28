@@ -43,7 +43,8 @@ public:
         removeBtn.onClick = [this] { if (selectedSlot >= 0 && onRemoveEffect) { onRemoveEffect (selectedSlot); selectedSlot = -1; refresh(); } };
         addAndMakeVisible (removeBtn);
 
-        addChildComponent (scope);   // shown only when the selected device is a Scope
+        addChildComponent (scope);      // shown only when the selected device is a Scope
+        addChildComponent (spectrum);   // shown only when the selected device is a Spectrum
     }
 
     // Owner callbacks — routed to the selected track's mixer insert.
@@ -125,8 +126,9 @@ public:
         auto chainRow = a.removeFromTop (30).reduced (6, 4);
         for (auto& b : deviceBtns) { b->setBounds (chainRow.removeFromLeft (110).reduced (2, 0)); chainRow.removeFromLeft (2); }
 
-        // Scope display fills the device body when a Scope is selected (it has no knobs).
-        if (scope.isVisible()) { scope.setBounds (a.reduced (10, 8)); return; }
+        // An analyzer display fills the device body when selected (analyzers have no knobs).
+        if (scope.isVisible())    { scope.setBounds (a.reduced (10, 8)); return; }
+        if (spectrum.isVisible()) { spectrum.setBounds (a.reduced (10, 8)); return; }
 
         // Param knobs grid.
         auto grid = a.reduced (10, 8);
@@ -168,6 +170,34 @@ private:
         }
     };
 
+    // Live spectrum (RTA) display for a Spectrum analyzer device — one vertical bar per
+    // octave band, height on a dB scale. Passive Timer; reads the lock-free snapshot.
+    struct SpectrumView : juce::Component, juce::Timer
+    {
+        std::function<std::vector<float>()> pull;
+        std::vector<float> data;
+        SpectrumView() { startTimerHz (24); }
+        void timerCallback() override { if (isShowing() && pull) { data = pull(); repaint(); } }
+        void paint (juce::Graphics& g) override
+        {
+            g.setColour (Palette::bg); g.fillRoundedRectangle (getLocalBounds().toFloat(), 4.0f);
+            if (data.empty()) { g.setColour (Palette::textDim); g.setFont (11.0f);
+                                g.drawText ("spectrum — play to see the bands", getLocalBounds(), juce::Justification::centred); return; }
+            const float w = (float) getWidth(), h = (float) getHeight();
+            const int nb = (int) data.size();
+            const float bw = w / (float) nb;
+            for (int i = 0; i < nb; ++i)
+            {
+                // linear level -> dB (-60..0) -> bar height fraction
+                const float db = 20.0f * std::log10 (juce::jmax (1.0e-4f, data[(size_t) i]));
+                const float frac = juce::jlimit (0.0f, 1.0f, (db + 60.0f) / 60.0f);
+                const float bh = frac * (h - 4.0f);
+                g.setColour (Palette::accent.withAlpha (0.35f + 0.65f * frac));
+                g.fillRect (i * bw + 1.0f, h - bh - 2.0f, bw - 2.0f, bh);
+            }
+        }
+    };
+
     void rebuildParams()
     {
         paramSliders.clear();
@@ -176,12 +206,16 @@ private:
         removeBtn.setEnabled (selectedSlot >= 0);
         // Reflect the selected device's bypass state.
         const auto chain = getChain ? getChain() : std::vector<std::pair<juce::String, bool>>{};
-        // Show the scope display iff the selected device is a Scope analyzer.
-        const bool isScope = selectedSlot >= 0 && selectedSlot < (int) chain.size()
-                             && chain[(size_t) selectedSlot].first == "Scope";
+        // Show an analyzer display iff the selected device is a Scope / Spectrum analyzer.
+        const juce::String selName = (selectedSlot >= 0 && selectedSlot < (int) chain.size())
+                                     ? chain[(size_t) selectedSlot].first : juce::String();
+        const bool isScope    = selName == "Scope";
+        const bool isSpectrum = selName == "Spectrum";
         scope.setVisible (isScope);
-        if (isScope)
-            scope.pull = [this, slot = selectedSlot] { return getAnalyzerData ? getAnalyzerData (slot) : std::vector<float>{}; };
+        spectrum.setVisible (isSpectrum);
+        auto puller = [this, slot = selectedSlot] { return getAnalyzerData ? getAnalyzerData (slot) : std::vector<float>{}; };
+        if (isScope)    scope.pull    = puller;
+        if (isSpectrum) spectrum.pull = puller;
         if (selectedSlot < 0 || ! getParams) { repaint(); return; }
         if (selectedSlot < (int) chain.size()) bypassBtn.setToggleState (chain[(size_t) selectedSlot].second, juce::dontSendNotification);
 
@@ -214,6 +248,7 @@ private:
     std::vector<std::unique_ptr<juce::Slider>>     paramSliders;
     std::vector<juce::String>                      paramNames;
     ScopeView scope;
+    SpectrumView spectrum;
     int selectedSlot { -1 };
     bool standalone { false };
 };
