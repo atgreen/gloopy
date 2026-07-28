@@ -236,45 +236,42 @@ commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈
 
 ### ★ Reprioritized near-term order (updated 2026-07-28) — read this first
 
-Since the 2026-07-26 plan, several big fronts **shipped** and drop off the queue (see
-"Current state"): the **Surge XT featured-synth front** (hosted plugin default + bundled
-presets — DONE/paused, removal blocked), the **Session view epic** (slices 1–4), the whole
-**grouping / submix-routing epic** (complete), the **mixer channel model** (dynamic per-track
-inserts + detachable device windows), and the **UI elevation-over-borders** pass. What's
-actually next, in order:
+**Directive (user, 2026-07-28): do Waves 9 → 10 → 11 FIRST, then go back to the beginning.**
+Those three are the cross-cutting **reach & infrastructure** epics — version control, platform,
+agent control — that widen who and what can drive Gloopy and refresh the foundation. Front-load
+them, *then* return to feature depth (the Phase-B tails below, which pick up the pre-existing
+near-term queue).
 
-1. ~~Undo/redo~~ **DONE** — turned out to already exist (snapshot stack over
-   toValueTree/loadFromTree, 69 mutation sites, Ctrl+Z/Ctrl+Shift+Z/Ctrl+Y, RPCs).
-   The 2026-07-26 slice (commit c3eedf0) closed its two real gaps: surfaced Undo/Redo in
-   the File menu (discoverability) + added a headless round-trip test (0->1->0->1). The
-   *fine-grained* Tracktion-style CachedValue/UndoManager rework (Wave 7 #22) remains
-   optional/deferred — snapshot undo already works.
-2. ~~Surge XT featured synth~~ **DONE/paused** (Wave 7 #28) — hosted Surge XT plugin is the
-   "+ Synth" default with bundled factory presets. Full removal of the simple synth + embedded
-   core is **paused** (baking a `.fxp` into a hosted plugin is a proven hard blocker); only
-   revisit if the LV2 patch-load path gets solved. Plan/status in `docs/surge-embed.md`.
-3. **Strong time types** (Wave 7 #21) — **foundation landed** (`Source/Time.h`); **NEXT =
+Already shipped since the 2026-07-26 plan (dropped from the queue; see "Current state"): the
+**Surge XT featured-synth front** (DONE/paused — hosted plugin default + bundled presets; removal
+blocked by the `.fxp`-into-hosted-plugin blocker, `docs/surge-embed.md`), the **Session view epic**
+(slices 1–4), the **grouping / submix-routing epic** (complete), the **mixer channel model**, and
+the **UI elevation-over-borders** pass. Also **DONE**: ~~undo/redo~~ (already existed — snapshot
+stack, Ctrl+Z/Y, commit c3eedf0; the fine-grained Wave 7 #22 rework stays optional/deferred).
+
+**Phase A — do these now, in this order:**
+1. **Wave 9 #30 — Git as project management.** IDE-grade source control (status, commit,
+   commit-graph, **branches, tags, checkout any version**, diff, stash, remote/push); shell out to
+   the system `git`. **Central** to project management + realizes the "store it in git" half of the
+   north star. XL, 12 slices — start at slice 1 (availability + status) and walk them in order.
+2. **Wave 10 — build & platform.** **#31 upgrade JUCE** off the 8.0.15 `FetchContent` pin (low-risk;
+   do it *before* the port so Windows builds on the latest) → **#32 Windows build** (CI-native
+   recommended, else mingw-w64 cross-compile).
+3. **Wave 11 #33 — MCP stdio service.** AI agents drive Gloopy over stdio; a thin gRPC adapter —
+   the cheapest of the three (pure adapter code over the existing control API).
+
+**Phase B — then go back to the beginning** (resume the pre-existing near-term queue, in order):
+4. **Strong time types** (Wave 7 #21) — **foundation landed** (`Source/Time.h`); **NEXT =
    incremental adoption**: migrate the `beatToSamples`/`samplesToBeats` layer + clip/loop/marker
-   positions onto the types, add a Sample domain, one subsystem per slice. Do it before more
+   positions onto the types, add a Sample domain, one subsystem per slice. Before more
    timeline/tempo work.
-4. **`AudioBufferPool`** (Wave 7 #24) — not started; kill audio-thread allocations; prerequisite
-   for any graph rework, and cheap on its own.
-5. **Finish the Session view epic** — slices **5 (control API: OSC/gRPC launch clip/scene, stop,
+5. **`AudioBufferPool`** (Wave 7 #24) — not started; kill audio-thread allocations; cheap, and a
+   prerequisite for any graph rework.
+6. **Finish the Session view epic** — slices **5 (control API: OSC/gRPC launch clip/scene, stop,
    query session state)** and **6 (polish: clip colours, follow-actions, capture, quantize menu)**.
-6. Then resume the **browser sidebar** tail (Wave 6 #16: Favorites tab + first-class
-   drag-and-drop from the browser onto tracks/inserts — Templates/Demos/Plugins/Samples/Presets
-   tabs already landed) and the rest of Waves 2–5.
-
-Newly committed epics (user-requested 2026-07-28), sequence them per the user's call — the git
-epic is flagged **central to project management** and realizes the "store it in git" half of the
-north star, so it's a strong candidate to jump early:
-- **Git as project management** (Wave 9 #30) — an **IDE-grade** source-control surface (status,
-  commit, commit-graph, **branches, tags, checkout any version**, diff, stash, remote/push), shell
-  out to the system `git`; branches = alternate arrangements, tags = milestone mixes. XL, 12 slices.
-- **Upgrade JUCE to the latest** (Wave 10 #31) — bump the `FetchContent` pin off 8.0.15, shake
-  out deprecations; low-risk foundation refresh.
-- **Windows build** (Wave 10 #32) — CI-native Windows binary (recommended) or mingw-w64
-  cross-compile; widens the audience.
+7. **Browser sidebar tail** (Wave 6 #16: Favorites tab + first-class drag-and-drop onto
+   tracks/inserts — Templates/Demos/Plugins/Samples/Presets tabs already landed), then the rest of
+   Waves 2–5.
 
 The heavy engine items (off-thread graph swap #5, **multicore rendering #6**) stay
 *deferred* and gated on a real profiling trigger — do not start them until Gloopy is
@@ -2066,9 +2063,11 @@ gate them later.
 
 1. `cd ~/git/gloopy`; read `AGENTS.md` and `git log --oneline -15`. If
    `docs/ROADMAP.md` records a half-built slice, resume exactly there.
-2. Pick the next unchecked backlog item (top-down within the lowest incomplete wave).
-   If it's a ✦ design fork, study the prior art's *shape* first, then design the small
-   Gloopy version — adapt, don't copy, and mind the AGPL/GPL boundary.
+2. Pick the next slice from **the ★ near-term order banner**, not by naïve wave number —
+   the current directive is **Phase A (Waves 9 → 10 → 11) first, then back to the beginning**
+   (Phase B). Only fall back to "top-down within the lowest incomplete wave" once the banner's
+   explicit order is exhausted. If it's a ✦ design fork, study the prior art's *shape* first,
+   then design the small Gloopy version — adapt, don't copy, and mind the AGPL/GPL boundary.
 3. Implement the smallest coherent slice across the full stack (model → serialise →
    proto+gRPC → OSC → clients → CMake). Build. Boot ONE instance
    (`pkill -x Gloopy` first). Drive it over `grpcurl`, round-trip through the
