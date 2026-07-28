@@ -432,6 +432,81 @@ MainComponent::GitDiff MainComponent::apiGitDiff (const juce::String& dir, const
     return d;
 }
 
+MainComponent::GitResult MainComponent::apiGitDiscard (const juce::String& dir, const juce::StringArray& paths)
+{
+    // Throw away uncommitted (unstaged tracked) edits — VS Code's "Discard Changes".
+    // `git checkout -- <paths|.>` restores tracked files to HEAD; untracked files are left
+    // alone (discarding those would be silent data loss). Destructive — the desktop confirms.
+    juce::StringArray args { "-C", dir, "checkout", "--" };
+    if (paths.isEmpty()) args.add (".");
+    else                 args.addArray (paths);
+    return gitWrite (*this, args, dir);
+}
+
+MainComponent::GitResult MainComponent::apiGitStash (const juce::String& dir, const juce::String& message)
+{
+    juce::StringArray args { "-C", dir, "stash", "push" };
+    if (message.trim().isNotEmpty()) { args.add ("-m"); args.add (message.trim()); }
+    return gitWrite (*this, args, dir);
+}
+
+MainComponent::GitResult MainComponent::apiGitStashPop (const juce::String& dir)
+{
+    return gitWrite (*this, { "-C", dir, "stash", "pop" }, dir);
+}
+
+juce::StringArray MainComponent::apiGitStashList (const juce::String& dir)
+{
+    juce::StringArray list;
+    juce::String version;
+    if (! apiGitAvailable (version) || dir.isEmpty())
+        return list;
+    juce::String out;
+    if (runGit ({ "-C", dir, "stash", "list" }, out) == 0)
+    {
+        list = juce::StringArray::fromLines (out);
+        list.removeEmptyStrings();
+    }
+    return list;
+}
+
+MainComponent::GitResult MainComponent::apiGitRevert (const juce::String& dir, const juce::String& commit)
+{
+    GitResult r;
+    juce::String version;
+    if (! apiGitAvailable (version))   { r.error = "git is not installed or not on PATH"; return r; }
+    if (dir.isEmpty())                 { r.error = "no directory given"; return r; }
+    if (commit.trim().isEmpty())       { r.error = "a commit is required"; return r; }
+
+    // revert creates a new commit, so it needs an author identity — same fallback as commit.
+    juce::StringArray args;
+    juce::String cfg;
+    if (runGit ({ "-C", dir, "config", "user.email" }, cfg) != 0 || cfg.trim().isEmpty())
+    {
+        args.add ("-c"); args.add ("user.email=gloopy@localhost");
+        args.add ("-c"); args.add ("user.name=Gloopy");
+    }
+    args.add ("-C"); args.add (dir); args.add ("revert"); args.add ("--no-edit"); args.add (commit.trim());
+
+    juce::String out;
+    if (runGit (args, out, /*alsoStderr*/ true) != 0)
+    {
+        r.error = out.trim().isNotEmpty() ? out.trim() : "git revert failed";
+        return r;
+    }
+    r.ok = true;
+    return r;
+}
+
+MainComponent::GitResult MainComponent::apiGitReset (const juce::String& dir, const juce::String& mode, const juce::String& ref)
+{
+    const auto m = mode.trim().isEmpty() ? juce::String ("mixed") : mode.trim();
+    if (m != "soft" && m != "mixed" && m != "hard")
+    { GitResult r; r.error = "reset mode must be soft, mixed, or hard"; return r; }
+    const auto target = ref.trim().isEmpty() ? juce::String ("HEAD") : ref.trim();
+    return gitWrite (*this, { "-C", dir, "reset", "--" + m, target }, dir);
+}
+
 juce::String MainComponent::gitHistoryReport()
 {
     juce::String version;

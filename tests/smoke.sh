@@ -305,6 +305,36 @@ print('yes' if ok else 'no')")
         && echo "smoke: PASS — GitDiff shows the minimal param change between two commits (cutoff 20000 -> 900)" \
         || { echo "smoke: git diff wrong" >&2; exit 1; }
     g -d "{\"path\":\"$WORK/diff_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+    # Working-tree ops (Wave 9 slice 9): stash round-trip (dirty -> clean -> dirty) + revert
+    # (a committed change is undone on disk). Pure-git on an explicit dir, but the setup
+    # NewProject/SetParameter mutates the live session, so snapshot + restore around it.
+    gdirty(){ g -d "{\"dir\":\"$1\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitStatus | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('changes',[])))"; }
+    g -d "{\"path\":\"$WORK/wt_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+    WTD="$WORK/wtproj"; rm -rf "$WTD"
+    g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+    g -d '{"name":"wtlead","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack >/dev/null
+    g -d "{\"path\":\"$WTD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+    g -d "{\"dir\":\"$WTD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitInit >/dev/null
+    g -d "{\"dir\":\"$WTD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAdd >/dev/null
+    g -d "{\"dir\":\"$WTD\",\"message\":\"base\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit >/dev/null
+    g -d '{"id":"track/1/synth/cutoff","value":900}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null
+    g -d "{\"path\":\"$WTD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+    WD1=$(gdirty "$WTD")
+    g -d "{\"dir\":\"$WTD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitStash >/dev/null
+    WD2=$(gdirty "$WTD")
+    g -d "{\"dir\":\"$WTD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitStashPop >/dev/null
+    WD3=$(gdirty "$WTD")
+    [ "$WD1" -gt 0 ] && [ "$WD2" -eq 0 ] && [ "$WD3" -gt 0 ] \
+        && echo "smoke: PASS — GitStash round-trip (dirty $WD1 -> clean $WD2 -> dirty $WD3)" \
+        || { echo "smoke: git stash wrong (d1=$WD1 d2=$WD2 d3=$WD3)" >&2; exit 1; }
+    # revert: commit the cutoff=900 change, revert it, the on-disk value returns to 20000
+    g -d "{\"dir\":\"$WTD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAdd >/dev/null
+    g -d "{\"dir\":\"$WTD\",\"message\":\"cutoff 900\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit >/dev/null
+    g -d "{\"dir\":\"$WTD\",\"ref\":\"HEAD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitRevert >/dev/null
+    grep -q 'cutoff = 20000' "$WTD/tracks/wtlead.toml" \
+        && echo "smoke: PASS — GitRevert undid the committed cutoff change (back to 20000 on disk)" \
+        || { echo "smoke: git revert wrong ($(grep 'cutoff = ' "$WTD/tracks/wtlead.toml" | head -1))" >&2; exit 1; }
+    g -d "{\"path\":\"$WORK/wt_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 else
     echo "smoke: SKIP — git not installed (GitStatus check)"
 fi

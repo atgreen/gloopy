@@ -231,6 +231,12 @@ public:
     // revA+revB = between two revisions; revA only = revA..working tree; neither = working tree vs HEAD.
     GitDiff apiGitDiff (const juce::String& dir, const juce::String& pathspec,
                         const juce::String& revA, const juce::String& revB);
+    GitResult apiGitDiscard (const juce::String& dir, const juce::StringArray& paths);   // empty = all tracked
+    GitResult apiGitStash (const juce::String& dir, const juce::String& message);        // shelve tracked changes
+    GitResult apiGitStashPop (const juce::String& dir);                                  // restore the latest stash
+    juce::StringArray apiGitStashList (const juce::String& dir);                         // "stash@{0}: ..." lines
+    GitResult apiGitRevert (const juce::String& dir, const juce::String& commit);        // new commit undoing <commit>
+    GitResult apiGitReset (const juce::String& dir, const juce::String& mode, const juce::String& ref);   // soft|mixed|hard
     juce::String gitStatusReport();                     // human-readable status text (Git.cpp)
     juce::String gitHistoryReport();                    // human-readable commit log (Git.cpp)
     void openSourceControl();                           // UI: a Source Control status window (MainComponent.cpp)
@@ -240,6 +246,7 @@ public:
     void showTagMenu();                                 // UI: tag popup — tag this version / checkout (MainComponent.cpp)
     void showVersionPicker();                           // UI: Open at version — branch/tag/commit checkout (MainComponent.cpp)
     void openDiff();                                    // UI: a working-tree diff window (MainComponent.cpp)
+    void showWorkingTreeMenu();                         // UI: discard / stash / revert / reset popup (MainComponent.cpp)
 
     // --- waveform thumbnail cache (Waveform.cpp) ---
     // Min/max peaks per bucket for an audio file, cached by path+mtime+size. Feeds

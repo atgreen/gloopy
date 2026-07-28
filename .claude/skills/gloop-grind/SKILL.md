@@ -2005,11 +2005,23 @@ commit messages are user-authored; auto-commit-on-save is opt-in only.
       via a SaveProject/LoadProject snapshot. Screenshot-validated end-to-end (the window showing
       `M params.toml` / `M tracks/lead.toml` + the `-cutoff = 20000` / `+cutoff = 900` hunks — the
       readable-diff payoff). *Done-when met: an edited param → a minimal, correct two-commit diff.*
-    - `[ ]` **9 — discard / stash / revert / reset.** `apiGitDiscard(paths)`, `apiGitStash` /
-      `StashPop` / `StashList`, `apiGitRevert(commit)`, `apiGitReset(mode, ref)` (soft | mixed |
-      hard; **hard is double-confirmed** — it destroys work). **Desktop:** items on the Source
-      Control panel; reload the project after any op that rewrites the working tree. *Done when:*
-      stash → clean tree → pop → changes return; revert a commit → its effect is undone, headless.
+    - `[x]` **9 — discard / stash / revert / reset LANDED** (`Source/Git.cpp`, commit):
+      `apiGitDiscard(dir,paths)` (`git checkout -- <paths|.>`, tracked only — untracked files are
+      left, discarding them = silent data loss), `apiGitStash(dir,msg)` / `apiGitStashPop` /
+      `apiGitStashList` (`git stash push/pop/list`), `apiGitRevert(dir,commit)` (`git revert
+      --no-edit`, with the commit identity-fallback), `apiGitReset(dir,mode,ref)` (`git reset
+      --soft|mixed|hard`, validated). RPCs GitDiscard/GitStash/GitStashPop/GitStashList/GitRevert/
+      GitReset (`GitPathsRequest`/`GitStashRequest`/`GitStashListResult`/`GitResetRequest`; note the
+      message is `GitStashListResult` — a message named `GitStashList` collides with the RPC method
+      name) + Python `git_discard`/`git_stash`/`git_stash_pop`/`git_stash_list`/`git_revert`/
+      `git_reset`. **Desktop:** File → "Discard / Stash / Reset..." (`showWorkingTreeMenu`) — Discard
+      all (confirm), Stash changes, Pop latest stash (enabled iff a stash exists), Revert a commit ▸
+      (recent 10), Reset to a commit ▸ (each with Soft/Mixed/Hard; **hard double-confirmed**). All
+      reload the project after (they rewrite the tree). smoke (isolated via a SaveProject/LoadProject
+      snapshot): stash round-trip (dirty 2 → clean 0 → dirty 2 via GitStatus change counts) + revert
+      (commit cutoff=900 → GitRevert HEAD → the on-disk `tracks/*.toml` is back to `cutoff = 20000`).
+      Screenshot-validated (the popup). *Done-when met: stash→clean→pop→changes return; revert undoes
+      a commit.*
     - `[ ]` **10 — remote + fetch / pull / push / sync.** `apiGitAddRemote / ListRemotes / Fetch /
       Pull / Push`; network ops off-thread behind the busy overlay, reusing the user's SSH /
       credential helper; **push always explicit**. **Desktop:** Add Remote... / Fetch / Pull / Push

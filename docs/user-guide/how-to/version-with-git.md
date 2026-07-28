@@ -96,6 +96,22 @@ difference itself. Because a Composition folder is readable text, the difference
 legible: a filter you nudged shows up as a single changed value, not an opaque blob. It's the
 quickest way to review your work before making a commit.
 
+## Undo, shelve, or roll back
+
+**File → Discard / Stash / Reset…** gathers the repo-level "undo" tools:
+
+- **Discard all uncommitted changes** throws away everything you've edited since your last
+  commit and returns to that saved state (it asks first — this can't be undone).
+- **Stash changes** shelves your current edits so the song returns to its last committed
+  state with a clean slate; **Pop latest stash** brings those shelved edits back later.
+  Handy for briefly setting an idea aside without committing it.
+- **Revert a commit** creates a new commit that undoes an earlier one, leaving the rest of
+  your history intact — the safe way to take back a change you already committed.
+- **Reset to a commit** moves your project back to a chosen commit. *Soft* and *mixed*
+  keep your edits; *hard* discards them (it asks first).
+
+Every one of these reloads the song afterward so what you see matches the new state.
+
 ## From a script
 
 The same status is available to scripts and agents through the control API, so you can

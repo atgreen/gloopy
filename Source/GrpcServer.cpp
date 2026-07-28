@@ -607,6 +607,21 @@ namespace
             for (auto& f : d.files) { auto* pf = r->add_files(); pf->set_status (f.status.toStdString()); pf->set_path (f.path.toStdString()); }
             return Status::OK;
         }
+        Status GitDiscard (ServerContext*, const pb::GitPathsRequest* q, pb::Ack* r) override
+        {
+            juce::StringArray paths; for (auto& p : q->paths()) paths.add (js (p));
+            setAck (r, main.apiGitDiscard (js (q->dir()), paths)); return Status::OK;
+        }
+        Status GitStash (ServerContext*, const pb::GitStashRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitStash (js (q->dir()), js (q->message()))); return Status::OK; }
+        Status GitStashPop (ServerContext*, const pb::GitDir* q, pb::Ack* r) override
+        { setAck (r, main.apiGitStashPop (js (q->dir()))); return Status::OK; }
+        Status GitStashList (ServerContext*, const pb::GitDir* q, pb::GitStashListResult* r) override
+        { for (auto& s : main.apiGitStashList (js (q->dir()))) r->add_stashes (s.toStdString()); return Status::OK; }
+        Status GitRevert (ServerContext*, const pb::GitRefRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitRevert (js (q->dir()), js (q->ref()))); return Status::OK; }
+        Status GitReset (ServerContext*, const pb::GitResetRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitReset (js (q->dir()), js (q->mode()), js (q->ref()))); return Status::OK; }
 
         // ---- project / state ----
         Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override

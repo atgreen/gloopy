@@ -1000,6 +1000,30 @@ class Gloopy:
         return {"ok": r.ok, "error": r.error, "diff": r.diff,
                 "files": [{"status": f.status, "path": f.path} for f in r.files]}
 
+    def git_discard(self, dir: str, paths: list[str] | None = None) -> None:
+        """Discard uncommitted tracked changes (empty paths = all)."""
+        self._ack(self.stub.GitDiscard(pb.GitPathsRequest(dir=dir, paths=paths or [])))
+
+    def git_stash(self, dir: str, message: str = "") -> None:
+        """Shelve tracked changes onto a stash."""
+        self._ack(self.stub.GitStash(pb.GitStashRequest(dir=dir, message=message)))
+
+    def git_stash_pop(self, dir: str) -> None:
+        """Restore (and drop) the latest stash."""
+        self._ack(self.stub.GitStashPop(pb.GitDir(dir=dir)))
+
+    def git_stash_list(self, dir: str) -> list[str]:
+        """List stashes ("stash@{0}: ...")."""
+        return list(self.stub.GitStashList(pb.GitDir(dir=dir)).stashes)
+
+    def git_revert(self, dir: str, commit: str) -> None:
+        """Create a new commit that undoes `commit`."""
+        self._ack(self.stub.GitRevert(pb.GitRefRequest(dir=dir, ref=commit)))
+
+    def git_reset(self, dir: str, mode: str = "mixed", ref: str = "HEAD") -> None:
+        """Reset to `ref` (mode: soft | mixed | hard). Hard discards uncommitted work."""
+        self._ack(self.stub.GitReset(pb.GitResetRequest(dir=dir, mode=mode, ref=ref)))
+
     def diagnostics(self) -> dict:
         """Engine health: device settings, callback timing, DSP load, dropouts, render speed."""
         d = self.stub.GetDiagnostics(pb.Empty())

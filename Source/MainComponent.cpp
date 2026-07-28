@@ -3766,6 +3766,97 @@ void MainComponent::openDiff()
     diffWindow->toFront (true);
 }
 
+void MainComponent::showWorkingTreeMenu()
+{
+    // Repo-level undo: discard uncommitted edits, shelve them on a stash, revert a past
+    // commit, or reset to one. All of these rewrite the working tree, so we reload the
+    // project after. The destructive ops (discard, reset --hard) confirm first.
+    if (currentProjectFile.getFileName() != "gloopy.toml") return;
+    const auto dir = currentProjectFile.getParentDirectory().getFullPathName();
+    if (! apiGitStatus (dir).isRepo)
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+            "Working tree", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+        return;
+    }
+
+    const auto commits = apiGitLog (dir, 10);
+    const auto stashes = apiGitStashList (dir);
+
+    // Reload the project from disk + refresh the Source Control window (after a tree rewrite).
+    auto reload = [this]
+    {
+        openAny (currentProjectFile);
+        if (sourceControlWindow != nullptr && sourceControlWindow->isVisible()) openSourceControl();
+    };
+    auto run = [this] (const GitResult& r)
+    {
+        if (! r.ok)
+            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Working tree", r.error);
+    };
+
+    juce::PopupMenu m;
+    m.addItem (-1, "Working tree", false);
+    m.addItem (1, "Discard all uncommitted changes...");
+    m.addItem (2, "Stash changes (shelve)");
+    m.addItem (3, "Pop latest stash", ! stashes.isEmpty());
+    if (! commits.empty())
+    {
+        juce::PopupMenu rev, reset;
+        for (int i = 0; i < (int) commits.size(); ++i)
+        {
+            const auto label = commits[(size_t) i].hash + "  " + commits[(size_t) i].subject.substring (0, 32);
+            rev.addItem (100 + i, label);
+            juce::PopupMenu modes;
+            modes.addItem (1000 + i * 3 + 0, "Soft (keep changes staged)");
+            modes.addItem (1000 + i * 3 + 1, "Mixed (keep changes unstaged)");
+            modes.addItem (1000 + i * 3 + 2, "Hard (discard changes)...");
+            reset.addSubMenu (label, modes);
+        }
+        m.addSeparator();
+        m.addSubMenu ("Revert a commit", rev);
+        m.addSubMenu ("Reset to a commit", reset);
+    }
+
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
+        [this, dir, commits, reload, run] (int r)
+        {
+            if (r == 0) return;
+            if (r == 1)   // discard all — destructive, confirm
+            {
+                juce::NativeMessageBox::showYesNoBox (juce::MessageBoxIconType::WarningIcon,
+                    "Discard all changes", "Throw away every uncommitted change since your last commit? This can't be undone.",
+                    nullptr, juce::ModalCallbackFunction::create ([this, dir, reload, run] (int yes)
+                    { if (yes) { run (apiGitDiscard (dir, {})); reload(); } }));
+                return;
+            }
+            if (r == 2) { run (apiGitStash (dir, {})); reload(); return; }
+            if (r == 3) { run (apiGitStashPop (dir)); reload(); return; }
+            if (r >= 100 && r < 1000)
+            {
+                const int i = r - 100;
+                if (i < (int) commits.size()) { run (apiGitRevert (dir, commits[(size_t) i].hash)); reload(); }
+                return;
+            }
+            if (r >= 1000)
+            {
+                const int i = (r - 1000) / 3, mode = (r - 1000) % 3;
+                if (i >= (int) commits.size()) return;
+                const juce::String modeStr = mode == 0 ? "soft" : mode == 1 ? "mixed" : "hard";
+                const auto ref = commits[(size_t) i].hash;
+                if (mode == 2)   // hard reset — destructive, confirm
+                {
+                    juce::NativeMessageBox::showYesNoBox (juce::MessageBoxIconType::WarningIcon,
+                        "Hard reset", "Reset to " + ref + " and DISCARD all uncommitted changes? This can't be undone.",
+                        nullptr, juce::ModalCallbackFunction::create ([this, dir, ref, reload, run] (int yes)
+                        { if (yes) { run (apiGitReset (dir, "hard", ref)); reload(); } }));
+                    return;
+                }
+                run (apiGitReset (dir, modeStr, ref)); reload();
+            }
+        });
+}
+
 void MainComponent::showBranchMenu()
 {
     // Branches = alternate arrangements. Checkout / merge change files on disk, so we
@@ -4562,6 +4653,7 @@ void MainComponent::showFileMenu()
     menu.addItem (25, "Tags...", isComposition);       // tag popup (Git.cpp)
     menu.addItem (26, "Open at version...", isComposition);   // checkout any branch/tag/commit (Git.cpp)
     menu.addItem (27, "Changes (Diff)...", isComposition);    // working-tree diff (Git.cpp)
+    menu.addItem (28, "Discard / Stash / Reset...", isComposition);   // working-tree ops (Git.cpp)
     // Live MIDI status (read-only): the input sources Gloopy hears + which track they play.
     juce::PopupMenu midiMenu;
     const auto midiIns = apiListMidiInputs();
@@ -4630,6 +4722,7 @@ void MainComponent::showFileMenu()
             if (result == 25) { showTagMenu(); return; }        // tag popup
             if (result == 26) { showVersionPicker(); return; }  // checkout any version
             if (result == 27) { openDiff(); return; }           // working-tree diff
+            if (result == 28) { showWorkingTreeMenu(); return; }  // discard / stash / revert / reset
             if (result == 20) { undo(); return; }
             if (result == 21) { redo(); return; }
             if (result >= 100)                                  // New from Template

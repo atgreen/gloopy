@@ -337,6 +337,10 @@ message GitTagRequest    { string dir = 1; string name = 2; string message = 3; 
 message GitDiffRequest   { string dir = 1; string pathspec = 2; string rev_a = 3; string rev_b = 4; }
 message GitDiffFile      { string status = 1; string path = 2; }   // name-status code (M/A/D/R…) + path
 message GitDiffResult    { bool ok = 1; string error = 2; string diff = 3; repeated GitDiffFile files = 4; }
+message GitPathsRequest  { string dir = 1; repeated string paths = 2; }   // discard (empty paths = all tracked)
+message GitStashRequest  { string dir = 1; string message = 2; }          // message optional
+message GitStashListResult { repeated string stashes = 1; }
+message GitResetRequest  { string dir = 1; string mode = 2; string ref = 3; }   // mode: soft|mixed|hard; ref empty = HEAD
 message RenderRequest {                       // offline bounce to WAV
   string path = 1;
   double tail_seconds = 2;
@@ -600,6 +604,12 @@ service Gloopy {
   rpc GitTagCreate   (GitTagRequest) returns (Ack);               // tag HEAD (annotated if message set)
   rpc GitTagDelete   (GitTagRequest) returns (Ack);               // delete a tag
   rpc GitDiff        (GitDiffRequest) returns (GitDiffResult);    // unified diff (working tree or between revisions)
+  rpc GitDiscard     (GitPathsRequest) returns (Ack);            // discard uncommitted tracked changes (empty = all)
+  rpc GitStash       (GitStashRequest) returns (Ack);            // shelve tracked changes
+  rpc GitStashPop    (GitDir)          returns (Ack);            // restore the latest stash
+  rpc GitStashList   (GitDir)          returns (GitStashListResult);   // list stashes
+  rpc GitRevert      (GitRefRequest)   returns (Ack);            // new commit undoing ref
+  rpc GitReset       (GitResetRequest) returns (Ack);            // reset --soft|mixed|hard to ref
   rpc NewProject (Empty)    returns (Ack);
   rpc ListTemplates  (Empty)       returns (TemplateList);   // built-in + user project templates
   rpc NewFromTemplate(TemplateRef) returns (Ack);            // empty + seed a template

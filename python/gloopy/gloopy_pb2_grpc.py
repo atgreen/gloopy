@@ -935,6 +935,36 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.GitDiffRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.GitDiffResult.FromString,
                 _registered_method=True)
+        self.GitDiscard = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitDiscard',
+                request_serializer=gloopy__pb2.GitPathsRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitStash = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitStash',
+                request_serializer=gloopy__pb2.GitStashRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitStashPop = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitStashPop',
+                request_serializer=gloopy__pb2.GitDir.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitStashList = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitStashList',
+                request_serializer=gloopy__pb2.GitDir.SerializeToString,
+                response_deserializer=gloopy__pb2.GitStashListResult.FromString,
+                _registered_method=True)
+        self.GitRevert = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitRevert',
+                request_serializer=gloopy__pb2.GitRefRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitReset = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitReset',
+                request_serializer=gloopy__pb2.GitResetRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.NewProject = channel.unary_unary(
                 '/gloopy.v1.Gloopy/NewProject',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -2236,6 +2266,48 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GitDiscard(self, request, context):
+        """discard uncommitted tracked changes (empty = all)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitStash(self, request, context):
+        """shelve tracked changes
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitStashPop(self, request, context):
+        """restore the latest stash
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitStashList(self, request, context):
+        """list stashes
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitRevert(self, request, context):
+        """new commit undoing ref
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitReset(self, request, context):
+        """reset --soft|mixed|hard to ref
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def NewProject(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -3272,6 +3344,36 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.GitDiff,
                     request_deserializer=gloopy__pb2.GitDiffRequest.FromString,
                     response_serializer=gloopy__pb2.GitDiffResult.SerializeToString,
+            ),
+            'GitDiscard': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitDiscard,
+                    request_deserializer=gloopy__pb2.GitPathsRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitStash': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitStash,
+                    request_deserializer=gloopy__pb2.GitStashRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitStashPop': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitStashPop,
+                    request_deserializer=gloopy__pb2.GitDir.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitStashList': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitStashList,
+                    request_deserializer=gloopy__pb2.GitDir.FromString,
+                    response_serializer=gloopy__pb2.GitStashListResult.SerializeToString,
+            ),
+            'GitRevert': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitRevert,
+                    request_deserializer=gloopy__pb2.GitRefRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitReset': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitReset,
+                    request_deserializer=gloopy__pb2.GitResetRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'NewProject': grpc.unary_unary_rpc_method_handler(
                     servicer.NewProject,
@@ -8235,6 +8337,168 @@ class Gloopy:
             '/gloopy.v1.Gloopy/GitDiff',
             gloopy__pb2.GitDiffRequest.SerializeToString,
             gloopy__pb2.GitDiffResult.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitDiscard(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitDiscard',
+            gloopy__pb2.GitPathsRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitStash(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitStash',
+            gloopy__pb2.GitStashRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitStashPop(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitStashPop',
+            gloopy__pb2.GitDir.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitStashList(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitStashList',
+            gloopy__pb2.GitDir.SerializeToString,
+            gloopy__pb2.GitStashListResult.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitRevert(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitRevert',
+            gloopy__pb2.GitRefRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitReset(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitReset',
+            gloopy__pb2.GitResetRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,
             insecure,
