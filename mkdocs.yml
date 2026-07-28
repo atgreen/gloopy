@@ -115,6 +115,9 @@ nav:
       - Explanation:
           - user-guide/explanation/index.md
           - Arrangement vs. Session: user-guide/explanation/arrangement-vs-session.md
+          - The musical model: user-guide/explanation/the-musical-model.md
+          - Gain staging: user-guide/explanation/gain-staging.md
+          - How playback is scheduled: user-guide/explanation/how-playback-is-scheduled.md
       - Reference:
           - user-guide/reference/index.md
           - Toolbar and transport controls: user-guide/reference/toolbar.md
