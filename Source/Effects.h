@@ -1164,9 +1164,65 @@ private:
     std::array<std::atomic<float>, kBands> level {};    // published band levels
 };
 
+// ---------------------------------------------------------------------------
+// Vectorscope / goniometer — a NON-MUTATING analyzer insert. Passes audio through
+// unchanged but captures a decimated window of stereo (L,R) sample pairs, so the
+// device panel can plot the classic 45°-rotated Lissajous (mono = a vertical line,
+// antiphase = horizontal, wide/decorrelated = a cloud) and a script can read back the
+// stereo correlation. The audio thread writes only std::atomic<float> ring cells (no
+// lock, no allocation; principle 4). analyzerSnapshot returns interleaved L,R pairs.
+// ---------------------------------------------------------------------------
+class VectorscopeFx : public Effect
+{
+public:
+    static constexpr int kPoints = 256;                 // (L,R) pairs in the snapshot
+
+    void prepare (double, int, int) override {}
+    void reset() override { for (auto& s : ringL) s.store (0.0f); for (auto& s : ringR) s.store (0.0f); widx.store (0); }
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        if (b.getNumChannels() < 1) return;              // non-mutating: never writes the buffer
+        const int n = b.getNumSamples();
+        const auto* L = b.getReadPointer (0);
+        const auto* R = b.getNumChannels() >= 2 ? b.getReadPointer (1) : L;   // mono -> R == L
+        int w = widx.load (std::memory_order_relaxed);
+        for (int i = 0; i < n; ++i)
+            if (++decimCount >= kDecim)
+            {
+                decimCount = 0;
+                ringL[(size_t) w].store (L[i], std::memory_order_relaxed);
+                ringR[(size_t) w].store (R[i], std::memory_order_relaxed);
+                w = (w + 1) % kPoints;
+            }
+        widx.store (w, std::memory_order_relaxed);
+    }
+
+    juce::String name() const override { return "Vectorscope"; }
+    std::vector<EffectParam> parameters() override { return {}; }   // no knobs — the display is the UI
+
+    int analyzerSnapshot (float* out, int maxN) const override
+    {
+        const int pairs = juce::jmin (maxN / 2, kPoints);
+        const int w = widx.load (std::memory_order_relaxed);
+        for (int i = 0; i < pairs; ++i)
+        {
+            out[2 * i]     = ringL[(size_t) ((w + i) % kPoints)].load (std::memory_order_relaxed);
+            out[2 * i + 1] = ringR[(size_t) ((w + i) % kPoints)].load (std::memory_order_relaxed);
+        }
+        return pairs * 2;
+    }
+
+private:
+    static constexpr int kDecim = 8;                    // keep 1 of every 8 sample pairs
+    std::array<std::atomic<float>, kPoints> ringL {}, ringR {};
+    std::atomic<int> widx { 0 };
+    int decimCount { 0 };                               // audio-thread only
+};
+
 namespace EffectFactory
 {
-    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate", "Auto-wah", "Ring Mod", "Scope", "Spectrum" }; }
+    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate", "Auto-wah", "Ring Mod", "Scope", "Spectrum", "Vectorscope" }; }
 
     inline std::unique_ptr<Effect> create (const juce::String& type)
     {
@@ -1190,6 +1246,7 @@ namespace EffectFactory
         if (type == "Ring Mod")   return std::make_unique<RingModFx>();
         if (type == "Scope")      return std::make_unique<ScopeFx>();
         if (type == "Spectrum")   return std::make_unique<SpectrumFx>();
+        if (type == "Vectorscope") return std::make_unique<VectorscopeFx>();
         return nullptr;
     }
 }

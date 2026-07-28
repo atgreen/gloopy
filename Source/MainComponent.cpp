@@ -894,7 +894,7 @@ MainComponent::MainComponent (bool headless)
         return juce::StringArray { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher",
                                    "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo",
                                    "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate",
-                                   "Auto-wah", "Ring Mod", "Scope", "Spectrum" };
+                                   "Auto-wah", "Ring Mod", "Scope", "Spectrum", "Vectorscope" };
     };
     devicePanel.getTitle = [this]
     {
@@ -1703,7 +1703,7 @@ int MainComponent::apiAddEffect (int insert, int type)
     return callOnMessageThread ([&] () -> int
     {
         pushUndoSnapshot();
-        static const char* names[] = { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate", "Auto-wah", "Ring Mod", "Scope", "Spectrum" };
+        static const char* names[] = { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate", "Auto-wah", "Ring Mod", "Scope", "Spectrum", "Vectorscope" };
         if (type < 0 || type >= (int) (sizeof (names) / sizeof (names[0]))) return -1;
         auto fx = makeEffect (names[type]);
         if (fx == nullptr) return -1;

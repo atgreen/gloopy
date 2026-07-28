@@ -2555,6 +2555,45 @@ print('smoke: PASS — spectrum analyzer (octave-band RTA): a ~988 Hz tone peaks
 " || { echo 'smoke: spectrum analyzer wrong' >&2; exit 1; }
 g -d "{\"path\":\"$WORK/spec-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore
 
+# Vectorscope / goniometer (Wave 5 #15): a non-mutating analyzer capturing stereo (L,R)
+# pairs, so a script can read back the stereo correlation. A mono signal correlates ~+1;
+# two different tones hard-panned L/R are decorrelated (~0). NewProject-isolated per case.
+corr_py='import json,sys,math
+d=json.load(sys.stdin).get("samples",[]); Ls=d[0::2]; Rs=d[1::2]
+num=sum(l*r for l,r in zip(Ls,Rs)); den=math.sqrt(sum(l*l for l in Ls)*sum(r*r for r in Rs))
+print(num/den if den>1e-9 else 0.0)'
+g -d "{\"path\":\"$WORK/vec-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+# MONO: one centred tone -> both channels identical -> correlation ~+1
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+g -d '{"name":"Mono","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.1,"gain":0.5}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack >/dev/null
+VM_TID=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListTracks | python3 -c "import json,sys; print(json.load(sys.stdin)['tracks'][-1]['id'])")
+g -d "{\"track_id\":$VM_TID,\"start_beat\":0,\"length_beats\":8,\"content_len_beats\":8,\"looped\":true,\"notes\":[{\"pitch\":69,\"start_beat\":0,\"length_beats\":8,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d '{"insert":0,"type":20}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/Play >/dev/null; python3 -c "import time; time.sleep(1.0)"
+VEC_MONO=$(g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetAnalyzerData | python3 -c "$corr_py")
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/Stop >/dev/null
+# DECORRELATED: two different tones hard-panned L / R
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+g -d '{"name":"L","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.1,"gain":0.5}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack >/dev/null
+g -d '{"name":"R","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.1,"gain":0.5}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack >/dev/null
+# NB: read into VL1/VL2 (do NOT pipe to `cut` — this script defines a shell function named cut()).
+read -r VL1 VL2 < <(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListTracks | python3 -c "import json,sys; t=json.load(sys.stdin)['tracks']; print(t[0]['id'], t[1]['id'])")
+g -d "{\"track_id\":$VL1,\"start_beat\":0,\"length_beats\":8,\"content_len_beats\":8,\"looped\":true,\"notes\":[{\"pitch\":57,\"start_beat\":0,\"length_beats\":8,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"track_id\":$VL2,\"start_beat\":0,\"length_beats\":8,\"content_len_beats\":8,\"looped\":true,\"notes\":[{\"pitch\":64,\"start_beat\":0,\"length_beats\":8,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"id\":\"track/$VL1/pan\",\"value\":-1}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null
+g -d "{\"id\":\"track/$VL2/pan\",\"value\":1}"  127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null
+g -d '{"insert":0,"type":20}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/Play >/dev/null; python3 -c "import time; time.sleep(1.0)"
+VEC_PAN=$(g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetAnalyzerData | python3 -c "$corr_py")
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/Stop >/dev/null
+python3 -c "
+mono, pan = float('$VEC_MONO'), float('$VEC_PAN')
+assert mono > 0.9, 'a mono signal should correlate ~+1, got %.3f' % mono
+assert abs(pan) < 0.3, 'two hard-panned different tones should be decorrelated (~0), got %.3f' % pan
+print('smoke: PASS — vectorscope stereo correlation: mono=%.3f (~+1), hard-panned L/R different tones=%.3f (~0) via the API' % (mono, pan))
+" || { echo 'smoke: vectorscope wrong' >&2; exit 1; }
+g -d "{\"path\":\"$WORK/vec-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore
+
 # MIDI file export/import round-trip (last — import resets the project). Export the
 # loaded project to an SMF, reimport into a fresh project, and confirm notes survive
 # as playable clips.

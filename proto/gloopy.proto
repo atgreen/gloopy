@@ -96,7 +96,7 @@ message AddClipRequest {
 message ClipId { int32 track_id = 1; int32 index = 2; }
 
 // ── mixer / effects ────────────────────────────────────────
-enum EffectType { GAIN = 0; FILTER = 1; DELAY = 2; REVERB = 3; LIMITER = 4; BITCRUSHER = 5; COMPRESSOR = 6; EQ = 7; WAVESHAPER = 8; STEREO_WIDENER = 9; TREMOLO = 10; CHORUS = 11; FLANGER = 12; PHASER = 13; AUTOPAN = 14; NOISE_GATE = 15; AUTOWAH = 16; RINGMOD = 17; SCOPE = 18; SPECTRUM = 19; }
+enum EffectType { GAIN = 0; FILTER = 1; DELAY = 2; REVERB = 3; LIMITER = 4; BITCRUSHER = 5; COMPRESSOR = 6; EQ = 7; WAVESHAPER = 8; STEREO_WIDENER = 9; TREMOLO = 10; CHORUS = 11; FLANGER = 12; PHASER = 13; AUTOPAN = 14; NOISE_GATE = 15; AUTOWAH = 16; RINGMOD = 17; SCOPE = 18; SPECTRUM = 19; VECTORSCOPE = 20; }
 message EffectInfo  { int32 slot = 1; string name = 2; bool bypassed = 3; }
 message Send { int32 bus = 1; float level = 2; }   // aux send: insert -> bus at level
 message MixerInsert {

@@ -45,6 +45,7 @@ public:
 
         addChildComponent (scope);      // shown only when the selected device is a Scope
         addChildComponent (spectrum);   // shown only when the selected device is a Spectrum
+        addChildComponent (vector);     // shown only when the selected device is a Vectorscope
     }
 
     // Owner callbacks — routed to the selected track's mixer insert.
@@ -129,6 +130,8 @@ public:
         // An analyzer display fills the device body when selected (analyzers have no knobs).
         if (scope.isVisible())    { scope.setBounds (a.reduced (10, 8)); return; }
         if (spectrum.isVisible()) { spectrum.setBounds (a.reduced (10, 8)); return; }
+        if (vector.isVisible())   { const int sz = juce::jmin (a.getWidth(), a.getHeight()) - 16;
+                                    vector.setBounds (a.withSizeKeepingCentre (sz, sz)); return; }   // square goniometer
 
         // Param knobs grid.
         auto grid = a.reduced (10, 8);
@@ -198,6 +201,37 @@ private:
         }
     };
 
+    // Live vectorscope / goniometer for a Vectorscope analyzer device — plots the
+    // stereo (L,R) pairs on the 45°-rotated mid/side axes (mono = a vertical line).
+    struct VectorscopeView : juce::Component, juce::Timer
+    {
+        std::function<std::vector<float>()> pull;
+        std::vector<float> data;   // interleaved L,R
+        VectorscopeView() { startTimerHz (24); }
+        void timerCallback() override { if (isShowing() && pull) { data = pull(); repaint(); } }
+        void paint (juce::Graphics& g) override
+        {
+            auto b = getLocalBounds().toFloat();
+            g.setColour (Palette::bg); g.fillRoundedRectangle (b, 4.0f);
+            const float cx = b.getCentreX(), cy = b.getCentreY();
+            const float rad = 0.5f * juce::jmin (b.getWidth(), b.getHeight()) - 4.0f;
+            g.setColour (Palette::lineSoft);                     // reference axes (mid vertical, side horizontal)
+            g.drawVerticalLine ((int) cx, cy - rad, cy + rad);
+            g.drawHorizontalLine ((int) cy, cx - rad, cx + rad);
+            if (data.size() < 2) { g.setColour (Palette::textDim); g.setFont (11.0f);
+                                   g.drawText ("vectorscope — play to see the stereo field", getLocalBounds(), juce::Justification::centred); return; }
+            const float s = rad / 1.4142f;                       // /sqrt(2) so full-scale mono reaches the edge
+            g.setColour (Palette::accent.withAlpha (0.7f));
+            for (int i = 0; i + 1 < (int) data.size(); i += 2)
+            {
+                const float L = data[(size_t) i], R = data[(size_t) i + 1];
+                const float x = cx + (L - R) * s;                // side (left/right spread)
+                const float y = cy - (L + R) * s;                // mid (up)
+                g.fillEllipse (x - 1.0f, y - 1.0f, 2.0f, 2.0f);
+            }
+        }
+    };
+
     void rebuildParams()
     {
         paramSliders.clear();
@@ -211,11 +245,14 @@ private:
                                      ? chain[(size_t) selectedSlot].first : juce::String();
         const bool isScope    = selName == "Scope";
         const bool isSpectrum = selName == "Spectrum";
+        const bool isVector   = selName == "Vectorscope";
         scope.setVisible (isScope);
         spectrum.setVisible (isSpectrum);
+        vector.setVisible (isVector);
         auto puller = [this, slot = selectedSlot] { return getAnalyzerData ? getAnalyzerData (slot) : std::vector<float>{}; };
         if (isScope)    scope.pull    = puller;
         if (isSpectrum) spectrum.pull = puller;
+        if (isVector)   vector.pull   = puller;
         if (selectedSlot < 0 || ! getParams) { repaint(); return; }
         if (selectedSlot < (int) chain.size()) bypassBtn.setToggleState (chain[(size_t) selectedSlot].second, juce::dontSendNotification);
 
@@ -249,6 +286,7 @@ private:
     std::vector<juce::String>                      paramNames;
     ScopeView scope;
     SpectrumView spectrum;
+    VectorscopeView vector;
     int selectedSlot { -1 };
     bool standalone { false };
 };

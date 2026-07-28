@@ -1102,8 +1102,24 @@ measurably single-core-bound on a heavy multi-track session. See Wave 7 for why.
       1 kHz octave band (1.01) and dominates its neighbours >2× (0.23/0.22). Screenshot-validated
       end-to-end (the DEVICES view → selecting Spectrum draws a live 10-band RTA of a spread chord).
       Manual model doc notes both analyzers; mkdocs --strict green.
-      **Not yet:** a vectorscope / goniometer (L-R correlation — the same GetAnalyzerData pattern,
-      capturing both channels); FFT-resolution spectrum (would need juce_dsp or a hand-rolled FFT).
+    - `[x]` **Vectorscope / goniometer landed** (commit): `VectorscopeFx` — the third non-mutating
+      analyzer, completing the scope/spectrum/vectorscope set for #15. Reuses the same infrastructure
+      (`Effect::analyzerSnapshot` + `GetAnalyzerData` — no new RPC): passes audio through unchanged but
+      captures a decimated window of stereo (L,R) sample pairs into two lock-free `std::atomic<float>`
+      rings; `analyzerSnapshot` returns them interleaved (256 pairs). EffectType VECTORSCOPE=20,
+      appended across all registries; serialises by name. **Desktop:** a `VectorscopeView` (24 Hz
+      Timer) special-cased in DevicePanel — the classic 45°-rotated goniometer (x = side = L−R, y = mid
+      = L+R), mid/side reference axes, a square keep-centred layout; reuses the `getAnalyzerData`
+      wiring. smoke (NewProject-isolated per case, computing the stereo correlation from the returned
+      pairs): a centred mono tone correlates **1.000** (~+1), and two different tones hard-panned L/R
+      are decorrelated **0.019** (~0). Screenshot-validated (the DEVICES view → selecting Vectorscope
+      draws the goniometer with axes + the live signal trace). **Gotcha logged:** the smoke script
+      defines a shell function `cut()` (a controllers-test helper), which shadows the UNIX `cut` — so a
+      later block must NOT pipe to `cut`; use `read -r a b < <(...)` instead (this cost a debug cycle:
+      the block passed in isolation but aborted under `set -e` in the full run). Manual model doc notes
+      all three analyzers; mkdocs --strict green.
+      **Not yet:** FFT-resolution spectrum (would need juce_dsp or a hand-rolled FFT). The analyzer
+      family (scope / spectrum / vectorscope) for #15 is complete.
 
 ### Wave 6 — Product surface & UI (deferred: harder to verify headless; keep layout simple)
 
