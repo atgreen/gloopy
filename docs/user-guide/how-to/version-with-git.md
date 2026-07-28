@@ -15,6 +15,25 @@ resolving merge conflicts — all from Gloopy's File menu, over the same git you
 - Install **git** on your system. Gloopy uses your existing git — including your name,
   email, and any keys or logins you already have set up.
 
+## The status bar
+
+The strip along the bottom of the window is always in view and tells you, at a glance:
+
+- **Which project** you're in — the full path of the composition folder (or `.gloopy`
+  file), with your home directory shown as `~`. An **untitled** project that has never
+  been saved shows *Untitled project*.
+- **Unsaved edits** — a coloured dot and an *edited* tag appear the moment you change
+  anything; both clear when you save. This is in-memory state: it says the project on
+  screen differs from the last save.
+- **Git state** — once the project is a repository, the bar shows the current **branch**
+  and how many files are **uncommitted** (or *clean* when everything is committed), plus
+  *up N* / *down N* when a remote is ahead or behind. This is on-disk state: it says the
+  saved files differ from the last commit. (The two are independent — you can have saved
+  work that isn't yet committed.)
+- The **Gloopy version**, on the right.
+
+Everything here is also available to scripts and agents via the `GetProjectStatus` call.
+
 ## Start a version-controlled project
 
 Use **File → New Git Project…**, choose a folder, and Gloopy saves your song there as a

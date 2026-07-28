@@ -668,6 +668,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
     // Opt-in auto-commit-on-save: a no-op unless this repo set gloopy.autocommit=true
     // (one `git config --get`), in which case stage-all + commit the just-saved state.
     apiGitAutoCommitOnSave (dir.getFullPathName());
+    markSaved();                        // clear the unsaved flag + refresh the git summary
     return true;
 }
 

@@ -16,6 +16,10 @@
 #include <algorithm>
 #include <iostream>
 
+#ifndef JUCE_APPLICATION_VERSION_STRING
+ #define JUCE_APPLICATION_VERSION_STRING "?"   // normally set by CMake from project(VERSION)
+#endif
+
 MainComponent::MainComponent (bool headless)
     : headlessCli (headless)
 {
@@ -4750,6 +4754,11 @@ void MainComponent::timerCallback()
                 changed = changed || (t->generator->uiPatchName != prev);
             }
         if (changed && arrangeView != nullptr) arrangeView->repaint();
+
+        // Refresh the status bar's git summary every ~4s (an IDE-style poll). The subprocess
+        // runs off the message thread; the uncommitted count also refreshes right after a save.
+        static int gitPollTick = 0;
+        if (++gitPollTick >= 4) { gitPollTick = 0; pollGitStatusAsync(); }
     }
 
     // Keep repainting the header briefly after live MIDI so the input LED animates/fades.
@@ -4775,6 +4784,10 @@ void MainComponent::paint (juce::Graphics& g)
     g.drawText ("GLOOPY", 20, toolbarBounds.getY(), 92, toolbarBounds.getHeight(),
                 juce::Justification::centredLeft, false);
 
+    // Bottom status bar.
+    if (! statusBarBounds.isEmpty())
+        paintStatusBar (g);
+
     // Transport cluster inset.
     if (! transportBounds.isEmpty())
     {
@@ -4799,10 +4812,101 @@ void MainComponent::paint (juce::Graphics& g)
     }
 }
 
+// Bottom status strip: which project we're in, whether it has unsaved edits, a compact git
+// working-tree summary (branch + uncommitted), and the Gloopy version — the same data the
+// GetProjectStatus RPC returns. Dots are drawn as filled ellipses (no glyph-font risk); the
+// ahead/behind counts read as words to avoid arrow-glyph gaps.
+void MainComponent::paintStatusBar (juce::Graphics& g)
+{
+    auto r = statusBarBounds;
+    g.setColour (Palette::panel);
+    g.fillRect (r);
+    g.setColour (Palette::lineSoft);
+    g.fillRect (r.getX(), r.getY(), r.getWidth(), 1);      // top seam
+
+    const auto font = Palette::sectionFont();
+    g.setFont (font);
+    auto row = r.reduced (12, 0);
+    const float cy = (float) row.getCentreY();
+    auto measure = [&] (const juce::String& t) { return juce::GlyphArrangement::getStringWidthInt (font, t); };
+    auto dot = [&] (float cx, juce::Colour c) { g.setColour (c); g.fillEllipse (cx - 3.0f, cy - 3.0f, 6.0f, 6.0f); };
+    auto sep = [&] (int& xx) { g.setColour (Palette::lineSoft); g.fillRect (xx, row.getY() + 5, 1, row.getHeight() - 10); xx += 12; };
+
+    // --- right edge: version ---
+    {
+        const juce::String v = "Gloopy " + juce::String (JUCE_APPLICATION_VERSION_STRING);
+        g.setColour (Palette::textDim);
+        g.drawText (v, row.removeFromRight (measure (v) + 4), juce::Justification::centredRight, false);
+        row.removeFromRight (14);
+    }
+
+    // --- left: saved/unsaved dot + project name (+ 'edited' tag) ---
+    int x = row.getX();
+    dot ((float) x + 3.0f, projectModified ? Palette::warm : Palette::green);
+    x += 6 + 8;
+
+    const auto path = projectDisplayPath();
+    const bool untitled = path.isEmpty();
+    juce::String label = untitled ? "Untitled project" : path;
+    // Keep the tail (the project folder + its parents) if the path is long — elide from the front
+    // so the git segment stays visible. Plain "..." avoids any ellipsis-glyph font gap.
+    const int maxPathW = (int) (row.getWidth() * 0.55f);
+    if (! untitled && measure (label) > maxPathW)
+    {
+        while (label.length() > 1 && measure ("..." + label) > maxPathW) label = label.substring (1);
+        label = "..." + label;
+    }
+    g.setColour (untitled ? Palette::textDim : Palette::text);
+    g.drawText (label, x, row.getY(), measure (label) + 4, row.getHeight(), juce::Justification::centredLeft, false);
+    x += measure (label) + 4;
+
+    if (projectModified)
+    {
+        g.setColour (Palette::warm);
+        g.drawText ("edited", x + 8, row.getY(), measure ("edited") + 4, row.getHeight(), juce::Justification::centredLeft, false);
+        x += 8 + measure ("edited") + 4;
+    }
+
+    // --- git working-tree summary ---
+    if (statusGitRepo)
+    {
+        x += 12; sep (x);
+        g.setColour (Palette::accent);
+        g.drawText (statusGitBranch, x, row.getY(), measure (statusGitBranch) + 4, row.getHeight(), juce::Justification::centredLeft, false);
+        x += measure (statusGitBranch) + 10;
+
+        const bool clean = statusGitUncommitted == 0;
+        dot ((float) x + 3.0f, clean ? Palette::green : Palette::warm);
+        x += 6 + 6;
+        const juce::String gs = clean ? "clean"
+                                      : juce::String (statusGitUncommitted)
+                                          + (statusGitUncommitted == 1 ? " uncommitted change" : " uncommitted changes");
+        g.setColour (clean ? Palette::textDim : Palette::warm);
+        g.drawText (gs, x, row.getY(), measure (gs) + 4, row.getHeight(), juce::Justification::centredLeft, false);
+        x += measure (gs) + 4;
+
+        if (statusGitAhead > 0 || statusGitBehind > 0)
+        {
+            juce::String ab;
+            if (statusGitAhead  > 0) ab << "  up " << statusGitAhead;
+            if (statusGitBehind > 0) ab << "  down " << statusGitBehind;
+            g.setColour (Palette::textDim);
+            g.drawText (ab, x + 4, row.getY(), measure (ab) + 6, row.getHeight(), juce::Justification::centredLeft, false);
+        }
+    }
+    else if (! untitled && statusGitAvailable)
+    {
+        x += 12; sep (x);
+        g.setColour (Palette::textDim);
+        g.drawText ("not versioned", x, row.getY(), measure ("not versioned") + 4, row.getHeight(), juce::Justification::centredLeft, false);
+    }
+}
+
 void MainComponent::resized()
 {
     auto area = getLocalBounds();
     toolbarBounds = area.removeFromTop (56);
+    statusBarBounds = area.removeFromBottom (22);   // bottom status strip: project · unsaved · git · version
     auto bar = toolbarBounds.reduced (8, 9);
     bar.removeFromLeft (104);   // wordmark
 
@@ -5156,7 +5260,10 @@ void MainComponent::showFileMenu()
                 fileChooser = std::make_unique<juce::FileChooser> ("Save as composition folder", juce::File());
                 fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectDirectories,
                     [this] (const juce::FileChooser& fc)
-                    { auto d = fc.getResult(); if (d != juce::File()) saveComposition (d); });
+                    { auto d = fc.getResult();
+                      if (d != juce::File() && saveComposition (d))
+                          currentProjectFile = d.getChildFile ("gloopy.toml");   // we now live in this composition
+                    });
             }
             else if (result == 10)   // Save the current project as a reusable user template
             {
@@ -5235,6 +5342,7 @@ void MainComponent::pushUndoSnapshot()
     undoStack.push_back (toValueTree());
     while (undoStack.size() > 32) undoStack.erase (undoStack.begin());   // bounded
     redoStack.clear();
+    markModified();                     // every edit funnels through here → the project is now dirty
 }
 
 void MainComponent::undo()
@@ -5243,6 +5351,7 @@ void MainComponent::undo()
     redoStack.push_back (toValueTree());
     auto prev = undoStack.back(); undoStack.pop_back();
     undoSuppressed = true;  loadFromTree (prev);  refreshUiAfterLoad();  undoSuppressed = false;
+    markModified();                     // undoing to a non-saved state still differs from disk
 }
 
 void MainComponent::redo()
@@ -5251,6 +5360,102 @@ void MainComponent::redo()
     undoStack.push_back (toValueTree());
     auto next = redoStack.back(); redoStack.pop_back();
     undoSuppressed = true;  loadFromTree (next);  refreshUiAfterLoad();  undoSuppressed = false;
+    markModified();
+}
+
+// --- Unsaved-changes tracking + status bar plumbing ---
+
+void MainComponent::markModified()
+{
+    if (projectModified) return;
+    projectModified = true;
+    if (! statusBarBounds.isEmpty()) repaint (statusBarBounds);
+}
+
+void MainComponent::markSaved()
+{
+    projectModified = false;
+    if (! statusBarBounds.isEmpty()) repaint (statusBarBounds);
+    pollGitStatusAsync();               // a save changed the working tree → refresh the git summary
+}
+
+// Display name: a composition is named by its folder (the gloopy.toml parent), a single
+// file by its stem. Empty string = untitled (never saved). Mirrors the Cli/Git rule.
+juce::String MainComponent::projectDisplayName() const
+{
+    if (currentProjectFile.getFileName() == "gloopy.toml")
+        return currentProjectFile.getParentDirectory().getFileName();
+    if (currentProjectFile.existsAsFile())
+        return currentProjectFile.getFileNameWithoutExtension();
+    return {};
+}
+
+// Full path shown in the status bar: the composition's folder, or the single .gloopy file's
+// path. The home directory collapses to "~" for readability. Empty = untitled (never saved).
+juce::String MainComponent::projectDisplayPath() const
+{
+    juce::File f;
+    if (currentProjectFile.getFileName() == "gloopy.toml") f = currentProjectFile.getParentDirectory();
+    else if (currentProjectFile.existsAsFile())            f = currentProjectFile;
+    else                                                   return {};
+
+    auto p = f.getFullPathName();
+    const auto home = juce::File::getSpecialLocation (juce::File::userHomeDirectory).getFullPathName();
+    if (home.isNotEmpty() && (p == home || p.startsWith (home + "/")))
+        p = "~" + p.substring (home.length());
+    return p;
+}
+
+void MainComponent::pollGitStatusAsync()
+{
+    if (headlessCli) return;                              // no UI / no timer in CLI mode
+    if (gitPollInFlight.exchange (true)) return;          // one poll at a time
+    juce::Component::SafePointer<MainComponent> safe (this);
+    juce::Thread::launch ([this, safe]
+    {
+        auto snap = apiGitStatus();                      // subprocess off the message thread; safe
+        juce::MessageManager::callAsync ([safe, snap]
+        {
+            if (auto* self = safe.getComponent())
+            {
+                self->statusGitAvailable   = snap.available;
+                self->statusGitRepo        = snap.isRepo;
+                self->statusGitDetached    = snap.detached;
+                self->statusGitBranch      = snap.branch;
+                self->statusGitUncommitted = (int) snap.changes.size();
+                self->statusGitAhead       = snap.ahead;
+                self->statusGitBehind      = snap.behind;
+                self->gitPollInFlight = false;
+                if (! self->statusBarBounds.isEmpty()) self->repaint (self->statusBarBounds);
+            }
+        });
+    });
+}
+
+MainComponent::ProjectStatusSnap MainComponent::apiProjectStatus()
+{
+    ProjectStatusSnap s;
+    s.version = JUCE_APPLICATION_VERSION_STRING;
+    callOnMessageThread ([&]
+    {
+        s.modified      = projectModified;
+        s.name          = projectDisplayName();
+        s.untitled      = s.name.isEmpty();
+        s.isComposition = currentProjectFile.getFileName() == "gloopy.toml";
+        s.dir           = s.isComposition ? currentProjectFile.getParentDirectory().getFullPathName()
+                        : currentProjectFile.existsAsFile() ? currentProjectFile.getFullPathName()
+                                                            : juce::String();
+        return true;
+    });
+    auto g = apiGitStatus();                 // reuses the same dir resolution
+    s.gitAvailable   = g.available;
+    s.gitRepo        = g.isRepo;
+    s.gitDetached    = g.detached;
+    s.gitBranch      = g.branch;
+    s.gitUncommitted = (int) g.changes.size();
+    s.gitAhead       = g.ahead;
+    s.gitBehind      = g.behind;
+    return s;
 }
 
 void MainComponent::apiUndo() { callOnMessageThread ([&] { undo(); return true; }); }
@@ -5726,6 +5931,7 @@ void MainComponent::saveProject (const juce::File& file)
     {
         xml->writeTo (file);
         currentProjectFile = file;
+        markSaved();
     }
 }
 
@@ -6184,4 +6390,10 @@ void MainComponent::refreshUiAfterLoad()
     playButton.setToggleState (false, juce::dontSendNotification);
     playButton.setIcon (IconButton::Play);
     resized();
+
+    // A freshly loaded / new project matches disk. (undo/redo re-flag dirty after this
+    // returns, since their result still differs from the last saved state.)
+    projectModified = false;
+    if (! statusBarBounds.isEmpty()) repaint (statusBarBounds);
+    pollGitStatusAsync();               // reflect the newly-open project's repo in the bar
 }

@@ -1146,6 +1146,18 @@ class Gloopy:
                 "dropouts": d.dropouts, "render_speed_x": d.render_speed_x,
                 "audio_thread_allocs": d.audio_thread_allocs}
 
+    def project_status(self) -> dict:
+        """Status-bar summary: which project, whether it has unsaved edits, the Gloopy
+        version, and a compact git working-tree summary (branch + uncommitted count)."""
+        s = self.stub.GetProjectStatus(pb.Empty())
+        return {"version": s.version, "dir": s.dir, "name": s.name,
+                "modified": s.modified, "untitled": s.untitled,
+                "is_composition": s.is_composition,
+                "git_available": s.git_available, "git_repo": s.git_repo,
+                "git_branch": s.git_branch, "git_detached": s.git_detached,
+                "git_uncommitted": s.git_uncommitted,
+                "git_ahead": s.git_ahead, "git_behind": s.git_behind}
+
     def get_waveform(self, path: str, buckets: int = 256) -> dict:
         """Cached min/max waveform peaks for an audio file (per-bucket)."""
         r = self.stub.GetWaveform(pb.WaveformRequest(path=path, buckets=buckets))

@@ -519,6 +519,25 @@ namespace
             return Status::OK;
         }
 
+        Status GetProjectStatus (ServerContext*, const pb::Empty*, pb::ProjectStatus* r) override
+        {
+            auto s = main.apiProjectStatus();
+            r->set_version (s.version.toStdString());
+            r->set_dir (s.dir.toStdString());
+            r->set_name (s.name.toStdString());
+            r->set_modified (s.modified);
+            r->set_untitled (s.untitled);
+            r->set_is_composition (s.isComposition);
+            r->set_git_available (s.gitAvailable);
+            r->set_git_repo (s.gitRepo);
+            r->set_git_branch (s.gitBranch.toStdString());
+            r->set_git_detached (s.gitDetached);
+            r->set_git_uncommitted (s.gitUncommitted);
+            r->set_git_ahead (s.gitAhead);
+            r->set_git_behind (s.gitBehind);
+            return Status::OK;
+        }
+
         Status SetProjectNotes (ServerContext*, const pb::TextValue* q, pb::Ack* r) override
         { main.apiSetProjectNotes (js (q->text())); r->set_ok (true); return Status::OK; }
         Status GetProjectNotes (ServerContext*, const pb::Empty*, pb::TextValue* r) override

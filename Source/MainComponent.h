@@ -224,6 +224,15 @@ public:
         std::vector<GitFileChange> changes;             // dirty / untracked files
     };
     struct GitResult { bool ok = false; juce::String error; };   // for git write-ops (init/commit/...)
+    // Project status summary (backs the status bar + the GetProjectStatus RPC).
+    struct ProjectStatusSnap {
+        juce::String version, dir, name;
+        bool modified = false, untitled = true, isComposition = false;
+        bool gitAvailable = false, gitRepo = false, gitDetached = false;
+        juce::String gitBranch;
+        int gitUncommitted = 0, gitAhead = 0, gitBehind = 0;
+    };
+    ProjectStatusSnap apiProjectStatus();               // one snapshot for the status bar / RPC
     bool apiGitAvailable (juce::String& version);       // true + fills version if git is on PATH
     GitStatusSnap apiGitStatus (const juce::String& dirOverride = {});   // empty = the open project's dir
     GitResult apiGitInit (const juce::String& dir);     // git init a folder (creating it if needed)
@@ -699,6 +708,21 @@ private:
     void saveCurrentProject();    // Ctrl/Cmd+S: save to the current file (or Save As if unsaved)
     std::vector<juce::ValueTree> undoStack, redoStack;
     bool undoSuppressed { false };
+
+    // --- Unsaved-changes tracking + status bar state ---
+    bool projectModified { false };                 // edits since the last save/load
+    void markModified();                            // an edit happened → flag dirty + repaint the bar
+    void markSaved();                               // saved to disk → clear the flag + refresh git
+    juce::String projectDisplayName() const;        // composition folder name / .gloopy file name ("" = untitled)
+    juce::String projectDisplayPath() const;        // full path (~ for home) of the composition dir / .gloopy file ("" = untitled)
+    void pollGitStatusAsync();                       // refresh the cached git summary off the message thread
+    void paintStatusBar (juce::Graphics&);           // bottom status strip (project · unsaved · git · version)
+    // Cached git working-tree summary for the status bar (updated by pollGitStatusAsync).
+    bool statusGitAvailable { false }, statusGitRepo { false }, statusGitDetached { false };
+    juce::String statusGitBranch;
+    int statusGitUncommitted { 0 }, statusGitAhead { 0 }, statusGitBehind { 0 };
+    std::atomic<bool> gitPollInFlight { false };
+    juce::Rectangle<int> statusBarBounds;
 
     void showFileMenu();
     void openAny (const juce::File& f);   // dispatch .gloopy / composition dir / .zip

@@ -337,6 +337,29 @@ print('yes' if ok else 'no')")
         && echo "smoke: PASS — GitRevert undid the committed cutoff change (back to 20000 on disk)" \
         || { echo "smoke: git revert wrong ($(grep 'cutoff = ' "$WTD/tracks/wtlead.toml" | head -1))" >&2; exit 1; }
     g -d "{\"path\":\"$WORK/wt_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+    # Project status summary (backs the desktop status bar): version, the unsaved-changes flag
+    # (dirty on edit, cleared on save), and a folded-in git working-tree summary. Snapshot+restore.
+    g -d "{\"path\":\"$WORK/ps_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+    psget(){ g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetProjectStatus; }
+    g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+    psget | python3 -c "import json,sys;d=json.load(sys.stdin);assert d['version']=='0.1.0',d;assert d.get('untitled') and not d.get('modified'),d;print('smoke: PASS — ProjectStatus fresh: version %s, untitled, not modified'%d['version'])" \
+        || { echo 'smoke: ProjectStatus (fresh) failed' >&2; exit 1; }
+    g -d '{"name":"psx","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack >/dev/null
+    psget | python3 -c "import json,sys;assert json.load(sys.stdin).get('modified'),'an edit should mark the project modified';print('smoke: PASS — ProjectStatus: an edit marks the project modified')" \
+        || { echo 'smoke: ProjectStatus (modified) failed' >&2; exit 1; }
+    PSD="$WORK/psproj"; rm -rf "$PSD"
+    g -d "{\"path\":\"$PSD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+    g -d "{\"dir\":\"$PSD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitInit >/dev/null
+    g -d "{\"dir\":\"$PSD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAdd >/dev/null
+    g -d "{\"dir\":\"$PSD\",\"message\":\"ps base\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit >/dev/null
+    g -d "{\"path\":\"$PSD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+    psget | python3 -c "import json,sys;d=json.load(sys.stdin);assert not d.get('modified'),'saved+loaded should be clean: %r'%d;assert d.get('isComposition') and d.get('name')=='psproj',d;assert d.get('gitRepo') and d.get('gitBranch') and not d.get('gitUncommitted'),d;print('smoke: PASS — ProjectStatus loaded: %s on %s, committed & clean'%(d['name'],d['gitBranch']))" \
+        || { echo 'smoke: ProjectStatus (loaded/clean) failed' >&2; exit 1; }
+    g -d '{"name":"psy","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack >/dev/null
+    g -d "{\"path\":\"$PSD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+    psget | python3 -c "import json,sys;d=json.load(sys.stdin);assert not d.get('modified'),'save should clear the unsaved flag: %r'%d;assert d.get('gitUncommitted',0)>0,'a save should dirty the working tree: %r'%d;print('smoke: PASS — ProjectStatus: save clears unsaved but leaves %d uncommitted change(s)'%d['gitUncommitted'])" \
+        || { echo 'smoke: ProjectStatus (saved/uncommitted) failed' >&2; exit 1; }
+    g -d "{\"path\":\"$WORK/ps_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
     # Remote push (Wave 9 slice 10): add a remote pointing at a BARE local repo (no network),
     # push, and assert the commit landed there via `git -C <bare> log`. Snapshot + restore.
     g -d "{\"path\":\"$WORK/rmt_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null

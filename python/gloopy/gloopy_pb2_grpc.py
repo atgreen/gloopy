@@ -880,6 +880,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
                 response_deserializer=gloopy__pb2.ProjectState.FromString,
                 _registered_method=True)
+        self.GetProjectStatus = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GetProjectStatus',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.ProjectStatus.FromString,
+                _registered_method=True)
         self.GetDiagnostics = channel.unary_unary(
                 '/gloopy.v1.Gloopy/GetDiagnostics',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -2303,6 +2308,13 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetProjectStatus(self, request, context):
+        """dir, version, unsaved + git summary (backs the status bar)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetDiagnostics(self, request, context):
         """engine health / RT metrics
         """
@@ -3566,6 +3578,11 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.GetState,
                     request_deserializer=gloopy__pb2.Empty.FromString,
                     response_serializer=gloopy__pb2.ProjectState.SerializeToString,
+            ),
+            'GetProjectStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetProjectStatus,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.ProjectStatus.SerializeToString,
             ),
             'GetDiagnostics': grpc.unary_unary_rpc_method_handler(
                     servicer.GetDiagnostics,
@@ -8437,6 +8454,33 @@ class Gloopy:
             '/gloopy.v1.Gloopy/GetState',
             gloopy__pb2.Empty.SerializeToString,
             gloopy__pb2.ProjectState.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetProjectStatus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GetProjectStatus',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.ProjectStatus.FromString,
             options,
             channel_credentials,
             insecure,

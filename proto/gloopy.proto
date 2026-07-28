@@ -315,6 +315,24 @@ message Diagnostics {
   int64 dropouts = 8; double render_speed_x = 9;   // last offline bounce, x realtime
   int64 audio_thread_allocs = 10;   // cumulative heap allocations on the audio thread (steady delta 0 = alloc-free)
 }
+// Project status summary — what the desktop status bar shows: which project we're in,
+// whether it has unsaved edits, the Gloopy version, and a compact git working-tree summary.
+message ProjectStatus {
+  string version = 1;          // Gloopy version, e.g. "0.1.0"
+  string dir = 2;              // full path of the project file/dir ("" = untitled, never saved)
+  string name = 3;            // display name (composition folder name, or .gloopy file name)
+  bool modified = 4;          // unsaved changes since the last save/load
+  bool untitled = 5;          // never saved to disk
+  bool is_composition = 6;    // a composition folder (git-trackable) vs a single .gloopy file
+  // git working-tree summary (from GitStatus, folded in so the bar is one call)
+  bool git_available = 7;     // git binary present
+  bool git_repo = 8;          // the project dir is a git work tree
+  string git_branch = 9;      // branch, or "(<short-hash>)" when detached
+  bool git_detached = 10;     // detached HEAD
+  int32 git_uncommitted = 11; // count of dirty / untracked files
+  int32 git_ahead = 12;       // commits ahead of upstream
+  int32 git_behind = 13;      // commits behind upstream
+}
 // Git — source control over the composition-as-repo (Git.cpp).
 message GitVersion { bool available = 1; string version = 2; }   // e.g. "git version 2.43.0"
 message GitDir     { string dir = 1; }                           // empty = the open project's dir
@@ -621,6 +639,7 @@ service Gloopy {
 
   // project & state
   rpc GetState      (Empty) returns (ProjectState);
+  rpc GetProjectStatus(Empty) returns (ProjectStatus);   // dir, version, unsaved + git summary (backs the status bar)
   rpc GetDiagnostics(Empty) returns (Diagnostics);   // engine health / RT metrics
   rpc SetProjectNotes(TextValue) returns (Ack);      // free-form markdown, saved with the song
   rpc GetProjectNotes(Empty)     returns (TextValue);
