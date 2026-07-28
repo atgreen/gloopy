@@ -268,8 +268,9 @@ actually next, in order:
 Newly committed epics (user-requested 2026-07-28), sequence them per the user's call — the git
 epic is flagged **central to project management** and realizes the "store it in git" half of the
 north star, so it's a strong candidate to jump early:
-- **Git as project management** (Wave 9 #30) — init/status/stage/commit/log/remote/push, shell
-  out to the system `git`; a native version-control workflow over the composition-as-repo format.
+- **Git as project management** (Wave 9 #30) — an **IDE-grade** source-control surface (status,
+  commit, commit-graph, **branches, tags, checkout any version**, diff, stash, remote/push), shell
+  out to the system `git`; branches = alternate arrangements, tags = milestone mixes. XL, 12 slices.
 - **Upgrade JUCE to the latest** (Wave 10 #31) — bump the `FetchContent` pin off 8.0.15, shake
   out deprecations; low-risk foundation refresh.
 - **Windows build** (Wave 10 #32) — CI-native Windows binary (recommended) or mingw-w64
@@ -1854,9 +1855,14 @@ render-wiring design in `docs/session-view.md`.
 The north star is "the DAW you can drive from a script **and store in git**" — this epic
 delivers the second half. Gloopy's composition-as-repo format is already a first-class git
 citizen (readable TOML / `.notes` / `.points`, content-addressed dirty writes → minimal
-diffs), so wrapping it in git makes **version control a native DAW workflow**: familiar from
-every IDE (VS Code's "Source Control" view is the mental model), novel in a DAW. Keep it
-**curated** — init / status / stage / commit / log / remote / push / pull, not a full git GUI.
+diffs), so wrapping it in git makes **version control a native DAW workflow**: novel in a DAW,
+familiar from every IDE. The bar (user direction, 2026-07-28) is an **IDE-grade source-control
+surface** — the affordances you rely on in VS Code / JetBrains / GitKraken (Source Control panel,
+commit graph, branches, tags, **checkout any version**, diff, stash, push/pull) — brought into a
+DAW and framed musically: **branches = alternate arrangements / remixes, tags = milestone mixes
+(demo / master / album-cut), checkout = load-and-audition an older cut**. It stays **git-the-tool
+underneath** (we shell out — see the design fork below): a rich UI over real git, not a
+reimplementation.
 
 **✦ Design fork — shell out to the system `git`; do NOT vendor libgit2.** "Gloopy should make
 sure git is available" = detect the `git` binary and reuse the user's existing identity, SSH
@@ -1878,42 +1884,84 @@ audio thread (principle 4). Network ops (push / pull / clone) run behind `runBac
 busy overlay. **Push is outward-facing** — always an explicit user action, never automatic;
 commit messages are user-authored; auto-commit-on-save is opt-in only.
 
-30. **Git project management.** ✦ **L (multi-session)** *(realizes the north star; each slice is
-    API-reachable + desktop-UI + headless-proven against a temp repo.)*
-    - `[ ]` **Slice 1 — git availability + repo status.** Detect `git` at startup
-      (`apiGitAvailable` → present + version; features grey out with a hint when absent).
-      The `Source/Git.cpp` `runGit()` substrate. `apiGitStatus(dir)` → {is_repo, branch,
-      ahead/behind, dirty files [path + XY code]}. Track the open project's working dir.
-      **Desktop:** a "Source Control" indicator/panel (branch + dirty count). GitStatus RPC +
-      Python. *Done when:* status of a temp repo reports clean → dirty across an edit, headless.
-    - `[ ]` **Slice 2 — init on new project (choose dir + `git init`).** New-project flow gains
-      **File → New Git Project...** → directory chooser → `apiGitInit(dir)` → save the
-      composition into it as a folder repo → write a sensible `.gitignore` (exports/, generated
-      caches, plugin-scan artefacts). Also **"Enable Git"** for an already-open folder project.
-      GitInit RPC + Python. *Done when:* new-git-project creates a repo with the composition
-      inside it, ready to commit, headless.
-    - `[ ]` **Slice 3 — stage + commit (the user writes the message).** `apiGitAdd(paths | all)`
-      + `apiGitCommit(message)`. Save stages the composition files. **Desktop:** a Commit dialog
-      — a message editor + the changed/staged file list + Stage-all + Commit (the familiar IDE
-      commit surface); File → "Commit..." and the Source Control panel. GitAdd / GitCommit RPCs +
-      Python. *Done when:* edit → save → add → commit, and `git log` shows the message, headless.
-    - `[ ]` **Slice 4 — history / log (+ restore).** `apiGitLog(dir, n)` → recent commits
-      {hash, author, date, subject}. **Desktop:** a History panel listing commits; (stretch)
-      **open the project as of a commit** (checkout into a temp worktree → load) for A/B and
-      recovery. GitLog RPC + Python. *Done when:* log returns the commit series after N commits,
-      headless.
-    - `[ ]` **Slice 5 — remote + push / pull.** `apiGitAddRemote(name, url)`,
-      `apiGitPush(remote, branch)`, `apiGitPull()` — network ops off-thread behind the busy
-      overlay, reusing the user's SSH/credential helper. **Desktop:** "Add Remote...", "Push",
-      "Pull" on the Source Control menu/panel; push is always explicit. GitAddRemote / GitPush /
-      GitPull RPCs + Python. *Done when:* push to a **bare local repo** lands the commit there
-      (assert via `git -C <bare> log`), headless — no network needed for the test.
-    - `[ ]` **Slice 6 — configurable git + polish.** The "other git things, configurable":
-      branch create / switch, per-project git identity override (user.name / user.email), the
-      **auto-stage-on-save** / **auto-commit-on-save** toggles (opt-in), discard/restore a
-      changed file, view a file's diff. Optional **Git LFS** guidance for large WAV / plugin
-      sidecars (configurable, later — keep binaries lean or LFS-tracked). Keep it curated — a
-      DAW *with* source control, not a git client.
+30. **Git project management — IDE-grade source control for compositions.** ✦ **XL (multi-session)**
+    *(Realizes the north star. Every slice is API-reachable + desktop-UI + headless-proven against a
+    temp repo. Study the best IDE git UX for shape — VS Code Source Control, JetBrains Git, GitKraken
+    — and adapt; the DAW lens makes each feature musical, not just plumbing.)*
+
+    **Target surface (the IDE features we're matching), by group:**
+    - *Repo & commits:* availability check, status, init / enable, stage (all + per-file; hunk/line
+      staging a stretch), commit (message editor, changed-files tree, per-file diff, amend, sign-off).
+    - *History:* commit **graph** / log view, per-commit diff, filter / search, file history + blame
+      (stretch).
+    - *Structure:* **branches** (create / checkout / rename / delete / new-from-here / merge),
+      **tags** (lightweight + annotated: create / checkout / delete / list), **checkout any version**
+      (branch / tag / commit → load the project at it).
+    - *Working tree:* **diff viewer** (working tree + between any two revisions), discard, **stash**
+      (shelve / pop), revert a commit, reset (guarded).
+    - *Collaboration:* remotes, fetch / pull / push / sync, **merge-conflict resolution** over the
+      composition text format.
+    - *Config:* identity override, auto-stage / auto-commit toggles (opt-in), Git LFS for audio
+      sidecars, commit templates.
+
+    Sliced sequence (one green commit each; build the substrate first, then breadth):
+    - `[ ]` **1 — availability + status.** Detect `git` at startup (`apiGitAvailable` → present +
+      version; git UI greys out with a hint when absent). The `Source/Git.cpp` `runGit()` substrate.
+      `apiGitStatus(dir)` → {is_repo, branch, detached?, ahead / behind, dirty files [path + XY]}.
+      Track the open project's working dir. **Desktop:** a "Source Control" panel (branch + dirty
+      count). *Done when:* a temp repo reports clean → dirty across an edit, headless.
+    - `[ ]` **2 — init / enable git.** **File → New Git Project...** → dir chooser → `apiGitInit(dir)`
+      → save the composition in as a folder repo → write a sensible `.gitignore` (exports/, caches,
+      plugin-scan artefacts). Also **"Enable Git"** for an already-open folder project. *Done when:*
+      new-git-project creates a repo with the composition ready to commit, headless.
+    - `[ ]` **3 — stage + commit (user writes the message).** `apiGitAdd(paths | all)` +
+      `apiGitCommit(message, amend?)`. **Desktop:** the IDE commit surface — a message editor + a
+      changed / staged files tree with per-file selection + Stage-all + Amend + Commit; File →
+      "Commit...". *Done when:* edit → stage → commit, `git log` shows the message, headless.
+      (Hunk / line staging is a later stretch.)
+    - `[ ]` **4 — history / commit graph.** `apiGitLog(dir, n)` → commits {hash, parents, refs
+      (branch / tag), author, date, subject}. **Desktop:** a History panel drawing the **DAG** with
+      per-commit diff + a path / text filter. *Done when:* the log returns the parent-linked series
+      + refs after N commits, headless.
+    - `[ ]` **5 — branches (alternate arrangements).** `apiGitBranchList / Create / Checkout /
+      Rename / Delete / Merge`. **Desktop:** a branch popup — current branch, checkout, new-branch-
+      from-here, merge-into-current; **guard a dirty checkout** (offer stash / commit / cancel).
+      Reload the project after a checkout that changes the tree. *Done when:* create → checkout →
+      commit-on-branch → merge back, verified via `git log --all`, headless.
+    - `[ ]` **6 — tags (milestone mixes).** `apiGitTagList / Create (lightweight + annotated) /
+      Delete / Checkout`. **Desktop:** "Tag this version..." (name + optional message) on the Source
+      Control panel + File menu; a tag list. *Done when:* tag a commit → it lists → checkout by tag
+      loads that version, headless.
+    - `[ ]` **7 — checkout any version (audition an old cut).** `apiGitCheckout(ref)` where ref =
+      branch | tag | commit → checkout (**detached-HEAD aware**) and **reload the project at that
+      revision**; guarded on a dirty tree (stash / commit / discard first). **Desktop:** a
+      "Checkout / Open at version..." picker over branches + tags + recent commits; a clear "you are
+      at <ref> (detached)" banner + "return to <branch>". *Done when:* commit A, edit → commit B,
+      checkout A → the reloaded project matches A; back to tip → matches B, headless.
+    - `[ ]` **8 — diff viewer.** `apiGitDiff(pathspec?, revA?, revB?)` → unified diff (working tree,
+      or between any two revisions). **Desktop:** a Diff panel. **Composition-text-aware:** surface
+      *which tracks / clips / params changed* from the readable-TOML / `.notes` diff, not just raw
+      hunks — the payoff of the diff-friendly format. *Done when:* an edited param shows a minimal,
+      correct diff between two commits, headless.
+    - `[ ]` **9 — discard / stash / revert / reset.** `apiGitDiscard(paths)`, `apiGitStash` /
+      `StashPop` / `StashList`, `apiGitRevert(commit)`, `apiGitReset(mode, ref)` (soft | mixed |
+      hard; **hard is double-confirmed** — it destroys work). **Desktop:** items on the Source
+      Control panel; reload the project after any op that rewrites the working tree. *Done when:*
+      stash → clean tree → pop → changes return; revert a commit → its effect is undone, headless.
+    - `[ ]` **10 — remote + fetch / pull / push / sync.** `apiGitAddRemote / ListRemotes / Fetch /
+      Pull / Push`; network ops off-thread behind the busy overlay, reusing the user's SSH /
+      credential helper; **push always explicit**. **Desktop:** Add Remote... / Fetch / Pull / Push
+      on the panel with ahead-behind counts. *Done when:* push to a **bare local repo** lands the
+      commit there (assert via `git -C <bare> log`) — no network needed for the test.
+    - `[ ]` **11 — merge-conflict resolution.** When a merge / pull conflicts, surface the conflicted
+      composition files (TOML / `.notes`) with **accept-ours / accept-theirs / keep-both**, mark
+      resolved, continue the merge, reload. The composition text format makes conflicts human-
+      readable — lean into that rather than shelling users out to a terminal. *Done when:* a
+      hand-built conflicting merge is resolved in-app and the merge completes, headless.
+    - `[ ]` **12 — config + polish.** Per-project identity override (user.name / user.email),
+      **auto-stage-on-save / auto-commit-on-save** toggles (opt-in only), **Git LFS** setup for large
+      WAV / plugin sidecars, commit-message templates, and file-history / blame (stretch). Rounds out
+      the IDE-grade surface.
 
 ### Wave 10 — Build, platform & toolchain ✦
 
