@@ -6,6 +6,7 @@
 #include <JuceHeader.h>
 #include <atomic>
 #include <cmath>
+#include "Time.h"
 
 /** Owns the musical clock: tempo, loop length, play state and the playhead.
     All fields are atomic so the GUI thread can read/write them while the audio
@@ -63,20 +64,23 @@ public:
 
     /** Seek the playhead (from dragging it) to a beat position. */
     void requestSeek (double beats) noexcept   // reject NaN/inf; the timeline starts at 0
-    { if (std::isfinite (beats)) { seekBeats = juce::jmax (0.0, beats); seekRequested = true; } }
+    { if (std::isfinite (beats)) { seekBeats = gloopy::time::BeatPosition { juce::jmax (0.0, beats) }; seekRequested = true; } }
     bool consumeSeek (double& outBeats) noexcept
     {
         if (! seekRequested.exchange (false)) return false;
-        outBeats = seekBeats.load();
+        outBeats = seekBeats.load().inBeats();   // typed storage, double at the edge
         return true;
     }
 
-    // Loop region.
+    // Loop region. Positions are typed (BeatPosition) so a duration can't be passed as a
+    // start/end; the double *Beats() readers stay for the render/draw hot paths (the edge).
     void setLoopEnabled (bool e) noexcept          { loopEnabled = e; }
     bool isLoopEnabled() const noexcept            { return loopEnabled.load(); }
-    void setLoopRegion (double s, double e) noexcept { loopStartBeats = s; loopEndBeats = e; }
-    double getLoopStartBeats() const noexcept      { return loopStartBeats.load(); }
-    double getLoopEndBeats() const noexcept        { return loopEndBeats.load(); }
+    void setLoopRegion (gloopy::time::BeatPosition s, gloopy::time::BeatPosition e) noexcept { loopStartBeats = s; loopEndBeats = e; }
+    gloopy::time::BeatPosition getLoopStart() const noexcept { return loopStartBeats.load(); }
+    gloopy::time::BeatPosition getLoopEnd()   const noexcept { return loopEndBeats.load(); }
+    double getLoopStartBeats() const noexcept      { return loopStartBeats.load().inBeats(); }
+    double getLoopEndBeats() const noexcept        { return loopEndBeats.load().inBeats(); }
 
     void        setPlayheadSamples (juce::int64 s) noexcept { playheadSamples = s; }
     juce::int64 getPlayheadSamples() const noexcept         { return playheadSamples.load(); }
@@ -100,8 +104,13 @@ private:
     std::atomic<juce::int64> playheadSamples { 0 };
 
     std::atomic<bool>        seekRequested { false };
-    std::atomic<double>      seekBeats      { 0.0 };
+    std::atomic<gloopy::time::BeatPosition> seekBeats      { gloopy::time::BeatPosition { 0.0 } };
     std::atomic<bool>        loopEnabled    { false };
-    std::atomic<double>      loopStartBeats { 0.0 };
-    std::atomic<double>      loopEndBeats   { 16.0 };
+    std::atomic<gloopy::time::BeatPosition> loopStartBeats { gloopy::time::BeatPosition { 0.0 } };
+    std::atomic<gloopy::time::BeatPosition> loopEndBeats   { gloopy::time::BeatPosition { 16.0 } };
+
+    // The loop/seek positions are read on the audio thread (consumeSeek / the render window),
+    // so their atomics MUST be lock-free — a lock-based fallback would break principle 4.
+    static_assert (std::atomic<gloopy::time::BeatPosition>::is_always_lock_free,
+                   "Transport time-position atomics must be lock-free for the audio thread");
 };

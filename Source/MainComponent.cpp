@@ -1408,7 +1408,8 @@ void MainComponent::apiSetSwing (double s)   { transport.setSwing (s); }
 void MainComponent::apiSeek (double beats)   { transport.requestSeek (juce::jmax (0.0, beats)); }
 void MainComponent::apiSetLoop (bool enabled, double startBeat, double endBeat)
 {
-    transport.setLoopRegion (juce::jmax (0.0, startBeat), juce::jmax (startBeat + 0.25, endBeat));
+    transport.setLoopRegion (gloopy::time::BeatPosition { juce::jmax (0.0, startBeat) },
+                             gloopy::time::BeatPosition { juce::jmax (startBeat + 0.25, endBeat) });
     transport.setLoopEnabled (enabled);
     if (loopButton.getToggleState() != enabled)
         juce::MessageManager::callAsync ([this, enabled] { loopButton.setToggleState (enabled, juce::dontSendNotification); });

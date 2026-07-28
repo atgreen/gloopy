@@ -1744,9 +1744,26 @@ prior-art references to *read*, not to lift.
       `double`. Behavior-identical: build green, ctest green, smoke 178 PASS with the tempo assertions
       (beats↔seconds 8 beats @120→240 = 3 s, mid-song speed-up shortens the render, tempo-synced
       LFO/delay) explicitly passing.
-      **NEXT:** migrate the next subsystem — clip position fields (`Clip.startBeat`/`lengthBeats`) or
-      the transport loop/seek region (careful: audio-thread atomics — the clip fields are the larger
-      but message-thread-heavy surface; loop atomics need an audio-thread-safe typed-atomic story).
+    - `[x]` **Third subsystem migrated: transport loop/seek region (Phase-B slice 4)** (commit): the
+      **audio-thread typed-atomic story is resolved.** `Transport`'s loop region and seek target are
+      now stored as **`std::atomic<gloopy::time::BeatPosition>`** (was `std::atomic<double>`), and a
+      compile-time `static_assert(std::atomic<BeatPosition>::is_always_lock_free)` guarantees the audio
+      thread never hits a lock-based fallback (an 8-byte trivially-copyable position → native lock-free
+      64-bit load/store; verified `is_always_lock_free==1`, no libatomic call for this type — principle
+      4 safe on the render window + `consumeSeek` reads). The loop-region **write** interface is now
+      typed — `setLoopRegion(BeatPosition, BeatPosition)` (its 2 callers pass `BeatPosition{}`), so a
+      duration can never be passed as a loop start/end — while the double `getLoopStartBeats()`/
+      `getLoopEndBeats()`/`consumeSeek(double&)` readers stay for the render/draw hot paths (the edge).
+      Also added typed `getLoopStart()`/`getLoopEnd()` accessors for future call-site adoption. Bounded
+      (Transport.h + 2 one-line `setLoopRegion` call sites); internal plumbing, so no proto/Python/
+      manual/desktop change. Behavior-identical: build green, ctest green, smoke 178 PASS with the loop
+      assertions (SetLoopToClip → transport loop [5,8), ExportLoopRegion bounces just the loop, CropClip
+      to the loop region) explicitly passing.
+      **NEXT:** the remaining big subsystem is clip position fields (`Clip.startBeat`/`lengthBeats`/
+      `contentLenBeats`) — a large, render-hot-path-heavy surface (~50 read sites) better suited to a
+      focused session than an autonomous tick; do it incrementally (a typed accessor pair first, then
+      migrate readers in batches). With markers (locations + tempo), the beats↔samples conversions, and
+      now the loop/seek region all typed, the #21 "done when" is met except for clip positions.
 
 22. **Undo / redo — fine-grained (ValueTree + `UndoManager`).** ✦ **L** — *deferred/optional.*
     NOTE: snapshot-based undo **already ships** and works (see the reprioritization banner;

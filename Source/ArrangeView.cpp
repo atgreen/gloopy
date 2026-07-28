@@ -1086,7 +1086,7 @@ void ArrangeView::mouseDrag (const juce::MouseEvent& e)
             else                                   // plain → loop region
             {
                 loopDragged = true;
-                transport.setLoopRegion (s, f);
+                transport.setLoopRegion (gloopy::time::BeatPosition { s }, gloopy::time::BeatPosition { f });
                 transport.setLoopEnabled (true);
                 if (onLoopChanged) onLoopChanged();
             }
