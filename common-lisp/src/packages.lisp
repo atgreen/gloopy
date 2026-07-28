@@ -25,6 +25,8 @@ Every RPC is a plain function; messages come back as plists.")
    #:connect #:disconnect #:*channel* #:connectedp
    ;; transport
    #:play #:stop #:set-tempo #:set-swing #:seek #:transport
+   ;; tempo map
+   #:add-tempo-marker #:remove-tempo-marker #:list-tempo-markers
    ;; tracks
    #:list-tracks #:get-state #:add-synth-track #:add-sampler-track #:add-sfz-track
    #:add-audio-track #:add-plugin-track #:set-track-params #:set-synth-param

@@ -70,6 +70,22 @@
     (list :playing (gloopy.pb::playing r) :bpm (gloopy.pb::bpm r)
           :position-beats (gloopy.pb::position-beats r))))
 
+;;; --- tempo map (mid-song tempo changes) -------------------------------------
+(defun add-tempo-marker (beat bpm)
+  "Set the tempo to BPM from BEAT onward (upsert by beat).  An empty map means the
+transport's single constant tempo; markers make the beat<->time map piecewise."
+  (%ack "AddTempoMarker" (mk 'gloopy.pb::tempo-marker :beat (d beat) :bpm (d bpm))))
+
+(defun remove-tempo-marker (beat)
+  "Remove the tempo marker at BEAT."
+  (%ack "RemoveTempoMarker" (mk 'gloopy.pb::tempo-marker :beat (d beat))))
+
+(defun list-tempo-markers ()
+  "The tempo map as a list of (:beat :bpm) plists, sorted by beat."
+  (mapcar (lambda (mk) (list :beat (gloopy.pb::beat mk) :bpm (gloopy.pb::bpm mk)))
+          (gloopy.pb::markers
+           (%unary "ListTempoMarkers" (mk 'gloopy.pb::empty) 'gloopy.pb::tempo-map))))
+
 ;;; --- conversions ------------------------------------------------------------
 (defun track->plist (ti)
   (list :id (gloopy.pb::id ti) :name (gloopy.pb::name ti)

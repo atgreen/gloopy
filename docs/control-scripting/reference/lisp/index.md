@@ -69,6 +69,25 @@ Two conventions run through the whole `gloopy` package:
 | `(seek beats)` | Move the playhead to `beats`. |
 | `(transport)` | → `(:playing :bpm :position-beats)`. |
 
+### Tempo map
+
+For mid-song tempo changes. An empty map means the transport's single constant
+tempo; adding markers makes the beat↔time mapping piecewise (constant between
+markers). The render path honours the map. See
+[Tempo map & time](../../concepts/model.md#tempo-map-time).
+
+| Function | Purpose |
+|----------|---------|
+| `(add-tempo-marker beat bpm)` | Set the tempo to `bpm` from `beat` onward (upsert by beat). |
+| `(remove-tempo-marker beat)` | Remove the marker at `beat`. |
+| `(list-tempo-markers)` | → list of `(:beat :bpm)` plists, sorted by beat. |
+
+```lisp
+(add-tempo-marker 0 120)      ; verse at 120
+(add-tempo-marker 32 140)     ; lift to 140 at bar 9 (beat 32)
+(list-tempo-markers)          ; => ((:BEAT 0.0 :BPM 120.0) (:BEAT 32.0 :BPM 140.0))
+```
+
 ### Tracks
 
 | Function | Purpose |
