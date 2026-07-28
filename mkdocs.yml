@@ -103,6 +103,13 @@ nav:
           - Your first track: user-guide/tutorials/first-track.md
       - How-to guides:
           - user-guide/how-to/index.md
+          - Record MIDI and audio: user-guide/how-to/record-midi-and-audio.md
+          - Comp, promote, and clean up takes: user-guide/how-to/comp-takes.md
+          - Arrange with the Session view: user-guide/how-to/arrange-with-session-view.md
+          - Add insert effects and balance a mix: user-guide/how-to/effects-and-mixing.md
+          - Route to a bus and shared reverb send: user-guide/how-to/bus-and-reverb-send.md
+          - Automate a parameter: user-guide/how-to/automate-a-parameter.md
+          - Export mix, range, track, or stems: user-guide/how-to/export-audio.md
           - Browse content and pin favorites: user-guide/how-to/browse-and-favorites.md
           - Version your project with git: user-guide/how-to/version-with-git.md
       - Explanation:
