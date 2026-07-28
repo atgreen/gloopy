@@ -14,7 +14,9 @@ GLOOPY="${GLOOPY_BIN:-build/Gloopy_artefacts/Release/gloopy}"
 PROJ="${1:-examples/demo-lofi}"
 
 [ -x "$GLOOPY" ] || { echo "gloopy binary not found at $GLOOPY (set GLOOPY_BIN)"; exit 2; }
-[ -f "$PROJ" ]   || { echo "project not found: $PROJ"; exit 2; }
+# A project is either a composition folder (a directory) or a single-file .gloopy archive,
+# so test for existence, not for a regular file.
+[ -e "$PROJ" ]   || { echo "project not found: $PROJ"; exit 2; }
 
 # Render a short beat window (--range) rather than the whole song: determinism is a property
 # of the shared render path (FX reset, buffer init, LFO/mod seeding), so a window is a faithful
