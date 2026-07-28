@@ -1,5 +1,5 @@
 ---
-name: grind
+name: gloop-grind
 version: 1.0.0
 description: |
   The long-march roadmap for GLOOPY — the compact JUCE 8 / C++17 linear-arranger
@@ -115,11 +115,55 @@ that constraint is the product, not a limitation.
   save/load RPCs + Python client. **Remaining:** sampler + plugin instrument presets,
   plugin effects inside effect-chain presets, and all preset UI (menus, browser,
   New-From-Template). These fold into Wave 6 items #16 below.
+- `[~]` **Session view (clip-launch grid)** (`Source/SessionModel.h` / `SessionLauncher.h`
+  / `SessionView.h`, `docs/session-view.md`): the Ableton-style Session view **alongside**
+  the Arrangement view — **Tab cycles Arrange → Session → Mixer**. Sample-accurate launch
+  engine (block-split, per-track arrangement override, one clip per track, global scene rows,
+  launch quant), grid UI with scene/master column **pinned left as a frozen pane**, record
+  live MIDI into slots, and **session → arrangement** capture/copy; a bottom **Device View**
+  edits the selected track's chain. Slices 1–4 (model+persistence, launch engine, UI+Tab,
+  recording) landed. **Remaining:** control-API (OSC/gRPC launch/stop/query) + polish
+  (follow-actions, capture, quantize menu). See the Session View epic in the backlog.
+- `[x]` **Group / submix routing — the grouping epic (complete).** A **main-output** route
+  (`MixerTrack::output`, 0 = master) sends a strip's *whole* signal into a bus — a submix /
+  Ableton "group" — distinct from a `Send` (parallel post-FX copy). `apiSetInsertOutput` /
+  `apiGroupInserts` / `apiGatherGroup` / `apiUngroup`; foldable **session group columns**
+  (nested groups, depth indent, fold/unfold-all), **GROUP vs RETURN** header tags, interactive
+  group strip (fader/pan/mute/solo/FX), settable group colour, and **transitive solo**. Group
+  gesture from either view: **Cmd+G** group / **Cmd+Shift+G** ungroup / **Cmd+Shift+F**
+  fold-all. Load-bearing invariant: a bus must be a higher `mixerTracks` index than everything
+  routing into it (see the group-bus memory note).
+- `[x]` **Mixer channel model — dynamic per-track inserts.** `mixerTracks` = `[Master] + one
+  insert per track + buses` (the fixed 8-strip "Ins N" pool is gone; `insertMixerTrackAt` /
+  `removeMixerTrackAt` reindex the whole routing space). Strips backing a track show the
+  **track's name + colour** (rename syncs the track); **Delete track** on the header menu; and
+  **detachable device windows** (a floating `DevicePanel` per insert, pinned to a stable
+  `MixerTrack*`, so several effect chains are visible at once — the Reaper/Ardour model).
+- `[x]` **UI: elevation-over-borders pass.** Surfaces separate by the `Palette` shade ladder +
+  spacing, not outlines; borderless button fills; one `Palette::radius`; thin meters; `lineSoft`
+  panel seams; **Play is the hero** in the transport; watermark empty states. Keep the calm flat
+  identity — no drop shadows, uppercase section headers. (See the ui-elevation memory note.)
+- `[~]` **Surge XT front (featured synth) — DONE/paused.** The **hosted Surge XT LV2 plugin**
+  is the featured "+ Synth" default (full editor via the plugin path) with **bundled first-party
+  factory patches** (Presets browser tab, ~639 patches). The embedded Surge core **and** the
+  simple `SynthGenerator` are **kept** (removal/migration is **paused**): baking a factory `.fxp`
+  into a *hosted* plugin via the host state API is a **proven hard blocker**, so the embedded core
+  stays as the one path where patch-by-path loading works (backs the Presets tab). Only revisit
+  removal if the LV2 patch-message load gets solved. Plan in `docs/surge-embed.md`.
+- `[~]` **Strong time types (Wave 7 #21) — foundation landed.** `Source/Time.h`
+  (`BeatPosition`/`BeatDuration`, `TimePosition`/`TimeDuration`, compile-checked algebra) + a
+  `TimeTypes` static-assert test. **Remaining:** incremental adoption — migrate the
+  `beatToSamples`/`samplesToBeats` layer + clip/loop/marker positions onto the types, add a
+  Sample domain, one subsystem per slice.
+- `[~]` **Manual (`docs/`, `mkdocs.yml`).** Material for MkDocs + Diátaxis, two front doors
+  (User guide + Control & scripting), the domain model documented **once**; `mkdocs build
+  --strict` passes. Keep docs out of implementation-language framing. Deferred: the gRPC/OSC/CL
+  reference generators (steps commented in `docs.yml`). See the manual-docs memory note.
 
 So the model layers (tracks, mixer inserts, effects, automation, plugins, sfizz,
-composition I/O, recording, presets, the OSC/gRPC surface) all exist. The backlog
-below is about *depth, routing, musical model, analysis, and product surface* — not
-foundational plumbing.
+composition I/O, recording, presets, session-launch grid, group/submix routing, the
+OSC/gRPC surface) all exist. The backlog below is about *depth, musical model, analysis,
+product surface, and the session-view/engine tails* — not foundational plumbing.
 
 ## The working discipline (the meta-process that works — follow it)
 
@@ -189,10 +233,14 @@ by leverage. Each item is a slice: model+serialise+proto+client → headless pro
 commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈ hours,
 **M** ≈ a day or two, **L** ≈ a week+.
 
-### ★ Reprioritized near-term order (2026-07-26) — read this first
+### ★ Reprioritized near-term order (updated 2026-07-28) — read this first
 
-After studying **Tracktion Engine** (the production JUCE DAW engine; see Wave 7), the
-highest-value gaps it surfaced jump the queue. The next slices, in order:
+Since the 2026-07-26 plan, several big fronts **shipped** and drop off the queue (see
+"Current state"): the **Surge XT featured-synth front** (hosted plugin default + bundled
+presets — DONE/paused, removal blocked), the **Session view epic** (slices 1–4), the whole
+**grouping / submix-routing epic** (complete), the **mixer channel model** (dynamic per-track
+inserts + detachable device windows), and the **UI elevation-over-borders** pass. What's
+actually next, in order:
 
 1. ~~Undo/redo~~ **DONE** — turned out to already exist (snapshot stack over
    toValueTree/loadFromTree, 69 mutation sites, Ctrl+Z/Ctrl+Shift+Z/Ctrl+Y, RPCs).
@@ -200,15 +248,21 @@ highest-value gaps it surfaced jump the queue. The next slices, in order:
    the File menu (discoverability) + added a headless round-trip test (0->1->0->1). The
    *fine-grained* Tracktion-style CachedValue/UndoManager rework (Wave 7 #22) remains
    optional/deferred — snapshot undo already works.
-2. **Surge XT as the default synth** (Wave 7 #28) — user-requested (2026-07-26): embed
-   the Surge engine (like sfizz) + a curated ~150–300 patch bundle. Large multi-session
-   slice; plan in `docs/surge-embed.md`. **Now the active front.**
-3. **Strong time types** (Wave 7 #21) — mechanical, compile-time-checked, kills a whole
-   bug class; no audio-thread risk. Do it before more timeline/tempo work.
-4. **`AudioBufferPool`** (Wave 7 #24) — kill audio-thread allocations; prerequisite for
-   any graph rework, and cheap on its own.
-5. Then resume the **browser sidebar** tail (Wave 6 #1: Presets/Favorites tabs +
-   first-class drag-and-drop) and the rest of Waves 2–5.
+2. ~~Surge XT featured synth~~ **DONE/paused** (Wave 7 #28) — hosted Surge XT plugin is the
+   "+ Synth" default with bundled factory presets. Full removal of the simple synth + embedded
+   core is **paused** (baking a `.fxp` into a hosted plugin is a proven hard blocker); only
+   revisit if the LV2 patch-load path gets solved. Plan/status in `docs/surge-embed.md`.
+3. **Strong time types** (Wave 7 #21) — **foundation landed** (`Source/Time.h`); **NEXT =
+   incremental adoption**: migrate the `beatToSamples`/`samplesToBeats` layer + clip/loop/marker
+   positions onto the types, add a Sample domain, one subsystem per slice. Do it before more
+   timeline/tempo work.
+4. **`AudioBufferPool`** (Wave 7 #24) — not started; kill audio-thread allocations; prerequisite
+   for any graph rework, and cheap on its own.
+5. **Finish the Session view epic** — slices **5 (control API: OSC/gRPC launch clip/scene, stop,
+   query session state)** and **6 (polish: clip colours, follow-actions, capture, quantize menu)**.
+6. Then resume the **browser sidebar** tail (Wave 6 #16: Favorites tab + first-class
+   drag-and-drop from the browser onto tracks/inserts — Templates/Demos/Plugins/Samples/Presets
+   tabs already landed) and the rest of Waves 2–5.
 
 The heavy engine items (off-thread graph swap #5, **multicore rendering #6**) stay
 *deferred* and gated on a real profiling trigger — do not start them until Gloopy is
@@ -1752,6 +1806,37 @@ prior-art references to *read*, not to lift.
     TuningsSfz rename as a local modification; README License note added. Curate ONLY from
     `patches_factory`/`wavetables` (skip
     `*_3rdparty` without per-pack review).
+
+### Wave 8 — Session view (clip-launch grid) epic ✦
+
+An **Ableton-style Session view alongside the linear Arrangement view, Tab to switch** —
+columns = tracks, rows = scenes, each cell a launchable looping clip. Gloopy is well-placed:
+`Clip` already loops and owns its content, so a session clip is just a `Clip` in a scene slot.
+Locked scope (with the user): the **simplified color-bar grid** (not the dense icon version);
+**Tab cycles Arrange → Session → Mixer**; **per-track override playback** (launching a session
+clip overrides that track's arrangement playback while other tracks keep playing; "Back to
+Arrangement" resumes all). Adopted Ableton defaults: global launch quant (1 bar), one playing
+clip per track, global scene rows, launch-empty-slot-to-record. Session launching is a **live**
+feature — NOT on the offline-render path, so determinism is unaffected (renders still come from
+the arrangement). Prior art (shape only, no copy): Ardour Trigger/Cue + Tracktion `LaunchHandle`;
+render-wiring design in `docs/session-view.md`.
+
+29. **Session view — model → launch engine → UI+Tab → recording.** ✦ **L (multi-session)**
+    - `[x]` **Slice 1 — model + persistence:** `SessionModel.h` (`Track::sessionSlots`,
+      null = empty; a global `scenes` list); round-trips through `.gloopy` + composition TOML.
+    - `[x]` **Slice 2 — launch engine:** `SessionLauncher.h` — sample-accurate clip/scene launch
+      (block-split, pending → fires at the next launch-quant boundary), per-track exclusivity,
+      scene launch = the whole row, stop-clip / stop-all, per-track arrangement override.
+    - `[x]` **Slice 3 — Session UI + Tab:** `SessionView.h` grid (slots, launch cues, pulsing
+      "queued" cue), Tab cycles Arrange/Session/Mixer, scene + **master column pinned LEFT as a
+      frozen pane** (deliberate — not Ableton's right side), per-track group/return columns, a
+      bottom **Device View** for the selected track's chain.
+    - `[x]` **Slice 4 — session recording:** arm + launch an empty slot records live MIDI into
+      it; **session → arrangement** capture (record a session take, copy a clip to the timeline).
+    - `[ ]` **Slice 5 — control API:** OSC + gRPC launch clip/scene, stop, query session state
+      (the one place this epic is still API-*un*reachable — do this next per principle 1).
+    - `[ ]` **Slice 6 — polish:** clip colours in the grid, follow-actions, capture, a
+      launch-quantize menu, launch-mode indicators.
 
 ## Explicitly NOT doing (the guardrails, made concrete)
 
