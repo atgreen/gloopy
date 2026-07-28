@@ -894,7 +894,7 @@ MainComponent::MainComponent (bool headless)
         return juce::StringArray { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher",
                                    "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo",
                                    "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate",
-                                   "Auto-wah", "Ring Mod" };
+                                   "Auto-wah", "Ring Mod", "Scope" };
     };
     devicePanel.getTitle = [this]
     {
@@ -923,6 +923,7 @@ MainComponent::MainComponent (bool headless)
     devicePanel.onRemoveEffect = [this] (int slot)                        { apiRemoveEffect (deviceTrack, slot); };
     devicePanel.onSetBypass    = [this] (int slot, bool b)                { apiSetEffectBypass (deviceTrack, slot, b); };
     devicePanel.onSetParam     = [this] (int slot, const juce::String& n, float v) { apiSetEffectParam (deviceTrack, slot, n, v); };
+    devicePanel.getAnalyzerData = [this] (int slot)                       { return apiGetAnalyzerData (deviceTrack, slot); };
 
     verticalLayout.setItemLayout (0, 120.0, -0.85, -0.60);   // arrangement
     verticalLayout.setItemLayout (1, 6.0, 6.0, 6.0);         // divider
@@ -1702,7 +1703,7 @@ int MainComponent::apiAddEffect (int insert, int type)
     return callOnMessageThread ([&] () -> int
     {
         pushUndoSnapshot();
-        static const char* names[] = { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate", "Auto-wah", "Ring Mod" };
+        static const char* names[] = { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate", "Auto-wah", "Ring Mod", "Scope" };
         if (type < 0 || type >= (int) (sizeof (names) / sizeof (names[0]))) return -1;
         auto fx = makeEffect (names[type]);
         if (fx == nullptr) return -1;
@@ -1779,6 +1780,26 @@ std::vector<MainComponent::ParamSnap> MainComponent::apiGetEffectParams (int ins
             if (juce::isPositiveAndBelow (slot, (int) fx.size()))
                 for (auto& p : fx[(size_t) slot]->parameters())
                     out.push_back ({ p.name, p.get(), p.minValue, p.maxValue });
+        }
+        return out;
+    });
+}
+
+std::vector<float> MainComponent::apiGetAnalyzerData (int insert, int slot)
+{
+    return callOnMessageThread ([&]
+    {
+        std::vector<float> out;
+        const juce::ScopedLock sl (engineLock);
+        if (juce::isPositiveAndBelow (insert, (int) mixerTracks.size()))
+        {
+            auto& fx = mixerTracks[(size_t) insert]->effects;
+            if (juce::isPositiveAndBelow (slot, (int) fx.size()))
+            {
+                float buf[512];
+                const int n = fx[(size_t) slot]->analyzerSnapshot (buf, 512);
+                out.assign (buf, buf + n);
+            }
         }
         return out;
     });
@@ -4630,6 +4651,7 @@ void MainComponent::openDeviceWindow (int insert)
     panel->onRemoveEffect = [this, target, panel] (int slot)                 { const int i = indexOfMixerTrack (target); if (i >= 0) { apiRemoveEffect (i, slot); panel->refresh(); } };
     panel->onSetBypass    = [this, target] (int slot, bool b)                { const int i = indexOfMixerTrack (target); if (i >= 0) apiSetEffectBypass (i, slot, b); };
     panel->onSetParam     = [this, target] (int slot, const juce::String& n, float v) { const int i = indexOfMixerTrack (target); if (i >= 0) apiSetEffectParam (i, slot, n, v); };
+    panel->getAnalyzerData = [this, target] (int slot)                       { const int i = indexOfMixerTrack (target); return i >= 0 ? apiGetAnalyzerData (i, slot) : std::vector<float>{}; };
 
     juce::String name;
     { const juce::ScopedLock sl (engineLock);

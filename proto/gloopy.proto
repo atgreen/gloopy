@@ -96,7 +96,7 @@ message AddClipRequest {
 message ClipId { int32 track_id = 1; int32 index = 2; }
 
 // ── mixer / effects ────────────────────────────────────────
-enum EffectType { GAIN = 0; FILTER = 1; DELAY = 2; REVERB = 3; LIMITER = 4; BITCRUSHER = 5; COMPRESSOR = 6; EQ = 7; WAVESHAPER = 8; STEREO_WIDENER = 9; TREMOLO = 10; CHORUS = 11; FLANGER = 12; PHASER = 13; AUTOPAN = 14; NOISE_GATE = 15; AUTOWAH = 16; RINGMOD = 17; }
+enum EffectType { GAIN = 0; FILTER = 1; DELAY = 2; REVERB = 3; LIMITER = 4; BITCRUSHER = 5; COMPRESSOR = 6; EQ = 7; WAVESHAPER = 8; STEREO_WIDENER = 9; TREMOLO = 10; CHORUS = 11; FLANGER = 12; PHASER = 13; AUTOPAN = 14; NOISE_GATE = 15; AUTOWAH = 16; RINGMOD = 17; SCOPE = 18; }
 message EffectInfo  { int32 slot = 1; string name = 2; bool bypassed = 3; }
 message Send { int32 bus = 1; float level = 2; }   // aux send: insert -> bus at level
 message MixerInsert {
@@ -398,6 +398,9 @@ message Event {
   }
 }
 
+// ── analyzers ──────────────────────────────────────────────
+message AnalyzerData { repeated float samples = 1; }   // an analyzer effect's live snapshot (e.g. scope waveform)
+
 // ── favorites ──────────────────────────────────────────────
 message Favorite { string kind = 1; string ref = 2; string label = 3; }
 message AddFavoriteRequest    { string kind = 1; string ref = 2; string label = 3; }
@@ -528,6 +531,7 @@ service Gloopy {
   rpc SetEffectParam (EffectParamSet)   returns (Ack);
   rpc SetEffectBypass(EffectBypassSet)  returns (Ack);
   rpc GetEffectParams(EffectRef)        returns (ParamList);
+  rpc GetAnalyzerData(EffectRef)        returns (AnalyzerData);   // a scope/analyzer insert's live snapshot
 
   // buses & sends
   rpc AddBus  (AddBusRequest)  returns (TrackId);    // TrackId.id = the new bus's insert index

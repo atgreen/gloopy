@@ -42,6 +42,8 @@ public:
         removeBtn.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xc3\x97")));   // ×
         removeBtn.onClick = [this] { if (selectedSlot >= 0 && onRemoveEffect) { onRemoveEffect (selectedSlot); selectedSlot = -1; refresh(); } };
         addAndMakeVisible (removeBtn);
+
+        addChildComponent (scope);   // shown only when the selected device is a Scope
     }
 
     // Owner callbacks — routed to the selected track's mixer insert.
@@ -53,6 +55,7 @@ public:
     std::function<void (int, bool)> onSetBypass;                              // (slot, bypassed)
     std::function<std::vector<Param> (int)> getParams;                        // params of a slot
     std::function<void (int, const juce::String&, float)> onSetParam;         // (slot, name, value)
+    std::function<std::vector<float> (int)> getAnalyzerData;                  // scope/analyzer snapshot for a slot
     std::function<void()> onShowClip;                                         // switch back to the clip editor
 
     // Standalone mode (a detached device-chain window): no "Clip" button, since there's no clip
@@ -122,6 +125,9 @@ public:
         auto chainRow = a.removeFromTop (30).reduced (6, 4);
         for (auto& b : deviceBtns) { b->setBounds (chainRow.removeFromLeft (110).reduced (2, 0)); chainRow.removeFromLeft (2); }
 
+        // Scope display fills the device body when a Scope is selected (it has no knobs).
+        if (scope.isVisible()) { scope.setBounds (a.reduced (10, 8)); return; }
+
         // Param knobs grid.
         auto grid = a.reduced (10, 8);
         const int kw = 66, kh = 76;
@@ -135,15 +141,48 @@ public:
     }
 
 private:
+    // Live oscilloscope display for a Scope analyzer device — polls its snapshot and draws
+    // the waveform. Passive (a Timer), so it never touches the audio thread directly.
+    struct ScopeView : juce::Component, juce::Timer
+    {
+        std::function<std::vector<float>()> pull;   // fetch the latest snapshot
+        std::vector<float> data;
+        ScopeView() { startTimerHz (24); }
+        void timerCallback() override { if (isShowing() && pull) { data = pull(); repaint(); } }
+        void paint (juce::Graphics& g) override
+        {
+            g.setColour (Palette::bg);           g.fillRoundedRectangle (getLocalBounds().toFloat(), 4.0f);
+            g.setColour (Palette::lineSoft);     g.drawHorizontalLine (getHeight() / 2, 0.0f, (float) getWidth());
+            if (data.size() < 2) { g.setColour (Palette::textDim); g.setFont (11.0f);
+                                   g.drawText ("scope — play to see the signal", getLocalBounds(), juce::Justification::centred); return; }
+            const float w = (float) getWidth(), h = (float) getHeight(), mid = h * 0.5f;
+            juce::Path p;
+            for (int i = 0; i < (int) data.size(); ++i)
+            {
+                const float x = w * (float) i / (float) (data.size() - 1);
+                const float y = mid - juce::jlimit (-1.0f, 1.0f, data[(size_t) i]) * (mid - 2.0f);
+                if (i == 0) p.startNewSubPath (x, y); else p.lineTo (x, y);
+            }
+            g.setColour (Palette::accent);
+            g.strokePath (p, juce::PathStrokeType (1.4f));
+        }
+    };
+
     void rebuildParams()
     {
         paramSliders.clear();
         paramNames.clear();
         bypassBtn.setEnabled (selectedSlot >= 0);
         removeBtn.setEnabled (selectedSlot >= 0);
-        if (selectedSlot < 0 || ! getParams) { repaint(); return; }
         // Reflect the selected device's bypass state.
         const auto chain = getChain ? getChain() : std::vector<std::pair<juce::String, bool>>{};
+        // Show the scope display iff the selected device is a Scope analyzer.
+        const bool isScope = selectedSlot >= 0 && selectedSlot < (int) chain.size()
+                             && chain[(size_t) selectedSlot].first == "Scope";
+        scope.setVisible (isScope);
+        if (isScope)
+            scope.pull = [this, slot = selectedSlot] { return getAnalyzerData ? getAnalyzerData (slot) : std::vector<float>{}; };
+        if (selectedSlot < 0 || ! getParams) { repaint(); return; }
         if (selectedSlot < (int) chain.size()) bypassBtn.setToggleState (chain[(size_t) selectedSlot].second, juce::dontSendNotification);
 
         for (const auto& p : getParams (selectedSlot))
@@ -174,6 +213,7 @@ private:
     std::vector<std::unique_ptr<juce::TextButton>> deviceBtns;
     std::vector<std::unique_ptr<juce::Slider>>     paramSliders;
     std::vector<juce::String>                      paramNames;
+    ScopeView scope;
     int selectedSlot { -1 };
     bool standalone { false };
 };

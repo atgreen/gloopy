@@ -1029,9 +1029,61 @@ private:
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Oscilloscope — a NON-MUTATING analyzer insert. It passes audio through
+// unchanged but captures a decimated mono (left-channel) waveform of the recent
+// signal into a lock-free ring, retrievable over the control API and drawn live
+// in the device panel. The audio thread only stores into std::atomic<float>s
+// (no lock, no allocation — principle 4); the reader copies the ring oldest->newest.
+// ---------------------------------------------------------------------------
+class ScopeFx : public Effect
+{
+public:
+    static constexpr int kPoints = 256;                 // waveform points in the snapshot
+
+    void prepare (double, int, int) override {}
+    void reset() override { for (auto& s : ring) s.store (0.0f); widx.store (0); }
+
+    void process (juce::AudioBuffer<float>& b) override
+    {
+        // Non-mutating: never writes to the buffer. Capture the left channel, decimated
+        // so the ~256-point window spans a musically useful ~40 ms rather than one block.
+        if (b.getNumChannels() < 1) return;
+        const int n = b.getNumSamples();
+        const auto* L = b.getReadPointer (0);
+        int w = widx.load (std::memory_order_relaxed);
+        for (int i = 0; i < n; ++i)
+            if (++decimCount >= kDecim)
+            {
+                decimCount = 0;
+                ring[(size_t) w].store (L[i], std::memory_order_relaxed);
+                w = (w + 1) % kPoints;
+            }
+        widx.store (w, std::memory_order_relaxed);
+    }
+
+    juce::String name() const override { return "Scope"; }
+    std::vector<EffectParam> parameters() override { return {}; }   // no knobs — the display is the UI
+
+    int analyzerSnapshot (float* out, int maxN) const override
+    {
+        const int count = juce::jmin (maxN, kPoints);
+        const int w = widx.load (std::memory_order_relaxed);        // oldest sample sits at w
+        for (int i = 0; i < count; ++i)
+            out[i] = ring[(size_t) ((w + i) % kPoints)].load (std::memory_order_relaxed);
+        return count;
+    }
+
+private:
+    static constexpr int kDecim = 8;                    // keep 1 of every 8 samples
+    std::array<std::atomic<float>, kPoints> ring {};
+    std::atomic<int> widx { 0 };
+    int decimCount { 0 };                               // audio-thread only
+};
+
 namespace EffectFactory
 {
-    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate", "Auto-wah", "Ring Mod" }; }
+    inline juce::StringArray types() { return { "Gain", "Filter", "Delay", "Reverb", "Limiter", "Bitcrusher", "Compressor", "EQ", "Waveshaper", "Stereo Widener", "Tremolo", "Chorus", "Flanger", "Phaser", "Auto-pan", "Noise Gate", "Auto-wah", "Ring Mod", "Scope" }; }
 
     inline std::unique_ptr<Effect> create (const juce::String& type)
     {
@@ -1053,6 +1105,7 @@ namespace EffectFactory
         if (type == "Noise Gate") return std::make_unique<NoiseGateFx>();
         if (type == "Auto-wah")   return std::make_unique<AutoWahFx>();
         if (type == "Ring Mod")   return std::make_unique<RingModFx>();
+        if (type == "Scope")      return std::make_unique<ScopeFx>();
         return nullptr;
     }
 }

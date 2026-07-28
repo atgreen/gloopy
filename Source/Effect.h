@@ -38,5 +38,11 @@ public:
     /** Non-null for hosted plugins, so the UI can open their editor. */
     virtual juce::AudioProcessor* getPluginInstance() { return nullptr; }
 
+    /** Analyzer snapshot: a non-mutating "meter" effect (e.g. an oscilloscope) fills up to
+        maxN floats of its captured signal and returns the count. Returns 0 for a normal
+        (non-analyzer) effect. Reads lock-free atomics, so it's safe to call off the audio
+        thread while it runs. */
+    virtual int analyzerSnapshot (float* /*out*/, int /*maxN*/) const { return 0; }
+
     std::atomic<bool> bypassed { false };
 };

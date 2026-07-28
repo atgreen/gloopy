@@ -570,6 +570,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.EffectRef.SerializeToString,
                 response_deserializer=gloopy__pb2.ParamList.FromString,
                 _registered_method=True)
+        self.GetAnalyzerData = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GetAnalyzerData',
+                request_serializer=gloopy__pb2.EffectRef.SerializeToString,
+                response_deserializer=gloopy__pb2.AnalyzerData.FromString,
+                _registered_method=True)
         self.AddBus = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AddBus',
                 request_serializer=gloopy__pb2.AddBusRequest.SerializeToString,
@@ -1887,6 +1892,13 @@ class GloopyServicer:
 
     def GetEffectParams(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetAnalyzerData(self, request, context):
+        """a scope/analyzer insert's live snapshot
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -3244,6 +3256,11 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.GetEffectParams,
                     request_deserializer=gloopy__pb2.EffectRef.FromString,
                     response_serializer=gloopy__pb2.ParamList.SerializeToString,
+            ),
+            'GetAnalyzerData': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAnalyzerData,
+                    request_deserializer=gloopy__pb2.EffectRef.FromString,
+                    response_serializer=gloopy__pb2.AnalyzerData.SerializeToString,
             ),
             'AddBus': grpc.unary_unary_rpc_method_handler(
                     servicer.AddBus,
@@ -6746,6 +6763,33 @@ class Gloopy:
             '/gloopy.v1.Gloopy/GetEffectParams',
             gloopy__pb2.EffectRef.SerializeToString,
             gloopy__pb2.ParamList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetAnalyzerData(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GetAnalyzerData',
+            gloopy__pb2.EffectRef.SerializeToString,
+            gloopy__pb2.AnalyzerData.FromString,
             options,
             channel_credentials,
             insecure,

@@ -277,6 +277,13 @@ namespace
             return Status::OK;
         }
 
+        Status GetAnalyzerData (ServerContext*, const pb::EffectRef* q, pb::AnalyzerData* r) override
+        {
+            for (float s : main.apiGetAnalyzerData (q->insert(), q->slot()))
+                r->add_samples (s);
+            return Status::OK;
+        }
+
         // ---- scales ----
         Status SetScale (ServerContext*, const pb::Scale* q, pb::Ack* r) override
         {

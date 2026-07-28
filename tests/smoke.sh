@@ -2503,6 +2503,33 @@ assert 'plugin\tacme.synth' in open('$WORK/favorites.txt').read(), 'favorite not
 print('smoke: PASS — favorites add (deduped)/list/remove over the API + persisted to the user library file')
 " || { echo 'smoke: favorites wrong' >&2; exit 1; }
 
+# Oscilloscope analyzer (Wave 5 #15): a non-mutating Scope insert captures the signal
+# flowing through it into a lock-free snapshot readable over the API. Isolated via a
+# SaveProject/LoadProject snapshot (it adds a track + a master effect + plays).
+g -d "{\"path\":\"$WORK/scope-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d '{"name":"ScopeTone","attack":0.01,"decay":0.1,"sustain":0.9,"release":0.1,"gain":0.5}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack >/dev/null
+SC_TID=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListTracks | python3 -c "import json,sys; t=json.load(sys.stdin).get('tracks',[]); print(t[-1]['id'])")
+g -d "{\"track_id\":$SC_TID,\"start_beat\":0,\"length_beats\":8,\"content_len_beats\":8,\"looped\":true,\"notes\":[{\"pitch\":57,\"start_beat\":0,\"length_beats\":8,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d '{"insert":0,"type":18}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddEffect >/dev/null   # Scope on master
+SC_STOPPED=$(g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetAnalyzerData)
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/Play >/dev/null
+python3 -c "import time; time.sleep(1.0)"
+SC_PLAYING=$(g -d '{"insert":0,"slot":0}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetAnalyzerData)
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/Stop >/dev/null
+python3 -c "
+import json, statistics as s
+def var(js):
+    d = json.loads(js).get('samples', [])
+    return (len(d), s.pvariance(d) if len(d) > 1 else 0.0, max((abs(x) for x in d), default=0.0))
+ns, vs, ps = var('''$SC_STOPPED''')
+np_, vp, pp = var('''$SC_PLAYING''')
+assert ns == 256, 'scope snapshot should be 256 points, got %d' % ns
+assert vs < 1e-9, 'scope should be flat when stopped (var %g)' % vs
+assert vp > 1e-4 and pp > 0.01, 'scope should capture the tone while playing (var %g peak %g)' % (vp, pp)
+print('smoke: PASS — oscilloscope analyzer: flat when stopped (var %.2e), captures the tone while playing (var %.4f peak %.3f) via the API' % (vs, vp, pp))
+" || { echo 'smoke: scope analyzer wrong' >&2; exit 1; }
+g -d "{\"path\":\"$WORK/scope-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore
+
 # MIDI file export/import round-trip (last — import resets the project). Export the
 # loaded project to an SMF, reimport into a fresh project, and confirm notes survive
 # as playable clips.

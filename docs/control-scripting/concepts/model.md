@@ -119,7 +119,9 @@ A processor in a mixer track's chain. Gloopy ships a curated set of built-ins
 (gain, filter, delay, reverb, limiter, bitcrusher, compressor, EQ, waveshaper,
 stereo widener, tremolo, chorus, flanger, phaser, autopan, noise gate, autowah,
 ring-mod) plus **hosted VST3 / LV2 effects**. Each effect exposes named
-parameters.
+parameters. There is also a non-mutating **scope** analyzer — it passes audio
+through untouched and captures the passing waveform into a live snapshot you can
+read back (drawn as an oscilloscope in the device panel).
 
 ### Parameter (the universal parameter model)
 Every automatable value — a track fader, a synth knob, an effect parameter — has

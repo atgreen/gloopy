@@ -1069,7 +1069,26 @@ measurably single-core-bound on a heavy multi-track session. See Wave 7 for why.
       a bit-exact identity and the render is reproducible. Screenshot-validated (Ring Mod in the
       add-effect menu + its 2 knobs). Distinct from every prior effect (LFO / dynamics / filter) —
       a nonlinear multiplier.
-      **Not yet:** analyzers (scope/spectrum/vectorscope) with API snapshots.
+    - `[x]` **Oscilloscope analyzer landed** (commit): `ScopeFx` — the first **non-mutating analyzer**
+      insert, closing #15's last "done-when" (an analyzer snapshot retrievable over the API). It passes
+      audio through UNCHANGED but captures a decimated mono (left-channel) waveform of the recent signal
+      (256 points, ~40 ms window, decimate-by-8) into a **lock-free ring of `std::atomic<float>`** — the
+      audio thread only relaxed-stores (no lock, no allocation, principle 4). A new `Effect::analyzerSnapshot(out,maxN)`
+      virtual (0 for normal effects) exposes it; `apiGetAnalyzerData(insert,slot)` + a **GetAnalyzerData**
+      RPC (`EffectRef` → `AnalyzerData{repeated float}`, mirroring apiGetEffectParams under engineLock) +
+      Python `analyzer_data(insert,slot)`. EffectType SCOPE=18, **appended** across all registries (proto
+      enum, `types()`, `create()`, both `apiAddEffect` names[] + the DevicePanel getEffectTypes list,
+      Python EFFECTS) so no enum shift; serialises generically by name (round-trips with the project, no
+      new mapping). **Desktop:** a live `ScopeView` (a 24 Hz Timer polling the snapshot) special-cased in
+      DevicePanel — when the selected device is a "Scope" it fills the device body with the waveform
+      instead of knobs; wired `getAnalyzerData` at both DevicePanel sites (bottom panel + detached device
+      windows). smoke (SaveProject/LoadProject-isolated): add a synth tone + a Scope on the master →
+      GetAnalyzerData is flat when stopped (256 pts, var 0) and captures the tone while playing (var
+      ~0.02, peak ~0.36). Screenshot-validated end-to-end (the DEVICES view → selecting the Scope draws a
+      live cyan sine of the playing tone). Manual model doc notes the scope analyzer; mkdocs --strict
+      green. No OSC lane (a read-only snapshot fits gRPC request/response, not a live knob).
+      **Not yet:** spectrum / vectorscope analyzers (the ScopeFx capture + GetAnalyzerData pattern
+      generalises; spectrum needs an FFT/filterbank since juce_dsp isn't linked).
 
 ### Wave 6 — Product surface & UI (deferred: harder to verify headless; keep layout simple)
 

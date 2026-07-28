@@ -29,7 +29,7 @@ WAVEFORMS = {"SINE": 0, "SAW": 1, "SQUARE": 2, "TRIANGLE": 3}
 EFFECTS = {"GAIN": 0, "FILTER": 1, "DELAY": 2, "REVERB": 3, "LIMITER": 4,
            "BITCRUSHER": 5, "COMPRESSOR": 6, "EQ": 7, "WAVESHAPER": 8,
            "STEREO_WIDENER": 9, "TREMOLO": 10, "CHORUS": 11, "FLANGER": 12, "PHASER": 13,
-           "AUTOPAN": 14, "NOISE_GATE": 15, "AUTOWAH": 16, "RINGMOD": 17}
+           "AUTOPAN": 14, "NOISE_GATE": 15, "AUTOWAH": 16, "RINGMOD": 17, "SCOPE": 18}
 AUTO_TARGETS = {"TRACK_VOL": 0, "TRACK_PAN": 1, "INSERT_VOL": 2,
                 "INSERT_PAN": 3, "EFFECT_PARAM": 4}
 
@@ -907,6 +907,12 @@ class Gloopy:
         (<userAppData>/Gloopy/templates, or $GLOOPY_TEMPLATE_PATH). It then appears in
         list_templates and can be seeded with new_from_template."""
         self._ack(self.stub.SaveAsTemplate(pb.TemplateRef(name=name)))
+
+    def analyzer_data(self, insert: int, slot: int) -> list[float]:
+        """A scope/analyzer effect's live snapshot (the captured waveform samples).
+        Non-empty only while audio is flowing through that insert during playback."""
+        r = self.stub.GetAnalyzerData(pb.EffectRef(insert=insert, slot=slot))
+        return list(r.samples)
 
     def list_favorites(self) -> list[dict]:
         """The user's pinned browser items (outside the composition). Each is a dict
