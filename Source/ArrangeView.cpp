@@ -566,6 +566,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 aw->addTextEditor ("end",   juce::String (sc.end, 3),   "End (0..1)");
                 aw->addTextEditor ("fadein",  juce::String (sc.fadeIn, 3),  "Fade in (s)");
                 aw->addTextEditor ("fadeout", juce::String (sc.fadeOut, 3), "Fade out (s)");
+                aw->addTextEditor ("loopxf", juce::String (sc.loopXfade, 3), "Loop crossfade (s)");
                 aw->addTextEditor ("root",  juce::String (sc.root),     "Root note");
                 juce::StringArray dir { "Forward", "Reverse" };
                 aw->addComboBox ("dir", dir, "Direction");
@@ -586,11 +587,12 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                         const float en  = aw->getTextEditorContents ("end").getFloatValue();
                         const float fi  = aw->getTextEditorContents ("fadein").getFloatValue();
                         const float fo  = aw->getTextEditorContents ("fadeout").getFloatValue();
+                        const float lxf = aw->getTextEditorContents ("loopxf").getFloatValue();
                         const int   rt  = aw->getTextEditorContents ("root").getIntValue();
                         const bool  rev = aw->getComboBoxComponent ("dir")->getSelectedItemIndex() == 1;
                         const bool  lp  = aw->getComboBoxComponent ("mode")->getSelectedItemIndex() == 1;
                         const bool  mn  = aw->getComboBoxComponent ("voices")->getSelectedItemIndex() == 1;
-                        onSetSamplerControls (tk, s, en, rev, rt, fi, fo, lp, mn);
+                        onSetSamplerControls (tk, s, en, rev, rt, fi, fo, lp, mn, lxf);
                     }
                     delete aw;
                 }), false);

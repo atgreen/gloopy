@@ -1762,8 +1762,23 @@ each shipping with desktop UI + screenshot validation.
       2 s tone under two hits at DIFFERENT pitches a beat apart — polyphonic both ring in the
       overlap window (RMS 769k) but mono chokes the first (492k); mono round-trips via
       GetSamplerControls. Screenshot-validated (the Voices combo expanded to Poly / Mono (choke)).
-      **Not yet:** cross-track choke *groups*, root-note keyboard-mapped multisamples, loop
-      crossfade, interpolation quality, waveform thumbnails/peak cache.
+    - `[x]` **Loop crossfade landed** (commit): a `Sampler.loopXfade` (seconds, 0 = off) — as a
+      looping voice approaches the wrap point, the loop-end content is blended with the material one
+      loop-span away (what continues after the wrap), so the seam has no discontinuity click.
+      Forward wraps at `hi-1` (blend toward the pre-start material `pos-span`); reverse wraps at `lo`
+      (`pos+span`); the crossfade read is clamped in-buffer, and `xf` is clamped to the loop length.
+      Only active in loop mode. Extended the SAME plumbing as the window/fade/loop/mono slices:
+      `loop_xfade` on apiSet/GetSamplerControls + the SamplerControls proto (both messages) + Python
+      set/get_sampler_controls + ValueTree (`sloopxf`, omitted when 0) / composition (`loop_xfade`)
+      serialisation + a "Loop crossfade (s)" field on the Sampler header prompt. smoke (NewProject-
+      isolated): a looped sawtooth ramp (-1..+1) has a hard +1→-1 seam every cycle — the max
+      sample-to-sample jump in the looped render **collapses ~220× with a 5 ms crossfade** (4,403,553
+      → 19,971), and the value round-trips through GetSamplerControls + a composition save/reload.
+      Screenshot-validated end-to-end (the Sampler dialog shows the new "Loop crossfade (s)" field
+      reflecting a 0.007 value set via the API). Manual model doc notes the sampler's looping +
+      seam-crossfade; mkdocs --strict green.
+      **Not yet:** cross-track choke *groups*, root-note keyboard-mapped multisamples,
+      interpolation quality, waveform thumbnails/peak cache.
 19. **Controller rack / MIDI-learn / parameter linking + MIDI device maps** — a
     source→target mapping view; MIDI-learn for any `ParamModel` id; OSC/API sources as
     mappable controllers; per-mapping scaling/inversion/smoothing/range/bypass;

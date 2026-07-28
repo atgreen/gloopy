@@ -71,6 +71,13 @@ public:
     void setLoop (bool shouldLoop) { loop = shouldLoop; }
     bool getLoop() const { return loop; }
 
+    // Loop crossfade (seconds, 0 = off): as playback approaches the loop wrap, blend the
+    // loop-end content with the material that continues after the wrap, so the seam has no
+    // discontinuity click. Only active in loop mode. Needs headroom before the loop start
+    // (a startFrac > 0) for the smoothest blend; with the window at the very start it clamps.
+    void  setLoopXfade (float seconds) { loopXfade = juce::jmax (0.0f, seconds); }
+    float getLoopXfade() const { return loopXfade; }
+
     // Mono / choke: a new note-on cuts every currently-ringing voice, so overlapping hits
     // don't stack (classic hi-hat choke / mono 808). Off = polyphonic (voices ring out).
     void setMono (bool m) { mono = m; }
@@ -117,7 +124,10 @@ public:
                 if (! v.active)
                     continue;
 
-                mono += readInterpolated (v.pos) * v.gain * envelopeGain (v);
+                const float sv = (loop && loopXfade > 0.0f)
+                                    ? readLoopXfade (v.pos, lo, hi, span, v.rate >= 0.0)
+                                    : readInterpolated (v.pos);
+                mono += sv * v.gain * envelopeGain (v);
                 v.pos += v.rate;                          // rate is signed (negative = reverse)
                 v.age += 1.0;                             // output samples since trigger
 
@@ -240,6 +250,24 @@ private:
         return d[i0] * (1.0f - frac) + d[i1] * frac;
     }
 
+    // Crossfaded loop read: within `loopXfade` of the wrap point, blend the current content
+    // with the material one loop-span away (which is what plays after the wrap) so the seam is
+    // continuous. Forward wraps at hi-1 (blend toward pos-span, the pre-start material);
+    // reverse wraps at lo (blend toward pos+span). The other-read is clamped in-buffer.
+    float readLoopXfade (double pos, int lo, int hi, double span, bool forward) const
+    {
+        const float s = readInterpolated (pos);
+        double xf = (double) loopXfade * sourceRate;                  // xfade length in source frames
+        if (xf < 1.0 || span < 2.0) return s;
+        xf = juce::jmin (xf, span - 1.0);                             // can't exceed the loop
+        const double dist = forward ? ((double) (hi - 1) - pos) : (pos - (double) lo);   // frames until wrap
+        if (dist < 0.0 || dist >= xf) return s;
+        const float  t = (float) (1.0 - dist / xf);                  // 0 at region entry -> 1 at the wrap
+        double other = forward ? (pos - span) : (pos + span);
+        other = juce::jlimit (0.0, (double) juce::jmax (0, sample.getNumSamples() - 2), other);
+        return (1.0f - t) * s + t * readInterpolated (other);
+    }
+
     juce::AudioBuffer<float> sample;
     double      sourceRate { 44100.0 };
     double      deviceRate { 44100.0 };
@@ -250,6 +278,7 @@ private:
     float       fadeIn     { 0.0f };   // per-voice fade-in (seconds)
     float       fadeOut    { 0.0f };   // per-voice fade-out / release (seconds)
     bool        loop       { false };  // window repeats until note-off (vs one-shot)
+    float       loopXfade  { 0.0f };   // loop-seam crossfade (seconds, 0 = off)
     bool        mono       { false };  // choke: a new note-on cuts all ringing voices
     juce::String sampleName;
 

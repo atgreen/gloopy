@@ -878,6 +878,42 @@ print('smoke: PASS — sampler loop sustains a short sample (mid off=%d on=%d), 
 " || { echo 'smoke: sampler loop wrong' >&2; exit 1; }
 g -d "{\"id\":$LT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
+# Sampler loop crossfade (Wave 6 #18): a looped sawtooth ramp (-1..+1) has a hard +1->-1
+# discontinuity at every loop seam (a click). A loop crossfade blends the seam so it is
+# continuous. Proof: the max sample-to-sample jump in the looped render collapses when the
+# crossfade is on. NewProject is destructive to the session, so snapshot + restore around it.
+g -d "{\"path\":\"$WORK/xf_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+python3 -c "
+import wave, struct
+w=wave.open('$WORK/ramp.wav','w'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(44100)
+N=441
+w.writeframes(b''.join(struct.pack('<h', int((i/(N-1)*2-1)*30000)) for i in range(N))); w.close()
+"
+XT=$(g -d "{\"name\":\"xfsmp\",\"path\":\"$WORK/ramp.wav\",\"root_note\":60}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSamplerTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$XT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":2,\"velocity\":1.0}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"track_id\":$XT,\"start\":0,\"end\":1,\"reverse\":false,\"root_note\":0,\"loop\":true,\"loop_xfade\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSamplerControls >/dev/null
+g -d "{\"path\":\"$WORK/xf_off.wav\",\"tail_seconds\":0,\"end_beat\":2}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$XT,\"start\":0,\"end\":1,\"reverse\":false,\"root_note\":0,\"loop\":true,\"loop_xfade\":0.005}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSamplerControls >/dev/null
+g -d "{\"path\":\"$WORK/xf_on.wav\",\"tail_seconds\":0,\"end_beat\":2}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+XFRB=$(g -d "{\"id\":$XT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetSamplerControls | python3 -c "import json,sys;print(round(json.load(sys.stdin).get('loopXfade',0),3))")
+g -d "{\"path\":\"$WORK/xf.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+g -d "{\"path\":\"$WORK/xf.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+XFRB2=$(g -d "{\"id\":$XT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetSamplerControls | python3 -c "import json,sys;print(round(json.load(sys.stdin).get('loopXfade',0),3))")
+python3 -c "
+import wave
+def maxjump(p):
+    w=wave.open(p);f=w.readframes(w.getnframes())
+    v=[int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),6)]  # left ch (24-bit stereo)
+    return max(abs(v[i]-v[i-1]) for i in range(3001,min(len(v),18000)))
+off=maxjump('$WORK/xf_off.wav'); on=maxjump('$WORK/xf_on.wav')
+assert off > on*10, 'loop crossfade did not smooth the seam (max jump off=%d not >> on=%d)'%(off,on)
+assert '$XFRB'=='0.005', 'loop_xfade not read back: got $XFRB'
+assert '$XFRB2'=='0.005', 'loop_xfade did not survive composition round-trip: got $XFRB2'
+print('smoke: PASS — sampler loop crossfade smooths the seam (max jump %d -> %d, %.0fx), value round-trips'%(off,on,off/max(1,on)))
+" || { echo 'smoke: sampler loop crossfade wrong' >&2; exit 1; }
+g -d "{\"path\":\"$WORK/xf_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+
 # Notes copy/paste as JSON (Wave 2 #5): ExportNotesJSON emits a clip's notes as a JSON
 # array; ImportNotesJSON builds a new clip from that JSON on another track. Round-trip: the
 # pasted clip's notes match the source (pitch/start/length/velocity), verified via GetClipNotes.

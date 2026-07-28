@@ -485,8 +485,8 @@ public:
     bool apiSetTrackPolarity (int id, bool invert);   // phase invert a track's contribution
     int  apiAddAudioTrack (const juce::String& name);
     int  apiAddSamplerTrack (const juce::String& name, const juce::String& path, int rootNote);
-    bool apiSetSamplerControls (int trackId, float startFrac, float endFrac, bool reverse, int rootNote, float fadeIn, float fadeOut, bool loop, bool mono = false);
-    struct SamplerSnap { bool ok { false }; float start { 0.0f }, end { 1.0f }; bool reverse { false }; int rootNote { 60 }; float fadeIn { 0.0f }, fadeOut { 0.0f }; bool loop { false }; bool mono { false }; juce::String name; };
+    bool apiSetSamplerControls (int trackId, float startFrac, float endFrac, bool reverse, int rootNote, float fadeIn, float fadeOut, bool loop, bool mono = false, float loopXfade = 0.0f);
+    struct SamplerSnap { bool ok { false }; float start { 0.0f }, end { 1.0f }; bool reverse { false }; int rootNote { 60 }; float fadeIn { 0.0f }, fadeOut { 0.0f }; bool loop { false }; bool mono { false }; float loopXfade { 0.0f }; juce::String name; };
     SamplerSnap apiGetSamplerControls (int trackId);
     int  apiAddSfzTrack (const juce::String& name, const juce::String& path);   // native SFZ, or -1
     int  apiAddSurgeTrack (const juce::String& name, const juce::String& patch); // embedded Surge XT, or -1
