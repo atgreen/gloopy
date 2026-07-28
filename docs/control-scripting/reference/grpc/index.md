@@ -3,12 +3,14 @@
 The structural, scheduled control lane: build and edit compositions, query state,
 and render. Service **`gloopy.v1.Gloopy`** on **`127.0.0.1:50051`**.
 
-!!! info "This page is generated"
-    The full RPC/message reference is generated from the comments in
-    [`proto/gloopy.proto`](../../concepts/model.md) by `buf generate`
-    (`protoc-gen-doc`, Markdown output) and rebuilt in CI. It is not written by
-    hand — to change it, edit the proto comment. *(Generator wiring is pending;
-    until then, use `proto/gloopy.proto` directly as the reference.)*
+!!! info "Summary — the proto is authoritative"
+    This page is a **hand-maintained overview**, not the full RPC/message
+    reference. For exact request/response shapes, field names, and comments, read
+    [`proto/gloopy.proto`](https://github.com/atgreen/gloopy/blob/main/proto/gloopy.proto)
+    directly — it is the contract. A generated reference (from the proto comments,
+    via `buf generate` + `protoc-gen-doc`, rebuilt in CI) is planned to replace
+    this summary; until then, if this page and the proto ever disagree, **the
+    proto wins**.
 
 ## The proto is the contract
 

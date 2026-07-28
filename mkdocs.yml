@@ -98,6 +98,7 @@ nav:
   - Home: index.md
   - User guide:
       - user-guide/index.md
+      - What to use for what: user-guide/what-to-use-for-what.md
       - Tutorials:
           - Your first track: user-guide/tutorials/first-track.md
       - How-to guides:

@@ -5,12 +5,13 @@ every address lives under the root **`/gloopy`**. Use it to play notes, turn
 knobs, and start/stop in real time. To *build or edit* a composition, use the
 [gRPC API](../grpc/index.md) instead.
 
-!!! info "Schema-generated (planned)"
-    OSC has no schema ecosystem, so this address space is defined in an
-    `osc.yaml` schema that generates this table, the dispatch/validation table in
-    Gloopy's OSC server, and argument checking in the clients. *(The schema and
-    generator are pending; the table below is maintained by hand against
-    `Source/OscControl.h` until then.)*
+!!! info "Summary — `Source/OscControl.h` is authoritative"
+    OSC has no schema ecosystem, so the address space is defined in Gloopy's OSC
+    server itself. The table below is **maintained by hand** against
+    [`Source/OscControl.h`](https://github.com/atgreen/gloopy/blob/main/Source/OscControl.h) —
+    if the two ever disagree, the source wins. A planned `osc.yaml` schema will
+    generate this table, the server's dispatch/validation, and client-side
+    argument checking from one definition; until then, this is a summary.
 
 ## Conventions
 

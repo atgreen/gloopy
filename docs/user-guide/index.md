@@ -9,6 +9,10 @@ New to Gloopy? Do the tutorial first:
 
 [:material-play: Your first track](tutorials/first-track.md){ .md-button .md-button--primary }
 
+Not sure which feature to reach for? **[What to use for what](what-to-use-for-what.md)**
+is the quick decision guide — Arrange vs. Session, Save vs. Export, Automation vs.
+Modulation, and the other look-alike choices.
+
 ## This section
 
 Following the [Diátaxis](https://diataxis.fr/) split, pages here come in four kinds:
