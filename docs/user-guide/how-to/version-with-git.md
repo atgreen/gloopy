@@ -36,13 +36,18 @@ Everything here is also available to scripts and agents via the `GetProjectStatu
 
 ## Start a version-controlled project
 
-Use **File → New Git Project…**, choose a folder, and Gloopy saves your song there as a
-**Composition folder** and turns it into a git repository in one step — ready for its
-first commit. (The Composition folder format is where version control shines: each change
-touches only the files it needs to, so history stays clean and readable.)
+**Every Composition folder is a git repository from its very first save.** Whenever you
+save your song as a folder — **File → Save As Composition Folder**, or any save of a
+project already in folder form — Gloopy initialises git in that folder if it isn't a
+repository yet, so it's ready for its first commit with nothing extra to do. (The
+Composition folder format is where version control shines: each change touches only the
+files it needs to, so history stays clean and readable.)
 
-Already working in a Composition folder? **File → Enable Git** turns the current folder
-into a repository in place.
+**File → New Git Project…** does the same thing up front — pick a folder and Gloopy saves
+and initialises it in one step — and **File → Enable Git** initialises a folder you're
+already working in. With auto-init on save, both are now just shortcuts to a repository
+you'd get anyway; the single-file `.gloopy` **archive** is the one form that isn't a repo
+(it's a zip for sharing, not for versioning).
 
 ## Check the status
 

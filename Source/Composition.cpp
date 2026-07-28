@@ -689,6 +689,18 @@ bool MainComponent::saveComposition (const juce::File& dir)
               << dir.getFullPathName() << " (" << ctx.written << " written, "
               << ctx.pruned << " pruned)" << std::endl;
 
+    // A composition folder IS a git repo: auto-init it on save, so every project is
+    // version-controlled from the start (the composition-as-repo north star — "store it in
+    // git"). Skipped for throwaway temp dirs — the `.gloopy` zip archive, `gloopy pack`, and
+    // the test harness all write under tempDirectory and must not carry a `.git`. `git init`
+    // is idempotent, so re-saving an existing repo is a no-op.
+    {
+        const auto tmpRoot = juce::File::getSpecialLocation (juce::File::tempDirectory);
+        juce::String gitVer;
+        if (! dir.isAChildOf (tmpRoot) && apiGitAvailable (gitVer) && ! dir.getChildFile (".git").exists())
+            apiGitInit (dir.getFullPathName());
+    }
+
     // Opt-in auto-commit-on-save: a no-op unless this repo set gloopy.autocommit=true
     // (one `git config --get`), in which case stage-all + commit the just-saved state.
     apiGitAutoCommitOnSave (dir.getFullPathName());

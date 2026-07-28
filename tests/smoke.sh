@@ -217,6 +217,19 @@ if command -v git >/dev/null; then
     g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitStatus \
         | python3 -c "import json,sys;d=json.load(sys.stdin);assert d.get('isRepo') and len(d.get('changes',[]))>0,'inited repo not ready to commit: %r'%d;print('smoke: PASS — a saved composition git-inits to a ready-to-commit repo (%d files)'%len(d['changes']))" \
         || { echo "smoke: GitInit repo not ready to commit" >&2; exit 1; }
+    # Auto git-init on save: saving a composition folder makes it a git repo from the start
+    # (the composition-as-repo north star — a new project is a new repo). We save to a real
+    # (non-temp) dir because the guard intentionally skips throwaway temp dirs (the .gloopy
+    # archive, pack, and $WORK here all live under the system temp dir).
+    AUTOG="$HOME/.gloopy-smoke-gitinit-$$"; rm -rf "$AUTOG"
+    g -d "{\"path\":\"$AUTOG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+    if [ -d "$AUTOG/.git" ] && g -d "{\"dir\":\"$AUTOG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitStatus \
+        | python3 -c "import json,sys;assert json.load(sys.stdin).get('isRepo'),'auto-inited dir not a repo';print('smoke: PASS — SaveComposition auto-git-inits a new composition folder')"; then
+        rm -rf "$AUTOG"
+    else
+        echo "smoke: auto git-init on save failed (no .git after SaveComposition to a non-temp dir)" >&2
+        rm -rf "$AUTOG"; exit 1
+    fi
     # GitAdd + GitCommit (Wave 9 slice 3): stage all + commit, confirm the message lands
     # in the log and the tree goes clean. Uses the fallback identity when none is configured.
     g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAdd \

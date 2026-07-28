@@ -208,7 +208,8 @@ A composition serialises from the same in-memory model two ways — both are the
    manifest, human-readable TOML/text for tracks, clips (`.notes`), mixer,
    automation (`.points`), locations, scenes, and binary assets as sidecars under
    `assets/`. Designed for **readable diffs and version control** — a no-op
-   re-save writes nothing.
+   re-save writes nothing, and the folder is **git-initialised on its first save**
+   (a new project is a new repo).
 2. **`.gloopy` archive** — a single-file **zip of that folder**, for sharing a
    project as one file. (`.zip` is accepted too.) `gloopy pack` also produces one.
 
