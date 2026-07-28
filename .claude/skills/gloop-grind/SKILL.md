@@ -1905,8 +1905,21 @@ render-wiring design in `docs/session-view.md`.
       `pending`). Desktop UI already exists (the SessionView grid IS the control). Manual model doc
       notes the grid is scriptable; mkdocs --strict green. *Done-when met: OSC + gRPC launch clip/scene,
       stop, query session state.*
-    - `[ ]` **Slice 6 — polish:** clip colours in the grid, follow-actions, capture, a
-      launch-quantize menu, launch-mode indicators.
+    - `[~]` **Slice 6 — polish:** launch-quantize is now a first-class, scriptable, persisted
+      control (below); remaining polish deferred to future slices: clip colours in the grid,
+      follow-actions, capture, launch-mode indicators.
+      - `[x]` **Launch-quantize control.** The launch quantum (`sessionLauncher.quantumBeats()`,
+        default 4 = 1 bar; the musical boundary queued launches snap to) had a desktop control
+        (`sceneCol.onSetQuantumBeats`) and was readable via GetSessionState, but was unpersisted
+        and had no API setter. Added: `apiSetLaunchQuantumBeats` over gRPC (`SetLaunchQuantum`
+        (`LaunchQuantum{double beats}`) → Ack) + `/gloopy/session/quantum <beats>` OSC lane
+        (`sessionQuantum` hook) + Python `session_set_quantum(beats)`; persisted to the ValueTree
+        (`launchQuantum`) AND the composition manifest (`launch_quantum` in gloopy.toml), both
+        round-tripping. smoke (SaveProject/LoadProject-isolated): SetLaunchQuantum 2 →
+        GetSessionState quantumBeats=2 → SaveComposition writes `launch_quantum = 2` → NewProject
+        → LoadComposition restores 2. Desktop UI already existed (principle 1 satisfied); this
+        closes the gRPC/OSC/persistence gap. Manual model doc notes the settable, persisted
+        launch-quantize window; mkdocs --strict green.
 
 ### Wave 9 — Git as project management (composition-as-repo, realized) ✦
 

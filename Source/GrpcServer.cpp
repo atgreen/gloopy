@@ -807,6 +807,8 @@ namespace
           for (auto& t : s.tracks) { auto* o = r->add_tracks(); o->set_track_id (t.trackId);
               o->set_playing (t.playing); o->set_pending (t.pending); o->set_slots (t.slots); }
           return Status::OK; }
+        Status SetLaunchQuantum (ServerContext*, const pb::LaunchQuantum* q, pb::Ack* r) override
+        { main.apiSetLaunchQuantumBeats (q->beats()); r->set_ok (true); return Status::OK; }
 
         // ---- export profiles ----
         Status DefineExportProfile (ServerContext*, const pb::ExportProfile* q, pb::Ack* r) override

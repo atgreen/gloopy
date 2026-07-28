@@ -1041,6 +1041,7 @@ MainComponent::MainComponent (bool headless)
         h.sessionStop    = [this] (int t)        { apiSessionStopTrack (t); };
         h.sessionScene   = [this] (int s)        { apiSessionLaunchScene (s); };
         h.sessionStopAll = [this]                { apiSessionStopAll(); };
+        h.sessionQuantum = [this] (double b)     { apiSetLaunchQuantumBeats (b); };
         osc = std::make_unique<OscControl> (h);
         const int oscPort = 9000;
         if (osc->start (oscPort))
@@ -5305,6 +5306,7 @@ juce::ValueTree MainComponent::toValueTree()
     root.setProperty ("tsnum", transport.getTimeSigNumerator(), nullptr);
     root.setProperty ("tsden", transport.getTimeSigDenominator(), nullptr);
     root.setProperty ("swing", transport.getSwing(), nullptr);
+    root.setProperty ("launchQuantum", sessionLauncher.quantumBeats(), nullptr);   // session-view launch quantize
     root.setProperty ("notes", projectNotes, nullptr);
     root.setProperty ("scaleRoot", scaleRoot, nullptr);
     root.setProperty ("scaleName", scaleName, nullptr);
@@ -5799,6 +5801,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     automationLanes.clear();
     scenes.clear();
     sessionLauncher.reset();
+    sessionLauncher.setQuantumBeats ((double) root.getProperty ("launchQuantum", 4.0));   // 1 bar default
     sessionBeat = 0.0;
     nextTrackId = 1;
 

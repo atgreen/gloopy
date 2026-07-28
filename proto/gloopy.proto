@@ -180,6 +180,7 @@ message SessionClipRef  { int32 track_id = 1; int32 scene = 2; }
 message SessionSceneRef { int32 scene = 1; }
 message SessionTrackState { int32 track_id = 1; int32 playing = 2; int32 pending = 3; int32 slots = 4; }   // playing: -1 arrangement / >=0 scene; pending: -2 none / -1 stop / >=0 scene
 message SessionState { repeated SessionTrackState tracks = 1; int32 scenes = 2; double quantum_beats = 3; bool any_playing = 4; }
+message LaunchQuantum { double beats = 1; }   // 0 = launch immediately; 4 = one bar @ 4/4
 
 // ── export profiles (named render targets) ─────────────────
 // target: "mix" | "range" (+range_name) | "track" (+track_id) | "stems".
@@ -599,6 +600,7 @@ service Gloopy {
   rpc StopSessionTrack      (TrackId)         returns (Ack);
   rpc StopSessionAll        (Empty)           returns (Ack);
   rpc GetSessionState       (Empty)           returns (SessionState);
+  rpc SetLaunchQuantum      (LaunchQuantum)   returns (Ack);
 
   // export profiles — named render targets
   rpc DefineExportProfile (ExportProfile) returns (Ack);   // upsert by name

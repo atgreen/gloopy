@@ -35,6 +35,7 @@ public:
         std::function<void (int)>                 sessionStop;    // (track_id) -> back to arrangement
         std::function<void (int)>                 sessionScene;   // (scene) -> launch the whole row
         std::function<void ()>                    sessionStopAll;
+        std::function<void (double)>              sessionQuantum; // launch-quantize in beats (0 = immediate)
     };
 
     explicit OscControl (Hooks h) : hooks (std::move (h)) {}
@@ -106,6 +107,7 @@ private:
         else if (cmd == "stop"    && m.size() >= 1 && hooks.sessionStop)    hooks.sessionStop (argI (m[0]));
         else if (cmd == "scene"   && m.size() >= 1 && hooks.sessionScene)   hooks.sessionScene (argI (m[0]));
         else if (cmd == "stopall"                  && hooks.sessionStopAll) hooks.sessionStopAll();
+        else if (cmd == "quantum" && m.size() >= 1 && hooks.sessionQuantum) hooks.sessionQuantum (argF (m[0]));
         if (hooks.log) hooks.log ("session " + cmd);
     }
 

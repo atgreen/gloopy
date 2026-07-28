@@ -800,6 +800,10 @@ class Gloopy:
     def session_stop_all(self) -> None:
         self._ack(self.stub.StopSessionAll(pb.Empty()))
 
+    def session_set_quantum(self, beats: float) -> None:
+        """Set the session launch-quantize window in beats (0 = launch immediately, 4 = one bar)."""
+        self._ack(self.stub.SetLaunchQuantum(pb.LaunchQuantum(beats=beats)))
+
     def session_state(self) -> dict:
         """Per-track playing/pending slot + scene count + launch quantum.
 

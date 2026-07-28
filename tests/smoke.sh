@@ -2465,6 +2465,23 @@ print('smoke: PASS — session control API: populate slot (2 scenes), launch/sto
 " || { echo "smoke: session control API wrong" >&2; exit 1; }
 g -d "{\"path\":\"$WORK/sess-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 
+# Session launch-quantize (Wave 8 slice 6): the launch-quantum was desktop-only + unpersisted;
+# now settable over the API and it survives a composition round-trip. Isolated via a snapshot.
+g -d "{\"path\":\"$WORK/lq-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d '{"beats":2}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetLaunchQuantum >/dev/null
+LQ_SET=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetSessionState | python3 -c "import json,sys; print(json.load(sys.stdin).get('quantumBeats',-1))")
+g -d "{\"path\":\"$WORK/lq-proj\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+g -d "{\"path\":\"$WORK/lq-proj\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+LQ_RELOAD=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetSessionState | python3 -c "import json,sys; print(json.load(sys.stdin).get('quantumBeats',-1))")
+python3 -c "
+assert abs(float('$LQ_SET')-2.0)<1e-9, 'SetLaunchQuantum 2 not reflected: %s'%'$LQ_SET'
+assert abs(float('$LQ_RELOAD')-2.0)<1e-9, 'launch quantum did not survive composition round-trip: %s'%'$LQ_RELOAD'
+assert 'launch_quantum = 2' in open('$WORK/lq-proj/gloopy.toml').read(), 'launch_quantum missing from manifest'
+print('smoke: PASS — session launch-quantize set over API (2 beats) + persisted through a composition round-trip')
+" || { echo "smoke: session launch-quantize wrong" >&2; exit 1; }
+g -d "{\"path\":\"$WORK/lq-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+
 # MIDI file export/import round-trip (last — import resets the project). Export the
 # loaded project to an SMF, reimport into a fresh project, and confirm notes survive
 # as playable clips.

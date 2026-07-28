@@ -233,7 +233,8 @@ bool MainComponent::saveComposition (const juce::File& dir)
        .number ("bpm", root.getProperty ("bpm"))
        .integer ("ts_num", (int) root.getProperty ("tsnum", 4))
        .integer ("ts_den", (int) root.getProperty ("tsden", 4))
-       .number ("swing", root.getProperty ("swing", 0.5));
+       .number ("swing", root.getProperty ("swing", 0.5))
+       .number ("launch_quantum", root.getProperty ("launchQuantum", 4.0));
     man.integer ("scale_root", (int) root.getProperty ("scaleRoot", 0))
        .str ("scale_name", root.getProperty ("scaleName", "chromatic").toString());
     { juce::StringArray iv;
@@ -700,6 +701,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
     root.setProperty ("tsnum", man.root.getInt ("ts_num", 4), nullptr);
     root.setProperty ("tsden", man.root.getInt ("ts_den", 4), nullptr);
     root.setProperty ("swing", man.root.getDouble ("swing", 0.5), nullptr);
+    root.setProperty ("launchQuantum", man.root.getDouble ("launch_quantum", 4.0), nullptr);
     root.setProperty ("notes", dir.getChildFile ("notes.md").loadFileAsString(), nullptr);
     root.setProperty ("scaleRoot", man.root.getInt ("scale_root", 0), nullptr);
     root.setProperty ("scaleName", man.root.getString ("scale_name", "chromatic"), nullptr);
