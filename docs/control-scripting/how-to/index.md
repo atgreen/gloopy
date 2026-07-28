@@ -14,11 +14,12 @@ Task recipes for driving Gloopy from code or hardware. Each assumes you've read
 - **[Add and control effects from a script](effects-from-a-script.md)** — put an
   effect on a track, set its parameters, bypass it, or host a plugin — Python,
   Lisp, and grpcurl.
+- **[Play Gloopy live over OSC](play-live-over-osc.md)** — fire notes, sweep
+  knobs, and drive the transport in real time from Common Lisp or any OSC sender.
 
 !!! note "Being written"
     Planned guides:
 
-    - Set up a MIDI control surface over OSC
     - Sync transport with an external clock
     - Bulk-import a generated MIDI sequence (`ImportNotesJSON`)
     - Bind a hardware knob to any parameter (MIDI-learn)
