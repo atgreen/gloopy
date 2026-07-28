@@ -2367,7 +2367,7 @@ printf '%s\n' \
     '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"tracks/list","arguments":{}}}' \
     '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"transport/set_tempo","arguments":{"bpm":140}}}' \
     '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"session/get_info","arguments":{}}}' \
-    | "$BIN" mcp "$ROOT/examples/demo-lofi.gloopy" 2>/dev/null | python3 -c "
+    | "$BIN" mcp "$ROOT/examples/demo-lofi" 2>/dev/null | python3 -c "
 import json,sys
 by={m['id']:m for m in (json.loads(l) for l in sys.stdin if l.strip()) if 'id' in m}
 txt=lambda m: json.loads(m['result']['content'][0]['text'])
@@ -2433,7 +2433,7 @@ printf '%s\n' \
     '{"jsonrpc":"2.0","id":2,"method":"resources/list"}' \
     '{"jsonrpc":"2.0","id":3,"method":"resources/read","params":{"uri":"gloopy://composition"}}' \
     '{"jsonrpc":"2.0","id":4,"method":"resources/read","params":{"uri":"gloopy://model"}}' \
-    | "$BIN" mcp "$ROOT/examples/demo-lofi.gloopy" 2>/dev/null | python3 -c "
+    | "$BIN" mcp "$ROOT/examples/demo-lofi" 2>/dev/null | python3 -c "
 import json,sys
 by={m['id']:m for m in (json.loads(l) for l in sys.stdin if l.strip()) if 'id' in m}
 assert 'resources' in by[1]['result']['capabilities'], 'resources capability not advertised'

@@ -17,7 +17,7 @@ made of: the **transport**, **tracks**, **clips**, and the **editor**.
 Launch Gloopy on the portable demo:
 
 ```sh
-gloopy examples/demo-song.gloopy
+gloopy examples/demo-song
 ```
 
 A row of **tracks** runs down the left; each track's **clips** sit along the

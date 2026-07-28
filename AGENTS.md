@@ -169,7 +169,7 @@ surge-common's newer inline one and **SIGSEGVs Surge at startup** when both are 
 - **VPO** (Virtual Playing Orchestra, orchestral SFZ) → `~/sfz/Virtual-Playing-Orchestra3/`.
   No piano — only celesta in Keys.
 - **Salamander Grand Piano** (Ogg SFZ, ~74 MB) → `~/sfz/SalamanderGrandPianoV3_OggVorbis/`.
-- `examples/demo-cinematic.gloopy` and `demo-nocturne.gloopy` reference these by absolute
+- `examples/demo-cinematic` and `demo-nocturne` reference these by absolute
   path (like the Surge demo needs Surge). The synthwave/lo-fi/ambient demos are portable
   (built-in synth + kit only).
 

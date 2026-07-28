@@ -80,17 +80,17 @@ cmake --build build
 ./build/Gloopy_artefacts/Release/gloopy
 
 # ...or open a project straight away:
-./build/Gloopy_artefacts/Release/gloopy examples/demo-song.gloopy
+./build/Gloopy_artefacts/Release/gloopy examples/demo-song
 
 # ...or bounce a project to a WAV without a GUI (whole song, or just a beat range):
-./build/Gloopy_artefacts/Release/gloopy render examples/demo-song.gloopy out.wav
-./build/Gloopy_artefacts/Release/gloopy render examples/demo-song.gloopy out.wav --range 0 16
+./build/Gloopy_artefacts/Release/gloopy render examples/demo-song out.wav
+./build/Gloopy_artefacts/Release/gloopy render examples/demo-song out.wav --range 0 16
 # ...or split it into one WAV per instrument track:
-./build/Gloopy_artefacts/Release/gloopy export-stems examples/demo-song.gloopy stems/
+./build/Gloopy_artefacts/Release/gloopy export-stems examples/demo-song stems/
 ```
 
-Complete demo songs live in [`examples/`](examples/): `demo-song.gloopy` (fully
-portable) and `demo-song-surge.gloopy` (uses a baked Surge XT pad — install the
+Complete demo songs live in [`examples/`](examples/): `demo-song` (fully
+portable) and `demo-song-surge` (uses a baked Surge XT pad — install the
 Surge XT VST3 to `~/.vst3` first).
 
 JUCE is fetched automatically by CMake (`FetchContent`), pinned to `8.0.15`.

@@ -11,7 +11,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 GLOOPY="${GLOOPY_BIN:-build/Gloopy_artefacts/Release/gloopy}"
-PROJ="${1:-examples/demo-lofi.gloopy}"
+PROJ="${1:-examples/demo-lofi}"
 
 [ -x "$GLOOPY" ] || { echo "gloopy binary not found at $GLOOPY (set GLOOPY_BIN)"; exit 2; }
 [ -f "$PROJ" ]   || { echo "project not found: $PROJ"; exit 2; }

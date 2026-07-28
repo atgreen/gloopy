@@ -1,6 +1,6 @@
 # Example projects
 
-## demo-song.gloopy
+## demo-song
 
 A complete ~60-bar demo track (124 BPM, A minor) that exercises the whole app:
 
@@ -19,10 +19,10 @@ A complete ~60-bar demo track (124 BPM, A minor) that exercises the whole app:
 Open it via **File → Open**, or launch straight into it:
 
 ```sh
-./build/Gloopy_artefacts/Release/Gloopy examples/demo-song.gloopy
+./build/Gloopy_artefacts/Release/Gloopy examples/demo-song
 ```
 
-## demo-song-surge.gloopy
+## demo-song-surge
 
 The same arrangement, but the **Pad track is a hosted Surge XT (VST3)** instead
 of the built-in synth — a warm, unison-detuned, low-passed pad patch baked
@@ -41,11 +41,11 @@ instruments — no baked audio), assembled through the gRPC control API:
 
 | Project | Style | Instruments |
 |---|---|---|
-| `demo-synthwave.gloopy` | Synthwave (Am, 100 bpm) | built-in kit + saw bass, pad, arp, lead |
-| `demo-lofi.gloopy` | Lo-fi / chill (Cmaj7, 76 bpm) | built-in kit + jazzy keys, bass, Rhodes |
-| `demo-ambient.gloopy` | Ambient (60 bpm) | built-in synth: evolving pads, sub, bell |
-| `demo-cinematic.gloopy` | Cinematic (Dm, 68 bpm) | **VPO** strings (sfizz) + violin melody |
-| `demo-nocturne.gloopy` | Moody art-rock (Am, 76 bpm) | **VPO** strings + **Salamander** grand piano (sfizz), bass, lead |
+| `demo-synthwave` | Synthwave (Am, 100 bpm) | built-in kit + saw bass, pad, arp, lead |
+| `demo-lofi` | Lo-fi / chill (Cmaj7, 76 bpm) | built-in kit + jazzy keys, bass, Rhodes |
+| `demo-ambient` | Ambient (60 bpm) | built-in synth: evolving pads, sub, bell |
+| `demo-cinematic` | Cinematic (Dm, 68 bpm) | **VPO** strings (sfizz) + violin melody |
+| `demo-nocturne` | Moody art-rock (Am, 76 bpm) | **VPO** strings + **Salamander** grand piano (sfizz), bass, lead |
 
 The first three are **portable** (built-in synth/kit only). `demo-cinematic` and
 `demo-nocturne` use SFZ instruments and reference sample libraries by
