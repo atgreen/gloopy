@@ -2592,6 +2592,26 @@ assert stop[0]=='-1', 'StopSessionTrack -> pending -1(stop) expected, got %r'%st
 assert scene[0]=='1', 'LaunchSessionScene 1 -> pending 1 expected, got %r'%scene
 print('smoke: PASS — session control API: populate slot (2 scenes), launch/stop clip + scene queue via pending state')
 " || { echo "smoke: session control API wrong" >&2; exit 1; }
+# Session slot colour (Wave 8 slice 6 polish): colour the scene-1 slot's clip; it serialises into
+# the composition (session_clips colour) and survives a full SaveComposition -> Load -> re-save.
+g -d "{\"track_id\":$SESSTID,\"scene\":1,\"colour\":\"ffef5350\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSessionSlotColour >/dev/null
+g -d "{\"path\":\"$WORK/scol\"}"  127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+g -d "{\"path\":\"$WORK/scol\"}"  127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+g -d "{\"path\":\"$WORK/scol2\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+python3 -c "
+import tomllib,glob
+def slot_colour(d):
+    for f in glob.glob(d+'/tracks/*.toml'):
+        t=tomllib.load(open(f,'rb'))
+        if t.get('name')=='Sess':
+            sc=t.get('session_clips',[]); return sc[0].get('colour',0) if sc else 0
+    return 0
+a=slot_colour('$WORK/scol'); b=slot_colour('$WORK/scol2')
+assert a!=0, 'slot colour not written to the composition: %r'%a
+assert a==b, 'slot colour did not survive a composition round-trip: %r vs %r'%(a,b)
+print('smoke: PASS — session slot colour serialises + round-trips through the composition (colour=%d)'%a)
+" || { echo 'smoke: session slot colour wrong' >&2; exit 1; }
 g -d "{\"path\":\"$WORK/sess-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 
 # Session launch-quantize (Wave 8 slice 6): the launch-quantum was desktop-only + unpersisted;

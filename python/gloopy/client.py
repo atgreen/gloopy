@@ -789,6 +789,11 @@ class Gloopy:
         self._ack(self.stub.CopyClipToSessionSlot(
             pb.SessionSlotSrc(track_id=track_id, clip_index=clip_index, scene=scene)))
 
+    def set_session_slot_colour(self, track_id: int, scene: int, colour: str = "") -> None:
+        """Colour a session slot's clip (hex ARGB, e.g. 'ffef5350'); '' clears to inherit the track colour."""
+        self._ack(self.stub.SetSessionSlotColour(
+            pb.SessionSlotColour(track_id=track_id, scene=scene, colour=colour)))
+
     def session_launch_clip(self, track_id: int, scene: int) -> None:
         """Queue a clip launch (fires at the next launch-quantum boundary during playback)."""
         self._ack(self.stub.LaunchSessionClip(pb.SessionClipRef(track_id=track_id, scene=scene)))

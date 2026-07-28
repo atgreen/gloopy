@@ -97,10 +97,11 @@ Session launching is a **live** feature — it is *not* on the offline-render pa
 so renders remain deterministic and come from the arrangement.
 
 The grid is scriptable: copy an arrangement clip into a slot, launch a clip or a
-whole scene, stop a track or everything, set the **launch-quantize** window (the
-musical boundary launches snap to — a project setting that persists), and read
-back which slot each track is playing or has *queued* — all over the control API
-(and `/gloopy/session/…` OSC for live triggers). A launch is queued and fires at
+whole scene, stop a track or everything, **colour a slot's clip** for grid
+organization (or clear it to inherit the track colour), set the **launch-quantize**
+window (the musical boundary launches snap to — a project setting that persists),
+and read back which slot each track is playing or has *queued* — all over the
+control API (and `/gloopy/session/…` OSC for live triggers). A launch is queued and fires at
 the next launch boundary, so the queried state shows the pending slot immediately
 and the playing slot once it fires.
 

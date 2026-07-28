@@ -740,6 +740,7 @@ MainComponent::MainComponent (bool headless)
     sceneCol.onAddScene    = [this]                 { apiAddScene(); if (sessionPane) sessionPane->rebuild(); resized(); };
     sceneCol.onRemoveScene = [this] (int s)         { apiRemoveScene (s); if (sessionPane) sessionPane->rebuild(); resized(); };
     grid.onClearSlot   = [this] (int ti, int s) { if (auto* t = trackByIndex (ti)) { apiClearSessionSlot (t->id, s); if (sessionPane) sessionPane->rebuild(); } };
+    grid.onSetSlotColour = [this] (int ti, int s, juce::String hex) { if (auto* t = trackByIndex (ti)) { apiSetSessionSlotColour (t->id, s, hex); if (sessionPane) sessionPane->repaint(); } };
     grid.onNewClip     = [this] (int ti, int s)
     {
         if (auto* t = trackByIndex (ti))

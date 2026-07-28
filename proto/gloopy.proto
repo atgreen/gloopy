@@ -178,6 +178,7 @@ message LocationName { string name = 1; }
 message SessionSlotSrc  { int32 track_id = 1; int32 clip_index = 2; int32 scene = 3; }   // copy an arrangement clip into a slot
 message SessionClipRef  { int32 track_id = 1; int32 scene = 2; }
 message SessionSceneRef { int32 scene = 1; }
+message SessionSlotColour { int32 track_id = 1; int32 scene = 2; string colour = 3; }   // hex ARGB; "" = inherit track colour
 message SessionTrackState { int32 track_id = 1; int32 playing = 2; int32 pending = 3; int32 slots = 4; }   // playing: -1 arrangement / >=0 scene; pending: -2 none / -1 stop / >=0 scene
 message SessionState { repeated SessionTrackState tracks = 1; int32 scenes = 2; double quantum_beats = 3; bool any_playing = 4; }
 message LaunchQuantum { double beats = 1; }   // 0 = launch immediately; 4 = one bar @ 4/4
@@ -624,6 +625,8 @@ service Gloopy {
 
   // session view — clip-launch grid
   rpc CopyClipToSessionSlot (SessionSlotSrc)  returns (Ack);
+  rpc SetSessionSlotColour  (SessionSlotColour) returns (Ack);   // colour a slot's clip in the grid
+
   rpc LaunchSessionClip     (SessionClipRef)  returns (Ack);
   rpc LaunchSessionScene    (SessionSceneRef) returns (Ack);
   rpc StopSessionTrack      (TrackId)         returns (Ack);

@@ -106,6 +106,7 @@ public:
     std::function<void (int, int)> onNewClip;         // (track index, scene) -> empty MIDI clip
     std::function<void (int, int)> onCopySelectedClip;// (track index, scene) -> copy the selected arrangement clip
     std::function<void (int, int)> onClearSlot;       // (track index, scene)
+    std::function<void (int, int, juce::String)> onSetSlotColour;   // (track, scene, hex ARGB; "" = inherit track colour)
     std::function<void (int, int)> onEditClip;        // (track index, scene) -> load into the piano-roll editor
     std::function<void (int, int)> onCopyToArrangement;   // (track index, scene) -> drop a copy onto the timeline
     std::function<void (int, float&, float&)> getTrackLevels;   // (track index) -> L,R peak for the stereo VU
@@ -409,6 +410,12 @@ public:
                 const bool isPlaying = playing[(size_t) t] == s;
                 const bool isPending = pending[(size_t) t] == s;
                 auto base = trackCol[(size_t) t];
+                if (has)   // a slot's clip can carry its own colour (grid organization); else inherit the track colour
+                {
+                    const juce::ScopedLock sl (engineLock);
+                    if (auto cc = slotClip (tracks[(size_t) t]->sessionSlots, s))
+                        if (cc->colour.getARGB() != 0) base = cc->colour;
+                }
 
                 if (has)
                 {
@@ -689,12 +696,25 @@ private:
 
     void cellMenu (int t, int s, juce::Point<int> screenPos)
     {
+        // Slot clip colour palette (matches the track-colour presets): id 10..17 -> a colour, 18 -> inherit.
+        static const char* const kPal[8]     = { "ffef5350","ffffa726","ffffee58","ff66bb6a",
+                                                 "ff26a69a","ff42a5f5","ffab47bc","ff9e9e9e" };
+        static const char* const kPalName[8] = { "Red","Orange","Yellow","Green","Teal","Blue","Purple","Grey" };
+
         juce::PopupMenu m;
         const bool has = hasClip (t, s);
         m.addItem (1, "New empty clip", ! has);
         m.addItem (2, "Copy selected clip here");
         m.addItem (4, "Edit clip", has);
         m.addItem (5, "Copy to arrangement", has);
+        if (onSetSlotColour)
+        {
+            juce::PopupMenu colM;
+            for (int i = 0; i < 8; ++i) colM.addItem (10 + i, kPalName[i]);
+            colM.addSeparator();
+            colM.addItem (18, "Inherit track");
+            m.addSubMenu ("Colour", colM, has);
+        }
         m.addItem (3, "Clear", has);
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this)
                              .withTargetScreenArea ({ screenPos.x, screenPos.y, 1, 1 }),   // at the cursor
@@ -705,6 +725,8 @@ private:
                              else if (r == 4 && onEditClip)          onEditClip (t, s);
                              else if (r == 5 && onCopyToArrangement) onCopyToArrangement (t, s);
                              else if (r == 3 && onClearSlot)         onClearSlot (t, s);
+                             else if (r >= 10 && r <= 17 && onSetSlotColour) onSetSlotColour (t, s, kPal[r - 10]);
+                             else if (r == 18 && onSetSlotColour)    onSetSlotColour (t, s, juce::String());
                          });
     }
 

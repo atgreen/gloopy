@@ -471,6 +471,7 @@ public:
     struct SessionTrackSnap { int trackId, playing, pending, slots; };   // playing: -1 arrangement / >=0 scene; pending: -2 none / -1 stop / >=0 scene
     struct SessionSnap { std::vector<SessionTrackSnap> tracks; int scenes; double quantumBeats; bool anyPlaying; };
     bool apiCopyClipToSessionSlot (int trackId, int clipIndex, int scene);   // populate a slot from an arrangement clip
+    bool apiSetSessionSlotColour (int trackId, int scene, const juce::String& hexArgb);   // colour a slot's clip ("" = inherit)
     bool apiSessionLaunchClip  (int trackId, int scene);   // queue a clip launch (false if the slot is empty / track missing)
     bool apiSessionLaunchScene (int scene);                // queue a scene (row) launch — fires every occupied slot
     bool apiSessionStopTrack   (int trackId);              // queue a stop (back to arrangement) on one track

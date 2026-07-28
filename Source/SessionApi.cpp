@@ -29,6 +29,25 @@ bool MainComponent::apiCopyClipToSessionSlot (int trackId, int clipIndex, int sc
     return have && apiSetSessionClip (trackId, scene, copy);
 }
 
+// Colour a session slot's clip (grid organization) — hex ARGB; empty clears the override so the
+// slot draws in its track's colour again. Mirrors apiSetClipColour for arrangement clips.
+bool MainComponent::apiSetSessionSlotColour (int trackId, int scene, const juce::String& hexArgb)
+{
+    const juce::String h = hexArgb.startsWith ("#") ? hexArgb.substring (1) : hexArgb;
+    const juce::Colour col = h.isEmpty() ? juce::Colour ((juce::uint32) 0) : juce::Colour::fromString (h);
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        const juce::ScopedLock sl (engineLock);
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr || scene < 0 || scene >= (int) t->sessionSlots.size()) return false;
+        auto& clip = t->sessionSlots[(size_t) scene];
+        if (clip == nullptr) return false;   // empty slot has no clip to colour
+        clip->colour = col;                  // draw-only field; the audio thread never reads it
+        return true;
+    });
+}
+
 bool MainComponent::apiSessionLaunchClip (int trackId, int scene)
 {
     return callOnMessageThread ([&] () -> bool
