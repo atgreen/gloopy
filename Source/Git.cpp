@@ -507,6 +507,60 @@ MainComponent::GitResult MainComponent::apiGitReset (const juce::String& dir, co
     return gitWrite (*this, { "-C", dir, "reset", "--" + m, target }, dir);
 }
 
+MainComponent::GitResult MainComponent::apiGitAddRemote (const juce::String& dir, const juce::String& name, const juce::String& url)
+{
+    if (name.trim().isEmpty() || url.trim().isEmpty())
+    { GitResult r; r.error = "a remote name and URL are required"; return r; }
+    return gitWrite (*this, { "-C", dir, "remote", "add", name.trim(), url.trim() }, dir);
+}
+
+std::vector<MainComponent::GitRemote> MainComponent::apiGitListRemotes (const juce::String& dir)
+{
+    std::vector<GitRemote> out;
+    juce::String version;
+    if (! apiGitAvailable (version) || dir.isEmpty())
+        return out;
+    juce::String res;
+    // `git remote -v` prints "<name>\t<url> (fetch)" and "... (push)"; keep the fetch rows.
+    if (runGit ({ "-C", dir, "remote", "-v" }, res) == 0)
+        for (auto& line : juce::StringArray::fromLines (res))
+        {
+            if (! line.contains ("(fetch)")) continue;
+            auto f = juce::StringArray::fromTokens (line, " \t", {});
+            f.removeEmptyStrings();
+            if (f.size() >= 2) out.push_back ({ f[0], f[1] });
+        }
+    return out;
+}
+
+MainComponent::GitResult MainComponent::apiGitFetch (const juce::String& dir, const juce::String& remote)
+{
+    juce::StringArray args { "-C", dir, "fetch" };
+    if (remote.trim().isNotEmpty()) args.add (remote.trim());
+    else                            args.add ("--all");
+    return gitWrite (*this, args, dir);
+}
+
+MainComponent::GitResult MainComponent::apiGitPull (const juce::String& dir, const juce::String& remote, const juce::String& branch)
+{
+    juce::StringArray args { "-C", dir, "pull" };
+    if (remote.trim().isNotEmpty()) { args.add (remote.trim()); if (branch.trim().isNotEmpty()) args.add (branch.trim()); }
+    return gitWrite (*this, args, dir);
+}
+
+MainComponent::GitResult MainComponent::apiGitPush (const juce::String& dir, const juce::String& remote, const juce::String& branch)
+{
+    // Push is outward-facing — always an explicit user action (never auto). Set the upstream
+    // (-u) when a remote+branch are named so ahead/behind tracking works afterward.
+    juce::StringArray args { "-C", dir, "push" };
+    if (remote.trim().isNotEmpty())
+    {
+        args.add ("-u"); args.add (remote.trim());
+        if (branch.trim().isNotEmpty()) args.add (branch.trim());
+    }
+    return gitWrite (*this, args, dir);
+}
+
 juce::String MainComponent::gitHistoryReport()
 {
     juce::String version;

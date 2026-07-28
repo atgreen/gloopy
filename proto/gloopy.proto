@@ -341,6 +341,10 @@ message GitPathsRequest  { string dir = 1; repeated string paths = 2; }   // dis
 message GitStashRequest  { string dir = 1; string message = 2; }          // message optional
 message GitStashListResult { repeated string stashes = 1; }
 message GitResetRequest  { string dir = 1; string mode = 2; string ref = 3; }   // mode: soft|mixed|hard; ref empty = HEAD
+message GitRemote        { string name = 1; string url = 2; }
+message GitRemoteList    { repeated GitRemote remotes = 1; }
+message GitAddRemoteRequest { string dir = 1; string name = 2; string url = 3; }
+message GitSyncRequest   { string dir = 1; string remote = 2; string branch = 3; }   // fetch/pull/push
 message RenderRequest {                       // offline bounce to WAV
   string path = 1;
   double tail_seconds = 2;
@@ -610,6 +614,11 @@ service Gloopy {
   rpc GitStashList   (GitDir)          returns (GitStashListResult);   // list stashes
   rpc GitRevert      (GitRefRequest)   returns (Ack);            // new commit undoing ref
   rpc GitReset       (GitResetRequest) returns (Ack);            // reset --soft|mixed|hard to ref
+  rpc GitAddRemote   (GitAddRemoteRequest) returns (Ack);        // git remote add
+  rpc GitListRemotes (GitDir)              returns (GitRemoteList);
+  rpc GitFetch       (GitSyncRequest)      returns (Ack);        // fetch from a remote (empty = --all)
+  rpc GitPull        (GitSyncRequest)      returns (Ack);        // pull remote/branch
+  rpc GitPush        (GitSyncRequest)      returns (Ack);        // push remote/branch (explicit; sets upstream)
   rpc NewProject (Empty)    returns (Ack);
   rpc ListTemplates  (Empty)       returns (TemplateList);   // built-in + user project templates
   rpc NewFromTemplate(TemplateRef) returns (Ack);            // empty + seed a template

@@ -965,6 +965,31 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.GitResetRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.GitAddRemote = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitAddRemote',
+                request_serializer=gloopy__pb2.GitAddRemoteRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitListRemotes = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitListRemotes',
+                request_serializer=gloopy__pb2.GitDir.SerializeToString,
+                response_deserializer=gloopy__pb2.GitRemoteList.FromString,
+                _registered_method=True)
+        self.GitFetch = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitFetch',
+                request_serializer=gloopy__pb2.GitSyncRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitPull = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitPull',
+                request_serializer=gloopy__pb2.GitSyncRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitPush = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitPush',
+                request_serializer=gloopy__pb2.GitSyncRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.NewProject = channel.unary_unary(
                 '/gloopy.v1.Gloopy/NewProject',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -2308,6 +2333,40 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GitAddRemote(self, request, context):
+        """git remote add
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitListRemotes(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitFetch(self, request, context):
+        """fetch from a remote (empty = --all)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitPull(self, request, context):
+        """pull remote/branch
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitPush(self, request, context):
+        """push remote/branch (explicit; sets upstream)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def NewProject(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -3373,6 +3432,31 @@ def add_GloopyServicer_to_server(servicer, server):
             'GitReset': grpc.unary_unary_rpc_method_handler(
                     servicer.GitReset,
                     request_deserializer=gloopy__pb2.GitResetRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitAddRemote': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitAddRemote,
+                    request_deserializer=gloopy__pb2.GitAddRemoteRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitListRemotes': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitListRemotes,
+                    request_deserializer=gloopy__pb2.GitDir.FromString,
+                    response_serializer=gloopy__pb2.GitRemoteList.SerializeToString,
+            ),
+            'GitFetch': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitFetch,
+                    request_deserializer=gloopy__pb2.GitSyncRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitPull': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitPull,
+                    request_deserializer=gloopy__pb2.GitSyncRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitPush': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitPush,
+                    request_deserializer=gloopy__pb2.GitSyncRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'NewProject': grpc.unary_unary_rpc_method_handler(
@@ -8498,6 +8582,141 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/GitReset',
             gloopy__pb2.GitResetRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitAddRemote(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitAddRemote',
+            gloopy__pb2.GitAddRemoteRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitListRemotes(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitListRemotes',
+            gloopy__pb2.GitDir.SerializeToString,
+            gloopy__pb2.GitRemoteList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitFetch(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitFetch',
+            gloopy__pb2.GitSyncRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitPull(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitPull',
+            gloopy__pb2.GitSyncRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitPush(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitPush',
+            gloopy__pb2.GitSyncRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

@@ -1024,6 +1024,26 @@ class Gloopy:
         """Reset to `ref` (mode: soft | mixed | hard). Hard discards uncommitted work."""
         self._ack(self.stub.GitReset(pb.GitResetRequest(dir=dir, mode=mode, ref=ref)))
 
+    def git_add_remote(self, dir: str, name: str, url: str) -> None:
+        """Add a remote (git remote add <name> <url>)."""
+        self._ack(self.stub.GitAddRemote(pb.GitAddRemoteRequest(dir=dir, name=name, url=url)))
+
+    def git_list_remotes(self, dir: str) -> list[dict]:
+        """List remotes as [{name, url}]."""
+        return [{"name": r.name, "url": r.url} for r in self.stub.GitListRemotes(pb.GitDir(dir=dir)).remotes]
+
+    def git_fetch(self, dir: str, remote: str = "") -> None:
+        """Fetch from `remote` (empty = --all)."""
+        self._ack(self.stub.GitFetch(pb.GitSyncRequest(dir=dir, remote=remote)))
+
+    def git_pull(self, dir: str, remote: str = "", branch: str = "") -> None:
+        """Pull remote/branch."""
+        self._ack(self.stub.GitPull(pb.GitSyncRequest(dir=dir, remote=remote, branch=branch)))
+
+    def git_push(self, dir: str, remote: str = "", branch: str = "") -> None:
+        """Push remote/branch (explicit; sets upstream)."""
+        self._ack(self.stub.GitPush(pb.GitSyncRequest(dir=dir, remote=remote, branch=branch)))
+
     def diagnostics(self) -> dict:
         """Engine health: device settings, callback timing, DSP load, dropouts, render speed."""
         d = self.stub.GetDiagnostics(pb.Empty())

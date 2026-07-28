@@ -112,6 +112,24 @@ quickest way to review your work before making a commit.
 
 Every one of these reloads the song afterward so what you see matches the new state.
 
+## Share it — remotes, push and pull
+
+To back your project up or collaborate, connect it to a **remote** (a shared copy of the
+repository — on GitHub, a company server, or anywhere you can reach). **File → Remotes / Push
+/ Pull…** lets you:
+
+- **Add remote…** — register a remote by name and URL (the first is conventionally called
+  *origin*). Gloopy uses your existing git setup — the same keys and logins you already have —
+  so private servers just work.
+- **Push** — send your commits to the remote. This is always something *you* choose to do;
+  Gloopy never pushes on its own.
+- **Pull** — bring down and merge changes from the remote, then reload the song.
+- **Fetch** — check for remote changes without merging them yet.
+
+The menu shows how far **ahead or behind** the remote you are, so you know when it's time to
+push or pull. Network steps run in the background with a progress indicator, so a slow upload
+never freezes the app.
+
 ## From a script
 
 The same status is available to scripts and agents through the control API, so you can

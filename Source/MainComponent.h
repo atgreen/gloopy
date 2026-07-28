@@ -237,6 +237,12 @@ public:
     juce::StringArray apiGitStashList (const juce::String& dir);                         // "stash@{0}: ..." lines
     GitResult apiGitRevert (const juce::String& dir, const juce::String& commit);        // new commit undoing <commit>
     GitResult apiGitReset (const juce::String& dir, const juce::String& mode, const juce::String& ref);   // soft|mixed|hard
+    struct GitRemote { juce::String name, url; };
+    GitResult apiGitAddRemote (const juce::String& dir, const juce::String& name, const juce::String& url);
+    std::vector<GitRemote> apiGitListRemotes (const juce::String& dir);
+    GitResult apiGitFetch (const juce::String& dir, const juce::String& remote);          // remote empty = --all
+    GitResult apiGitPull (const juce::String& dir, const juce::String& remote, const juce::String& branch);
+    GitResult apiGitPush (const juce::String& dir, const juce::String& remote, const juce::String& branch);   // sets upstream (-u)
     juce::String gitStatusReport();                     // human-readable status text (Git.cpp)
     juce::String gitHistoryReport();                    // human-readable commit log (Git.cpp)
     void openSourceControl();                           // UI: a Source Control status window (MainComponent.cpp)
@@ -247,6 +253,7 @@ public:
     void showVersionPicker();                           // UI: Open at version — branch/tag/commit checkout (MainComponent.cpp)
     void openDiff();                                    // UI: a working-tree diff window (MainComponent.cpp)
     void showWorkingTreeMenu();                         // UI: discard / stash / revert / reset popup (MainComponent.cpp)
+    void showRemoteMenu();                              // UI: remotes / fetch / pull / push popup (MainComponent.cpp)
 
     // --- waveform thumbnail cache (Waveform.cpp) ---
     // Min/max peaks per bucket for an audio file, cached by path+mtime+size. Feeds

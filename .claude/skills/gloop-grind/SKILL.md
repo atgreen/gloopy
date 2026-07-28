@@ -2022,11 +2022,21 @@ commit messages are user-authored; auto-commit-on-save is opt-in only.
       (commit cutoff=900 → GitRevert HEAD → the on-disk `tracks/*.toml` is back to `cutoff = 20000`).
       Screenshot-validated (the popup). *Done-when met: stash→clean→pop→changes return; revert undoes
       a commit.*
-    - `[ ]` **10 — remote + fetch / pull / push / sync.** `apiGitAddRemote / ListRemotes / Fetch /
-      Pull / Push`; network ops off-thread behind the busy overlay, reusing the user's SSH /
-      credential helper; **push always explicit**. **Desktop:** Add Remote... / Fetch / Pull / Push
-      on the panel with ahead-behind counts. *Done when:* push to a **bare local repo** lands the
-      commit there (assert via `git -C <bare> log`) — no network needed for the test.
+    - `[x]` **10 — remote + fetch / pull / push / sync LANDED** (`Source/Git.cpp`, commit):
+      `apiGitAddRemote(dir,name,url)`, `apiGitListRemotes` (parses `git remote -v`, fetch rows →
+      `GitRemote{name,url}`), `apiGitFetch(dir,remote)` (empty = `--all`), `apiGitPull(dir,remote,
+      branch)`, `apiGitPush(dir,remote,branch)` (`push -u` to set upstream). RPCs GitAddRemote/
+      GitListRemotes/GitFetch/GitPull/GitPush (`GitAddRemoteRequest`/`GitRemoteList`/`GitSyncRequest`)
+      + Python `git_add_remote`/`git_list_remotes`/`git_fetch`/`git_pull`/`git_push`. **Desktop:**
+      File → "Remotes / Push / Pull..." (`showRemoteMenu`) — lists each remote (name → url), "Add
+      remote..." (name+url prompt), Fetch/Pull/Push from/to `<remote>/<branch>` with **↑ahead ↓behind**
+      counts from GitStatus. Network ops run off the message thread via `runBackground` + the busy
+      overlay (reusing the user's SSH/credential helper); a Pull reloads the project after; **Push is
+      always explicit** (never automatic). smoke (isolated via a SaveProject/LoadProject snapshot):
+      add a remote pointing at a **bare local repo** (`git init --bare`, no network) → GitPush →
+      `git -C <bare> log` shows the commit + ListRemotes returns origin. Screenshot-validated (the
+      popup: origin → url, Add remote, Fetch/Pull/Push). *Done-when met: push to a bare local repo
+      lands the commit there.*
     - `[ ]` **11 — merge-conflict resolution.** When a merge / pull conflicts, surface the conflicted
       composition files (TOML / `.notes`) with **accept-ours / accept-theirs / keep-both**, mark
       resolved, continue the merge, reload. The composition text format makes conflicts human-

@@ -622,6 +622,16 @@ namespace
         { setAck (r, main.apiGitRevert (js (q->dir()), js (q->ref()))); return Status::OK; }
         Status GitReset (ServerContext*, const pb::GitResetRequest* q, pb::Ack* r) override
         { setAck (r, main.apiGitReset (js (q->dir()), js (q->mode()), js (q->ref()))); return Status::OK; }
+        Status GitAddRemote (ServerContext*, const pb::GitAddRemoteRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitAddRemote (js (q->dir()), js (q->name()), js (q->url()))); return Status::OK; }
+        Status GitListRemotes (ServerContext*, const pb::GitDir* q, pb::GitRemoteList* r) override
+        { for (auto& rm : main.apiGitListRemotes (js (q->dir()))) { auto* p = r->add_remotes(); p->set_name (rm.name.toStdString()); p->set_url (rm.url.toStdString()); } return Status::OK; }
+        Status GitFetch (ServerContext*, const pb::GitSyncRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitFetch (js (q->dir()), js (q->remote()))); return Status::OK; }
+        Status GitPull (ServerContext*, const pb::GitSyncRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitPull (js (q->dir()), js (q->remote()), js (q->branch()))); return Status::OK; }
+        Status GitPush (ServerContext*, const pb::GitSyncRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitPush (js (q->dir()), js (q->remote()), js (q->branch()))); return Status::OK; }
 
         // ---- project / state ----
         Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override

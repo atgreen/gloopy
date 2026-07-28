@@ -3857,6 +3857,86 @@ void MainComponent::showWorkingTreeMenu()
         });
 }
 
+void MainComponent::showRemoteMenu()
+{
+    // Collaboration: remotes + fetch / pull / push. Network ops run off the message thread
+    // behind the busy overlay, reusing the user's SSH / credential helper. Push is always an
+    // explicit user action (never automatic). A pull rewrites the tree, so we reload after it.
+    if (currentProjectFile.getFileName() != "gloopy.toml") return;
+    const auto dir = currentProjectFile.getParentDirectory().getFullPathName();
+    const auto st = apiGitStatus (dir);
+    if (! st.isRepo)
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+            "Remotes", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+        return;
+    }
+
+    const auto remotes = apiGitListRemotes (dir);
+    const juce::String remote = remotes.empty() ? juce::String() : remotes.front().name;
+    const juce::String branch = st.detached ? juce::String() : st.branch;
+
+    // Fire a network op off-thread behind the busy overlay; report + optionally reload.
+    auto doNet = [this, dir] (const juce::String& label, std::function<GitResult()> op, bool reloadAfter)
+    {
+        auto res = std::make_shared<GitResult>();
+        runBackground (label,
+            [op, res] { *res = op(); },
+            [this, res, reloadAfter]
+            {
+                if (! res->ok)
+                    juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Git", res->error);
+                else if (reloadAfter)
+                    openAny (currentProjectFile);
+                if (sourceControlWindow != nullptr && sourceControlWindow->isVisible()) openSourceControl();
+            });
+    };
+
+    juce::PopupMenu m;
+    m.addItem (-1, "Remotes", false);
+    for (auto& rm : remotes) m.addItem (-1, "  " + rm.name + " \xe2\x86\x92 " + rm.url, false);
+    m.addItem (1, "Add remote...");
+    if (! remotes.empty())
+    {
+        juce::String aheadBehind;
+        if (st.ahead > 0 || st.behind > 0)
+            aheadBehind = " (" + (st.ahead > 0 ? "\xe2\x86\x91" + juce::String (st.ahead) : juce::String())
+                             + (st.behind > 0 ? " \xe2\x86\x93" + juce::String (st.behind) : juce::String()).trim() + ")";
+        m.addSeparator();
+        m.addItem (2, "Fetch from " + remote);
+        m.addItem (3, "Pull from " + remote + (branch.isNotEmpty() ? "/" + branch : juce::String()) + aheadBehind);
+        m.addItem (4, "Push to " + remote + (branch.isNotEmpty() ? "/" + branch : juce::String()) + aheadBehind);
+    }
+
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
+        [this, dir, remote, branch, doNet] (int r)
+        {
+            if (r == 1)
+            {
+                auto* w = new juce::AlertWindow ("Add remote", "Name (e.g. origin) and URL:", juce::MessageBoxIconType::NoIcon);
+                w->addTextEditor ("name", "origin");
+                w->addTextEditor ("url", "");
+                w->addButton ("Add", 1, juce::KeyPress (juce::KeyPress::returnKey));
+                w->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+                w->enterModalState (true, juce::ModalCallbackFunction::create ([this, w, dir] (int res)
+                {
+                    const auto name = w->getTextEditorContents ("name");
+                    const auto url  = w->getTextEditorContents ("url");
+                    delete w;
+                    if (res == 1 && name.trim().isNotEmpty() && url.trim().isNotEmpty())
+                    {
+                        auto gr = apiGitAddRemote (dir, name, url);
+                        if (! gr.ok) juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Git", gr.error);
+                    }
+                }), false);
+                return;
+            }
+            if (r == 2) { doNet ("Fetching\xe2\x80\xa6", [this, dir, remote] { return apiGitFetch (dir, remote); }, false); return; }
+            if (r == 3) { doNet ("Pulling\xe2\x80\xa6",  [this, dir, remote, branch] { return apiGitPull (dir, remote, branch); }, true); return; }
+            if (r == 4) { doNet ("Pushing\xe2\x80\xa6",  [this, dir, remote, branch] { return apiGitPush (dir, remote, branch); }, false); return; }
+        });
+}
+
 void MainComponent::showBranchMenu()
 {
     // Branches = alternate arrangements. Checkout / merge change files on disk, so we
@@ -4654,6 +4734,7 @@ void MainComponent::showFileMenu()
     menu.addItem (26, "Open at version...", isComposition);   // checkout any branch/tag/commit (Git.cpp)
     menu.addItem (27, "Changes (Diff)...", isComposition);    // working-tree diff (Git.cpp)
     menu.addItem (28, "Discard / Stash / Reset...", isComposition);   // working-tree ops (Git.cpp)
+    menu.addItem (29, "Remotes / Push / Pull...", isComposition);     // remote sync (Git.cpp)
     // Live MIDI status (read-only): the input sources Gloopy hears + which track they play.
     juce::PopupMenu midiMenu;
     const auto midiIns = apiListMidiInputs();
@@ -4723,6 +4804,7 @@ void MainComponent::showFileMenu()
             if (result == 26) { showVersionPicker(); return; }  // checkout any version
             if (result == 27) { openDiff(); return; }           // working-tree diff
             if (result == 28) { showWorkingTreeMenu(); return; }  // discard / stash / revert / reset
+            if (result == 29) { showRemoteMenu(); return; }       // remotes / push / pull
             if (result == 20) { undo(); return; }
             if (result == 21) { redo(); return; }
             if (result >= 100)                                  // New from Template
