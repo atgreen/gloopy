@@ -14,6 +14,10 @@
 #include <string>
 
 namespace {
+    // Discards everything — api* methods print [osc]/[loc]/[composition] chatter to std::cout,
+    // which would corrupt the JSON-RPC stream; we redirect std::cout here for the whole session.
+    struct NullBuf : std::streambuf { int overflow (int c) override { return c; } };
+
     juce::var obj (std::initializer_list<std::pair<const char*, juce::var>> kv) {
         auto* o = new juce::DynamicObject();
         for (auto& p : kv) o->setProperty (p.first, p.second);
@@ -35,6 +39,16 @@ namespace {
     juce::var noArgsSchema() {
         return obj ({ { "type", "object" }, { "properties", juce::var (new juce::DynamicObject()) } });
     }
+    juce::var prop (const char* type, const char* desc) { return obj ({ { "type", type }, { "description", desc } }); }
+    juce::Array<juce::var> reqList (std::initializer_list<const char*> names) {
+        juce::Array<juce::var> a; for (auto n : names) a.add (juce::String (n)); return a;
+    }
+    // A JSON-Schema object with the given properties and (optionally) a required list.
+    juce::var objSchema (juce::var properties, juce::Array<juce::var> required = {}) {
+        auto s = obj ({ { "type", "object" }, { "properties", properties } });
+        if (! required.isEmpty()) s.getDynamicObject()->setProperty ("required", juce::var (required));
+        return s;
+    }
     juce::var toolDef (const char* name, const char* desc, juce::var schema) {
         return obj ({ { "name", name }, { "description", desc }, { "inputSchema", std::move (schema) } });
     }
@@ -42,9 +56,13 @@ namespace {
 
 void MainComponent::runMcpStdio() {
     // One JSON-RPC message per line. Requests carry an "id"; notifications don't (no reply).
-    // stdout is the protocol stream — only emit() writes to it (load chatter was muted by the
-    // caller during construction/open).
-    auto emit = [] (const juce::var& v) { std::cout << juce::JSON::toString (v, true) << std::endl; };
+    // Capture the REAL stdout for the protocol stream, then redirect std::cout to a null sink so
+    // api* chatter can't interleave with responses. emit() is the only thing that reaches stdout.
+    std::ostream protoOut (std::cout.rdbuf());
+    NullBuf nullBuf;
+    std::cout.rdbuf (&nullBuf);
+    struct RestoreCout { std::ostream& o; ~RestoreCout() { std::cout.rdbuf (o.rdbuf()); } } restore { protoOut };
+    auto emit = [&protoOut] (const juce::var& v) { protoOut << juce::JSON::toString (v, true) << std::endl; };
 
     std::string raw;
     while (std::getline (std::cin, raw)) {
@@ -73,10 +91,33 @@ void MainComponent::runMcpStdio() {
                 "List the project's tracks (id, name, type, clip count).", noArgsSchema()));
             juce::Array<juce::var> req; req.add ("bpm");
             tools.add (toolDef ("transport/set_tempo", "Set the project tempo in beats per minute.",
-                obj ({ { "type", "object" },
-                       { "properties", obj ({ { "bpm", obj ({ { "type", "number" },
-                                                               { "description", "beats per minute" } }) } }) },
-                       { "required", juce::var (req) } })));
+                objSchema (obj ({ { "bpm", prop ("number", "beats per minute") } }), reqList ({ "bpm" }))));
+            (void) req;
+            // Mutating tools (slice 2) — each is a thin wrapper over the same undoable api* op.
+            tools.add (toolDef ("track/add", "Add a new synth track. Returns its numeric id.",
+                objSchema (obj ({ { "name", prop ("string", "track name (optional)") } }))));
+            tools.add (toolDef ("clip/add", "Add a MIDI clip to a track from a JSON note list "
+                "([{pitch,start,length,velocity}, ...] in beats). Returns the new clip index.",
+                objSchema (obj ({ { "track_id",   prop ("integer", "target track id") },
+                                  { "start_beat",  prop ("number",  "clip start in beats (default 0)") },
+                                  { "notes",       obj ({ { "type", "array" },
+                                                          { "description", "notes: pitch, start, length (beats), velocity (0..1)" },
+                                                          { "items", obj ({ { "type", "object" } }) } }) } }),
+                           reqList ({ "track_id", "notes" }))));
+            tools.add (toolDef ("clip/move", "Move a clip to a new start beat, optionally to another track.",
+                objSchema (obj ({ { "track_id",     prop ("integer", "the clip's current track id") },
+                                  { "index",        prop ("integer", "the clip's index on that track") },
+                                  { "start_beat",   prop ("number",  "new start position in beats") },
+                                  { "to_track_id",  prop ("integer", "move to this track id (optional)") } }),
+                           reqList ({ "track_id", "index", "start_beat" }))));
+            tools.add (toolDef ("markers/add_range", "Add a named timeline range (section marker).",
+                objSchema (obj ({ { "name",       prop ("string", "range name") },
+                                  { "start_beat", prop ("number", "range start in beats") },
+                                  { "end_beat",   prop ("number", "range end in beats") } }),
+                           reqList ({ "name", "start_beat", "end_beat" }))));
+            tools.add (toolDef ("project/save", "Save the project to disk (composition folder). "
+                "Defaults to the open project's folder.",
+                objSchema (obj ({ { "path", prop ("string", "destination folder (optional)") } }))));
             emit (jrpcResult (id, obj ({ { "tools", juce::var (tools) } })));
         }
         else if (method == "tools/call") {
@@ -98,6 +139,50 @@ void MainComponent::runMcpStdio() {
             else if (name == "transport/set_tempo") {
                 apiSetTempo ((double) arguments["bpm"]);
                 emit (jrpcResult (id, toolText ("tempo set to " + juce::String (apiGetTransport().bpm) + " bpm")));
+            }
+            else if (name == "track/add") {
+                auto tname = arguments["name"].toString();
+                if (tname.isEmpty()) tname = "Track";
+                const int tid = apiAddSynthTrack (tname, 1, 0.01f, 0.1f, 0.8f, 0.2f, 0.8f);
+                emit (jrpcResult (id, toolText (juce::JSON::toString (obj ({ { "id", tid } }), true))));
+            }
+            else if (name == "clip/add") {
+                const int    tid   = (int) arguments["track_id"];
+                const double start = (double) arguments["start_beat"];
+                const auto   notesJson = juce::JSON::toString (arguments["notes"], true);
+                const int    idx = apiImportClipNotesJson (tid, start, notesJson);
+                if (idx < 0) emit (jrpcError (id, -32602, "clip/add: no usable notes or unknown track"));
+                else emit (jrpcResult (id, toolText (juce::JSON::toString (obj ({ { "index", idx } }), true))));
+            }
+            else if (name == "clip/move") {
+                const int    tid   = (int) arguments["track_id"];
+                const int    idx   = (int) arguments["index"];
+                const double start = (double) arguments["start_beat"];
+                const bool   hasTo = arguments.getDynamicObject() != nullptr
+                                     && arguments.getDynamicObject()->hasProperty ("to_track_id");
+                const int    toTid = (int) arguments["to_track_id"];
+                const bool ok = apiMoveClip (tid, idx, start, hasTo, toTid);
+                if (ok) emit (jrpcResult (id, toolText ("clip moved")));
+                else emit (jrpcError (id, -32602, "clip/move: unknown track or clip index"));
+            }
+            else if (name == "markers/add_range") {
+                const bool ok = apiAddLocation (arguments["name"].toString(), "range",
+                                                (double) arguments["start_beat"], (double) arguments["end_beat"]);
+                if (ok) emit (jrpcResult (id, toolText ("range added")));
+                else emit (jrpcError (id, -32602, "markers/add_range failed"));
+            }
+            else if (name == "project/save") {
+                juce::String path = arguments["path"].toString();
+                if (path.isEmpty())
+                    path = currentProjectFile.getFileName() == "gloopy.toml"
+                             ? currentProjectFile.getParentDirectory().getFullPathName()
+                             : currentProjectFile.getFullPathName();
+                if (path.isEmpty()) { emit (jrpcError (id, -32602, "project/save: no path and no open project")); }
+                else {
+                    const bool ok = apiSaveComposition (path);
+                    if (ok) emit (jrpcResult (id, toolText ("saved to " + path)));
+                    else emit (jrpcError (id, -32603, "project/save failed"));
+                }
             }
             else emit (jrpcError (id, -32602, "unknown tool: " + name));
         }

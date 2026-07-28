@@ -2163,9 +2163,23 @@ gate them later.
       registration snippet); mkdocs --strict green. *Done-when met: piping JSON-RPC over stdio returns
       live state, headless.* **Note for later slices: build on the native C++ subcommand (the Python
       FastMCP variant stays a stretch, gated on a working Python grpc/mcp env).**
-    - `[ ]` **2 — mutating tools.** `track/add`, `clip/add` (from a JSON note list), `clip/move`,
-      `markers/add_range` — each a thin gRPC call, undoable. *Done when:* an agent transcript builds
-      a 2-track loop and a render proves it non-silent.
+    - `[x]` **2 — mutating tools LANDED** (`Source/Mcp.cpp`, commit): five undoable build tools on
+      the native subcommand — **track/add** (apiAddSynthTrack → returns the new id), **clip/add**
+      (apiImportClipNotesJson — a JSON note list `[{pitch,start,length,velocity},…]` → new clip
+      index), **clip/move** (apiMoveClip, optional to_track_id), **markers/add_range** (apiAddLocation
+      kind="range"), and **project/save** (apiSaveComposition — persists the in-memory build to a
+      composition folder; needed so the agent-built song reaches the renderer). Each is a thin
+      wrapper over the SAME callOnMessageThread+pushUndoSnapshot api* op the GUI uses, so all are
+      undoable. **Real bug found + fixed:** the mutating api* methods print `[osc]`/`[loc]`/
+      `[composition]` chatter to std::cout, which corrupted the JSON-RPC stream — runMcpStdio now
+      captures the real stdout for the protocol and redirects std::cout to a null sink for the whole
+      session (only emit() reaches stdout). smoke (standalone): pipe MCP calls that build a 2-track
+      loop (Bass + Lead, a note clip each, a "loop" range) → save to a scratch dir → `gloopy render`
+      it → the stream stays clean JSON, tracks/list shows 2 tracks each with a clip, and the render
+      is **non-silent (peak 0.42)**. Manual how-to updated with the build-tool list; mkdocs --strict
+      green. *Done-when met: an agent transcript builds a 2-track loop and a render proves it
+      non-silent.* (Also relaxed the slice-1 tools/list smoke assert from exact-set to superset so
+      it survives new tools.)
     - `[ ]` **3 — bulk generative note I/O.** `midi_note/import_json` + `export_json` (reuse
       `ImportNotesJSON` / `ExportNotesJSON`). *Done when:* import a JSON melody → clip → render;
       export round-trips.

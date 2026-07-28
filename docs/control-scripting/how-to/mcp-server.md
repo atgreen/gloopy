@@ -34,12 +34,24 @@ The client then lists Gloopy's tools automatically and the agent can call them.
 
 The tool surface grows with each release. Today it includes:
 
+Read the project:
+
 - **session/get_info** — the open project's tempo, transport position, and track count.
 - **tracks/list** — the project's tracks (id, name, type, clip count).
-- **transport/set_tempo** — set the project tempo in beats per minute.
 
-More tools — adding tracks and clips, importing/exporting note data, and rendering — are on
-the way, each a thin, undoable wrapper over an existing Gloopy action.
+Build the project (each is undoable, just like the same action in the app):
+
+- **track/add** — add a synth track; returns its id.
+- **clip/add** — add a MIDI clip to a track from a JSON note list
+  (`[{pitch, start, length, velocity}, …]`, in beats); returns the clip index.
+- **clip/move** — move a clip to a new start beat, optionally to another track.
+- **markers/add_range** — add a named timeline range (a section marker).
+- **transport/set_tempo** — set the project tempo in beats per minute.
+- **project/save** — write the project to disk (composition folder).
+
+So an agent can build a song from scratch — add tracks, drop in note clips, mark sections,
+set the tempo, and save — then hand it to you to open in Gloopy. More tools (importing and
+exporting note data in bulk, rendering to audio) are on the way.
 
 ## Trying it by hand
 

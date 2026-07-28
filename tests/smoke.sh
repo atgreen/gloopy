@@ -2276,12 +2276,57 @@ import json,sys
 by={m['id']:m for m in (json.loads(l) for l in sys.stdin if l.strip()) if 'id' in m}
 txt=lambda m: json.loads(m['result']['content'][0]['text'])
 assert by[1]['result']['serverInfo']['name']=='gloopy', 'initialize'
-assert {t['name'] for t in by[2]['result']['tools']}=={'session/get_info','tracks/list','transport/set_tempo'}, 'tools/list'
+assert {'session/get_info','tracks/list','transport/set_tempo'} <= {t['name'] for t in by[2]['result']['tools']}, 'tools/list'
 si=txt(by[3]); assert si['tracks']>0 and si['bpm']>0, 'session/get_info empty'
 assert len(txt(by[4]))==si['tracks'], 'tracks/list count'
 assert abs(txt(by[6])['bpm']-140.0)<0.01, 'set_tempo not reflected'
 print('smoke: PASS — MCP stdio server (initialize/tools.list/tools.call) returns live state (%d tracks, tempo set to 140)'%si['tracks'])
 " || { echo "smoke: MCP stdio server wrong" >&2; exit 1; }
+
+# MCP mutating tools (Wave 11 #33 slice 2): build a 2-track loop entirely through MCP tool
+# calls (track/add, clip/add from a JSON note list, clip/move, markers/add_range, project/save),
+# then render the saved project via the CLI and assert it is NON-SILENT. Also asserts the
+# stdout stream stays clean JSON (api chatter must not corrupt the protocol).
+MCP_PROJ="$WORK/mcp-built"; rm -rf "$MCP_PROJ"
+printf '%s\n' \
+    '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+    '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"track/add","arguments":{"name":"Bass"}}}' \
+    '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"track/add","arguments":{"name":"Lead"}}}' \
+    '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"clip/add","arguments":{"track_id":1,"start_beat":0,"notes":[{"pitch":36,"start":0,"length":0.9,"velocity":0.9},{"pitch":36,"start":1,"length":0.9,"velocity":0.9},{"pitch":36,"start":2,"length":0.9,"velocity":0.9},{"pitch":36,"start":3,"length":0.9,"velocity":0.9}]}}}' \
+    '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"clip/add","arguments":{"track_id":2,"start_beat":0,"notes":[{"pitch":60,"start":0,"length":0.5,"velocity":0.8},{"pitch":64,"start":1,"length":0.5,"velocity":0.8},{"pitch":67,"start":2,"length":0.5,"velocity":0.8},{"pitch":72,"start":3,"length":0.5,"velocity":0.8}]}}}' \
+    '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"clip/move","arguments":{"track_id":2,"index":0,"start_beat":0}}}' \
+    '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"markers/add_range","arguments":{"name":"loop","start_beat":0,"end_beat":4}}}' \
+    '{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"tracks/list","arguments":{}}}' \
+    "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\",\"params\":{\"name\":\"project/save\",\"arguments\":{\"path\":\"$MCP_PROJ\"}}}" \
+    | "$BIN" mcp 2>/dev/null > "$WORK/mcp-build.jsonl"
+python3 -c "
+import json,sys
+lines=[l for l in open('$WORK/mcp-build.jsonl') if l.strip()]
+for i,l in enumerate(lines,1):
+    try: json.loads(l)
+    except Exception: sys.exit('MCP stream corrupt at line %d: %r'%(i,l[:60]))
+by={m['id']:m for m in map(json.loads,lines) if 'id' in m}
+txt=lambda m: json.loads(m['result']['content'][0]['text'])
+assert txt(by[2])['id']>0 and txt(by[3])['id']>0, 'track/add ids'
+assert txt(by[4])['index']==0 and txt(by[5])['index']==0, 'clip/add index'
+assert 'clip moved' in by[6]['result']['content'][0]['text'], 'clip/move'
+assert 'range added' in by[7]['result']['content'][0]['text'], 'markers/add_range'
+assert len(txt(by[8]))==2 and all(t['clips']==1 for t in txt(by[8])), 'two tracks each with a clip'
+assert 'saved to' in by[9]['result']['content'][0]['text'], 'project/save'
+print('smoke: PASS — MCP mutating tools built a 2-track loop (clean JSON stream, saved to disk)')
+" || { echo "smoke: MCP mutating tools wrong" >&2; exit 1; }
+"$BIN" render "$MCP_PROJ" "$WORK/mcp-built.wav" 2>/dev/null >/dev/null
+python3 -c "
+import wave
+w=wave.open('$WORK/mcp-built.wav','rb'); n=w.getnframes(); sw=w.getsampwidth(); raw=w.readframes(n); peak=0
+if sw==2:
+    import array; a=array.array('h'); a.frombytes(raw); peak=max(abs(x) for x in a)/32768.0
+else:
+    for i in range(0,len(raw),sw):
+        v=int.from_bytes(raw[i:i+sw],'little',signed=True); peak=max(peak,abs(v)/float(1<<(8*sw-1)))
+assert peak>0.01, 'MCP-built project rendered silent (peak %.4f)'%peak
+print('smoke: PASS — MCP-built 2-track loop renders non-silent (peak %.3f)'%peak)
+" || { echo "smoke: MCP-built render silent" >&2; exit 1; }
 
 # MIDI file export/import round-trip (last — import resets the project). Export the
 # loaded project to an SMF, reimport into a fresh project, and confirm notes survive
