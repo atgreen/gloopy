@@ -115,6 +115,12 @@ void MainComponent::runMcpStdio() {
                                   { "start_beat", prop ("number", "range start in beats") },
                                   { "end_beat",   prop ("number", "range end in beats") } }),
                            reqList ({ "name", "start_beat", "end_beat" }))));
+            tools.add (toolDef ("notes/export_json", "Read a clip's notes back as a JSON array "
+                "([{pitch,start,length,velocity}, ...] in beats) — the read half of the note I/O pair "
+                "(clip/add is the write half).",
+                objSchema (obj ({ { "track_id", prop ("integer", "the clip's track id") },
+                                  { "index",    prop ("integer", "the clip's index on that track") } }),
+                           reqList ({ "track_id", "index" }))));
             tools.add (toolDef ("project/save", "Save the project to disk (composition folder). "
                 "Defaults to the open project's folder.",
                 objSchema (obj ({ { "path", prop ("string", "destination folder (optional)") } }))));
@@ -170,6 +176,10 @@ void MainComponent::runMcpStdio() {
                                                 (double) arguments["start_beat"], (double) arguments["end_beat"]);
                 if (ok) emit (jrpcResult (id, toolText ("range added")));
                 else emit (jrpcError (id, -32602, "markers/add_range failed"));
+            }
+            else if (name == "notes/export_json") {
+                const auto json = apiExportClipNotesJson ((int) arguments["track_id"], (int) arguments["index"]);
+                emit (jrpcResult (id, toolText (json)));
             }
             else if (name == "project/save") {
                 juce::String path = arguments["path"].toString();

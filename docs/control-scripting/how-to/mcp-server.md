@@ -44,6 +44,8 @@ Build the project (each is undoable, just like the same action in the app):
 - **track/add** — add a synth track; returns its id.
 - **clip/add** — add a MIDI clip to a track from a JSON note list
   (`[{pitch, start, length, velocity}, …]`, in beats); returns the clip index.
+- **notes/export_json** — read a clip's notes back out as that same JSON array (the read half of
+  the note I/O pair — round-trips with clip/add).
 - **clip/move** — move a clip to a new start beat, optionally to another track.
 - **markers/add_range** — add a named timeline range (a section marker).
 - **transport/set_tempo** — set the project tempo in beats per minute.

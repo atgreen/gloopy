@@ -2180,9 +2180,15 @@ gate them later.
       green. *Done-when met: an agent transcript builds a 2-track loop and a render proves it
       non-silent.* (Also relaxed the slice-1 tools/list smoke assert from exact-set to superset so
       it survives new tools.)
-    - `[ ]` **3 — bulk generative note I/O.** `midi_note/import_json` + `export_json` (reuse
-      `ImportNotesJSON` / `ExportNotesJSON`). *Done when:* import a JSON melody → clip → render;
-      export round-trips.
+    - `[x]` **3 — bulk generative note I/O LANDED** (`Source/Mcp.cpp`, commit): the note I/O pair is
+      complete. The **write** half is `clip/add` (slice 2 — apiImportClipNotesJson, a JSON note list
+      → a new clip). This slice adds the **read** half **notes/export_json** (apiExportClipNotesJson
+      → a clip's notes as the same `[{pitch,start,length,velocity},…]` JSON array, returned as the
+      tool's text content), so an agent can import a melody, read it back, transform it, and re-import
+      — the generative-loop workflow. smoke (standalone): clip/add a 3-note melody (60/64/67 @ 0/1/2)
+      → notes/export_json → assert the exported pitches [60,64,67] and starts [0,1,2] round-trip.
+      Manual how-to updated; mkdocs --strict green. *Done-when met: a JSON melody imports → clip (and
+      renders, slice-2 proof) and export round-trips.*
     - `[ ]` **4 — render / export tools.** `render/preset` (RunExport by name), range / stem render;
       returns the file path + a loudness report (reuse the analyze path). *Done when:* `render/preset`
       writes the expected WAV and returns its path, headless.

@@ -2328,6 +2328,22 @@ assert peak>0.01, 'MCP-built project rendered silent (peak %.4f)'%peak
 print('smoke: PASS — MCP-built 2-track loop renders non-silent (peak %.3f)'%peak)
 " || { echo "smoke: MCP-built render silent" >&2; exit 1; }
 
+# MCP bulk note I/O (Wave 11 #33 slice 3): import a JSON melody with clip/add (the write half)
+# then read it back with notes/export_json (the read half) and assert the notes round-trip.
+printf '%s\n' \
+    '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+    '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"track/add","arguments":{"name":"Mel"}}}' \
+    '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"clip/add","arguments":{"track_id":1,"start_beat":0,"notes":[{"pitch":60,"start":0,"length":0.5,"velocity":0.8},{"pitch":64,"start":1,"length":0.5,"velocity":0.7},{"pitch":67,"start":2,"length":0.5,"velocity":0.9}]}}}' \
+    '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"notes/export_json","arguments":{"track_id":1,"index":0}}}' \
+    | "$BIN" mcp 2>/dev/null | python3 -c "
+import json,sys
+by={m['id']:m for m in (json.loads(l) for l in sys.stdin if l.strip()) if 'id' in m}
+notes=json.loads(by[4]['result']['content'][0]['text'])
+assert sorted(n['pitch'] for n in notes)==[60,64,67], 'pitches did not round-trip: %r'%notes
+assert sorted(n['start'] for n in notes)==[0,1,2], 'starts did not round-trip: %r'%notes
+print('smoke: PASS — MCP notes/export_json round-trips an imported melody (3 notes)')
+" || { echo "smoke: MCP notes/export_json wrong" >&2; exit 1; }
+
 # MIDI file export/import round-trip (last — import resets the project). Export the
 # loaded project to an SMF, reimport into a fresh project, and confirm notes survive
 # as playable clips.
