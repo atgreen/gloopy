@@ -160,6 +160,15 @@ public:
     std::vector<juce::String> listDemos() const;                  // composition-folder names under demosDir()
     juce::File samplesDir() const;                                // audio-sample folder (GLOOPY_SAMPLES_PATH override)
     std::vector<juce::String> listSamples() const;                // audio files (wav/aiff/flac) under samplesDir()
+
+    // Favorites — a user-level library of go-to items (plugin / sample / preset / template),
+    // persisted OUTSIDE the composition (like presets/templates), so they follow the user, not
+    // the song. A favorite is { kind, ref, label }: kind picks the action, ref is its argument.
+    struct FavoriteInfo { juce::String kind, ref, label; };
+    juce::File favoritesFile() const;                             // GLOOPY_FAVORITES_PATH override
+    std::vector<FavoriteInfo> apiListFavorites() const;
+    bool apiAddFavorite (const juce::String& kind, const juce::String& ref, const juce::String& label);
+    bool apiRemoveFavorite (const juce::String& kind, const juce::String& ref);
     bool apiLoadProject (const juce::String& path);
     bool apiSaveProject (const juce::String& path);
     bool apiSaveComposition (const juce::String& path);   // directory "composition as repo" format
@@ -984,6 +993,7 @@ private:
     std::unique_ptr<BrowserSidebar>       browser;          // collapsible left browser (templates, ...)
     bool                                  browserVisible { false };
     std::map<juce::String, juce::String>  browserPluginIds; // Plugins tab: row label -> plugin identifier
+    std::vector<FavoriteInfo>             browserFavorites;  // Favorites tab: row label -> favorite (for dispatch)
     std::unique_ptr<juce::DocumentWindow> mixerWindow;
     juce::String projectNotes;                          // free-form markdown (message thread)
     std::unique_ptr<juce::DocumentWindow> notesWindow;

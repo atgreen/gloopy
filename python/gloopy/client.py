@@ -908,6 +908,21 @@ class Gloopy:
         list_templates and can be seeded with new_from_template."""
         self._ack(self.stub.SaveAsTemplate(pb.TemplateRef(name=name)))
 
+    def list_favorites(self) -> list[dict]:
+        """The user's pinned browser items (outside the composition). Each is a dict
+        {kind, ref, label}: kind in {plugin, sample, preset, template} chooses the action,
+        ref is its argument (plugin identifier / file path / patch path / template name)."""
+        r = self.stub.ListFavorites(pb.Empty())
+        return [{"kind": f.kind, "ref": f.ref, "label": f.label} for f in r.favorites]
+
+    def add_favorite(self, kind: str, ref: str, label: str = "") -> None:
+        """Pin a browser item as a favorite (idempotent; deduped by kind+ref)."""
+        self._ack(self.stub.AddFavorite(pb.AddFavoriteRequest(kind=kind, ref=ref, label=label or ref)))
+
+    def remove_favorite(self, kind: str, ref: str) -> None:
+        """Unpin a favorite (matched by kind+ref)."""
+        self._ack(self.stub.RemoveFavorite(pb.RemoveFavoriteRequest(kind=kind, ref=ref)))
+
     def undo(self) -> None:
         self._ack(self.stub.Undo(pb.Empty()))
 

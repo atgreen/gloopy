@@ -1160,6 +1160,21 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.WaveformRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.WaveformData.FromString,
                 _registered_method=True)
+        self.AddFavorite = channel.unary_unary(
+                '/gloopy.v1.Gloopy/AddFavorite',
+                request_serializer=gloopy__pb2.AddFavoriteRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.RemoveFavorite = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RemoveFavorite',
+                request_serializer=gloopy__pb2.RemoveFavoriteRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.ListFavorites = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ListFavorites',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.FavoriteList.FromString,
+                _registered_method=True)
         self.Subscribe = channel.unary_stream(
                 '/gloopy.v1.Gloopy/Subscribe',
                 request_serializer=gloopy__pb2.SubscribeRequest.SerializeToString,
@@ -2666,6 +2681,25 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def AddFavorite(self, request, context):
+        """Favorites — a user-level library of pinned browser items (outside the composition).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RemoveFavorite(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListFavorites(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Subscribe(self, request, context):
         """events (playhead, meters) — closed-loop control
         """
@@ -3800,6 +3834,21 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.GetWaveform,
                     request_deserializer=gloopy__pb2.WaveformRequest.FromString,
                     response_serializer=gloopy__pb2.WaveformData.SerializeToString,
+            ),
+            'AddFavorite': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddFavorite,
+                    request_deserializer=gloopy__pb2.AddFavoriteRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'RemoveFavorite': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemoveFavorite,
+                    request_deserializer=gloopy__pb2.RemoveFavoriteRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ListFavorites': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListFavorites,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.FavoriteList.SerializeToString,
             ),
             'Subscribe': grpc.unary_stream_rpc_method_handler(
                     servicer.Subscribe,
@@ -9883,6 +9932,87 @@ class Gloopy:
             '/gloopy.v1.Gloopy/GetWaveform',
             gloopy__pb2.WaveformRequest.SerializeToString,
             gloopy__pb2.WaveformData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AddFavorite(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/AddFavorite',
+            gloopy__pb2.AddFavoriteRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RemoveFavorite(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RemoveFavorite',
+            gloopy__pb2.RemoveFavoriteRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListFavorites(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ListFavorites',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.FavoriteList.FromString,
             options,
             channel_credentials,
             insecure,

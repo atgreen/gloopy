@@ -1360,6 +1360,26 @@ each shipping with desktop UI + screenshot validation.
       listed both, and clicking tone-440.wav created an AUDIO track "tone-440" with its clip at bar 1.
       **Next:** Presets / Favorites tabs, and first-class drag-and-drop onto tracks/inserts (the
       "first-class" item the ideas doc emphasizes: sample→sampler/audio track, plugin→track/insert).
+    - `[x]` **Browser sidebar — Favorites tab landed** (`Source/Favorites.cpp`, commit): a user-level
+      library of pinned browser items (plugins / samples / presets / templates), so the handful you
+      actually reach for sit in one **Favs** tab instead of hunting the full lists. A favorite is
+      `{kind, ref, label}` — `kind` picks the action, `ref` is its argument. Persisted OUTSIDE the
+      composition (they follow the user, not the song — like presets/user-templates) to a readable
+      tab-separated `favorites.txt` under `<userAppData>/Gloopy/` (`$GLOOPY_FAVORITES_PATH` override).
+      API: `apiListFavorites`/`apiAddFavorite`(idempotent, deduped by kind+ref)/`apiRemoveFavorite` +
+      AddFavorite/RemoveFavorite/ListFavorites RPCs (Favorite/AddFavoriteRequest/RemoveFavoriteRequest/
+      FavoriteList) + Python `add_favorite`/`remove_favorite`/`list_favorites`. **Desktop:** the
+      BrowserSidebar gained a right-click gesture (a `RowButton` detecting the popup-menu mouse +
+      `Category.onFavorite`/`favLabel`) — right-click any Templates/Plugins/Samples/Presets row →
+      "Add to Favorites"; the new **Favs** tab lists them (click = run the pinned action via a
+      `dispatchFavorite` that mirrors each source tab; right-click = "Remove from Favorites"). smoke
+      (isolated via `$GLOOPY_FAVORITES_PATH` at a scratch file): add a template + plugin favorite +
+      a dup → ListFavorites shows 2 (deduped) → RemoveFavorite the template → 1 left → the
+      `plugin\tacme.synth` line persisted to disk. Screenshot-validated end-to-end (the Favs tab
+      listing Drum Kit / Acme Synth / kick.wav + the right-click "Remove from Favorites" menu; caught
+      + fixed a "★"-glyph mojibake in the button font → renamed the tab "Favs"). Manual how-to
+      (`user-guide/how-to/browse-and-favorites.md`) documents the browser + favorites; mkdocs --strict
+      green. **Next:** first-class drag-and-drop from the browser onto tracks/inserts.
     - `[x]` **User templates ("Save as Template") landed** (commit): the current project can
       be saved as a reusable template — `apiSaveAsTemplate(name)` writes a `.gloopy` into a
       user templates dir (`<userAppData>/Gloopy/templates`, or `$GLOOPY_TEMPLATE_PATH`, the

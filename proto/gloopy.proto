@@ -398,6 +398,12 @@ message Event {
   }
 }
 
+// ── favorites ──────────────────────────────────────────────
+message Favorite { string kind = 1; string ref = 2; string label = 3; }
+message AddFavoriteRequest    { string kind = 1; string ref = 2; string label = 3; }
+message RemoveFavoriteRequest { string kind = 1; string ref = 2; }
+message FavoriteList { repeated Favorite favorites = 1; }
+
 // ── service ────────────────────────────────────────────────
 service Gloopy {
   // transport
@@ -668,6 +674,11 @@ service Gloopy {
   rpc ImportAudio (FilePath) returns (Ack);        // wav/aiff/flac -> a new audio track
   rpc AnalyzeFile(FilePath) returns (LoudnessReport);   // offline peak/true-peak/RMS/LUFS
   rpc GetWaveform(WaveformRequest) returns (WaveformData);   // cached min/max thumbnail peaks
+
+  // Favorites — a user-level library of pinned browser items (outside the composition).
+  rpc AddFavorite   (AddFavoriteRequest)    returns (Ack);
+  rpc RemoveFavorite(RemoveFavoriteRequest) returns (Ack);
+  rpc ListFavorites (Empty)                 returns (FavoriteList);
 
   // events (playhead, meters) — closed-loop control
   rpc Subscribe  (SubscribeRequest) returns (stream Event);

@@ -17,6 +17,8 @@ WAV="$WORK/smoke.wav"
 PORT=50051
 # Isolate user templates to a temp dir (read by the app at launch, per templatesDir()).
 export GLOOPY_TEMPLATE_PATH="$WORK/templates"
+# Isolate user favorites to a temp file so the test never touches the real library.
+export GLOOPY_FAVORITES_PATH="$WORK/favorites.txt"
 
 [ -x "$BIN" ] || { echo "smoke: binary not found: $BIN" >&2; exit 2; }
 command -v grpcurl >/dev/null || { echo "smoke: grpcurl not installed" >&2; exit 2; }
@@ -2481,6 +2483,25 @@ assert 'launch_quantum = 2' in open('$WORK/lq-proj/gloopy.toml').read(), 'launch
 print('smoke: PASS — session launch-quantize set over API (2 beats) + persisted through a composition round-trip')
 " || { echo "smoke: session launch-quantize wrong" >&2; exit 1; }
 g -d "{\"path\":\"$WORK/lq-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+
+# Favorites (Wave 6 #16 browser tail): a user-level library of pinned browser items, persisted
+# to $GLOOPY_FAVORITES_PATH (outside the composition — no project isolation needed here).
+g -d '{"kind":"template","ref":"Drum Kit","label":"Drum Kit"}'     127.0.0.1:$PORT gloopy.v1.Gloopy/AddFavorite >/dev/null
+g -d '{"kind":"plugin","ref":"acme.synth","label":"Acme Synth"}'  127.0.0.1:$PORT gloopy.v1.Gloopy/AddFavorite >/dev/null
+g -d '{"kind":"template","ref":"Drum Kit","label":"Drum Kit"}'     127.0.0.1:$PORT gloopy.v1.Gloopy/AddFavorite >/dev/null   # idempotent dup
+FAV_JSON=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListFavorites)
+g -d '{"kind":"template","ref":"Drum Kit"}'                        127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveFavorite >/dev/null
+FAV_AFTER=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListFavorites)
+python3 -c "
+import json
+before = json.loads('''$FAV_JSON''').get('favorites', [])
+after  = json.loads('''$FAV_AFTER''').get('favorites', [])
+assert len(before) == 2, 'expected 2 favorites (dedup add), got %d' % len(before)
+assert any(f['kind']=='plugin' and f['ref']=='acme.synth' for f in before), 'plugin favorite missing'
+assert len(after) == 1 and after[0]['ref']=='acme.synth', 'remove should leave only the plugin: %s' % after
+assert 'plugin\tacme.synth' in open('$WORK/favorites.txt').read(), 'favorite not persisted to disk'
+print('smoke: PASS — favorites add (deduped)/list/remove over the API + persisted to the user library file')
+" || { echo 'smoke: favorites wrong' >&2; exit 1; }
 
 # MIDI file export/import round-trip (last — import resets the project). Export the
 # loaded project to an SMF, reimport into a fresh project, and confirm notes survive

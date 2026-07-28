@@ -21,7 +21,9 @@ public:
     {
         juce::String                                title;
         std::function<std::vector<juce::String>()>  getItems;   // labels for this category
-        std::function<void (const juce::String&)>   onChoose;   // a row (label) was clicked
+        std::function<void (const juce::String&)>   onChoose;   // a row (label) was left-clicked
+        std::function<void (const juce::String&)>   onFavorite; // optional: right-click action (add/remove favorite)
+        juce::String                                favLabel;   // menu text for the right-click action
     };
 
     BrowserSidebar()
@@ -118,12 +120,24 @@ private:
         const auto items = cat.getItems ? cat.getItems() : std::vector<juce::String>();
         for (auto& name : items)
         {
-            auto b = std::make_unique<juce::TextButton> (name);
+            auto b = std::make_unique<RowButton> (name);
             b->setColour (juce::TextButton::buttonColourId, Palette::panelAlt);
             b->setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
             b->setColour (juce::TextButton::textColourOffId, Palette::text);
             const auto onChoose = cat.onChoose;
             b->onClick = [onChoose, name] { if (onChoose) onChoose (name); };
+            if (cat.onFavorite)                              // right-click -> add/remove favorite
+            {
+                const auto onFav = cat.onFavorite;
+                const auto favLabel = cat.favLabel.isNotEmpty() ? cat.favLabel : juce::String ("Favorite");
+                b->onRightClick = [onFav, favLabel, name]
+                {
+                    juce::PopupMenu m;
+                    m.addItem (1, favLabel);
+                    m.showMenuAsync (juce::PopupMenu::Options(),
+                                     [onFav, name] (int r) { if (r == 1 && onFav) onFav (name); });
+                };
+            }
             itemHolder.addAndMakeVisible (*b);
             rows.push_back (std::move (b));
         }
@@ -138,6 +152,19 @@ private:
             rows[(size_t) i]->setBounds (3, i * rowH + 3, w - 6, rowH - 4);
         itemHolder.setSize (w, juce::jmax (viewport.getHeight(), (int) rows.size() * rowH + 6));
     }
+
+    // A browser row: left-click runs onClick (TextButton), right-click runs onRightClick.
+    struct RowButton : juce::TextButton
+    {
+        using juce::TextButton::TextButton;
+        std::function<void()> onRightClick;
+        void mouseDown (const juce::MouseEvent& e) override
+        {
+            if (onRightClick && (e.mods.isPopupMenu()))   // right-click / ctrl-click
+            { onRightClick(); return; }
+            juce::TextButton::mouseDown (e);
+        }
+    };
 
     static constexpr int headerH = 30;
     static constexpr int rowH    = 30;

@@ -673,6 +673,20 @@ namespace
         Status ListTemplates (ServerContext*, const pb::Empty*, pb::TemplateList* r) override
         { for (auto& n : main.apiListTemplates()) r->add_names (n.toStdString()); return Status::OK; }
 
+        Status ListFavorites (ServerContext*, const pb::Empty*, pb::FavoriteList* r) override
+        { for (auto& f : main.apiListFavorites())
+          { auto* o = r->add_favorites(); o->set_kind (f.kind.toStdString());
+            o->set_ref (f.ref.toStdString()); o->set_label (f.label.toStdString()); }
+          return Status::OK; }
+
+        Status AddFavorite (ServerContext*, const pb::AddFavoriteRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiAddFavorite (js (q->kind()), js (q->ref()), js (q->label()));
+          r->set_ok (ok); if (! ok) r->set_error ("invalid favorite (kind and ref required)"); return Status::OK; }
+
+        Status RemoveFavorite (ServerContext*, const pb::RemoveFavoriteRequest* q, pb::Ack* r) override
+        { const bool ok = main.apiRemoveFavorite (js (q->kind()), js (q->ref()));
+          r->set_ok (ok); if (! ok) r->set_error ("favorite not found"); return Status::OK; }
+
         Status NewFromTemplate (ServerContext*, const pb::TemplateRef* q, pb::Ack* r) override
         { const bool ok = main.apiNewFromTemplate (js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("unknown template"); return Status::OK; }

@@ -45,6 +45,7 @@ target_sources(Gloopy PRIVATE
     Source/Composition.cpp
     Source/Recording.cpp
     Source/Presets.cpp
+    Source/Favorites.cpp
     Source/Parameters.cpp
     Source/Locations.cpp
     Source/SessionApi.cpp
