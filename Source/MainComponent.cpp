@@ -3912,6 +3912,81 @@ void MainComponent::showTagMenu()
         });
 }
 
+void MainComponent::showVersionPicker()
+{
+    // "Open at version" — the audition-an-old-cut affordance. One picker over branches,
+    // tags, and recent commits; selecting any checks it out and reloads the project at
+    // that revision. Checking out a tag/commit is a detached HEAD, so we also offer a
+    // "return to <branch>" when detached. Guarded against a dirty working tree.
+    if (currentProjectFile.getFileName() != "gloopy.toml") return;
+    const auto dir = currentProjectFile.getParentDirectory().getFullPathName();
+    const auto st = apiGitStatus (dir);
+    if (! st.isRepo)
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+            "Open at version", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+        return;
+    }
+
+    const auto branches = apiGitBranches (dir).branches;
+    const auto tags = apiGitTags (dir);
+    const auto commits = apiGitLog (dir, 15);
+
+    // The branch to return to from a detached HEAD: prefer main, then master, then first.
+    juce::String homeBranch;
+    if (branches.contains ("main"))        homeBranch = "main";
+    else if (branches.contains ("master")) homeBranch = "master";
+    else if (branches.size() > 0)          homeBranch = branches[0];
+
+    juce::PopupMenu m;
+    if (st.detached && homeBranch.isNotEmpty())
+    {
+        m.addItem (1, "\xe2\x86\x90 Return to " + homeBranch);
+        m.addSeparator();
+    }
+    m.addItem (-1, "Branches", false);
+    for (int i = 0; i < branches.size(); ++i)
+        m.addItem (1000 + i, "  " + branches[i], true, ! st.detached && branches[i] == st.branch);
+    if (tags.size() > 0)
+    {
+        m.addItem (-1, "Tags", false);
+        for (int i = 0; i < tags.size(); ++i) m.addItem (2000 + i, "  " + tags[i]);
+    }
+    m.addItem (-1, "Recent commits", false);
+    for (int i = 0; i < (int) commits.size(); ++i)
+        m.addItem (3000 + i, "  " + commits[(size_t) i].hash + "  " + commits[(size_t) i].subject.substring (0, 40));
+
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
+        [this, dir, homeBranch, branches, tags, commits] (int r)
+        {
+            if (r == 0) return;
+            juce::String ref;
+            bool willDetach = false;
+            if (r == 1)                           ref = homeBranch;                        // return to a branch
+            else if (r >= 1000 && r < 2000)       ref = branches[r - 1000];
+            else if (r >= 2000 && r < 3000)     { ref = tags[r - 2000];                 willDetach = true; }
+            else if (r >= 3000)                 { ref = commits[(size_t) (r - 3000)].hash; willDetach = true; }
+            if (ref.isEmpty()) return;
+
+            if (! apiGitStatus (dir).changes.empty())
+            {
+                juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+                    "Open at version", "Commit your changes before switching to another version."); return;
+            }
+            auto res = apiGitCheckout (dir, ref);
+            if (! res.ok)
+            {
+                juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Open at version", res.error);
+                return;
+            }
+            openAny (currentProjectFile);            // reload the project at the checked-out revision
+            if (sourceControlWindow != nullptr && sourceControlWindow->isVisible()) openSourceControl();
+            if (willDetach)
+                juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon, "Open at version",
+                    "Now viewing '" + ref + "' (detached). Use File \xe2\x86\x92 Open at version \xe2\x86\x92 Return to switch back.");
+        });
+}
+
 void MainComponent::showCommitDialog()
 {
     // The IDE commit surface: save the current edits, list what changed, and let the
@@ -4435,6 +4510,7 @@ void MainComponent::showFileMenu()
     menu.addItem (23, "History...", isComposition);    // git commit log (Git.cpp)
     menu.addItem (24, "Branches...", isComposition);   // branch popup (Git.cpp)
     menu.addItem (25, "Tags...", isComposition);       // tag popup (Git.cpp)
+    menu.addItem (26, "Open at version...", isComposition);   // checkout any branch/tag/commit (Git.cpp)
     // Live MIDI status (read-only): the input sources Gloopy hears + which track they play.
     juce::PopupMenu midiMenu;
     const auto midiIns = apiListMidiInputs();
@@ -4501,6 +4577,7 @@ void MainComponent::showFileMenu()
             if (result == 23) { openHistory(); return; }        // git commit log
             if (result == 24) { showBranchMenu(); return; }     // branch popup
             if (result == 25) { showTagMenu(); return; }        // tag popup
+            if (result == 26) { showVersionPicker(); return; }  // checkout any version
             if (result == 20) { undo(); return; }
             if (result == 21) { redo(); return; }
             if (result >= 100)                                  // New from Template

@@ -232,6 +232,7 @@ public:
     void openHistory();                                 // UI: a commit-history window (MainComponent.cpp)
     void showBranchMenu();                              // UI: branch popup — checkout/create/merge (MainComponent.cpp)
     void showTagMenu();                                 // UI: tag popup — tag this version / checkout (MainComponent.cpp)
+    void showVersionPicker();                           // UI: Open at version — branch/tag/commit checkout (MainComponent.cpp)
 
     // --- waveform thumbnail cache (Waveform.cpp) ---
     // Min/max peaks per bucket for an audio file, cached by path+mtime+size. Feeds

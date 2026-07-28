@@ -253,6 +253,32 @@ if command -v git >/dev/null; then
         | python3 -c "import json,sys;d=json.load(sys.stdin);assert d.get('detached'),'checkout of a tag should be a detached HEAD: %r'%d;print('smoke: PASS — checkout by tag lands on a detached HEAD at that version')" \
         || { echo "smoke: tag checkout failed" >&2; exit 1; }
     g -d "{\"dir\":\"$NEWG\",\"ref\":\"main\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCheckout >/dev/null
+    # Checkout any version (Wave 9 slice 7): commit A (1 track), edit -> commit B (2 tracks),
+    # checkout A + reload -> the project MODEL matches A; back to tip -> matches B. This
+    # LoadComposition-swaps the live session, so snapshot + restore around it.
+    g -d "{\"path\":\"$WORK/ver_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+    VD="$WORK/verproj"
+    g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+    g -d '{"name":"verA","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack >/dev/null
+    g -d "{\"path\":\"$VD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+    g -d "{\"dir\":\"$VD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitInit >/dev/null
+    g -d "{\"dir\":\"$VD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAdd >/dev/null
+    g -d "{\"dir\":\"$VD\",\"message\":\"state A\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit >/dev/null
+    g -d '{"name":"verB","wave":"SINE"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack >/dev/null
+    g -d "{\"path\":\"$VD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+    g -d "{\"dir\":\"$VD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAdd >/dev/null
+    g -d "{\"dir\":\"$VD\",\"message\":\"state B\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit >/dev/null
+    VAH=$(g -d "{\"dir\":\"$VD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitLog | python3 -c "import json,sys;print(json.load(sys.stdin)['commits'][1]['hash'])")
+    g -d "{\"dir\":\"$VD\",\"ref\":\"$VAH\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCheckout >/dev/null
+    g -d "{\"path\":\"$VD/gloopy.toml\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+    VNA=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListTracks | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('tracks',[])))")
+    g -d "{\"dir\":\"$VD\",\"ref\":\"main\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCheckout >/dev/null
+    g -d "{\"path\":\"$VD/gloopy.toml\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+    VNB=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/ListTracks | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('tracks',[])))")
+    [ "$VNA" = 1 ] && [ "$VNB" = 2 ] \
+        && echo "smoke: PASS — checkout any version reloads the project model at that revision (A=1 -> tip=2 tracks)" \
+        || { echo "smoke: version checkout wrong (A=$VNA tip=$VNB)" >&2; exit 1; }
+    g -d "{\"path\":\"$WORK/ver_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 else
     echo "smoke: SKIP — git not installed (GitStatus check)"
 fi

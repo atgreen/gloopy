@@ -79,6 +79,15 @@ Later, **File → Tags → Check out: <name>** loads the song exactly as it was 
 milestone, so you can listen back or compare. (You'll be viewing a fixed point in history;
 use **File → Branches** to return to your working version when you're done.)
 
+## Audition any past version
+
+**File → Open at version…** is the one-stop way to load your song as it was at any point —
+pick a **branch**, a **tag**, or any **recent commit** from the list, and Gloopy reloads
+the arrangement at exactly that version so you can hear how it sounded. When you open an
+older commit or a tag you're just *viewing* history (a fixed snapshot); the same menu has a
+**Return to <branch>** entry at the top to jump back to your working version. Commit any
+in-progress changes first — Gloopy will remind you if you haven't.
+
 ## From a script
 
 The same status is available to scripts and agents through the control API, so you can

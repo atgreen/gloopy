@@ -1979,12 +1979,18 @@ commit messages are user-authored; auto-commit-on-save is opt-in only.
       dirty tree), and a Delete-tag submenu. smoke: tag HEAD → GitTags lists it → checkout by tag →
       GitStatus reports a detached HEAD; screenshot-validated (the popup on a tagged repo). Tags =
       milestone mixes (demo / master / album-cut).
-    - `[ ]` **7 — checkout any version (audition an old cut).** `apiGitCheckout(ref)` where ref =
-      branch | tag | commit → checkout (**detached-HEAD aware**) and **reload the project at that
-      revision**; guarded on a dirty tree (stash / commit / discard first). **Desktop:** a
-      "Checkout / Open at version..." picker over branches + tags + recent commits; a clear "you are
-      at <ref> (detached)" banner + "return to <branch>". *Done when:* commit A, edit → commit B,
-      checkout A → the reloaded project matches A; back to tip → matches B, headless.
+    - `[x]` **7 — checkout any version LANDED** (`showVersionPicker`, commit): NO new API — reuses
+      `apiGitCheckout` (slice 5) + the reload path (`openAny`/`LoadComposition`) + the
+      GitBranches/GitTags/GitLog reads. **Desktop:** File → "Open at version..." opens a single
+      picker over **Branches** (current ✓), **Tags**, and the **15 most recent commits** (hash +
+      subject); selecting any checks it out and reloads the project at that revision. A tag/commit is
+      a detached HEAD, so a **"← Return to <main/master/first branch>"** item appears at the top when
+      detached, plus a "viewing '<ref>' (detached)" note after checkout. Guarded against a dirty
+      tree. smoke (isolated with a SaveProject/LoadProject session snapshot, since it
+      LoadComposition-swaps the live project): commit A (1 track) → edit → commit B (2 tracks) →
+      checkout A + reload → the project MODEL has 1 track; back to tip → 2 tracks — proving the
+      reload-at-revision ties git to the actual arrangement. Screenshot-validated (the picker's
+      Branches/Tags/Recent-commits sections). The "audition an old cut" superpower.
     - `[ ]` **8 — diff viewer.** `apiGitDiff(pathspec?, revA?, revB?)` → unified diff (working tree,
       or between any two revisions). **Desktop:** a Diff panel. **Composition-text-aware:** surface
       *which tracks / clips / params changed* from the readable-TOML / `.notes` diff, not just raw
