@@ -600,6 +600,13 @@ namespace
         { setAck (r, main.apiGitTagCreate (js (q->dir()), js (q->name()), js (q->message()))); return Status::OK; }
         Status GitTagDelete (ServerContext*, const pb::GitTagRequest* q, pb::Ack* r) override
         { setAck (r, main.apiGitTagDelete (js (q->dir()), js (q->name()))); return Status::OK; }
+        Status GitDiff (ServerContext*, const pb::GitDiffRequest* q, pb::GitDiffResult* r) override
+        {
+            auto d = main.apiGitDiff (js (q->dir()), js (q->pathspec()), js (q->rev_a()), js (q->rev_b()));
+            r->set_ok (d.ok); r->set_error (d.error.toStdString()); r->set_diff (d.diff.toStdString());
+            for (auto& f : d.files) { auto* pf = r->add_files(); pf->set_status (f.status.toStdString()); pf->set_path (f.path.toStdString()); }
+            return Status::OK;
+        }
 
         // ---- project / state ----
         Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override

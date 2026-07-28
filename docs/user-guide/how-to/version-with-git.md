@@ -88,6 +88,14 @@ older commit or a tag you're just *viewing* history (a fixed snapshot); the same
 **Return to <branch>** entry at the top to jump back to your working version. Commit any
 in-progress changes first — Gloopy will remind you if you haven't.
 
+## See what changed
+
+**File → Changes (Diff)…** shows exactly what you've edited since your last commit. Gloopy
+leads with a short summary — *which* tracks, clips, and settings changed — then the line-by-line
+difference itself. Because a Composition folder is readable text, the difference is genuinely
+legible: a filter you nudged shows up as a single changed value, not an opaque blob. It's the
+quickest way to review your work before making a commit.
+
 ## From a script
 
 The same status is available to scripts and agents through the control API, so you can

@@ -993,6 +993,13 @@ class Gloopy:
         """Delete tag `name`."""
         self._ack(self.stub.GitTagDelete(pb.GitTagRequest(dir=dir, name=name)))
 
+    def git_diff(self, dir: str, pathspec: str = "", rev_a: str = "", rev_b: str = "") -> dict:
+        """Unified diff. rev_a+rev_b = between two revisions; rev_a only = rev_a..working tree;
+        neither = working tree vs HEAD. Returns {ok, error, diff, files:[{status,path}]}."""
+        r = self.stub.GitDiff(pb.GitDiffRequest(dir=dir, pathspec=pathspec, rev_a=rev_a, rev_b=rev_b))
+        return {"ok": r.ok, "error": r.error, "diff": r.diff,
+                "files": [{"status": f.status, "path": f.path} for f in r.files]}
+
     def diagnostics(self) -> dict:
         """Engine health: device settings, callback timing, DSP load, dropouts, render speed."""
         d = self.stub.GetDiagnostics(pb.Empty())

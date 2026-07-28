@@ -225,6 +225,12 @@ public:
     juce::StringArray apiGitTags (const juce::String& dir);
     GitResult apiGitTagCreate (const juce::String& dir, const juce::String& name, const juce::String& message);   // message empty = lightweight
     GitResult apiGitTagDelete (const juce::String& dir, const juce::String& name);
+    struct GitDiffFile { juce::String status, path; };  // name-status code (M/A/D/R…) + path
+    struct GitDiff { bool ok = false; juce::String error; juce::String diff;   // unified diff text
+                     std::vector<GitDiffFile> files; };
+    // revA+revB = between two revisions; revA only = revA..working tree; neither = working tree vs HEAD.
+    GitDiff apiGitDiff (const juce::String& dir, const juce::String& pathspec,
+                        const juce::String& revA, const juce::String& revB);
     juce::String gitStatusReport();                     // human-readable status text (Git.cpp)
     juce::String gitHistoryReport();                    // human-readable commit log (Git.cpp)
     void openSourceControl();                           // UI: a Source Control status window (MainComponent.cpp)
@@ -233,6 +239,7 @@ public:
     void showBranchMenu();                              // UI: branch popup — checkout/create/merge (MainComponent.cpp)
     void showTagMenu();                                 // UI: tag popup — tag this version / checkout (MainComponent.cpp)
     void showVersionPicker();                           // UI: Open at version — branch/tag/commit checkout (MainComponent.cpp)
+    void openDiff();                                    // UI: a working-tree diff window (MainComponent.cpp)
 
     // --- waveform thumbnail cache (Waveform.cpp) ---
     // Min/max peaks per bucket for an audio file, cached by path+mtime+size. Feeds
@@ -948,6 +955,8 @@ private:
     juce::TextEditor sourceControlEditor;
     std::unique_ptr<juce::DocumentWindow> historyWindow;         // git commit log (Git.cpp)
     juce::TextEditor historyEditor;
+    std::unique_ptr<juce::DocumentWindow> diffWindow;            // git working-tree diff (Git.cpp)
+    juce::TextEditor diffEditor;
     MappingsView mappingsView;
     std::unique_ptr<juce::DocumentWindow> mappingsWindow;
     juce::TextEditor notesEditor;

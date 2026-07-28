@@ -3716,6 +3716,56 @@ void MainComponent::openHistory()
     historyWindow->toFront (true);
 }
 
+void MainComponent::openDiff()
+{
+    // The working-tree diff — "what have I changed since my last commit?" Composition-text-
+    // aware: it leads with a changed-files summary (each path IS a track / clip / setting)
+    // then the unified diff of the readable TOML / .notes. Read-only; refreshed each open.
+    if (currentProjectFile.getFileName() != "gloopy.toml") return;
+    const auto dir = currentProjectFile.getParentDirectory().getFullPathName();
+    if (! apiGitStatus (dir).isRepo)
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+            "Changes", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+        return;
+    }
+
+    if (diffWindow == nullptr)
+    {
+        diffEditor.setMultiLine (true);
+        diffEditor.setReadOnly (true);
+        diffEditor.setScrollbarsShown (true);
+        diffEditor.setFont (juce::Font (juce::FontOptions (
+            juce::Font::getDefaultMonospacedFontName(), 13.0f, juce::Font::plain)));
+
+        auto w = std::make_unique<HideOnCloseWindow>();
+        w->setName ("Changes");
+        w->setContentNonOwned (&diffEditor, false);
+        w->setResizable (true, false);
+        w->setSize (720, 560);
+        w->centreWithSize (720, 560);
+        diffWindow = std::move (w);
+    }
+
+    // SaveComposition first so the diff reflects the in-memory edits, not just what's on disk.
+    apiSaveComposition (dir);
+    const auto d = apiGitDiff (dir, {}, {}, {});          // working tree vs HEAD
+    juce::String text;
+    if (! d.ok)
+        text = "Could not read the diff: " + d.error;
+    else if (d.files.empty())
+        text = "No changes since the last commit — the working tree is clean.";
+    else
+    {
+        text << "Changed since last commit (" << (int) d.files.size() << "):\n";
+        for (auto& f : d.files) text << "  " << f.status << "  " << f.path << "\n";
+        text << "\n" << d.diff;
+    }
+    diffEditor.setText (text, juce::dontSendNotification);
+    diffWindow->setVisible (true);
+    diffWindow->toFront (true);
+}
+
 void MainComponent::showBranchMenu()
 {
     // Branches = alternate arrangements. Checkout / merge change files on disk, so we
@@ -4511,6 +4561,7 @@ void MainComponent::showFileMenu()
     menu.addItem (24, "Branches...", isComposition);   // branch popup (Git.cpp)
     menu.addItem (25, "Tags...", isComposition);       // tag popup (Git.cpp)
     menu.addItem (26, "Open at version...", isComposition);   // checkout any branch/tag/commit (Git.cpp)
+    menu.addItem (27, "Changes (Diff)...", isComposition);    // working-tree diff (Git.cpp)
     // Live MIDI status (read-only): the input sources Gloopy hears + which track they play.
     juce::PopupMenu midiMenu;
     const auto midiIns = apiListMidiInputs();
@@ -4578,6 +4629,7 @@ void MainComponent::showFileMenu()
             if (result == 24) { showBranchMenu(); return; }     // branch popup
             if (result == 25) { showTagMenu(); return; }        // tag popup
             if (result == 26) { showVersionPicker(); return; }  // checkout any version
+            if (result == 27) { openDiff(); return; }           // working-tree diff
             if (result == 20) { undo(); return; }
             if (result == 21) { redo(); return; }
             if (result >= 100)                                  // New from Template

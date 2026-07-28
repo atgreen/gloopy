@@ -279,6 +279,32 @@ if command -v git >/dev/null; then
         && echo "smoke: PASS — checkout any version reloads the project model at that revision (A=1 -> tip=2 tracks)" \
         || { echo "smoke: version checkout wrong (A=$VNA tip=$VNB)" >&2; exit 1; }
     g -d "{\"path\":\"$WORK/ver_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+    # Diff viewer (Wave 9 slice 8): edit one param, commit; GitDiff between the two commits
+    # shows a minimal, correct diff of the readable TOML. GitDiff is a pure read on an explicit
+    # dir, so it never touches the live session (no reload needed).
+    DFD="$WORK/diffproj"; rm -rf "$DFD"
+    g -d "{\"path\":\"$WORK/diff_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+    g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+    g -d '{"name":"difflead","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack >/dev/null
+    g -d "{\"path\":\"$DFD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+    g -d "{\"dir\":\"$DFD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitInit >/dev/null
+    g -d "{\"dir\":\"$DFD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAdd >/dev/null
+    g -d "{\"dir\":\"$DFD\",\"message\":\"base\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit >/dev/null
+    g -d '{"id":"track/1/synth/cutoff","value":900}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null
+    g -d "{\"path\":\"$DFD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+    g -d "{\"dir\":\"$DFD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAdd >/dev/null
+    g -d "{\"dir\":\"$DFD\",\"message\":\"cutoff 900\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit >/dev/null
+    DA=$(g -d "{\"dir\":\"$DFD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitLog | python3 -c "import json,sys;print(json.load(sys.stdin)['commits'][1]['hash'])")
+    DB=$(g -d "{\"dir\":\"$DFD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitLog | python3 -c "import json,sys;print(json.load(sys.stdin)['commits'][0]['hash'])")
+    DOK=$(g -d "{\"dir\":\"$DFD\",\"revA\":\"$DA\",\"revB\":\"$DB\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitDiff | python3 -c "
+import json,sys; r=json.load(sys.stdin)
+d=r.get('diff','')
+ok = r.get('ok') and len(r.get('files',[]))>=1 and '@@' in d and '-value = 20000' in d and '+value = 900' in d
+print('yes' if ok else 'no')")
+    [ "$DOK" = yes ] \
+        && echo "smoke: PASS — GitDiff shows the minimal param change between two commits (cutoff 20000 -> 900)" \
+        || { echo "smoke: git diff wrong" >&2; exit 1; }
+    g -d "{\"path\":\"$WORK/diff_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 else
     echo "smoke: SKIP — git not installed (GitStatus check)"
 fi

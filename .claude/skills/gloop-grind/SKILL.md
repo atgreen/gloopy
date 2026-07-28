@@ -1991,11 +1991,20 @@ commit messages are user-authored; auto-commit-on-save is opt-in only.
       checkout A + reload → the project MODEL has 1 track; back to tip → 2 tracks — proving the
       reload-at-revision ties git to the actual arrangement. Screenshot-validated (the picker's
       Branches/Tags/Recent-commits sections). The "audition an old cut" superpower.
-    - `[ ]` **8 — diff viewer.** `apiGitDiff(pathspec?, revA?, revB?)` → unified diff (working tree,
-      or between any two revisions). **Desktop:** a Diff panel. **Composition-text-aware:** surface
-      *which tracks / clips / params changed* from the readable-TOML / `.notes` diff, not just raw
-      hunks — the payoff of the diff-friendly format. *Done when:* an edited param shows a minimal,
-      correct diff between two commits, headless.
+    - `[x]` **8 — diff viewer LANDED** (`Source/Git.cpp` `apiGitDiff`, commit): `apiGitDiff(dir,
+      pathspec, revA, revB)` → `{ok, error, diff (unified text), files[{status,path}]}`. Revision
+      selector: both revs = between two revisions; revA only = revA..working tree; neither = working
+      tree vs HEAD. Runs `git diff --name-status` (the changed-file summary) + `git diff` (the
+      unified text). GitDiff RPC (`GitDiffRequest`/`GitDiffResult`/`GitDiffFile`) + Python
+      `git_diff`. **Composition-text-aware:** in a Composition folder each path IS a track / clip /
+      setting, so the file summary names *what* changed; the readable-TOML makes the hunks legible.
+      **Desktop:** File → "Changes (Diff)..." (`openDiff`) — SaveComposition first (so the diff
+      reflects in-memory edits), then a read-only window leading with "Changed since last commit (N):
+      <status> <path>" and the unified diff. smoke: commit → edit `track/1/synth/cutoff` → commit →
+      GitDiff revA..revB shows exactly `-value = 20000` / `+value = 900` (a hunk, ≥1 file). Isolated
+      via a SaveProject/LoadProject snapshot. Screenshot-validated end-to-end (the window showing
+      `M params.toml` / `M tracks/lead.toml` + the `-cutoff = 20000` / `+cutoff = 900` hunks — the
+      readable-diff payoff). *Done-when met: an edited param → a minimal, correct two-commit diff.*
     - `[ ]` **9 — discard / stash / revert / reset.** `apiGitDiscard(paths)`, `apiGitStash` /
       `StashPop` / `StashList`, `apiGitRevert(commit)`, `apiGitReset(mode, ref)` (soft | mixed |
       hard; **hard is double-confirmed** — it destroys work). **Desktop:** items on the Source

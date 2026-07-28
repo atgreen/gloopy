@@ -379,6 +379,59 @@ MainComponent::GitResult MainComponent::apiGitTagDelete (const juce::String& dir
     return gitWrite (*this, { "-C", dir, "tag", "-d", name.trim() }, dir);
 }
 
+MainComponent::GitDiff MainComponent::apiGitDiff (const juce::String& dir, const juce::String& pathspec,
+                                                  const juce::String& revA, const juce::String& revB)
+{
+    GitDiff d;
+    juce::String version;
+    if (! apiGitAvailable (version)) { d.error = "git is not installed or not on PATH"; return d; }
+    if (dir.isEmpty())               { d.error = "no directory given"; return d; }
+
+    // The revision selector:
+    //   both revs -> "revA revB"  (between two revisions)
+    //   revA only -> "revA"       (revA .. working tree)
+    //   neither   -> "HEAD"       (working tree vs the last commit — "what have I changed?")
+    juce::StringArray range;
+    const auto a = revA.trim(), b = revB.trim();
+    if (a.isNotEmpty() && b.isNotEmpty()) { range.add (a); range.add (b); }
+    else if (a.isNotEmpty())              { range.add (a); }
+    else                                   { range.add ("HEAD"); }
+
+    const auto ps = pathspec.trim();
+
+    // The changed-file list (name-status) — the composition-text-aware summary: in a
+    // Composition folder each path IS a track / clip / setting, so this names what changed.
+    {
+        juce::StringArray args { "-C", dir, "diff", "--name-status" };
+        args.addArray (range);
+        if (ps.isNotEmpty()) { args.add ("--"); args.add (ps); }
+        juce::String out;
+        if (runGit (args, out) == 0)
+            for (auto& line : juce::StringArray::fromLines (out))
+            {
+                const auto t = line.trim();
+                const auto tab = t.indexOfChar ('\t');
+                if (t.isEmpty() || tab < 0) continue;
+                GitDiffFile f;
+                f.status = t.substring (0, tab).trim();
+                f.path   = t.substring (tab + 1).trim();
+                d.files.push_back (std::move (f));
+            }
+    }
+
+    // The unified diff text.
+    {
+        juce::StringArray args { "-C", dir, "diff" };
+        args.addArray (range);
+        if (ps.isNotEmpty()) { args.add ("--"); args.add (ps); }
+        juce::String out;
+        if (runGit (args, out) != 0) { d.error = "git diff failed"; return d; }
+        d.diff = out;
+    }
+    d.ok = true;
+    return d;
+}
+
 juce::String MainComponent::gitHistoryReport()
 {
     juce::String version;
