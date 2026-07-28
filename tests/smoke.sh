@@ -388,6 +388,32 @@ print('yes' if ok else 'no')")
         && echo "smoke: PASS — conflicting merge resolved ($CNF1 conflicts -> 0) and completed; kept ours (cutoff 900)" \
         || { echo "smoke: merge-conflict resolution wrong (c1=$CNF1 c2=$CNF2)" >&2; exit 1; }
     g -d "{\"path\":\"$WORK/cnf_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+    # Config + polish (Wave 9 slice 12): per-project identity override + opt-in auto-commit-on-save.
+    # Identity -> the commit author matches; auto-commit ON -> a SaveComposition adds a commit;
+    # OFF -> a save adds nothing (opt-in). Snapshot + restore around the live-session churn.
+    g -d "{\"path\":\"$WORK/gcf_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+    GCD="$WORK/gcfproj"; rm -rf "$GCD"
+    g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+    g -d '{"name":"gcflead","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack >/dev/null
+    g -d "{\"path\":\"$GCD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+    g -d "{\"dir\":\"$GCD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitInit >/dev/null
+    g -d "{\"dir\":\"$GCD\",\"name\":\"Grace Hopper\",\"email\":\"grace@gloopy.dev\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitSetIdentity >/dev/null
+    g -d "{\"dir\":\"$GCD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAdd >/dev/null
+    g -d "{\"dir\":\"$GCD\",\"message\":\"base\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit >/dev/null
+    GCAUTHOR=$(git -C "$GCD" log -1 --format='%an')
+    GN1=$(git -C "$GCD" rev-list --count HEAD)
+    g -d "{\"dir\":\"$GCD\",\"value\":true}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitSetAutoCommit >/dev/null
+    g -d '{"id":"track/1/synth/cutoff","value":900}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null
+    g -d "{\"path\":\"$GCD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null   # auto-commits (opted in)
+    GN2=$(git -C "$GCD" rev-list --count HEAD)
+    g -d "{\"dir\":\"$GCD\",\"value\":false}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitSetAutoCommit >/dev/null
+    g -d '{"id":"track/1/synth/cutoff","value":700}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null
+    g -d "{\"path\":\"$GCD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null   # opted out -> no commit
+    GN3=$(git -C "$GCD" rev-list --count HEAD)
+    { [ "$GCAUTHOR" = "Grace Hopper" ] && [ "$GN2" -eq "$((GN1+1))" ] && [ "$GN3" -eq "$GN2" ]; } \
+        && echo "smoke: PASS — git identity override (author $GCAUTHOR) + opt-in auto-commit-on-save ($GN1 -> $GN2 on, $GN3 off)" \
+        || { echo "smoke: git config wrong (author=$GCAUTHOR n1=$GN1 n2=$GN2 n3=$GN3)" >&2; exit 1; }
+    g -d "{\"path\":\"$WORK/gcf_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 else
     echo "smoke: SKIP — git not installed (GitStatus check)"
 fi

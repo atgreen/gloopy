@@ -3937,6 +3937,44 @@ void MainComponent::showRemoteMenu()
         });
 }
 
+void MainComponent::showGitSettings()
+{
+    // Per-project git config: identity override (local user.name/email) + the opt-in
+    // auto-commit-on-save toggle (stored as gloopy.autocommit in .git/config).
+    if (currentProjectFile.getFileName() != "gloopy.toml") return;
+    const auto dir = currentProjectFile.getParentDirectory().getFullPathName();
+    if (! apiGitStatus (dir).isRepo)
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+            "Git settings", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+        return;
+    }
+
+    const auto id = apiGitGetIdentity (dir);
+    const bool autoOn = apiGitGetAutoCommit (dir);
+
+    auto* w = new juce::AlertWindow ("Git settings",
+        "Commit identity for this project, and whether to auto-commit on every save:",
+        juce::MessageBoxIconType::NoIcon);
+    w->addTextEditor ("name", id.name, "Name");
+    w->addTextEditor ("email", id.email, "Email");
+    w->addComboBox ("autocommit", { "Off", "On" }, "Auto-commit on save");
+    w->getComboBoxComponent ("autocommit")->setSelectedItemIndex (autoOn ? 1 : 0, juce::dontSendNotification);
+    w->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    w->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    w->enterModalState (true, juce::ModalCallbackFunction::create ([this, w, dir] (int res)
+    {
+        const auto name = w->getTextEditorContents ("name");
+        const auto email = w->getTextEditorContents ("email");
+        const bool ac = w->getComboBoxComponent ("autocommit")->getSelectedItemIndex() == 1;
+        delete w;
+        if (res != 1) return;
+        auto ir = apiGitSetIdentity (dir, name, email);
+        if (! ir.ok) { juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Git settings", ir.error); return; }
+        apiGitSetAutoCommit (dir, ac);
+    }), false);
+}
+
 void MainComponent::showConflictMenu()
 {
     // Merge-conflict resolution over the composition text format. When a merge / pull leaves
@@ -4804,6 +4842,7 @@ void MainComponent::showFileMenu()
     menu.addItem (28, "Discard / Stash / Reset...", isComposition);   // working-tree ops (Git.cpp)
     menu.addItem (29, "Remotes / Push / Pull...", isComposition);     // remote sync (Git.cpp)
     menu.addItem (30, "Resolve conflicts...", isComposition);         // merge-conflict resolver (Git.cpp)
+    menu.addItem (31, "Git Settings...", isComposition);              // identity + auto-commit (Git.cpp)
     // Live MIDI status (read-only): the input sources Gloopy hears + which track they play.
     juce::PopupMenu midiMenu;
     const auto midiIns = apiListMidiInputs();
@@ -4875,6 +4914,7 @@ void MainComponent::showFileMenu()
             if (result == 28) { showWorkingTreeMenu(); return; }  // discard / stash / revert / reset
             if (result == 29) { showRemoteMenu(); return; }       // remotes / push / pull
             if (result == 30) { showConflictMenu(); return; }     // merge-conflict resolver
+            if (result == 31) { showGitSettings(); return; }      // identity + auto-commit
             if (result == 20) { undo(); return; }
             if (result == 21) { redo(); return; }
             if (result >= 100)                                  // New from Template

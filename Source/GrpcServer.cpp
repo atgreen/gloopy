@@ -640,6 +640,14 @@ namespace
         { setAck (r, main.apiGitMergeContinue (js (q->dir()))); return Status::OK; }
         Status GitMergeAbort (ServerContext*, const pb::GitDir* q, pb::Ack* r) override
         { setAck (r, main.apiGitMergeAbort (js (q->dir()))); return Status::OK; }
+        Status GitSetIdentity (ServerContext*, const pb::GitIdentity* q, pb::Ack* r) override
+        { setAck (r, main.apiGitSetIdentity (js (q->dir()), js (q->name()), js (q->email()))); return Status::OK; }
+        Status GitGetIdentity (ServerContext*, const pb::GitDir* q, pb::GitIdentity* r) override
+        { auto id = main.apiGitGetIdentity (js (q->dir())); r->set_name (id.name.toStdString()); r->set_email (id.email.toStdString()); return Status::OK; }
+        Status GitSetAutoCommit (ServerContext*, const pb::GitBoolRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitSetAutoCommit (js (q->dir()), q->value())); return Status::OK; }
+        Status GitGetAutoCommit (ServerContext*, const pb::GitDir* q, pb::GitBoolValue* r) override
+        { r->set_value (main.apiGitGetAutoCommit (js (q->dir()))); return Status::OK; }
 
         // ---- project / state ----
         Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override

@@ -5,9 +5,10 @@ per track, clip, and setting. That makes it a natural fit for **git**, the same 
 control developers use for code: every save is a diff you can inspect, and you can keep
 a full history of how a track evolved.
 
-This guide covers starting a version-controlled project, checking its status, and making
-commits. Branching alternate arrangements, tagging finished mixes, and pushing to a
-remote are being added on top of this foundation.
+This guide covers the whole workflow: starting a version-controlled project, checking its
+status, reviewing changes, committing, branching alternate arrangements, tagging finished
+mixes, auditioning older versions, undoing at the repo level, sharing with a remote, and
+resolving merge conflicts — all from Gloopy's File menu, over the same git you already use.
 
 ## Before you start
 
@@ -145,6 +146,16 @@ Once every conflict is settled, **Continue merge** finishes the job and reloads 
 **Abort merge** backs out entirely and leaves things as they were. Because a Composition folder
 is readable text, conflicts are about real, understandable things — not an opaque "project file
 is corrupt" dead end.
+
+## Settings — who you are, and auto-saving to history
+
+**File → Git Settings…** holds two per-project preferences:
+
+- **Commit identity** — the name and email attached to this project's commits. It applies to
+  *this project only*, so a personal alias or a band name doesn't leak into your other work.
+- **Auto-commit on save** — off by default. Turn it on and Gloopy quietly records a commit
+  every time you save, so your history captures every step with zero effort. Leave it off if
+  you'd rather commit deliberately at meaningful moments.
 
 ## From a script
 

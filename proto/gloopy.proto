@@ -347,6 +347,9 @@ message GitAddRemoteRequest { string dir = 1; string name = 2; string url = 3; }
 message GitSyncRequest   { string dir = 1; string remote = 2; string branch = 3; }   // fetch/pull/push
 message GitConflictList  { repeated string files = 1; }
 message GitResolveRequest { string dir = 1; string path = 2; string mode = 3; }   // mode: ours|theirs|both
+message GitIdentity      { string dir = 1; string name = 2; string email = 3; }   // per-repo user.name/email
+message GitBoolRequest   { string dir = 1; bool value = 2; }
+message GitBoolValue     { bool value = 1; }
 message RenderRequest {                       // offline bounce to WAV
   string path = 1;
   double tail_seconds = 2;
@@ -625,6 +628,10 @@ service Gloopy {
   rpc GitResolve      (GitResolveRequest)  returns (Ack);              // resolve a conflicted file (ours|theirs|both)
   rpc GitMergeContinue(GitDir)             returns (Ack);              // finish the merge
   rpc GitMergeAbort   (GitDir)             returns (Ack);              // abort the merge
+  rpc GitSetIdentity  (GitIdentity)        returns (Ack);              // per-repo user.name/email
+  rpc GitGetIdentity  (GitDir)             returns (GitIdentity);
+  rpc GitSetAutoCommit(GitBoolRequest)     returns (Ack);              // opt-in auto-commit-on-save
+  rpc GitGetAutoCommit(GitDir)             returns (GitBoolValue);
   rpc NewProject (Empty)    returns (Ack);
   rpc ListTemplates  (Empty)       returns (TemplateList);   // built-in + user project templates
   rpc NewFromTemplate(TemplateRef) returns (Ack);            // empty + seed a template

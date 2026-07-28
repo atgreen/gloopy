@@ -1010,6 +1010,26 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.GitDir.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.GitSetIdentity = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitSetIdentity',
+                request_serializer=gloopy__pb2.GitIdentity.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitGetIdentity = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitGetIdentity',
+                request_serializer=gloopy__pb2.GitDir.SerializeToString,
+                response_deserializer=gloopy__pb2.GitIdentity.FromString,
+                _registered_method=True)
+        self.GitSetAutoCommit = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitSetAutoCommit',
+                request_serializer=gloopy__pb2.GitBoolRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitGetAutoCommit = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitGetAutoCommit',
+                request_serializer=gloopy__pb2.GitDir.SerializeToString,
+                response_deserializer=gloopy__pb2.GitBoolValue.FromString,
+                _registered_method=True)
         self.NewProject = channel.unary_unary(
                 '/gloopy.v1.Gloopy/NewProject',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -2415,6 +2435,32 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GitSetIdentity(self, request, context):
+        """per-repo user.name/email
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitGetIdentity(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitSetAutoCommit(self, request, context):
+        """opt-in auto-commit-on-save
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitGetAutoCommit(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def NewProject(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -3526,6 +3572,26 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.GitMergeAbort,
                     request_deserializer=gloopy__pb2.GitDir.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitSetIdentity': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitSetIdentity,
+                    request_deserializer=gloopy__pb2.GitIdentity.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitGetIdentity': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitGetIdentity,
+                    request_deserializer=gloopy__pb2.GitDir.FromString,
+                    response_serializer=gloopy__pb2.GitIdentity.SerializeToString,
+            ),
+            'GitSetAutoCommit': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitSetAutoCommit,
+                    request_deserializer=gloopy__pb2.GitBoolRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitGetAutoCommit': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitGetAutoCommit,
+                    request_deserializer=gloopy__pb2.GitDir.FromString,
+                    response_serializer=gloopy__pb2.GitBoolValue.SerializeToString,
             ),
             'NewProject': grpc.unary_unary_rpc_method_handler(
                     servicer.NewProject,
@@ -8894,6 +8960,114 @@ class Gloopy:
             '/gloopy.v1.Gloopy/GitMergeAbort',
             gloopy__pb2.GitDir.SerializeToString,
             gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitSetIdentity(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitSetIdentity',
+            gloopy__pb2.GitIdentity.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitGetIdentity(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitGetIdentity',
+            gloopy__pb2.GitDir.SerializeToString,
+            gloopy__pb2.GitIdentity.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitSetAutoCommit(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitSetAutoCommit',
+            gloopy__pb2.GitBoolRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitGetAutoCommit(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitGetAutoCommit',
+            gloopy__pb2.GitDir.SerializeToString,
+            gloopy__pb2.GitBoolValue.FromString,
             options,
             channel_credentials,
             insecure,

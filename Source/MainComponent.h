@@ -247,6 +247,12 @@ public:
     GitResult apiGitResolve (const juce::String& dir, const juce::String& path, const juce::String& mode);   // ours|theirs|both
     GitResult apiGitMergeContinue (const juce::String& dir);                              // finish the merge (commit)
     GitResult apiGitMergeAbort (const juce::String& dir);                                 // bail out of the merge
+    struct GitIdentity { juce::String name, email; };
+    GitResult apiGitSetIdentity (const juce::String& dir, const juce::String& name, const juce::String& email);
+    GitIdentity apiGitGetIdentity (const juce::String& dir);                              // per-repo user.name/email
+    GitResult apiGitSetAutoCommit (const juce::String& dir, bool on);                     // gloopy.autocommit in .git/config
+    bool apiGitGetAutoCommit (const juce::String& dir);
+    GitResult apiGitAutoCommitOnSave (const juce::String& dir);                           // stage+commit if enabled & dirty
     juce::String gitStatusReport();                     // human-readable status text (Git.cpp)
     juce::String gitHistoryReport();                    // human-readable commit log (Git.cpp)
     void openSourceControl();                           // UI: a Source Control status window (MainComponent.cpp)
@@ -259,6 +265,7 @@ public:
     void showWorkingTreeMenu();                         // UI: discard / stash / revert / reset popup (MainComponent.cpp)
     void showRemoteMenu();                              // UI: remotes / fetch / pull / push popup (MainComponent.cpp)
     void showConflictMenu();                            // UI: merge-conflict resolver popup (MainComponent.cpp)
+    void showGitSettings();                             // UI: identity + auto-commit dialog (MainComponent.cpp)
 
     // --- waveform thumbnail cache (Waveform.cpp) ---
     // Min/max peaks per bucket for an audio file, cached by path+mtime+size. Feeds

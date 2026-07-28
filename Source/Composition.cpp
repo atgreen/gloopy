@@ -661,6 +661,10 @@ bool MainComponent::saveComposition (const juce::File& dir)
     std::cout << "[composition] saved " << tracks.getNumChildren() << " tracks to "
               << dir.getFullPathName() << " (" << ctx.written << " written, "
               << ctx.pruned << " pruned)" << std::endl;
+
+    // Opt-in auto-commit-on-save: a no-op unless this repo set gloopy.autocommit=true
+    // (one `git config --get`), in which case stage-all + commit the just-saved state.
+    apiGitAutoCommitOnSave (dir.getFullPathName());
     return true;
 }
 

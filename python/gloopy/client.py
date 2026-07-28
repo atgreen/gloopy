@@ -1060,6 +1060,23 @@ class Gloopy:
         """Abort the in-progress merge."""
         self._ack(self.stub.GitMergeAbort(pb.GitDir(dir=dir)))
 
+    def git_set_identity(self, dir: str, name: str = "", email: str = "") -> None:
+        """Set the per-project commit identity (local user.name/email)."""
+        self._ack(self.stub.GitSetIdentity(pb.GitIdentity(dir=dir, name=name, email=email)))
+
+    def git_get_identity(self, dir: str) -> dict:
+        """Read the per-project commit identity as {name, email}."""
+        r = self.stub.GitGetIdentity(pb.GitDir(dir=dir))
+        return {"name": r.name, "email": r.email}
+
+    def git_set_auto_commit(self, dir: str, on: bool) -> None:
+        """Enable/disable auto-commit-on-save (gloopy.autocommit in .git/config)."""
+        self._ack(self.stub.GitSetAutoCommit(pb.GitBoolRequest(dir=dir, value=on)))
+
+    def git_get_auto_commit(self, dir: str) -> bool:
+        """Whether auto-commit-on-save is enabled for this repo."""
+        return self.stub.GitGetAutoCommit(pb.GitDir(dir=dir)).value
+
     def diagnostics(self) -> dict:
         """Engine health: device settings, callback timing, DSP load, dropouts, render speed."""
         d = self.stub.GetDiagnostics(pb.Empty())

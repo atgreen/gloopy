@@ -642,6 +642,68 @@ MainComponent::GitResult MainComponent::apiGitMergeAbort (const juce::String& di
     return gitWrite (*this, { "-C", dir, "merge", "--abort" }, dir);
 }
 
+MainComponent::GitResult MainComponent::apiGitSetIdentity (const juce::String& dir, const juce::String& name, const juce::String& email)
+{
+    GitResult r;
+    juce::String version;
+    if (! apiGitAvailable (version)) { r.error = "git is not installed or not on PATH"; return r; }
+    if (dir.isEmpty())               { r.error = "no directory given"; return r; }
+    // Per-repo (local) identity — doesn't touch the user's global config.
+    if (name.trim().isNotEmpty())
+    {
+        auto rr = gitWrite (*this, { "-C", dir, "config", "user.name", name.trim() }, dir);
+        if (! rr.ok) return rr;
+    }
+    if (email.trim().isNotEmpty())
+    {
+        auto rr = gitWrite (*this, { "-C", dir, "config", "user.email", email.trim() }, dir);
+        if (! rr.ok) return rr;
+    }
+    r.ok = true;
+    return r;
+}
+
+MainComponent::GitIdentity MainComponent::apiGitGetIdentity (const juce::String& dir)
+{
+    GitIdentity id;
+    juce::String version;
+    if (! apiGitAvailable (version) || dir.isEmpty())
+        return id;
+    juce::String out;
+    if (runGit ({ "-C", dir, "config", "--get", "user.name" }, out) == 0)  id.name  = out.trim();
+    if (runGit ({ "-C", dir, "config", "--get", "user.email" }, out) == 0) id.email = out.trim();
+    return id;
+}
+
+MainComponent::GitResult MainComponent::apiGitSetAutoCommit (const juce::String& dir, bool on)
+{
+    // Stored in the repo's own config (out of band, like all git state) — opt-in only.
+    return gitWrite (*this, { "-C", dir, "config", "--bool", "gloopy.autocommit", on ? "true" : "false" }, dir);
+}
+
+bool MainComponent::apiGitGetAutoCommit (const juce::String& dir)
+{
+    juce::String version;
+    if (! apiGitAvailable (version) || dir.isEmpty())
+        return false;
+    juce::String out;
+    return runGit ({ "-C", dir, "config", "--bool", "--get", "gloopy.autocommit" }, out) == 0
+           && out.trim() == "true";
+}
+
+MainComponent::GitResult MainComponent::apiGitAutoCommitOnSave (const juce::String& dir)
+{
+    GitResult r; r.ok = true;
+    // No-op unless the repo opted in AND has staged/unstaged changes to record.
+    if (dir.isEmpty() || ! apiGitGetAutoCommit (dir)) return r;
+    auto st = apiGitStatus (dir);
+    if (! st.isRepo || st.changes.empty()) return r;
+    auto add = apiGitAdd (dir, {});
+    if (! add.ok) return add;
+    // Templated auto-save message (no clock dependency in the hot path — a fixed prefix).
+    return apiGitCommit (dir, "Auto-save (Gloopy)", /*amend*/ false);
+}
+
 juce::String MainComponent::gitHistoryReport()
 {
     juce::String version;

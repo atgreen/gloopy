@@ -2053,10 +2053,26 @@ commit messages are user-authored; auto-commit-on-save is opt-in only.
       each `ours` → GitMergeContinue → GitConflicts 0, no `.git/MERGE_HEAD`, on-disk `cutoff = 900`
       (ours kept). Screenshot-validated (the popup: params.toml/tracks/lead.toml, Continue greyed
       while unresolved). *Done-when met: a hand-built conflicting merge resolved in-app + completed.*
-    - `[ ]` **12 — config + polish.** Per-project identity override (user.name / user.email),
-      **auto-stage-on-save / auto-commit-on-save** toggles (opt-in only), **Git LFS** setup for large
-      WAV / plugin sidecars, commit-message templates, and file-history / blame (stretch). Rounds out
-      the IDE-grade surface.
+    - `[x]` **12 — config + polish LANDED** (`Source/Git.cpp`, commit): `apiGitSetIdentity`/
+      `apiGitGetIdentity` (per-repo `git config user.name/user.email` — local, doesn't touch the
+      user's global id) + `apiGitSetAutoCommit`/`apiGitGetAutoCommit` (opt-in, stored as
+      `gloopy.autocommit` in `.git/config` — out of band like all git state) + `apiGitAutoCommitOnSave`
+      (the hook: stage-all + commit "Auto-save (Gloopy)" iff enabled AND the tree is dirty). Wired
+      into `saveComposition()` (a no-op — one `git config --get` — unless the repo opted in). RPCs
+      GitSetIdentity/GitGetIdentity/GitSetAutoCommit/GitGetAutoCommit (`GitIdentity`/`GitBoolRequest`/
+      `GitBoolValue`) + Python `git_set_identity`/`git_get_identity`/`git_set_auto_commit`/
+      `git_get_auto_commit`. **Desktop:** File → "Git Settings..." (`showGitSettings`) — an
+      AlertWindow with Name / Email fields (prefilled from the repo) + an Auto-commit-on-save
+      Off/On combo. smoke (isolated via a SaveProject/LoadProject snapshot): set identity → the
+      commit author IS "Grace Hopper"; auto-commit ON → a SaveComposition adds a commit (N→N+1);
+      OFF → a save adds nothing (proving opt-in). Screenshot-validated (the dialog prefilled Ada
+      Lovelace / ada@gloopy.dev / On). *Deferred (stretch, non-blocking):* Git LFS setup for large
+      WAV/plugin sidecars, commit-message templates, file-history/blame.
+      **✅ Wave 9 #30 COMPLETE — all 12 slices. The git-as-project-management epic is done: an
+      IDE-grade source-control surface (status → diff → commit → history → branches → tags →
+      open-at-version → discard/stash/revert/reset → remotes/push/pull → merge-conflict resolution
+      → config), shelling out to the system git, framed musically. Phase A next: Wave 10 (JUCE
+      upgrade + Windows build).**
 
 ### Wave 10 — Build, platform & toolchain ✦
 
