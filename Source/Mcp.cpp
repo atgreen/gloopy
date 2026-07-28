@@ -52,6 +52,20 @@ namespace {
     juce::var toolDef (const char* name, const char* desc, juce::var schema) {
         return obj ({ { "name", name }, { "description", desc }, { "inputSchema", std::move (schema) } });
     }
+    juce::var resourceDef (const char* uri, const char* name, const char* desc, const char* mime) {
+        return obj ({ { "uri", uri }, { "name", name }, { "description", desc }, { "mimeType", mime } });
+    }
+    // The domain-model doc, so an agent can read what tracks/clips/inserts mean before driving.
+    juce::String modelDoc() {
+        juce::File f = juce::File::getCurrentWorkingDirectory().getChildFile ("docs/control-scripting/concepts/model.md");
+        if (! f.existsAsFile())
+            f = juce::File::getSpecialLocation (juce::File::currentExecutableFile)
+                    .getParentDirectory().getChildFile ("docs/control-scripting/concepts/model.md");
+        if (f.existsAsFile()) return f.loadFileAsString();
+        return "# The Gloopy model\n\nA project has tracks; each track holds clips (MIDI notes or "
+               "audio). Tracks feed mixer inserts (volume/pan/effects) that sum to master. Positions "
+               "are in beats. See the manual for the full model.";
+    }
 }
 
 void MainComponent::runMcpStdio() {
@@ -82,7 +96,8 @@ void MainComponent::runMcpStdio() {
         if (method == "initialize") {
             emit (jrpcResult (id, obj ({
                 { "protocolVersion", "2024-11-05" },
-                { "capabilities", obj ({ { "tools", juce::var (new juce::DynamicObject()) } }) },
+                { "capabilities", obj ({ { "tools", juce::var (new juce::DynamicObject()) },
+                                         { "resources", juce::var (new juce::DynamicObject()) } }) },
                 { "serverInfo", obj ({ { "name", "gloopy" }, { "version", "0.1.0" } }) } })));
         }
         else if (! isRequest) {
@@ -142,6 +157,28 @@ void MainComponent::runMcpStdio() {
                                   { "out_dir", prop ("string", "output directory override (optional)") } }),
                            reqList ({ "name" }))));
             emit (jrpcResult (id, obj ({ { "tools", juce::var (tools) } })));
+        }
+        else if (method == "resources/list") {
+            juce::Array<juce::var> resources;
+            resources.add (resourceDef ("gloopy://composition", "Current composition",
+                "The open project's structure (title, tempo, tracks, inserts, locations, exports) as JSON.",
+                "application/json"));
+            resources.add (resourceDef ("gloopy://model", "Gloopy domain model",
+                "How Gloopy is organised — tracks, clips, inserts, time — so an agent knows what it's driving.",
+                "text/markdown"));
+            emit (jrpcResult (id, obj ({ { "resources", juce::var (resources) } })));
+        }
+        else if (method == "resources/read") {
+            const auto uri = msg["params"]["uri"].toString();
+            juce::String text, mime;
+            if (uri == "gloopy://composition") { text = apiInspectJson(); mime = "application/json"; }
+            else if (uri == "gloopy://model")  { text = modelDoc();       mime = "text/markdown"; }
+            if (mime.isEmpty()) emit (jrpcError (id, -32602, "unknown resource: " + uri));
+            else {
+                juce::Array<juce::var> contents;
+                contents.add (obj ({ { "uri", uri }, { "mimeType", mime }, { "text", text } }));
+                emit (jrpcResult (id, obj ({ { "contents", juce::var (contents) } })));
+            }
         }
         else if (method == "tools/call") {
             const auto name = msg["params"]["name"].toString();

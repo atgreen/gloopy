@@ -2201,10 +2201,20 @@ gate them later.
       snapshot since DefineExportProfile mutates the project). Manual how-to updated; mkdocs --strict
       green. *Done-when met: render/preset (and render/mix) writes the expected WAV and returns its
       path + loudness, headless.*
-    - `[ ]` **5 — resources + spawn-headless mode.** Expose the current composition (and `docs`
-      model) as MCP **resources** (readable agent context); a `--headless` mode that spawns its own
-      Gloopy for agent-only / batch runs. *Done when:* `resources/list` returns the composition and
-      headless mode drives a render with no GUI.
+    - `[x]` **5 — resources + spawn-headless mode LANDED** (`Source/Mcp.cpp`, commit): the server now
+      exposes two MCP **resources** (advertised via a `resources` capability in `initialize`):
+      **gloopy://composition** (`resources/read` → apiInspectJson: the open project's title/tempo/
+      tracks/inserts/locations/exports as JSON) and **gloopy://model** (the domain-model markdown from
+      `docs/control-scripting/concepts/model.md`, resolved CWD- or exe-relative with an inline
+      fallback), so an agent can read the project state + the vocabulary before driving. **The
+      spawn-headless half is inherent to the native-subcommand adaptation:** `gloopy mcp [project]`
+      IS the no-GUI headless mode (headless MainComponent, no audio device / OSC / gRPC), and slice
+      4's render/mix already renders with no GUI — so "headless mode drives a render with no GUI" was
+      met at slice 4. smoke (standalone): load a demo → resources/list returns both URIs, the
+      `resources` capability is advertised, resources/read gloopy://composition returns the live
+      project (7 tracks) as JSON, and gloopy://model returns the 9.4 KB markdown (mimeType
+      text/markdown). Manual how-to gains a Resources section; mkdocs --strict green. *Done-when met:
+      resources/list returns the composition; headless renders with no GUI.*
     - `[ ]` **6 — packaging + registration (+ native subcommand, stretch).** A `gloopy-mcp` entry
       point + a documented Claude Desktop / Claude Code MCP config snippet; (stretch) the native
       `gloopy mcp` stdio subcommand for a Python-free path. *Done when:* a stock MCP client registers

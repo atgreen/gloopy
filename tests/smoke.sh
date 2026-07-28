@@ -2328,6 +2328,29 @@ assert peak>0.01, 'MCP-built project rendered silent (peak %.4f)'%peak
 print('smoke: PASS — MCP-built 2-track loop renders non-silent (peak %.3f)'%peak)
 " || { echo "smoke: MCP-built render silent" >&2; exit 1; }
 
+# MCP resources (Wave 11 #33 slice 5): the server exposes the open composition + the domain-model
+# doc as readable MCP resources. Load a demo, then assert resources/list returns both and
+# resources/read returns the live composition (as JSON) and the model markdown. Headless (the
+# `gloopy mcp` subcommand IS the no-GUI mode, and render/mix from slice 4 already renders here).
+printf '%s\n' \
+    '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+    '{"jsonrpc":"2.0","id":2,"method":"resources/list"}' \
+    '{"jsonrpc":"2.0","id":3,"method":"resources/read","params":{"uri":"gloopy://composition"}}' \
+    '{"jsonrpc":"2.0","id":4,"method":"resources/read","params":{"uri":"gloopy://model"}}' \
+    | "$BIN" mcp "$ROOT/examples/demo-lofi.gloopy" 2>/dev/null | python3 -c "
+import json,sys
+by={m['id']:m for m in (json.loads(l) for l in sys.stdin if l.strip()) if 'id' in m}
+assert 'resources' in by[1]['result']['capabilities'], 'resources capability not advertised'
+uris={r['uri'] for r in by[2]['result']['resources']}
+assert uris=={'gloopy://composition','gloopy://model'}, 'resources/list wrong: %r'%uris
+comp=json.loads(by[3]['result']['contents'][0]['text'])
+tracks=comp.get('tracks'); n=len(tracks) if isinstance(tracks,list) else tracks
+assert n==7, 'composition resource wrong track count: %r'%n
+model=by[4]['result']['contents'][0]['text']
+assert len(model)>200 and by[4]['result']['contents'][0]['mimeType']=='text/markdown', 'model resource wrong'
+print('smoke: PASS — MCP resources expose the composition (%d tracks) + domain model (%d chars)'%(n,len(model)))
+" || { echo "smoke: MCP resources wrong" >&2; exit 1; }
+
 # MCP bulk note I/O (Wave 11 #33 slice 3): import a JSON melody with clip/add (the write half)
 # then read it back with notes/export_json (the read half) and assert the notes round-trip.
 printf '%s\n' \

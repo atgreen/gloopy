@@ -58,8 +58,16 @@ Render to audio:
 - **render/preset** — run a named export profile defined in the project; returns the written paths.
 
 So an agent can build a song from scratch — add tracks, drop in note clips, mark sections,
-set the tempo, and save — then hand it to you to open in Gloopy. More tools (importing and
-exporting note data in bulk, rendering to audio) are on the way.
+set the tempo, and save — then hand it to you to open in Gloopy.
+
+## Resources
+
+Beyond tools, the server exposes two **MCP resources** an agent can read for context:
+
+- **gloopy://composition** — the open project's structure (title, tempo, tracks, inserts,
+  locations, exports) as JSON, so an agent can see what it's working with.
+- **gloopy://model** — Gloopy's domain model (what tracks, clips, inserts, and time mean),
+  so an agent knows the vocabulary before it starts driving.
 
 ## Trying it by hand
 
