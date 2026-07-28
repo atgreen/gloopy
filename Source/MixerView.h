@@ -7,6 +7,7 @@
 #include <vector>
 #include <memory>
 #include <functional>
+#include <set>
 #include "MixerTrack.h"
 #include "Effects.h"
 
@@ -75,6 +76,10 @@ public:
     std::function<void (int, int)>                   onSetOutput;    // insert, target (0 = master, else bus index)
     std::function<int (int)>                         onInsertOutput; // an insert's current output target (0 = master)
 
+    // Multi-select grouping: click a strip name to select (shift/ctrl to extend), then Group them.
+    std::function<void (const std::vector<int>&)>    onGroupInserts; // create a group bus from these inserts
+    void groupSelected();                                           // group the current selection (>= 2 strips)
+
     // Plugin hooks (wired by the owner).
     std::function<void()>                                       ensurePlugins;
     std::function<juce::Array<juce::PluginDescription>()>       getEffectPlugins;
@@ -117,6 +122,8 @@ private:
 
     int selectedTrack  { -1 };
     int selectedEffect { -1 };
+    std::set<int> groupSel;                                 // strips selected for grouping (highlighted)
+    void toggleStripSel (int index, const juce::ModifierKeys& mods);   // called by a Strip on name-click
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MixerView)
 };

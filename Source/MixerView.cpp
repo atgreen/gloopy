@@ -106,6 +106,13 @@ public:
             return;
         }
 
+        // Left-click the strip name -> select this strip for grouping (shift/ctrl extends).
+        if (! e.mods.isPopupMenu() && e.eventComponent == &name && index > 0)
+        {
+            owner.toggleStripSel (index, e.mods);
+            return;
+        }
+
         if (e.eventComponent == this && clipLedArea.contains (e.getPosition()))
         { track->clipped.store (false); repaint (clipLedArea); }
     }
@@ -148,6 +155,16 @@ public:
         auto m = meterArea.reduced (1);
         drawBar (m.removeFromLeft (m.getWidth() / 2).reduced (1, 0), meterL);
         drawBar (m.reduced (1, 0), meterR);
+
+        // Selected for grouping: accent ring + faint wash (so a multi-select reads at a glance).
+        if (owner.groupSel.count (index))
+        {
+            auto rr = getLocalBounds().toFloat().reduced (2.0f);
+            g.setColour (Palette::accent.withAlpha (0.10f));
+            g.fillRoundedRectangle (rr, Palette::radius);
+            g.setColour (Palette::accent);
+            g.drawRoundedRectangle (rr, Palette::radius, 1.6f);
+        }
     }
 
     void resized() override
@@ -488,6 +505,14 @@ void MixerView::showGroupMenu (int insertIndex)
 
     juce::PopupMenu m;
     m.addSectionHeader (cur.isNotEmpty() ? "Group: " + cur : "No control group");
+
+    // Multi-select: fold the whole selection into a new group bus (the Ableton Cmd+G gesture).
+    if (onGroupInserts && groupSel.size() >= 2 && groupSel.count (insertIndex))
+    {
+        m.addItem (8, "Group " + juce::String ((int) groupSel.size()) + " selected strips  (Cmd+G)");
+        m.addSeparator();
+    }
+
     if (onSetInsertName) { m.addItem (7, "Rename strip..."); m.addSeparator(); }
     m.addItem (1, "New group...");
 
@@ -557,6 +582,7 @@ void MixerView::showGroupMenu (int insertIndex)
     m.showMenuAsync (juce::PopupMenu::Options(), [this, insertIndex, cur, groups, buses, sends] (int r)
     {
         if (r == 0) return;
+        if (r == 8) { groupSelected(); return; }   // group the multi-selection into a new bus
         if (r == 7 && onSetInsertName)   // rename this mixer strip
         {
             juce::String curName;
@@ -615,6 +641,34 @@ void MixerView::showGroupMenu (int insertIndex)
             }
         }
     });
+}
+
+void MixerView::toggleStripSel (int index, const juce::ModifierKeys& mods)
+{
+    const bool extend = mods.isShiftDown() || mods.isCommandDown() || mods.isCtrlDown();
+    if (extend)
+    {
+        if (groupSel.count (index)) groupSel.erase (index);
+        else                        groupSel.insert (index);
+    }
+    else if (groupSel.size() == 1 && groupSel.count (index))
+    {
+        groupSel.clear();                       // plain click on the sole selection clears it
+    }
+    else
+    {
+        groupSel.clear();
+        groupSel.insert (index);                // plain click -> single-select
+    }
+    for (auto& s : strips) if (s) s->repaint();
+}
+
+void MixerView::groupSelected()
+{
+    if (! onGroupInserts || groupSel.size() < 2) return;
+    const std::vector<int> ins (groupSel.begin(), groupSel.end());   // std::set is sorted ascending
+    groupSel.clear();
+    onGroupInserts (ins);   // owner creates the bus, routes + gathers members, then rebuilds
 }
 
 void MixerView::promptNewBus()

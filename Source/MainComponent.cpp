@@ -925,6 +925,16 @@ MainComponent::MainComponent (bool headless)
         const juce::ScopedLock sl (engineLock);
         return juce::isPositiveAndBelow (insert, (int) mixerTracks.size()) ? mixerTracks[(size_t) insert]->output.load() : 0;
     };
+    // Multi-select "Group" (Cmd+G): fold the selected strips into a new bus, then cluster
+    // their tracks contiguous (Ableton-style) so the session shows them under one group column.
+    mixerView->onGroupInserts = [this] (const std::vector<int>& inserts)
+    {
+        closeAllPluginWindows();
+        const int bus = apiGroupInserts (inserts, "Group");
+        if (bus > 0) apiGatherGroup (bus);
+        if (mixerView)   { mixerView->rebuild(); mixerView->revealLastStrip(); }
+        if (sessionPane) sessionPane->rebuild();
+    };
 
     // The Mixer is an embedded view (Tab cycles to it / the toolbar button switches to it),
     // not a floating window — so it sits in the main area like Arrange and Session.
@@ -4174,6 +4184,8 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     if (key.getKeyCode() == juce::KeyPress::tabKey)                               { cycleView(); return true; }   // Arrange/Session/Mixer
     if (key == juce::KeyPress (juce::KeyPress::spaceKey, 0, 0))                   { toggleTransport(); return true; }   // play/stop
     if (key == juce::KeyPress ('s', MK::commandModifier, 0))                      { saveCurrentProject(); return true; }
+    if (key == juce::KeyPress ('g', MK::commandModifier, 0) && viewMode == ViewMode::Mixer && mixerView)
+    { mixerView->groupSelected(); return true; }                                              // group selected strips
     if (key == juce::KeyPress ('z', MK::commandModifier, 0))                      { undo(); return true; }
     if (key == juce::KeyPress ('z', MK::commandModifier | MK::shiftModifier, 0))  { redo(); return true; }
     if (key == juce::KeyPress ('y', MK::commandModifier, 0))                      { redo(); return true; }
