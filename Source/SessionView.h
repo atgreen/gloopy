@@ -120,6 +120,7 @@ public:
     std::function<void (int busIndex)>                 onOpenBusFx;        // open a group/bus effect chain
     std::function<void (int busIndex, juce::Colour)>   onSetGroupColour;   // recolour a group (transparent = auto)
     std::function<void (int busIndex)>                 onUngroup;          // dissolve the group (reparent members, remove bus)
+    std::function<void (int busIndex)>                 onOpenDeviceWindow; // pop this bus's device chain into a floating window
     std::function<void (const std::vector<int>&)>      onGroupTracks;      // group these track columns (track indices)
     // Multi-select in the session grid: click a track column header to select it (Shift/Ctrl to
     // extend), then group/ungroup — the arrangement-view counterpart of the mixer's strip select.
@@ -574,6 +575,7 @@ public:
         for (int i = 0; i < 8; ++i)
             m.addColouredItem (100 + i, juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xa0")) + "  " + names[i], kGroupSwatches[i]);
         m.addItem (200, "Auto (from first track)");
+        if (onOpenDeviceWindow) { m.addSeparator(); m.addItem (302, "Open device window"); }
         if (! isReturn && onUngroup) { m.addSeparator(); m.addItem (301, "Ungroup"); }
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this)
                              .withTargetScreenArea ({ screenPos.x, screenPos.y, 1, 1 }),
@@ -583,6 +585,7 @@ public:
                              else if (r == 200)            onSetGroupColour (bus, juce::Colour (0u));   // auto
                              else if (r == 300 && onSetGroupFolded) onSetGroupFolded (bus, ! folded);
                              else if (r == 301 && onUngroup)        onUngroup (bus);
+                             else if (r == 302 && onOpenDeviceWindow) onOpenDeviceWindow (bus);
                          });
     }
 

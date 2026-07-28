@@ -83,6 +83,7 @@ public:
     // Multi-select grouping: click a strip name to select (shift/ctrl to extend), then Group them.
     std::function<void (const std::vector<int>&)>    onGroupInserts; // create a group bus from these inserts
     std::function<void (int)>                        onUngroup;      // dissolve a group bus (reparent members, remove it)
+    std::function<void (int)>                        onOpenDeviceWindow;   // pop this insert's device chain into a floating window
     void groupSelected();                                           // group the current selection (>= 2 strips)
     void ungroupSelected();                                         // dissolve the group implied by the selection
 

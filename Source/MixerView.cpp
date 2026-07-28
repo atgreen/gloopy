@@ -540,6 +540,7 @@ void MixerView::showGroupMenu (int insertIndex)
         m.addSeparator();
     }
 
+    if (onOpenDeviceWindow) { m.addItem (10, "Open device window"); m.addSeparator(); }
     if (onSetInsertName) { m.addItem (7, "Rename strip..."); m.addSeparator(); }
     m.addItem (1, "New group...");
 
@@ -622,6 +623,7 @@ void MixerView::showGroupMenu (int insertIndex)
         if (r == 0) return;
         if (r == 8) { groupSelected(); return; }   // group the multi-selection into a new bus
         if (r == 9 && onUngroup) { onUngroup (insertIndex); return; }   // dissolve this group bus
+        if (r == 10 && onOpenDeviceWindow) { onOpenDeviceWindow (insertIndex); return; }   // floating device chain
         if (r == 7 && onSetInsertName)   // rename this mixer strip
         {
             juce::String curName;

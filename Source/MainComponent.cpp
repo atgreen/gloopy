@@ -768,6 +768,7 @@ MainComponent::MainComponent (bool headless)
         if (sessionPane) sessionPane->rebuild();
     };
     grid.onOpenBusFx = [this] (int) { setViewMode (ViewMode::Mixer); };   // edit the group's effects in the mixer
+    grid.onOpenDeviceWindow = [this] (int bus) { openDeviceWindow (bus); };   // floating device chain for the group
     grid.onSetGroupColour = [this] (int bus, juce::Colour col)
     {
         { const juce::ScopedLock sl (engineLock);
@@ -998,6 +999,7 @@ MainComponent::MainComponent (bool headless)
         if (mixerView)   mixerView->rebuild();
         if (sessionPane) sessionPane->rebuild();
     };
+    mixerView->onOpenDeviceWindow = [this] (int insert) { openDeviceWindow (insert); };
 
     // The Mixer is an embedded view (Tab cycles to it / the toolbar button switches to it),
     // not a floating window — so it sits in the main area like Arrange and Session.
@@ -1077,6 +1079,7 @@ MainComponent::~MainComponent()
     grpc.reset();                // stop gRPC (and its message-thread callbacks) first
     osc.reset();                 // stop OSC before tracks/mixer are destroyed
     pluginWindows.clear();       // delete plugin editors before their processors
+    deviceWindows.clear();       // detached device panels (their lambdas capture this)
     mixerWindow = nullptr;
     notesWindow = nullptr;
     juce::Desktop::getInstance().setDefaultLookAndFeel (nullptr);
@@ -3797,6 +3800,96 @@ void MainComponent::closeAllPluginWindows()
     pluginWindows.clear();
 }
 
+int MainComponent::indexOfMixerTrack (const MixerTrack* mt) const
+{
+    const juce::ScopedLock sl (engineLock);
+    for (int i = 0; i < (int) mixerTracks.size(); ++i)
+        if (mixerTracks[(size_t) i].get() == mt) return i;
+    return -1;
+}
+
+void MainComponent::pruneDeviceWindows()
+{
+    for (int i = deviceWindows.size() - 1; i >= 0; --i)
+    {
+        auto* w = deviceWindows[i];
+        auto* mt = reinterpret_cast<const MixerTrack*> ((juce::pointer_sized_int) (juce::int64) w->getProperties()["mt"]);
+        if (indexOfMixerTrack (mt) < 0) deviceWindows.remove (i);   // its insert was deleted
+    }
+}
+
+// Pop a floating device-chain window pinned to one insert (Reaper/Ardour style). Bound to the
+// MixerTrack pointer so it survives insert reindexing; pruneDeviceWindows() closes it if that
+// insert is later removed.
+void MainComponent::openDeviceWindow (int insert)
+{
+    MixerTrack* target = nullptr;
+    { const juce::ScopedLock sl (engineLock);
+      if (juce::isPositiveAndBelow (insert, (int) mixerTracks.size())) target = mixerTracks[(size_t) insert].get(); }
+    if (target == nullptr) return;
+
+    const juce::int64 key = (juce::int64) (juce::pointer_sized_int) target;
+    for (auto* w : deviceWindows)                                   // already open? just raise it
+        if (w != nullptr && (juce::int64) w->getProperties()["mt"] == key) { w->toFront (true); return; }
+
+    struct DeviceWindow : juce::DocumentWindow
+    {
+        DeviceWindow (const juce::String& n) : DocumentWindow (n, Palette::bg, DocumentWindow::closeButton)
+        { setUsingNativeTitleBar (true); }
+        void closeButtonPressed() override { if (onClose) onClose(); }
+        std::function<void()> onClose;
+    };
+
+    auto* panel = new DevicePanel();
+    panel->setStandalone (true);
+    panel->getEffectTypes = devicePanel.getEffectTypes;            // same built-in effect list
+    panel->getTitle = [this, target]
+    {
+        const juce::ScopedLock sl (engineLock);
+        const int i = indexOfMixerTrack (target);
+        if (i < 0) return juce::String ("DEVICES");
+        juce::String nm = mixerTracks[(size_t) i]->name;
+        for (auto& t : tracks) if (t->mixerTrack.load() == i) { nm = t->name; break; }   // prefer the track name (matches the strip)
+        const juce::String bullet (juce::CharPointer_UTF8 ("\xe2\x80\xa2"));
+        return "DEVICES   " + bullet + "   " + nm.toUpperCase();
+    };
+    panel->getChain = [this, target]
+    {
+        std::vector<std::pair<juce::String, bool>> out;
+        const juce::ScopedLock sl (engineLock);
+        const int i = indexOfMixerTrack (target);
+        if (i >= 0) for (auto& fx : mixerTracks[(size_t) i]->effects) out.push_back ({ fx->name(), fx->bypassed.load() });
+        return out;
+    };
+    panel->getParams = [this, target] (int slot)
+    {
+        std::vector<DevicePanel::Param> out;
+        const int i = indexOfMixerTrack (target);
+        if (i >= 0) for (auto& p : apiGetEffectParams (i, slot)) out.push_back ({ p.name, p.value, p.min, p.max });
+        return out;
+    };
+    panel->onAddEffect    = [this, target, panel] (int type)                 { const int i = indexOfMixerTrack (target); if (i >= 0) { apiAddEffect (i, type); panel->refresh(); } };
+    panel->onRemoveEffect = [this, target, panel] (int slot)                 { const int i = indexOfMixerTrack (target); if (i >= 0) { apiRemoveEffect (i, slot); panel->refresh(); } };
+    panel->onSetBypass    = [this, target] (int slot, bool b)                { const int i = indexOfMixerTrack (target); if (i >= 0) apiSetEffectBypass (i, slot, b); };
+    panel->onSetParam     = [this, target] (int slot, const juce::String& n, float v) { const int i = indexOfMixerTrack (target); if (i >= 0) apiSetEffectParam (i, slot, n, v); };
+
+    juce::String name;
+    { const juce::ScopedLock sl (engineLock);
+      name = target->name;
+      for (auto& t : tracks) if (t->mixerTrack.load() == insert) { name = t->name; break; } }   // track name for the title bar
+    auto* w = new DeviceWindow ("Devices \xe2\x80\x94 " + name);
+    w->getProperties().set ("mt", key);
+    w->setContentOwned (panel, true);
+    w->setResizable (true, false);
+    w->setContentComponentSize (540, 300);
+    // Cascade so multiple windows don't stack exactly.
+    w->setTopLeftPosition (120 + deviceWindows.size() * 28, 120 + deviceWindows.size() * 28);
+    w->onClose = [this, w] { juce::MessageManager::callAsync ([this, w] { deviceWindows.removeObject (w); }); };
+    w->setVisible (true);
+    deviceWindows.add (w);
+    panel->refresh();
+}
+
 // ---------------------------------------------------------------------------
 // GUI
 // ---------------------------------------------------------------------------
@@ -3804,6 +3897,8 @@ void MainComponent::timerCallback()
 {
     if (audioRecActive.load() && loopRecRotate.exchange (false))
         rotateLoopTakes();   // loop recording: finalize the pass, start a new take
+
+    if (! deviceWindows.isEmpty()) pruneDeviceWindows();   // close any whose insert was deleted
 
     if (renderFinished.load())
     {

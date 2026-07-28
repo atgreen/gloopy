@@ -55,6 +55,10 @@ public:
     std::function<void (int, const juce::String&, float)> onSetParam;         // (slot, name, value)
     std::function<void()> onShowClip;                                         // switch back to the clip editor
 
+    // Standalone mode (a detached device-chain window): no "Clip" button, since there's no clip
+    // editor to return to. The chain is pinned to one insert regardless of selection.
+    void setStandalone (bool s) { standalone = s; clipBtn.setVisible (! s); resized(); }
+
     void refresh()
     {
         title.setText (getTitle ? getTitle() : "DEVICES", juce::dontSendNotification);
@@ -108,7 +112,7 @@ public:
     {
         auto a = getLocalBounds();
         auto h = a.removeFromTop (26).reduced (4, 3);
-        clipBtn.setBounds (h.removeFromLeft (54)); h.removeFromLeft (8);
+        if (! standalone) { clipBtn.setBounds (h.removeFromLeft (54)); h.removeFromLeft (8); }
         title.setBounds (h.removeFromLeft (juce::jmin (240, h.getWidth() - 200)));
         addBtn.setBounds (h.removeFromRight (78)); h.removeFromRight (6);
         removeBtn.setBounds (h.removeFromRight (30)); h.removeFromRight (4);
@@ -171,4 +175,5 @@ private:
     std::vector<std::unique_ptr<juce::Slider>>     paramSliders;
     std::vector<juce::String>                      paramNames;
     int selectedSlot { -1 };
+    bool standalone { false };
 };

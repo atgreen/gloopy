@@ -907,6 +907,14 @@ private:
     std::unique_ptr<juce::DocumentWindow> mappingsWindow;
     juce::TextEditor notesEditor;
 
+    // Detachable device-chain windows (Reaper/Ardour-style): each hosts a DevicePanel pinned to one
+    // insert, so several tracks'/groups' effect controls can be seen at once. Bound by MixerTrack*
+    // (stable across reindexing); pruned when their insert is removed.
+    juce::OwnedArray<juce::DocumentWindow> deviceWindows;
+    void openDeviceWindow (int insert);                        // pop a floating device chain for this insert
+    int  indexOfMixerTrack (const MixerTrack* mt) const;       // current index of a MixerTrack, or -1 if gone
+    void pruneDeviceWindows();                                 // close windows whose insert no longer exists
+
     juce::StretchableLayoutManager verticalLayout;
     std::unique_ptr<juce::StretchableLayoutResizerBar> dividerBar;
 
