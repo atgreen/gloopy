@@ -1042,6 +1042,7 @@ private:
     MappingsView mappingsView;
     std::unique_ptr<juce::DocumentWindow> mappingsWindow;
     juce::TextEditor notesEditor;
+    std::unique_ptr<juce::Component> commitDialog;               // custom modal commit dialog (MainComponent.cpp)
 
     // Detachable device-chain windows (Reaper/Ardour-style): each hosts a DevicePanel pinned to one
     // insert, so several tracks'/groups' effect controls can be seen at once. Bound by MixerTrack*

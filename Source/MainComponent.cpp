@@ -4440,6 +4440,156 @@ void MainComponent::showVersionPicker()
         });
 }
 
+namespace {
+
+/** The commit dialog: a centred card over a dimmed scrim, styled with the app Palette.
+    Left-aligned throughout; the changed-file list is a fixed-height scrollable box (so a
+    huge changeset just scrolls rather than blowing the layout up), and the message is a
+    real multi-line input. Callbacks report Commit(msg, amend=false), Amend(msg, true), or
+    Cancel. Lives as a full-window child overlay so it dims and blocks the app behind it. */
+class CommitDialog : public juce::Component
+{
+public:
+    CommitDialog (int changeCount, juce::StringArray fileLines,
+                  std::function<void (const juce::String&, bool /*amend*/)> onCommit,
+                  std::function<void ()> onCancel)
+        : commitCb (std::move (onCommit)), cancelCb (std::move (onCancel))
+    {
+        subtitle = juce::String (changeCount) + (changeCount == 1 ? " changed file" : " changed files");
+
+        files.setMultiLine (true);
+        files.setReadOnly (true);
+        files.setCaretVisible (false);
+        files.setScrollbarsShown (true);
+        files.setPopupMenuEnabled (false);
+        files.setFont (juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 12.5f, juce::Font::plain)));
+        files.setColour (juce::TextEditor::backgroundColourId,     Palette::inset);
+        files.setColour (juce::TextEditor::textColourId,           Palette::textDim);
+        files.setColour (juce::TextEditor::outlineColourId,        juce::Colours::transparentBlack);
+        files.setColour (juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
+        files.setText (fileLines.joinIntoString ("\n"), juce::dontSendNotification);
+        addAndMakeVisible (files);
+
+        msg.setMultiLine (true);
+        msg.setReturnKeyStartsNewLine (true);
+        msg.setScrollbarsShown (true);
+        msg.setFont (juce::Font (juce::FontOptions (14.0f)));
+        msg.setColour (juce::TextEditor::backgroundColourId,     Palette::inset);
+        msg.setColour (juce::TextEditor::textColourId,           Palette::textBright);
+        msg.setColour (juce::TextEditor::outlineColourId,        Palette::line);
+        msg.setColour (juce::TextEditor::focusedOutlineColourId, Palette::accent);
+        msg.setTextToShowWhenEmpty (juce::CharPointer_UTF8 ("Describe this change\xe2\x80\xa6"), Palette::textDim);
+        addAndMakeVisible (msg);
+
+        auto styleBtn = [] (juce::TextButton& b, juce::Colour fill, juce::Colour txt)
+        {
+            b.setColour (juce::TextButton::buttonColourId,  fill);
+            b.setColour (juce::TextButton::textColourOnId,  txt);
+            b.setColour (juce::TextButton::textColourOffId, txt);
+        };
+        commitBtn.setButtonText ("Commit");
+        styleBtn (commitBtn, Palette::accent, Palette::bg);
+        commitBtn.onClick = [this] { if (commitCb) commitCb (msg.getText(), false); };
+        addAndMakeVisible (commitBtn);
+
+        amendBtn.setButtonText ("Amend");
+        styleBtn (amendBtn, Palette::header, Palette::text);
+        amendBtn.onClick = [this] { if (commitCb) commitCb (msg.getText(), true); };
+        addAndMakeVisible (amendBtn);
+
+        cancelBtn.setButtonText ("Cancel");
+        styleBtn (cancelBtn, Palette::header, Palette::textDim);
+        cancelBtn.onClick = [this] { if (cancelCb) cancelCb(); };
+        addAndMakeVisible (cancelBtn);
+
+        setWantsKeyboardFocus (true);
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        g.fillAll (juce::Colour (0xb2000000));                 // dim scrim over the app
+        const auto card = cardBounds();
+        g.setColour (Palette::panel);
+        g.fillRoundedRectangle (card.toFloat(), Palette::radius);
+        g.setColour (Palette::line);
+        g.drawRoundedRectangle (card.toFloat().reduced (0.5f), Palette::radius, 1.0f);
+
+        g.setColour (Palette::textBright);
+        g.setFont (juce::Font (juce::FontOptions (18.0f, juce::Font::bold)));
+        g.drawText ("Commit", titleBounds, juce::Justification::centredLeft);
+        g.setColour (Palette::textDim);
+        g.setFont (juce::Font (juce::FontOptions (12.5f)));
+        g.drawText (subtitle, subtitleBounds, juce::Justification::centredLeft);
+
+        g.setColour (Palette::textDim);
+        g.setFont (Palette::sectionFont());
+        g.drawText ("CHANGED FILES", filesLabel, juce::Justification::centredLeft);
+        g.drawText ("MESSAGE",       msgLabel,   juce::Justification::centredLeft);
+    }
+
+    void resized() override
+    {
+        auto inner = cardBounds().reduced (pad);
+        titleBounds    = inner.removeFromTop (24);
+        subtitleBounds = inner.removeFromTop (18);
+        inner.removeFromTop (14);
+
+        auto btnRow = inner.removeFromBottom (34);
+        inner.removeFromBottom (16);
+        {   // right-aligned button group: Commit · Amend · Cancel
+            const int bw = 94, gap = 8;
+            auto row = btnRow.removeFromRight (bw * 3 + gap * 2);
+            commitBtn.setBounds (row.removeFromLeft (bw)); row.removeFromLeft (gap);
+            amendBtn .setBounds (row.removeFromLeft (bw)); row.removeFromLeft (gap);
+            cancelBtn.setBounds (row);
+        }
+
+        filesLabel = inner.removeFromTop (14);
+        inner.removeFromTop (4);
+        files.setBounds (inner.removeFromTop (140).toNearestInt());
+        inner.removeFromTop (16);
+        msgLabel = inner.removeFromTop (14);
+        inner.removeFromTop (4);
+        msg.setBounds (inner);
+    }
+
+    void parentSizeChanged() override { setBounds (getParentComponent()->getLocalBounds()); }
+
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        if (! cardBounds().contains (e.getPosition()) && cancelCb) cancelCb();   // click the scrim to dismiss
+    }
+
+    bool keyPressed (const juce::KeyPress& k) override
+    {
+        if (k == juce::KeyPress::escapeKey) { if (cancelCb) cancelCb(); return true; }
+        if (k == juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys::commandModifier, 0))
+        { if (commitCb) commitCb (msg.getText(), false); return true; }
+        return false;
+    }
+
+    void focusMessage() { msg.grabKeyboardFocus(); }
+
+private:
+    juce::Rectangle<int> cardBounds() const
+    {
+        return getLocalBounds().withSizeKeepingCentre (juce::jmin (500, getWidth() - 40),
+                                                       juce::jmin (440, getHeight() - 40));
+    }
+
+    static constexpr int pad = 22;
+    juce::String subtitle;
+    juce::Rectangle<int> titleBounds, subtitleBounds, filesLabel, msgLabel;
+    juce::TextEditor files, msg;
+    juce::TextButton commitBtn, amendBtn, cancelBtn;
+    std::function<void (const juce::String&, bool)> commitCb;
+    std::function<void ()> cancelCb;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CommitDialog)
+};
+
+} // namespace
+
 void MainComponent::showCommitDialog()
 {
     // The IDE commit surface: save the current edits, list what changed, and let the
@@ -4462,31 +4612,31 @@ void MainComponent::showCommitDialog()
         return;
     }
 
-    juce::String fileList;
-    for (auto& c : s.changes) fileList << "  " << c.xy << "  " << c.path << "\n";
+    juce::StringArray fileLines;
+    for (auto& c : s.changes) fileLines.add ("  " + c.xy + "   " + c.path);
 
-    auto* aw = new juce::AlertWindow ("Commit",
-        juce::String (s.changes.size()) + " changed file(s):\n" + fileList,
-        juce::MessageBoxIconType::NoIcon);
-    aw->addTextEditor ("msg", "", "Commit message:");
-    aw->addButton ("Commit", 1, juce::KeyPress (juce::KeyPress::returnKey));
-    aw->addButton ("Amend",  2);
-    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, dir] (int r)
+    // Defer teardown: dismiss() fires from a button's own onClick, so deleting the dialog
+    // (and that button) synchronously would pull the rug out mid-callback.
+    auto dismiss = [this] { juce::MessageManager::callAsync ([this] { commitDialog.reset(); }); };
+    auto onCommit = [this, dir, dismiss] (const juce::String& msg, bool amend)
     {
-        if (r == 1 || r == 2)
-        {
-            const auto msg = aw->getTextEditorContents ("msg");
-            auto add = apiGitAdd (dir, {});
-            GitResult res = add.ok ? apiGitCommit (dir, msg, r == 2) : add;
-            if (! res.ok)
-                juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
-                    "Commit", res.error);
-            else if (sourceControlWindow != nullptr && sourceControlWindow->isVisible())
-                openSourceControl();   // refresh the status readout behind the dialog
-        }
-        delete aw;
-    }), false);
+        auto add = apiGitAdd (dir, {});
+        GitResult res = add.ok ? apiGitCommit (dir, msg, amend) : add;
+        dismiss();
+        if (! res.ok)
+            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                "Commit", res.error);
+        else if (sourceControlWindow != nullptr && sourceControlWindow->isVisible())
+            openSourceControl();   // refresh the status readout behind the dialog
+    };
+
+    auto* d = new CommitDialog ((int) s.changes.size(), std::move (fileLines), onCommit, dismiss);
+    commitDialog.reset (d);
+    addAndMakeVisible (d);
+    d->setBounds (getLocalBounds());
+    d->enterModalState (false);
+    juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<CommitDialog> (d)]
+                                     { if (sp != nullptr) sp->focusMessage(); });
 }
 
 void MainComponent::beginRenderMode (const juce::File& out)
