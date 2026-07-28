@@ -1043,6 +1043,8 @@ private:
     std::unique_ptr<juce::DocumentWindow> mappingsWindow;
     juce::TextEditor notesEditor;
     std::unique_ptr<juce::Component> commitDialog;               // custom modal commit dialog (MainComponent.cpp)
+    std::unique_ptr<juce::Component> formDialog;                 // reusable styled prompt for the git dialogs
+    void presentModal (std::unique_ptr<juce::Component>& slot, juce::Component* dlg);   // add as full-window modal overlay
 
     // Detachable device-chain windows (Reaper/Ardour-style): each hosts a DevicePanel pinned to one
     // insert, so several tracks'/groups' effect controls can be seen at once. Bound by MixerTrack*

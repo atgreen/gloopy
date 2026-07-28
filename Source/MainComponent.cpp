@@ -3983,6 +3983,206 @@ void MainComponent::showWorkingTreeMenu()
         });
 }
 
+namespace {
+
+/** A reusable styled prompt for the git dialogs: a centred card over a dimmed scrim,
+    matching the Commit dialog. Holds a vertical stack of labelled single-line / multi-line
+    text fields and/or toggles, with an accent OK button + Cancel. The OK callback reads
+    values back by key via getText()/getToggle(). Left-aligned throughout; Esc / scrim-click
+    cancel; Cmd+Return confirms. Self-focuses its first text field once shown. */
+class FormDialog : public juce::Component
+{
+public:
+    struct FieldSpec
+    {
+        juce::String key, label, initial, placeholder;
+        bool multiline = false;
+        bool toggle = false;        // if set, render a ToggleButton (label is its text) instead of a text field
+        bool toggleState = false;
+    };
+
+    FormDialog (juce::String titleIn, juce::String subtitleIn,
+                std::vector<FieldSpec> specs, juce::String okText,
+                std::function<void (FormDialog&)> onOk, std::function<void ()> onCancel)
+        : title (std::move (titleIn)), subtitle (std::move (subtitleIn)),
+          okCb (std::move (onOk)), cancelCb (std::move (onCancel))
+    {
+        for (auto& s : specs)
+        {
+            auto item = std::make_unique<Item>();
+            item->spec = s;
+            if (s.toggle)
+            {
+                item->toggle = std::make_unique<juce::ToggleButton> (s.label);
+                item->toggle->setToggleState (s.toggleState, juce::dontSendNotification);
+                item->toggle->setColour (juce::ToggleButton::textColourId,        Palette::text);
+                item->toggle->setColour (juce::ToggleButton::tickColourId,        Palette::accent);
+                item->toggle->setColour (juce::ToggleButton::tickDisabledColourId, Palette::line);
+                addAndMakeVisible (*item->toggle);
+            }
+            else
+            {
+                item->label = std::make_unique<juce::Label> (juce::String(), s.label);
+                item->label->setFont (Palette::sectionFont());
+                item->label->setColour (juce::Label::textColourId, Palette::textDim);
+                item->label->setBorderSize (juce::BorderSize<int> (0));
+                addAndMakeVisible (*item->label);
+
+                auto& e = *(item->editor = std::make_unique<juce::TextEditor>());
+                e.setMultiLine (s.multiline);
+                e.setReturnKeyStartsNewLine (s.multiline);
+                e.setScrollbarsShown (s.multiline);
+                e.setFont (juce::Font (juce::FontOptions (14.0f)));
+                e.setColour (juce::TextEditor::backgroundColourId,     Palette::inset);
+                e.setColour (juce::TextEditor::textColourId,           Palette::textBright);
+                e.setColour (juce::TextEditor::outlineColourId,        Palette::line);
+                e.setColour (juce::TextEditor::focusedOutlineColourId, Palette::accent);
+                e.setText (s.initial, juce::dontSendNotification);
+                if (s.placeholder.isNotEmpty()) e.setTextToShowWhenEmpty (s.placeholder, Palette::textDim);
+                addAndMakeVisible (e);
+            }
+            items.push_back (std::move (item));
+        }
+
+        okBtn.setButtonText (okText);
+        okBtn.setColour (juce::TextButton::buttonColourId,  Palette::accent);
+        okBtn.setColour (juce::TextButton::textColourOnId,  Palette::bg);
+        okBtn.setColour (juce::TextButton::textColourOffId, Palette::bg);
+        okBtn.onClick = [this] { if (okCb) okCb (*this); };
+        addAndMakeVisible (okBtn);
+
+        cancelBtn.setButtonText ("Cancel");
+        cancelBtn.setColour (juce::TextButton::buttonColourId,  Palette::header);
+        cancelBtn.setColour (juce::TextButton::textColourOnId,  Palette::textDim);
+        cancelBtn.setColour (juce::TextButton::textColourOffId, Palette::textDim);
+        cancelBtn.onClick = [this] { if (cancelCb) cancelCb(); };
+        addAndMakeVisible (cancelBtn);
+
+        setWantsKeyboardFocus (true);
+        juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<FormDialog> (this)]
+                                         { if (sp != nullptr) sp->focusFirst(); });
+    }
+
+    juce::String getText (const juce::String& key) const
+    {
+        for (auto& it : items) if (it->spec.key == key && it->editor != nullptr) return it->editor->getText();
+        return {};
+    }
+    bool getToggle (const juce::String& key) const
+    {
+        for (auto& it : items) if (it->spec.key == key && it->toggle != nullptr) return it->toggle->getToggleState();
+        return false;
+    }
+    void focusFirst()
+    {
+        for (auto& it : items) if (it->editor != nullptr) { it->editor->grabKeyboardFocus(); it->editor->moveCaretToEnd(); return; }
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        g.fillAll (juce::Colour (0xb2000000));
+        const auto card = cardBounds();
+        g.setColour (Palette::panel); g.fillRoundedRectangle (card.toFloat(), Palette::radius);
+        g.setColour (Palette::line);  g.drawRoundedRectangle (card.toFloat().reduced (0.5f), Palette::radius, 1.0f);
+
+        auto inner = card.reduced (pad);
+        g.setColour (Palette::textBright);
+        g.setFont (juce::Font (juce::FontOptions (18.0f, juce::Font::bold)));
+        g.drawText (title, inner.removeFromTop (24), juce::Justification::centredLeft);
+        if (subtitle.isNotEmpty())
+        {
+            g.setColour (Palette::textDim);
+            g.setFont (juce::Font (juce::FontOptions (12.5f)));
+            g.drawText (subtitle, inner.removeFromTop (18), juce::Justification::centredLeft);
+        }
+    }
+
+    void resized() override
+    {
+        auto inner = cardBounds().reduced (pad);
+        inner.removeFromTop (24);
+        if (subtitle.isNotEmpty()) inner.removeFromTop (18);
+        inner.removeFromTop (14);
+
+        auto btnRow = inner.removeFromBottom (34);
+        inner.removeFromBottom (8);
+        {
+            const int okW = juce::jmax (90, measure (okBtn.getButtonText()) + 30), cw = 90, gap = 8;
+            auto row = btnRow.removeFromRight (okW + cw + gap);
+            okBtn.setBounds (row.removeFromLeft (okW)); row.removeFromLeft (gap);
+            cancelBtn.setBounds (row.removeFromLeft (cw));
+        }
+
+        for (auto& it : items)
+        {
+            if (it->spec.toggle) { it->toggle->setBounds (inner.removeFromTop (26)); inner.removeFromTop (12); }
+            else
+            {
+                it->label->setBounds (inner.removeFromTop (15));
+                inner.removeFromTop (3);
+                it->editor->setBounds (inner.removeFromTop (it->spec.multiline ? 68 : 28));
+                inner.removeFromTop (12);
+            }
+        }
+    }
+
+    void parentSizeChanged() override { setBounds (getParentComponent()->getLocalBounds()); }
+    void mouseDown (const juce::MouseEvent& e) override { if (! cardBounds().contains (e.getPosition()) && cancelCb) cancelCb(); }
+    bool keyPressed (const juce::KeyPress& k) override
+    {
+        if (k == juce::KeyPress::escapeKey) { if (cancelCb) cancelCb(); return true; }
+        if (k == juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys::commandModifier, 0)) { if (okCb) okCb (*this); return true; }
+        return false;
+    }
+
+private:
+    struct Item
+    {
+        FieldSpec spec;
+        std::unique_ptr<juce::Label> label;
+        std::unique_ptr<juce::TextEditor> editor;
+        std::unique_ptr<juce::ToggleButton> toggle;
+    };
+
+    static int measure (const juce::String& s)
+    {
+        juce::GlyphArrangement ga;
+        ga.addLineOfText (juce::Font (juce::FontOptions (14.0f, juce::Font::bold)), s, 0.0f, 0.0f);
+        return (int) std::ceil (ga.getBoundingBox (0, -1, true).getWidth());
+    }
+
+    int contentHeight() const
+    {
+        int h = pad + 24 + (subtitle.isNotEmpty() ? 18 : 0) + 14;
+        for (auto& it : items) h += it->spec.toggle ? (26 + 12) : (15 + 3 + (it->spec.multiline ? 68 : 28) + 12);
+        return h + 8 + 34 + pad;
+    }
+
+    juce::Rectangle<int> cardBounds() const
+    {
+        return getLocalBounds().withSizeKeepingCentre (juce::jmin (460, getWidth() - 40),
+                                                       juce::jmin (contentHeight(), getHeight() - 40));
+    }
+
+    static constexpr int pad = 22;
+    juce::String title, subtitle;
+    std::vector<std::unique_ptr<Item>> items;
+    juce::TextButton okBtn, cancelBtn;
+    std::function<void (FormDialog&)> okCb;
+    std::function<void ()> cancelCb;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FormDialog)
+};
+
+} // namespace
+
+void MainComponent::presentModal (std::unique_ptr<juce::Component>& slot, juce::Component* dlg)
+{
+    slot.reset (dlg);
+    addAndMakeVisible (dlg);
+    dlg->setBounds (getLocalBounds());
+    dlg->enterModalState (false);
+}
+
 void MainComponent::showRemoteMenu()
 {
     // Collaboration: remotes + fetch / pull / push. Network ops run off the message thread
@@ -4039,22 +4239,24 @@ void MainComponent::showRemoteMenu()
         {
             if (r == 1)
             {
-                auto* w = new juce::AlertWindow ("Add remote", "Name (e.g. origin) and URL:", juce::MessageBoxIconType::NoIcon);
-                w->addTextEditor ("name", "origin");
-                w->addTextEditor ("url", "");
-                w->addButton ("Add", 1, juce::KeyPress (juce::KeyPress::returnKey));
-                w->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-                w->enterModalState (true, juce::ModalCallbackFunction::create ([this, w, dir] (int res)
-                {
-                    const auto name = w->getTextEditorContents ("name");
-                    const auto url  = w->getTextEditorContents ("url");
-                    delete w;
-                    if (res == 1 && name.trim().isNotEmpty() && url.trim().isNotEmpty())
+                auto dismiss = [this] { juce::MessageManager::callAsync ([this] { formDialog.reset(); }); };
+                std::vector<FormDialog::FieldSpec> fields {
+                    { "name", "REMOTE NAME", "origin", "e.g. origin" },
+                    { "url",  "URL",         "",       "git@host:user/repo.git" },
+                };
+                presentModal (formDialog, new FormDialog ("Add remote",
+                    "Register a remote to push and pull with.", std::move (fields), "Add",
+                    [this, dir, dismiss] (FormDialog& f)
                     {
-                        auto gr = apiGitAddRemote (dir, name, url);
-                        if (! gr.ok) juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Git", gr.error);
-                    }
-                }), false);
+                        const auto name = f.getText ("name").trim();
+                        const auto url  = f.getText ("url").trim();
+                        dismiss();
+                        if (name.isNotEmpty() && url.isNotEmpty())
+                        {
+                            auto gr = apiGitAddRemote (dir, name, url);
+                            if (! gr.ok) juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Git", gr.error);
+                        }
+                    }, dismiss));
                 return;
             }
             if (r == 2) { doNet ("Fetching\xe2\x80\xa6", [this, dir, remote] { return apiGitFetch (dir, remote); }, false); return; }
@@ -4079,26 +4281,26 @@ void MainComponent::showGitSettings()
     const auto id = apiGitGetIdentity (dir);
     const bool autoOn = apiGitGetAutoCommit (dir);
 
-    auto* w = new juce::AlertWindow ("Git settings",
-        "Commit identity for this project, and whether to auto-commit on every save:",
-        juce::MessageBoxIconType::NoIcon);
-    w->addTextEditor ("name", id.name, "Name");
-    w->addTextEditor ("email", id.email, "Email");
-    w->addComboBox ("autocommit", { "Off", "On" }, "Auto-commit on save");
-    w->getComboBoxComponent ("autocommit")->setSelectedItemIndex (autoOn ? 1 : 0, juce::dontSendNotification);
-    w->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
-    w->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-    w->enterModalState (true, juce::ModalCallbackFunction::create ([this, w, dir] (int res)
-    {
-        const auto name = w->getTextEditorContents ("name");
-        const auto email = w->getTextEditorContents ("email");
-        const bool ac = w->getComboBoxComponent ("autocommit")->getSelectedItemIndex() == 1;
-        delete w;
-        if (res != 1) return;
-        auto ir = apiGitSetIdentity (dir, name, email);
-        if (! ir.ok) { juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Git settings", ir.error); return; }
-        apiGitSetAutoCommit (dir, ac);
-    }), false);
+    auto dismiss = [this] { juce::MessageManager::callAsync ([this] { formDialog.reset(); }); };
+    std::vector<FormDialog::FieldSpec> fields {
+        { "name",  "NAME",  id.name,  "Your name" },
+        { "email", "EMAIL", id.email, "you@example.com" },
+    };
+    FormDialog::FieldSpec ac; ac.key = "autocommit"; ac.label = "Auto-commit on save";
+    ac.toggle = true; ac.toggleState = autoOn;
+    fields.push_back (ac);
+    presentModal (formDialog, new FormDialog ("Git settings",
+        "Commit identity for this project, plus auto-commit on save.", std::move (fields), "Save",
+        [this, dir, dismiss] (FormDialog& f)
+        {
+            const auto name  = f.getText ("name");
+            const auto email = f.getText ("email");
+            const bool acOn  = f.getToggle ("autocommit");
+            dismiss();
+            auto ir = apiGitSetIdentity (dir, name, email);
+            if (! ir.ok) { juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Git settings", ir.error); return; }
+            apiGitSetAutoCommit (dir, acOn);
+        }, dismiss));
 }
 
 void MainComponent::showConflictMenu()
@@ -4239,16 +4441,14 @@ void MainComponent::showBranchMenu()
             }
             else if (r == 1)                    // new branch from the current commit, then switch to it
             {
-                auto* aw = new juce::AlertWindow ("New branch",
-                    "Name the new branch (created from the current commit).", juce::MessageBoxIconType::NoIcon);
-                aw->addTextEditor ("name", "", "Branch name");
-                aw->addButton ("Create + switch", 1, juce::KeyPress (juce::KeyPress::returnKey));
-                aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-                aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, dir] (int rr)
-                {
-                    if (rr == 1)
+                auto dismiss = [this] { juce::MessageManager::callAsync ([this] { formDialog.reset(); }); };
+                std::vector<FormDialog::FieldSpec> fields { { "name", "BRANCH NAME", "", "e.g. alt-arrangement" } };
+                presentModal (formDialog, new FormDialog ("New branch",
+                    "Created from the current commit, then switched to.", std::move (fields), "Create + switch",
+                    [this, dir, dismiss] (FormDialog& f)
                     {
-                        const auto name = aw->getTextEditorContents ("name").trim();
+                        const auto name = f.getText ("name").trim();
+                        dismiss();
                         if (name.isNotEmpty())
                         {
                             auto res = apiGitBranchCreate (dir, name, {});
@@ -4256,29 +4456,24 @@ void MainComponent::showBranchMenu()
                             if (! res.ok) juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "New branch", res.error);
                             else if (sourceControlWindow != nullptr && sourceControlWindow->isVisible()) openSourceControl();
                         }
-                    }
-                    delete aw;
-                }), false);
+                    }, dismiss));
             }
             else if (r == 2)                    // rename the current branch
             {
                 const auto cur = apiGitBranches (dir).current;
-                auto* aw = new juce::AlertWindow ("Rename branch", "Rename '" + cur + "' to:", juce::MessageBoxIconType::NoIcon);
-                aw->addTextEditor ("name", cur, "New name");
-                aw->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
-                aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-                aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, dir, cur] (int rr)
-                {
-                    if (rr == 1)
+                auto dismiss = [this] { juce::MessageManager::callAsync ([this] { formDialog.reset(); }); };
+                std::vector<FormDialog::FieldSpec> fields { { "name", "NEW NAME", cur, "" } };
+                presentModal (formDialog, new FormDialog ("Rename branch",
+                    "Rename '" + cur + "'.", std::move (fields), "Rename",
+                    [this, dir, cur, dismiss] (FormDialog& f)
                     {
-                        const auto nn = aw->getTextEditorContents ("name").trim();
+                        const auto nn = f.getText ("name").trim();
+                        dismiss();
                         if (nn.isNotEmpty() && nn != cur)
                             if (! apiGitBranchRename (dir, cur, nn).ok)
                                 juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Rename branch",
                                     "Could not rename the branch.");
-                    }
-                    delete aw;
-                }), false);
+                    }, dismiss));
             }
         });
 }
@@ -4341,26 +4536,23 @@ void MainComponent::showTagMenu()
             }
             else if (r == 1)                    // tag this version...
             {
-                auto* aw = new juce::AlertWindow ("Tag this version",
-                    "Name this milestone (e.g. demo, master, album-cut). A description is optional.",
-                    juce::MessageBoxIconType::NoIcon);
-                aw->addTextEditor ("name", "", "Tag name");
-                aw->addTextEditor ("msg", "", "Description (optional)");
-                aw->addButton ("Tag", 1, juce::KeyPress (juce::KeyPress::returnKey));
-                aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-                aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, dir] (int rr)
-                {
-                    if (rr == 1)
+                auto dismiss = [this] { juce::MessageManager::callAsync ([this] { formDialog.reset(); }); };
+                std::vector<FormDialog::FieldSpec> fields { { "name", "TAG NAME", "", "e.g. demo, master, album-cut" } };
+                FormDialog::FieldSpec msgField; msgField.key = "msg"; msgField.label = "DESCRIPTION (OPTIONAL)";
+                msgField.multiline = true; msgField.placeholder = "What is this milestone?";
+                fields.push_back (msgField);
+                presentModal (formDialog, new FormDialog ("Tag this version",
+                    "Bookmark this commit with a memorable name.", std::move (fields), "Create tag",
+                    [this, dir, dismiss] (FormDialog& f)
                     {
-                        const auto name = aw->getTextEditorContents ("name").trim();
-                        const auto msg  = aw->getTextEditorContents ("msg");
+                        const auto name = f.getText ("name").trim();
+                        const auto msg  = f.getText ("msg");
+                        dismiss();
                         if (name.isNotEmpty())
                             if (! apiGitTagCreate (dir, name, msg).ok)
                                 juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
                                     "Tag this version", "Could not create the tag '" + name + "' (does it already exist?).");
-                    }
-                    delete aw;
-                }), false);
+                    }, dismiss));
             }
         });
 }
