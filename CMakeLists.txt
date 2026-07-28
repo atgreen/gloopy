@@ -22,8 +22,9 @@ FetchContent_MakeAvailable(JUCE)
 
 # Enlarge the LV2 host's per-port atom buffer (default 8 KB) so plugins with a
 # large state (e.g. ZynAddSubFX) don't overflow it and spam "out of space".
+# LV2 hosting + this `sed` patch are POSIX-only; skip on Windows (no LV2 host there).
 set(_gloopy_lv2impl "${juce_SOURCE_DIR}/modules/juce_audio_processors_headless/format_types/juce_LV2PluginFormatImpl.h")
-if(EXISTS "${_gloopy_lv2impl}")
+if(NOT WIN32 AND EXISTS "${_gloopy_lv2impl}")
     execute_process(COMMAND sed -i
         "s/sequenceSize = 8192/sequenceSize = 1048576/;s/initialBufferSize = 8192/initialBufferSize = 1048576/"
         "${_gloopy_lv2impl}")
@@ -68,11 +69,18 @@ target_sources(Gloopy PRIVATE
     Source/GloopyLookAndFeel.cpp
     Source/SurgeGenerator.cpp)   # Surge glue; PIMPL stub when GLOOPY_WITH_SURGE is off
 
+# Plugin-host formats by platform: VST3 everywhere; LV2 on Linux/macOS only
+# (LV2 hosting is niche on Windows, and its build path pulls in POSIX-isms).
+if(WIN32)
+    set(_gloopy_host_lv2 0)
+else()
+    set(_gloopy_host_lv2 1)
+endif()
 target_compile_definitions(Gloopy PUBLIC
     JUCE_WEB_BROWSER=0            # no webkit dependency
     JUCE_USE_CURL=0              # no libcurl dependency
-    JUCE_PLUGINHOST_VST3=1        # host VST3 plugins
-    JUCE_PLUGINHOST_LV2=1         # host LV2 plugins
+    JUCE_PLUGINHOST_VST3=1        # host VST3 plugins (all platforms)
+    JUCE_PLUGINHOST_LV2=${_gloopy_host_lv2}   # host LV2 plugins (Linux/macOS)
     JUCE_PLUGINHOST_AU=0
     JUCE_APPLICATION_NAME_STRING="Gloopy"        # display name stays capitalised
     JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:Gloopy,JUCE_VERSION>"
@@ -92,11 +100,24 @@ target_link_libraries(Gloopy PRIVATE
 # Use Fedora's protoc/grpc_cpp_plugin (matches the system libprotobuf), NOT a
 # stray protoc from PATH, to avoid codegen/runtime version mismatches.
 # ---------------------------------------------------------------------------
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GRPCPP   REQUIRED IMPORTED_TARGET grpc++)
-pkg_check_modules(PROTOBUF REQUIRED IMPORTED_TARGET protobuf)
-find_program(GLOOPY_PROTOC       protoc          HINTS /usr/bin /usr/local/bin NO_DEFAULT_PATH)
-find_program(GLOOPY_GRPC_PLUGIN  grpc_cpp_plugin HINTS /usr/bin /usr/local/bin NO_DEFAULT_PATH)
+if(WIN32)
+    # Windows (CI): gRPC + protobuf come from vcpkg as CMake config packages, not
+    # pkg-config. protoc + the grpc_cpp_plugin are imported executable targets.
+    # NOTE: this branch is exercised by the Windows CI workflow (.github/workflows/windows.yml)
+    # and is not built on Linux/macOS, which keep the pkg-config path below.
+    find_package(protobuf CONFIG REQUIRED)
+    find_package(gRPC     CONFIG REQUIRED)
+    set(GLOOPY_PROTOC      $<TARGET_FILE:protobuf::protoc>)
+    set(GLOOPY_GRPC_PLUGIN $<TARGET_FILE:gRPC::grpc_cpp_plugin>)
+    set(GLOOPY_GRPC_LIBS   gRPC::grpc++ protobuf::libprotobuf)
+else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GRPCPP   REQUIRED IMPORTED_TARGET grpc++)
+    pkg_check_modules(PROTOBUF REQUIRED IMPORTED_TARGET protobuf)
+    find_program(GLOOPY_PROTOC       protoc          HINTS /usr/bin /usr/local/bin NO_DEFAULT_PATH)
+    find_program(GLOOPY_GRPC_PLUGIN  grpc_cpp_plugin HINTS /usr/bin /usr/local/bin NO_DEFAULT_PATH)
+    set(GLOOPY_GRPC_LIBS PkgConfig::GRPCPP PkgConfig::PROTOBUF)
+endif()
 
 set(GLOOPY_PROTO ${CMAKE_CURRENT_SOURCE_DIR}/proto/gloopy.proto)
 set(GLOOPY_GEN   ${CMAKE_CURRENT_BINARY_DIR}/gen)
@@ -119,7 +140,7 @@ target_sources(Gloopy PRIVATE
     ${GLOOPY_GEN}/gloopy.grpc.pb.cc
     Source/GrpcServer.cpp)
 target_include_directories(Gloopy PRIVATE ${GLOOPY_GEN})
-target_link_libraries(Gloopy PRIVATE PkgConfig::GRPCPP PkgConfig::PROTOBUF)
+target_link_libraries(Gloopy PRIVATE ${GLOOPY_GRPC_LIBS})
 
 # ---------------------------------------------------------------------------
 # Vendored sfizz (third_party/sfizz) — the native SFZ engine, built as a static
@@ -210,8 +231,9 @@ if(GLOOPY_WITH_SURGE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-d
 endif()
 # Bundled Surge XT LV2 plugin (built by scripts/build-surge-plugin.sh) — shipped beside the
 # binary so "+ Synth -> Surge XT (full editor)" works with no external install; PluginHost
-# adds <exeDir>/plugins to its scan path.
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-plugin")
+# adds <exeDir>/plugins to its scan path. The vendored bundle is a Linux .lv2; skip on
+# Windows, which hosts VST3 only (a Windows Surge VST3 would be bundled by the CI build).
+if(NOT WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-plugin")
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-plugin/
         DESTINATION bin/plugins)
 endif()

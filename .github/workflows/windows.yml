@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2026 Anthony Green <green@moxielogic.com>
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# Windows build (Wave 10 #32). CI-native: MSVC + vcpkg for gRPC/protobuf.
+# Builds a lean Gloopy.exe (GLOOPY_WITH_SURGE=OFF — the Linux .lv2 Surge bundle
+# and pkg-config paths are Linux-only; see the CMake WIN32 guards), then proves it
+# renders a non-silent, bit-reproducible WAV headlessly (no display needed).
+#
+# NOTE: this workflow is the initial Windows port and is expected to iterate on the
+# GitHub Windows runner (vcpkg gRPC resolution + MSVC codegen quirks) — it cannot be
+# validated from the Linux dev box. The core render proof reuses the same
+# scripts/check-render-determinism.sh the Linux CI runs, via Git Bash.
+name: Windows
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # gRPC + protobuf via the vcpkg pre-installed on the runner ($VCPKG_ROOT).
+      # This is the long pole; grpc pulls protobuf/abseil/re2/c-ares/zlib/openssl.
+      - name: Install gRPC (vcpkg)
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_ROOT/vcpkg.exe" install grpc:x64-windows
+
+      - name: Configure
+        shell: pwsh
+        run: >
+          cmake -B build -G "Visual Studio 17 2022" -A x64
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+          -DGLOOPY_WITH_SURGE=OFF -DGLOOPY_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Unit tests (ctest)
+        run: ctest --test-dir build --build-config Release --output-on-failure
+
+      # Boot + render proof: bounce an example project twice offline and assert the
+      # output WAV is byte-identical (non-silent + bit-reproducible). Git Bash ships
+      # sha256sum/mktemp on windows-latest. The .exe lives in the multi-config Release dir.
+      - name: Render proof (headless)
+        shell: bash
+        env:
+          GLOOPY_BIN: build/Gloopy_artefacts/Release/gloopy.exe
+        run: bash scripts/check-render-determinism.sh

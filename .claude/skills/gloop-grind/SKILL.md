@@ -2094,19 +2094,24 @@ is the proof.
     the right headless proof for a toolchain slice), and the GUI renders on Xvfb (screenshot: full
     transport / toolbar / instrument track / STEPS editor, identical to 8.x). No new warnings we
     introduced (the pre-existing sign-conversion/shadow warnings in our own headers are unchanged).
-32. **Windows build (cross-build or CI-native).** ✦ **L**
-    Gloopy is Linux-first today; make a Windows binary. *✦ Fork:* **(a) true cross-compile from
-    Linux with `mingw-w64`** (a CMake toolchain file + cross-built gRPC/protobuf, sfizz, surge,
-    JUCE) — self-contained but the dependency chain (gRPC especially) is painful to cross-build;
-    or **(b) CI-native Windows build** (a GitHub-Actions `windows` runner + MSVC/clang-cl, `vcpkg`
-    or FetchContent for gRPC/protobuf) — the pragmatic path, and it also gets us Windows CI.
-    **Recommend (b) first** (real Windows toolchain, standard for JUCE apps), keep (a) as a
-    stretch. Platform notes to resolve in the slice: **VST3 is the Windows plugin format** — set
-    `JUCE_PLUGINHOST_VST3=1`, likely `JUCE_PLUGINHOST_LV2=0` on Windows (LV2 hosting is niche
-    there); path handling (backslashes, `%APPDATA%` for presets/plugin cache) already goes through
-    `juce::File`, but audit our env-var / sample-path resolvers; the **git-PM epic (#30)** must
-    find `git.exe` (detection already probes `PATH`). *Done when:* a Windows Gloopy.exe builds in
-    CI, boots, hosts a VST3, and renders a non-silent WAV (the smoke assertion) on Windows.
+32. **Windows build (CI-native).** ✦ **L** — `[~]` **PARTIAL: groundwork + CI scaffold landed
+    (commit); green-Windows proof pending CI iteration** (can't build Windows on the Linux dev box).
+    Chose fork **(b) CI-native** (GitHub-Actions `windows-latest` + MSVC + vcpkg for gRPC/protobuf).
+    **Landed + verified on Linux (didn't regress the green platform):** the **CMake Windows-portability
+    guards** — plugin hosting is now VST3-everywhere / **LV2 Linux+macOS-only** (`JUCE_PLUGINHOST_LV2`
+    gated by `if(WIN32)`); the POSIX `sed` that enlarges the LV2 atom buffer is skipped on Windows;
+    the vendored Linux `.lv2` Surge bundle is `install()`-guarded off Windows; and gRPC/protobuf
+    discovery **branches** — pkg-config on Linux/macOS (unchanged, verified), **`find_package(gRPC
+    CONFIG)` / `protobuf CONFIG` (vcpkg) on Windows** via `${GLOOPY_GRPC_LIBS}` + imported
+    `protoc`/`grpc_cpp_plugin` targets. **Landed (scaffold, CI-iterated):** `.github/workflows/
+    windows.yml` — vcpkg `grpc:x64-windows` → CMake (VS 2022, `GLOOPY_WITH_SURGE=OFF`) → build →
+    ctest → **render proof** reusing `scripts/check-render-determinism.sh` (bounces a demo twice,
+    asserts a non-silent, bit-reproducible WAV — headless, Git Bash). **The WIN32 CMake branch is
+    isolated (dormant on Linux), so it can't regress the verified platform; the Linux build + 167-PASS
+    smoke stay green.** *Remaining (needs real Windows runners — not doable here):* iterate the vcpkg
+    gRPC resolution + MSVC codegen to a green build; VST3-hosting verification (needs a test VST3 in
+    CI); `%APPDATA%` preset/plugin-cache path audit. *Done when (unchanged):* a Windows Gloopy.exe
+    builds in CI, boots, hosts a VST3, renders a non-silent WAV on Windows.
 
 ### Wave 11 — MCP service (AI agents drive Gloopy over stdio) ✦
 
