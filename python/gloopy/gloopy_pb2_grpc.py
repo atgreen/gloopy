@@ -815,6 +815,36 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.LocationName.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.CopyClipToSessionSlot = channel.unary_unary(
+                '/gloopy.v1.Gloopy/CopyClipToSessionSlot',
+                request_serializer=gloopy__pb2.SessionSlotSrc.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.LaunchSessionClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/LaunchSessionClip',
+                request_serializer=gloopy__pb2.SessionClipRef.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.LaunchSessionScene = channel.unary_unary(
+                '/gloopy.v1.Gloopy/LaunchSessionScene',
+                request_serializer=gloopy__pb2.SessionSceneRef.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.StopSessionTrack = channel.unary_unary(
+                '/gloopy.v1.Gloopy/StopSessionTrack',
+                request_serializer=gloopy__pb2.TrackId.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.StopSessionAll = channel.unary_unary(
+                '/gloopy.v1.Gloopy/StopSessionAll',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GetSessionState = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GetSessionState',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.SessionState.FromString,
+                _registered_method=True)
         self.DefineExportProfile = channel.unary_unary(
                 '/gloopy.v1.Gloopy/DefineExportProfile',
                 request_serializer=gloopy__pb2.ExportProfile.SerializeToString,
@@ -2165,6 +2195,43 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CopyClipToSessionSlot(self, request, context):
+        """session view — clip-launch grid
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def LaunchSessionClip(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def LaunchSessionScene(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StopSessionTrack(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StopSessionAll(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetSessionState(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def DefineExportProfile(self, request, context):
         """export profiles — named render targets
         upsert by name
@@ -3377,6 +3444,36 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.RemoveLocation,
                     request_deserializer=gloopy__pb2.LocationName.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'CopyClipToSessionSlot': grpc.unary_unary_rpc_method_handler(
+                    servicer.CopyClipToSessionSlot,
+                    request_deserializer=gloopy__pb2.SessionSlotSrc.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'LaunchSessionClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.LaunchSessionClip,
+                    request_deserializer=gloopy__pb2.SessionClipRef.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'LaunchSessionScene': grpc.unary_unary_rpc_method_handler(
+                    servicer.LaunchSessionScene,
+                    request_deserializer=gloopy__pb2.SessionSceneRef.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'StopSessionTrack': grpc.unary_unary_rpc_method_handler(
+                    servicer.StopSessionTrack,
+                    request_deserializer=gloopy__pb2.TrackId.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'StopSessionAll': grpc.unary_unary_rpc_method_handler(
+                    servicer.StopSessionAll,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GetSessionState': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetSessionState,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.SessionState.SerializeToString,
             ),
             'DefineExportProfile': grpc.unary_unary_rpc_method_handler(
                     servicer.DefineExportProfile,
@@ -7907,6 +8004,168 @@ class Gloopy:
             '/gloopy.v1.Gloopy/RemoveLocation',
             gloopy__pb2.LocationName.SerializeToString,
             gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CopyClipToSessionSlot(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/CopyClipToSessionSlot',
+            gloopy__pb2.SessionSlotSrc.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def LaunchSessionClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/LaunchSessionClip',
+            gloopy__pb2.SessionClipRef.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def LaunchSessionScene(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/LaunchSessionScene',
+            gloopy__pb2.SessionSceneRef.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StopSessionTrack(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/StopSessionTrack',
+            gloopy__pb2.TrackId.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StopSessionAll(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/StopSessionAll',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetSessionState(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GetSessionState',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.SessionState.FromString,
             options,
             channel_credentials,
             insecure,

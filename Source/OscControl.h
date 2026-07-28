@@ -30,6 +30,11 @@ public:
         Transport*                                transport = nullptr;
         std::function<void ()>                    panic;          // all-notes-off (clear stuck notes)
         std::function<void (const juce::String&)> log;            // optional
+        // session view (clip-launch grid) — live triggers
+        std::function<void (int, int)>            sessionLaunch;  // (track_id, scene)
+        std::function<void (int)>                 sessionStop;    // (track_id) -> back to arrangement
+        std::function<void (int)>                 sessionScene;   // (scene) -> launch the whole row
+        std::function<void ()>                    sessionStopAll;
     };
 
     explicit OscControl (Hooks h) : hooks (std::move (h)) {}
@@ -88,6 +93,20 @@ private:
         if (parts[1] == "insert" && parts.size() >= 4
               && (parts[3] == "vol" || parts[3] == "pan" || parts[3] == "mute"))
             return handleInsertParam (parts[2].getIntValue(), parts[3], m);
+        if (parts[1] == "session")
+            return handleSession (parts, m);
+    }
+
+    // /gloopy/session/launch <track_id> <scene> | /session/stop <track_id> | /session/scene <scene> | /session/stopall
+    void handleSession (const juce::StringArray& p, const juce::OSCMessage& m)
+    {
+        if (p.size() < 3) return;
+        const auto& cmd = p[2];
+        if      (cmd == "launch"  && m.size() >= 2 && hooks.sessionLaunch)  hooks.sessionLaunch (argI (m[0]), argI (m[1]));
+        else if (cmd == "stop"    && m.size() >= 1 && hooks.sessionStop)    hooks.sessionStop (argI (m[0]));
+        else if (cmd == "scene"   && m.size() >= 1 && hooks.sessionScene)   hooks.sessionScene (argI (m[0]));
+        else if (cmd == "stopall"                  && hooks.sessionStopAll) hooks.sessionStopAll();
+        if (hooks.log) hooks.log ("session " + cmd);
     }
 
     void handleTransport (const juce::StringArray& p, const juce::OSCMessage& m)

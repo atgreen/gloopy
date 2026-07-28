@@ -1885,8 +1885,26 @@ render-wiring design in `docs/session-view.md`.
       bottom **Device View** for the selected track's chain.
     - `[x]` **Slice 4 — session recording:** arm + launch an empty slot records live MIDI into
       it; **session → arrangement** capture (record a session take, copy a clip to the timeline).
-    - `[ ]` **Slice 5 — control API:** OSC + gRPC launch clip/scene, stop, query session state
-      (the one place this epic is still API-*un*reachable — do this next per principle 1).
+    - `[x]` **Slice 5 — control API LANDED** (`Source/SessionApi.cpp`, commit): the clip-launch grid
+      is now reachable over gRPC + OSC (it was GUI-only — a principle-1 violation, now closed). New
+      `apiCopyClipToSessionSlot` (populate a slot from an arrangement clip — grows the grid),
+      `apiSessionLaunchClip`/`apiSessionLaunchScene`/`apiSessionStopTrack`/`apiSessionStopAll` (thin
+      wrappers over the existing `SessionLauncher` request queue, message-thread + engineLock so they
+      never race the audio thread's `advance()`), and `apiGetSessionState` (per-track playing/pending
+      slot, scenes, launch quantum, anyPlaying). RPCs CopyClipToSessionSlot/LaunchSessionClip/
+      LaunchSessionScene/StopSessionTrack/StopSessionAll/GetSessionState (SessionSlotSrc/SessionClipRef/
+      SessionSceneRef/SessionState) + `/gloopy/session/{launch,stop,scene,stopall}` OSC lanes + Python
+      client (copy_clip_to_session_slot / session_launch_clip / session_launch_scene /
+      session_stop_track / session_stop_all / session_state). Launches are QUEUED — the launcher fires
+      them at a quantum boundary during playback (its firing logic is unit-tested in
+      SessionLauncherTests), so the control API's job is to queue + report, which the state query
+      proves. smoke (isolated via a SaveProject/LoadProject snapshot): add a synth track + arrangement
+      clip → CopyClipToSessionSlot to scene 1 → GetSessionState shows slots=2/scenes=2/pending=-2(none)
+      → LaunchSessionClip scene1 → pending=1 → StopSessionTrack → pending=-1(stop) → StopSessionAll →
+      LaunchSessionScene 1 → pending=1 (scene 1 uses a non-zero value to dodge proto3-omits-zero on
+      `pending`). Desktop UI already exists (the SessionView grid IS the control). Manual model doc
+      notes the grid is scriptable; mkdocs --strict green. *Done-when met: OSC + gRPC launch clip/scene,
+      stop, query session state.*
     - `[ ]` **Slice 6 — polish:** clip colours in the grid, follow-actions, capture, a
       launch-quantize menu, launch-mode indicators.
 

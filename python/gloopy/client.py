@@ -778,6 +778,37 @@ class Gloopy:
     def remove_location(self, name: str) -> None:
         self._ack(self.stub.RemoveLocation(pb.LocationName(name=name)))
 
+    # -- session view (clip-launch grid) ----------------------------------
+
+    def copy_clip_to_session_slot(self, track_id: int, clip_index: int, scene: int) -> None:
+        """Populate a session slot from an existing arrangement clip (grows the grid)."""
+        self._ack(self.stub.CopyClipToSessionSlot(
+            pb.SessionSlotSrc(track_id=track_id, clip_index=clip_index, scene=scene)))
+
+    def session_launch_clip(self, track_id: int, scene: int) -> None:
+        """Queue a clip launch (fires at the next launch-quantum boundary during playback)."""
+        self._ack(self.stub.LaunchSessionClip(pb.SessionClipRef(track_id=track_id, scene=scene)))
+
+    def session_launch_scene(self, scene: int) -> None:
+        """Queue a scene (row) launch — every occupied slot in the row fires."""
+        self._ack(self.stub.LaunchSessionScene(pb.SessionSceneRef(scene=scene)))
+
+    def session_stop_track(self, track_id: int) -> None:
+        """Queue a stop on one track (back to arrangement playback)."""
+        self._ack(self.stub.StopSessionTrack(pb.TrackId(id=track_id)))
+
+    def session_stop_all(self) -> None:
+        self._ack(self.stub.StopSessionAll(pb.Empty()))
+
+    def session_state(self) -> dict:
+        """Per-track playing/pending slot + scene count + launch quantum.
+
+        playing: -1 arrangement / >=0 scene; pending: -2 none / -1 stop / >=0 scene."""
+        r = self.stub.GetSessionState(pb.Empty())
+        return {"scenes": r.scenes, "quantum_beats": r.quantum_beats, "any_playing": r.any_playing,
+                "tracks": [{"track_id": t.track_id, "playing": t.playing,
+                            "pending": t.pending, "slots": t.slots} for t in r.tracks]}
+
     # -- export profiles (named render targets) ---------------------------
     def define_export_profile(self, name: str, target: str = "mix", range_name: str = "",
                               track_id: int = 0, format: str = "wav",

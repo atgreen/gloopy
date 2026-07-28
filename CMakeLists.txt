@@ -47,6 +47,7 @@ target_sources(Gloopy PRIVATE
     Source/Presets.cpp
     Source/Parameters.cpp
     Source/Locations.cpp
+    Source/SessionApi.cpp
     Source/Exports.cpp
     Source/Cli.cpp
     Source/Mcp.cpp

@@ -788,6 +788,26 @@ namespace
         { const bool ok = main.apiRemoveLocation (js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("location not found"); return Status::OK; }
 
+        // ---- session view (clip-launch grid) ----
+        Status CopyClipToSessionSlot (ServerContext*, const pb::SessionSlotSrc* q, pb::Ack* r) override
+        { const bool ok = main.apiCopyClipToSessionSlot (q->track_id(), q->clip_index(), q->scene());
+          r->set_ok (ok); if (! ok) r->set_error ("no such clip or track"); return Status::OK; }
+        Status LaunchSessionClip (ServerContext*, const pb::SessionClipRef* q, pb::Ack* r) override
+        { const bool ok = main.apiSessionLaunchClip (q->track_id(), q->scene());
+          r->set_ok (ok); if (! ok) r->set_error ("empty slot or unknown track"); return Status::OK; }
+        Status LaunchSessionScene (ServerContext*, const pb::SessionSceneRef* q, pb::Ack* r) override
+        { r->set_ok (main.apiSessionLaunchScene (q->scene())); return Status::OK; }
+        Status StopSessionTrack (ServerContext*, const pb::TrackId* q, pb::Ack* r) override
+        { r->set_ok (main.apiSessionStopTrack (q->id())); return Status::OK; }
+        Status StopSessionAll (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        { r->set_ok (main.apiSessionStopAll()); return Status::OK; }
+        Status GetSessionState (ServerContext*, const pb::Empty*, pb::SessionState* r) override
+        { auto s = main.apiGetSessionState();
+          r->set_scenes (s.scenes); r->set_quantum_beats (s.quantumBeats); r->set_any_playing (s.anyPlaying);
+          for (auto& t : s.tracks) { auto* o = r->add_tracks(); o->set_track_id (t.trackId);
+              o->set_playing (t.playing); o->set_pending (t.pending); o->set_slots (t.slots); }
+          return Status::OK; }
+
         // ---- export profiles ----
         Status DefineExportProfile (ServerContext*, const pb::ExportProfile* q, pb::Ack* r) override
         { const bool ok = main.apiDefineExportProfile (js (q->name()), js (q->target()), js (q->range_name()),

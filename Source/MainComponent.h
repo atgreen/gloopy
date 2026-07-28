@@ -442,6 +442,15 @@ public:
     bool apiRemoveScene (int scene);                           // remove a scene row (all tracks)
     int  sceneCount() const { return (int) scenes.size(); }
     bool apiSetSessionClip (int trackId, int scene, const Clip& clip);   // put a clip in a slot (grows scenes)
+    // --- session-view control API (SessionApi.cpp): drive the clip-launch grid headlessly ---
+    struct SessionTrackSnap { int trackId, playing, pending, slots; };   // playing: -1 arrangement / >=0 scene; pending: -2 none / -1 stop / >=0 scene
+    struct SessionSnap { std::vector<SessionTrackSnap> tracks; int scenes; double quantumBeats; bool anyPlaying; };
+    bool apiCopyClipToSessionSlot (int trackId, int clipIndex, int scene);   // populate a slot from an arrangement clip
+    bool apiSessionLaunchClip  (int trackId, int scene);   // queue a clip launch (false if the slot is empty / track missing)
+    bool apiSessionLaunchScene (int scene);                // queue a scene (row) launch — fires every occupied slot
+    bool apiSessionStopTrack   (int trackId);              // queue a stop (back to arrangement) on one track
+    bool apiSessionStopAll();                              // queue a stop on every track
+    SessionSnap apiGetSessionState();                      // per-track playing/pending slot + scenes + launch quantum
     bool apiClearSessionSlot (int trackId, int scene);         // empty a slot
     bool apiLaunchClip (int trackId, int scene);               // queue-launch a slot (quantized)
     bool apiStopTrackClip (int trackId);                       // queue-stop a track (back to arrangement)

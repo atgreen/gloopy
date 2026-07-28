@@ -1037,6 +1037,10 @@ MainComponent::MainComponent (bool headless)
         h.transport    = &transport;
         h.panic        = [this] { apiPanic(); };
         h.log          = [] (const juce::String& s) { std::cout << "[osc] " << s << std::endl; };
+        h.sessionLaunch  = [this] (int t, int s) { apiSessionLaunchClip (t, s); };
+        h.sessionStop    = [this] (int t)        { apiSessionStopTrack (t); };
+        h.sessionScene   = [this] (int s)        { apiSessionLaunchScene (s); };
+        h.sessionStopAll = [this]                { apiSessionStopAll(); };
         osc = std::make_unique<OscControl> (h);
         const int oscPort = 9000;
         if (osc->start (oscPort))

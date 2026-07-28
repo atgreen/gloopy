@@ -2440,6 +2440,31 @@ print('smoke: PASS — MCP render/preset ran a named profile and wrote %s'%os.pa
 " || { echo "smoke: MCP render/preset wrong" >&2; exit 1; }
 g -d "{\"path\":\"$WORK/mcp-rp-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 
+# Session-view control API (Wave 8 slice 5): the clip-launch grid is now reachable over gRPC.
+# Populate a session slot from an arrangement clip, then launch/stop and read back the state.
+# Launches are QUEUED (the launcher fires them at a quantum boundary during playback, unit-tested
+# separately) — here we assert the requests reach the engine via the pending-slot state. Scene 1
+# (not 0) dodges proto3-omits-zero on `pending`. Isolated via a SaveProject/LoadProject snapshot.
+g -d "{\"path\":\"$WORK/sess-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+SESSTID=$(g -d '{"name":"Sess","attack":0.01,"decay":0.1,"sustain":0.8,"release":0.2,"gain":0.8}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | grep -oE '"id": *[0-9]+' | grep -oE '[0-9]+')
+g -d "{\"track_id\":$SESSTID,\"start_beat\":0,\"length_beats\":2,\"content_len_beats\":2,\"looped\":true,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":1,\"velocity\":0.9}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"track_id\":$SESSTID,\"clip_index\":0,\"scene\":1}" 127.0.0.1:$PORT gloopy.v1.Gloopy/CopyClipToSessionSlot >/dev/null
+sess_pending () { g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetSessionState \
+    | python3 -c "import json,sys; d=json.load(sys.stdin); t=[x for x in d.get('tracks',[]) if x.get('trackId')==$SESSTID][0]; print(t.get('pending',-2), t.get('slots',0))"; }
+POP=$(sess_pending); LAUNCH=$(g -d "{\"track_id\":$SESSTID,\"scene\":1}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LaunchSessionClip >/dev/null; sess_pending)
+STOP=$(g -d "{\"id\":$SESSTID}" 127.0.0.1:$PORT gloopy.v1.Gloopy/StopSessionTrack >/dev/null; sess_pending)
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/StopSessionAll >/dev/null
+SCENE=$(g -d '{"scene":1}' 127.0.0.1:$PORT gloopy.v1.Gloopy/LaunchSessionScene >/dev/null; sess_pending)
+python3 -c "
+pop='$POP'.split(); launch='$LAUNCH'.split(); stop='$STOP'.split(); scene='$SCENE'.split()
+assert pop==['-2','2'], 'after populate: pending=-2(none), slots=2 expected, got %r'%pop
+assert launch[0]=='1', 'LaunchSessionClip scene1 -> pending 1 expected, got %r'%launch
+assert stop[0]=='-1', 'StopSessionTrack -> pending -1(stop) expected, got %r'%stop
+assert scene[0]=='1', 'LaunchSessionScene 1 -> pending 1 expected, got %r'%scene
+print('smoke: PASS — session control API: populate slot (2 scenes), launch/stop clip + scene queue via pending state')
+" || { echo "smoke: session control API wrong" >&2; exit 1; }
+g -d "{\"path\":\"$WORK/sess-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+
 # MIDI file export/import round-trip (last — import resets the project). Export the
 # loaded project to an SMF, reimport into a fresh project, and confirm notes survive
 # as playable clips.
