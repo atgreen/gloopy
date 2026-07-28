@@ -1,0 +1,118 @@
+# Gloopy manual — Material for MkDocs.
+# Strategy: docs-as-code, Diátaxis, two front doors (User guide / Control & scripting).
+# Build:   pip install -r requirements-docs.txt && mkdocs serve
+# Deploy:  handled in CI by `mike` (see .github/workflows/docs.yml).
+
+site_name: Gloopy
+site_description: A linear-arranger DAW with an OSC + gRPC control API.
+repo_url: https://cave.moxielogic.com/atgreen/gloopy
+repo_name: atgreen/gloopy
+# Gitea edit link (mirrors GitHub's _edit/<branch>/<path>).
+edit_uri: _edit/main/docs/
+# site_url: set once the published host is known (Gitea Pages / static host).
+# site_url: https://cave.moxielogic.com/atgreen/gloopy/
+copyright: Copyright © 2026 Anthony Green — docs under AGPL-3.0, like the code.
+
+theme:
+  name: material
+  # Echoes Gloopy's own dark theme: charcoal + teal accent (Palette.h).
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+  features:
+    - navigation.tabs        # top-level split: the two front doors
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes     # section index.md pages
+    - toc.follow
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+    - search.highlight
+
+plugins:
+  - search
+  # Python client reference is pulled live from docstrings at build time —
+  # this is the reason we chose MkDocs (no pre-generation step). See §2 of the
+  # documentation strategy.
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [python]          # the `gloopy` package lives in python/
+          options:
+            docstring_style: google
+            show_source: false
+            members_order: source
+  # Versioned deploys. Docs versions track the *protocol* version, not just the
+  # app version (strategy §5). `mike` is driven from CI, not run locally.
+  # - mike
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets
+
+# The design records already in docs/ (PRD, ROADMAP, session-view, surge-embed,
+# the older CONTROL-API spec) are internal notes, not the manual. Keep them in the
+# repo but out of the built site — they have links to source files that aren't
+# part of the docs tree.
+exclude_docs: |
+  PRD.md
+  ROADMAP.md
+  session-view.md
+  surge-embed.md
+  CONTROL-API.md
+  surge/
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+
+# Two front doors, one conceptual core (strategy §3).
+nav:
+  - Home: index.md
+  - User guide:
+      - user-guide/index.md
+      - Tutorials:
+          - Your first track: user-guide/tutorials/first-track.md
+      - How-to guides: user-guide/how-to/index.md
+      - Explanation: user-guide/explanation/index.md
+      - Reference: user-guide/reference/index.md
+  - Control & scripting:
+      - control-scripting/index.md
+      - Concepts:
+          - The Gloopy model: control-scripting/concepts/model.md
+      - Tutorials:
+          - Drive Gloopy from Python: control-scripting/tutorials/python-quickstart.md
+      - How-to guides: control-scripting/how-to/index.md
+      - Reference:
+          - control-scripting/reference/index.md
+          - gRPC API: control-scripting/reference/grpc/index.md
+          - OSC address space: control-scripting/reference/osc/index.md
+          - Python client: control-scripting/reference/python/index.md
+          - Common Lisp client: control-scripting/reference/lisp/index.md
+      - Explanation: control-scripting/explanation/index.md
+  - Writing docs: meta/documentation-guidelines.md

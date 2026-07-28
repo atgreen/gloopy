@@ -1,0 +1,75 @@
+# Build and publish the Gloopy manual to GitHub Pages, versioned with mike.
+# Strategy: docs-as-code, Material for MkDocs, mike → gh-pages.
+#
+# The four reference generators (buf / OSC schema / 40ants-doc) are not wired up
+# yet — their steps are left commented below so the deploy path works first with
+# hand-written + mkdocstrings (inline) content. Uncomment each as it lands.
+
+name: docs
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "requirements-docs.txt"
+      - "proto/**"
+      - "python/**"
+      - ".github/workflows/docs.yml"
+
+permissions:
+  contents: write   # mike pushes to the gh-pages branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # mike needs full history of gh-pages
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install docs toolchain
+        run: pip install -r requirements-docs.txt
+
+      # Python client must be importable for mkdocstrings to pull its docstrings.
+      - name: Install Python client
+        run: pip install ./python
+
+      # --- reference generators (pending) --------------------------------
+      # - name: gRPC reference (buf → protoc-gen-doc)
+      #   run: buf generate            # writes docs/control-scripting/reference/grpc/
+      # - name: OSC reference (schema → Markdown)
+      #   run: python tools/osc-docs.py osc.yaml docs/control-scripting/reference/osc/
+      # - name: Common Lisp reference (40ants-doc)
+      #   run: sbcl --script tools/build-lisp-docs.lisp
+      # - name: Protocol safety
+      #   run: buf lint && buf breaking --against ".git#tag=$(git describe --tags --abbrev=0 || echo HEAD)"
+      # -------------------------------------------------------------------
+
+      - name: Build (PR check — no deploy)
+        if: github.event_name == 'pull_request'
+        run: mkdocs build --strict
+
+      - name: Configure git for mike
+        if: github.event_name == 'push'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Doc versions track the PROTOCOL version, not the app version.
+      # Tag pushes deploy a named version and move the `latest` alias.
+      - name: Deploy versioned docs
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: mike deploy --push --update-aliases "${GITHUB_REF_NAME#v}" latest
+
+      # Pushes to main publish a rolling "dev" build.
+      - name: Deploy dev docs
+        if: github.ref == 'refs/heads/main'
+        run: mike deploy --push dev

@@ -12,3 +12,14 @@ third_party/surge-plugin/
 
 # Python bytecode (tools/)
 __pycache__/
+
+# Manual (Material for MkDocs). Generated reference output is rebuilt in CI from
+# the source of truth (proto comments, osc.yaml, docstrings) — never committed.
+site/
+.cache/plugin/
+docs/control-scripting/reference/grpc/*
+!docs/control-scripting/reference/grpc/index.md
+docs/control-scripting/reference/osc/*
+!docs/control-scripting/reference/osc/index.md
+docs/control-scripting/reference/lisp/*
+!docs/control-scripting/reference/lisp/index.md
