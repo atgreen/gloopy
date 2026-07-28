@@ -1658,10 +1658,9 @@ each shipping with desktop UI + screenshot validation.
       map's range/bypass/smoothing, device-map files, OSC-lane wiring.
 20. **Product-surface tier** — in-app markdown **project notes** under `notes/`
     (Idea #10); a static-file **localhost web control surface** for transport/mixer/
-    markers/live notes, doubling as an API test client (Ardour #7); an **MCP tool
-    surface** (`session/get_info`, `tracks/list`, `track/add`, `clip/move`,
-    `midi_note/import_json`, `markers/add_range`, `render/preset`) alongside gRPC/OSC
-    (Ardour #5); a **script browser** exposing composition-local + built-in scripts as
+    markers/live notes, doubling as an API test client (Ardour #7); ~~an MCP tool
+    surface~~ (**promoted to its own epic — Wave 11 #33**); a **script browser** exposing
+    composition-local + built-in scripts as
     installable actions that run against the gRPC API — not an embedded VM (Ardour #4).
     **L**, each independent.
     - `[~]` **Project notes landed** (`Source/Notes.cpp`, commit): free-form markdown
@@ -1670,8 +1669,8 @@ each shipping with desktop UI + screenshot validation.
       manifest-referenced). UI: File → "Project Notes..." opens a `TextEditor` window
       synced to the model. NewProject clears it. Verified headless: set → save →
       NewProject clears → reload restores. **UI needs visual eval.** **Not yet:** web
-      surface, MCP surface, script browser (each still independent L slices);
-      notes/ subdir for multiple docs (lyrics/credits split).
+      surface + script browser (each still independent L slices; the MCP surface is now
+      Wave 11 #33); notes/ subdir for multiple docs (lyrics/credits split).
 
 ### Wave 7 — Engine architecture & correctness (lessons from Tracktion Engine) ✦
 
@@ -1994,6 +1993,58 @@ is the proof.
     `juce::File`, but audit our env-var / sample-path resolvers; the **git-PM epic (#30)** must
     find `git.exe` (detection already probes `PATH`). *Done when:* a Windows Gloopy.exe builds in
     CI, boots, hosts a VST3, and renders a non-silent WAV (the smoke assertion) on Windows.
+
+### Wave 11 — MCP service (AI agents drive Gloopy over stdio) ✦
+
+A **stdio MCP (Model Context Protocol) server** so AI agents — Claude Desktop / Claude Code and
+any MCP client — drive Gloopy directly, with no custom client glue. Squarely on the north star
+(the GUI is one client among scripts, CI, and agents) and it *is* principle 5, not a violation:
+the MCP server is a **thin adapter over the existing gRPC control API**, not new engine logic or a
+second scripting VM. Transport = **stdio** (JSON-RPC over stdin/stdout — the local-subprocess
+standard an MCP client launches with a `command` + `args`). Promotes the MCP bullet out of
+Wave 6 #20.
+
+**✦ Design fork — a Python MCP server over the existing gRPC client, first.** Reuse
+`python/gloopy/client.py` + the official MCP Python SDK (FastMCP); ship under `python/gloopy-mcp/`
+with a documented registration snippet. Keep a native **`gloopy mcp` stdio subcommand** (MCP framing
+in C++, zero Python runtime) as a later self-contained option. Either way it's a translation layer:
+MCP tool call → gRPC RPC on a Gloopy instance.
+
+**Connection modes:** **attach** to a running Gloopy (`127.0.0.1:50051` — the GUI the user already
+has open, so the agent and the human share one project) **or spawn a headless** instance for
+batch / agent-only work.
+
+**Tool surface — canonical, task-shaped, mapping to existing RPCs** (the Ardour #5 shape):
+`session/get_info`, `tracks/list`, `track/add`, `clip/add`, `clip/move`, `midi_note/import_json`
++ `export_json` (bulk generative note I/O), `markers/add_range`, `transport/{play,stop,set_tempo}`,
+`render/preset`. Stable IDs from the composition model; every mutating tool is **undoable** in
+Gloopy. Keep outward-facing ops (git push, arbitrary file writes) **out of the initial surface** —
+gate them later.
+
+33. **MCP stdio service.** ✦ **L (multi-session)** *(thin gRPC adapter; each slice is provable by
+    piping a JSON-RPC sequence into the server over stdio and asserting the reply — scriptable,
+    headless.)*
+    - `[ ]` **1 — stdio skeleton + tool discovery.** A FastMCP server that connects to a running
+      Gloopy over gRPC; `initialize` + `tools/list` return the canonical tools; a read-only handful
+      wired (`session/get_info`, `tracks/list`, `transport/set_tempo`). *Done when:* piping
+      initialize → tools/list → tools/call over stdio returns live state, headless.
+    - `[ ]` **2 — mutating tools.** `track/add`, `clip/add` (from a JSON note list), `clip/move`,
+      `markers/add_range` — each a thin gRPC call, undoable. *Done when:* an agent transcript builds
+      a 2-track loop and a render proves it non-silent.
+    - `[ ]` **3 — bulk generative note I/O.** `midi_note/import_json` + `export_json` (reuse
+      `ImportNotesJSON` / `ExportNotesJSON`). *Done when:* import a JSON melody → clip → render;
+      export round-trips.
+    - `[ ]` **4 — render / export tools.** `render/preset` (RunExport by name), range / stem render;
+      returns the file path + a loudness report (reuse the analyze path). *Done when:* `render/preset`
+      writes the expected WAV and returns its path, headless.
+    - `[ ]` **5 — resources + spawn-headless mode.** Expose the current composition (and `docs`
+      model) as MCP **resources** (readable agent context); a `--headless` mode that spawns its own
+      Gloopy for agent-only / batch runs. *Done when:* `resources/list` returns the composition and
+      headless mode drives a render with no GUI.
+    - `[ ]` **6 — packaging + registration (+ native subcommand, stretch).** A `gloopy-mcp` entry
+      point + a documented Claude Desktop / Claude Code MCP config snippet; (stretch) the native
+      `gloopy mcp` stdio subcommand for a Python-free path. *Done when:* a stock MCP client registers
+      the server from the documented snippet and lists Gloopy's tools.
 
 ## Explicitly NOT doing (the guardrails, made concrete)
 
