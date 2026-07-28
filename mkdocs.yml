@@ -122,6 +122,7 @@ nav:
           - control-scripting/how-to/index.md
           - Let an AI agent drive Gloopy (MCP): control-scripting/how-to/mcp-server.md
           - Subscribe to the playhead and meters: control-scripting/how-to/subscribe-playhead-meters.md
+          - Add and control effects from a script: control-scripting/how-to/effects-from-a-script.md
       - Reference:
           - control-scripting/reference/index.md
           - gRPC API: control-scripting/reference/grpc/index.md

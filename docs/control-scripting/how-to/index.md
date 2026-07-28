@@ -11,6 +11,9 @@ Task recipes for driving Gloopy from code or hardware. Each assumes you've read
   API to an assistant over the Model Context Protocol.
 - **[Subscribe to the playhead and meters](subscribe-playhead-meters.md)** — a
   live push feed of transport position and levels, in Python, Lisp, and raw gRPC.
+- **[Add and control effects from a script](effects-from-a-script.md)** — put an
+  effect on a track, set its parameters, bypass it, or host a plugin — Python,
+  Lisp, and grpcurl.
 
 !!! note "Being written"
     Planned guides:
