@@ -1934,11 +1934,20 @@ commit messages are user-authored; auto-commit-on-save is opt-in only.
       composition folder → apiGitInit its dir). smoke: SaveComposition into a fresh dir → GitInit →
       GitStatus is a ready-to-commit repo (is_repo + 15 changed files); screenshot-validated (both
       menu items, Enable Git correctly greyed with no project open).
-    - `[ ]` **3 — stage + commit (user writes the message).** `apiGitAdd(paths | all)` +
-      `apiGitCommit(message, amend?)`. **Desktop:** the IDE commit surface — a message editor + a
-      changed / staged files tree with per-file selection + Stage-all + Amend + Commit; File →
-      "Commit...". *Done when:* edit → stage → commit, `git log` shows the message, headless.
-      (Hunk / line staging is a later stretch.)
+    - `[x]` **3 — stage + commit LANDED** (`Source/Git.cpp`, commit): `apiGitAdd(dir, paths)`
+      (`git add`; empty paths → `-A` stage-all) + `apiGitCommit(dir, message, amend)`
+      (`git commit -m`, `--amend`, `--amend --no-edit` when amending with no new message).
+      Commit reuses the user's own git identity, falling back to a neutral `-c user.email/name`
+      **only when none is configured** (so a fresh machine / CI can commit without clobbering a
+      real id). Empty non-amend message is rejected. GitAdd/GitCommit RPCs (GitAddRequest/
+      GitCommitRequest) + Python `git_add`/`git_commit`. **Desktop:** File → "Commit..."
+      (`showCommitDialog`) saves the composition, lists the changed files with their porcelain
+      status codes, and opens an AlertWindow with a message field + Commit / Amend / Cancel;
+      refreshes the Source Control window after. smoke: GitAdd → GitCommit "smoke commit" → the
+      message is in `git log`, the tree goes clean, and an empty-message commit is rejected.
+      Screenshot-validated end-to-end (the dialog listing `M gloopy.toml` / `M mixer/inserts.toml`
+      / `M params.toml` / `?? tracks/bass.toml` for a newly-added track — the readable-diff payoff).
+      **Not yet:** per-file / hunk staging (dialog stages all for now); a multiline message editor.
     - `[ ]` **4 — history / commit graph.** `apiGitLog(dir, n)` → commits {hash, parents, refs
       (branch / tag), author, date, subject}. **Desktop:** a History panel drawing the **DAG** with
       per-commit diff + a path / text filter. *Done when:* the log returns the parent-linked series

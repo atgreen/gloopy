@@ -870,6 +870,16 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.GitDir.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.GitAdd = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitAdd',
+                request_serializer=gloopy__pb2.GitAddRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitCommit = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitCommit',
+                request_serializer=gloopy__pb2.GitCommitRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.NewProject = channel.unary_unary(
                 '/gloopy.v1.Gloopy/NewProject',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -2080,6 +2090,20 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GitAdd(self, request, context):
+        """stage files (empty paths = stage all)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitCommit(self, request, context):
+        """commit staged changes with a message
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def NewProject(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -3050,6 +3074,16 @@ def add_GloopyServicer_to_server(servicer, server):
             'GitInit': grpc.unary_unary_rpc_method_handler(
                     servicer.GitInit,
                     request_deserializer=gloopy__pb2.GitDir.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitAdd': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitAdd,
+                    request_deserializer=gloopy__pb2.GitAddRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitCommit': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitCommit,
+                    request_deserializer=gloopy__pb2.GitCommitRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'NewProject': grpc.unary_unary_rpc_method_handler(
@@ -7662,6 +7696,60 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/GitInit',
             gloopy__pb2.GitDir.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitAdd(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitAdd',
+            gloopy__pb2.GitAddRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitCommit(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitCommit',
+            gloopy__pb2.GitCommitRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

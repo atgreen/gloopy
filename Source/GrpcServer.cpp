@@ -545,6 +545,22 @@ namespace
             if (! res.ok) r->set_error (res.error.toStdString());
             return Status::OK;
         }
+        Status GitAdd (ServerContext*, const pb::GitAddRequest* q, pb::Ack* r) override
+        {
+            juce::StringArray paths;
+            for (const auto& p : q->paths()) paths.add (js (p));
+            auto res = main.apiGitAdd (js (q->dir()), paths);
+            r->set_ok (res.ok);
+            if (! res.ok) r->set_error (res.error.toStdString());
+            return Status::OK;
+        }
+        Status GitCommit (ServerContext*, const pb::GitCommitRequest* q, pb::Ack* r) override
+        {
+            auto res = main.apiGitCommit (js (q->dir()), js (q->message()), q->amend());
+            r->set_ok (res.ok);
+            if (! res.ok) r->set_error (res.error.toStdString());
+            return Status::OK;
+        }
 
         // ---- project / state ----
         Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override

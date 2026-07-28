@@ -942,6 +942,14 @@ class Gloopy:
         """Turn a folder into a git repository (`git init`); creates the folder if needed."""
         self._ack(self.stub.GitInit(pb.GitDir(dir=dir)))
 
+    def git_add(self, dir: str, paths: list[str] | None = None) -> None:
+        """Stage changes in `dir` (all of them when `paths` is omitted)."""
+        self._ack(self.stub.GitAdd(pb.GitAddRequest(dir=dir, paths=paths or [])))
+
+    def git_commit(self, dir: str, message: str, amend: bool = False) -> None:
+        """Commit staged changes in `dir` with `message` (reuses your git identity)."""
+        self._ack(self.stub.GitCommit(pb.GitCommitRequest(dir=dir, message=message, amend=amend)))
+
     def diagnostics(self) -> dict:
         """Engine health: device settings, callback timing, DSP load, dropouts, render speed."""
         d = self.stub.GetDiagnostics(pb.Empty())

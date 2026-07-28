@@ -210,8 +210,11 @@ public:
     bool apiGitAvailable (juce::String& version);       // true + fills version if git is on PATH
     GitStatusSnap apiGitStatus (const juce::String& dirOverride = {});   // empty = the open project's dir
     GitResult apiGitInit (const juce::String& dir);     // git init a folder (creating it if needed)
+    GitResult apiGitAdd (const juce::String& dir, const juce::StringArray& paths);   // stage (empty = all)
+    GitResult apiGitCommit (const juce::String& dir, const juce::String& message, bool amend);
     juce::String gitStatusReport();                     // human-readable status text (Git.cpp)
     void openSourceControl();                           // UI: a Source Control status window (MainComponent.cpp)
+    void showCommitDialog();                            // UI: stage-all + commit dialog (MainComponent.cpp)
 
     // --- waveform thumbnail cache (Waveform.cpp) ---
     // Min/max peaks per bucket for an audio file, cached by path+mtime+size. Feeds

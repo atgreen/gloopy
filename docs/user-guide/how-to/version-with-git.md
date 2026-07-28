@@ -5,8 +5,8 @@ per track, clip, and setting. That makes it a natural fit for **git**, the same 
 control developers use for code: every save is a diff you can inspect, and you can keep
 a full history of how a track evolved.
 
-This guide covers starting a version-controlled project and checking its status. Making
-commits, branching alternate arrangements, tagging finished mixes, and pushing to a
+This guide covers starting a version-controlled project, checking its status, and making
+commits. Branching alternate arrangements, tagging finished mixes, and pushing to a
 remote are being added on top of this foundation.
 
 ## Before you start
@@ -36,6 +36,17 @@ Open **File → Source Control**. Gloopy inspects your composition folder and sh
 
 A clean working tree means everything is committed; a list of changes is your cue to
 make a commit and capture the current state.
+
+## Save a snapshot with a commit
+
+Use **File → Commit…**. Gloopy saves your song, shows you exactly which files changed —
+the tracks, clips, and settings you touched — and asks for a short message describing the
+change. **Commit** captures that snapshot; **Amend** folds it into your previous commit
+instead (handy for a quick fix-up). Commits use your own git identity, so history is
+attributed to you.
+
+Commit whenever you reach a state worth returning to — a finished section, a mix you like,
+before a risky experiment. Each commit is a point you can compare against or come back to.
 
 ## From a script
 

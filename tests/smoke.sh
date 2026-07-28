@@ -204,6 +204,23 @@ if command -v git >/dev/null; then
     g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitStatus \
         | python3 -c "import json,sys;d=json.load(sys.stdin);assert d.get('isRepo') and len(d.get('changes',[]))>0,'inited repo not ready to commit: %r'%d;print('smoke: PASS — a saved composition git-inits to a ready-to-commit repo (%d files)'%len(d['changes']))" \
         || { echo "smoke: GitInit repo not ready to commit" >&2; exit 1; }
+    # GitAdd + GitCommit (Wave 9 slice 3): stage all + commit, confirm the message lands
+    # in the log and the tree goes clean. Uses the fallback identity when none is configured.
+    g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAdd \
+        | python3 -c "import json,sys;assert json.load(sys.stdin).get('ok'),'GitAdd not ok';print('smoke: PASS — GitAdd staged the composition')" \
+        || { echo "smoke: GitAdd failed" >&2; exit 1; }
+    g -d "{\"dir\":\"$NEWG\",\"message\":\"smoke commit\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit \
+        | python3 -c "import json,sys;assert json.load(sys.stdin).get('ok'),'GitCommit not ok';print('smoke: PASS — GitCommit committed the staged changes')" \
+        || { echo "smoke: GitCommit failed" >&2; exit 1; }
+    git -C "$NEWG" log --oneline | grep -q "smoke commit" \
+        && echo "smoke: PASS — the commit message landed in git log" \
+        || { echo "smoke: commit message not in git log" >&2; exit 1; }
+    g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitStatus \
+        | python3 -c "import json,sys;d=json.load(sys.stdin);assert not d.get('changes'),'tree not clean after commit: %r'%d;print('smoke: PASS — working tree is clean after the commit')" \
+        || { echo "smoke: tree not clean after commit" >&2; exit 1; }
+    g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit \
+        | python3 -c "import json,sys;assert not json.load(sys.stdin).get('ok'),'empty-message commit unexpectedly succeeded';print('smoke: PASS — GitCommit rejects an empty message')" \
+        || { echo "smoke: empty-message commit not rejected" >&2; exit 1; }
 else
     echo "smoke: SKIP — git not installed (GitStatus check)"
 fi

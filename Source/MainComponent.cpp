@@ -3691,6 +3691,55 @@ void MainComponent::openSourceControl()
     sourceControlWindow->toFront (true);
 }
 
+void MainComponent::showCommitDialog()
+{
+    // The IDE commit surface: save the current edits, list what changed, and let the
+    // user write a message. Commit stages all + commits; Amend rewrites the last commit.
+    if (currentProjectFile.getFileName() != "gloopy.toml") return;
+    const auto dir = currentProjectFile.getParentDirectory().getFullPathName();
+
+    if (! apiGitStatus (dir).isRepo)
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+            "Commit", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+        return;
+    }
+    saveComposition (currentProjectFile.getParentDirectory());   // capture the current edits
+    auto s = apiGitStatus (dir);
+    if (s.changes.empty())
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+            "Commit", "Nothing to commit \xe2\x80\x94 the working tree is clean.");
+        return;
+    }
+
+    juce::String fileList;
+    for (auto& c : s.changes) fileList << "  " << c.xy << "  " << c.path << "\n";
+
+    auto* aw = new juce::AlertWindow ("Commit",
+        juce::String (s.changes.size()) + " changed file(s):\n" + fileList,
+        juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("msg", "", "Commit message:");
+    aw->addButton ("Commit", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Amend",  2);
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, dir] (int r)
+    {
+        if (r == 1 || r == 2)
+        {
+            const auto msg = aw->getTextEditorContents ("msg");
+            auto add = apiGitAdd (dir, {});
+            GitResult res = add.ok ? apiGitCommit (dir, msg, r == 2) : add;
+            if (! res.ok)
+                juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                    "Commit", res.error);
+            else if (sourceControlWindow != nullptr && sourceControlWindow->isVisible())
+                openSourceControl();   // refresh the status readout behind the dialog
+        }
+        delete aw;
+    }), false);
+}
+
 void MainComponent::beginRenderMode (const juce::File& out)
 {
     renderFile = out;
@@ -4161,6 +4210,7 @@ void MainComponent::showFileMenu()
     menu.addItem (17, "Source Control...");            // git status of the project's dir (Git.cpp)
     menu.addItem (18, "New Git Project...");           // save as a composition folder + git init
     menu.addItem (19, "Enable Git", isComposition);    // git init the open composition folder
+    menu.addItem (22, "Commit...", isComposition);     // save + stage all + commit (Git.cpp)
     // Live MIDI status (read-only): the input sources Gloopy hears + which track they play.
     juce::PopupMenu midiMenu;
     const auto midiIns = apiListMidiInputs();
@@ -4223,6 +4273,7 @@ void MainComponent::showFileMenu()
                     openSourceControl();
                 return;
             }
+            if (result == 22) { showCommitDialog(); return; }   // save + stage all + commit
             if (result == 20) { undo(); return; }
             if (result == 21) { redo(); return; }
             if (result >= 100)                                  // New from Template

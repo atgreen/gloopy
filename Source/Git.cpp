@@ -152,6 +152,64 @@ MainComponent::GitResult MainComponent::apiGitInit (const juce::String& dirStr)
     return r;
 }
 
+MainComponent::GitResult MainComponent::apiGitAdd (const juce::String& dir, const juce::StringArray& paths)
+{
+    GitResult r;
+    juce::String version;
+    if (! apiGitAvailable (version)) { r.error = "git is not installed or not on PATH"; return r; }
+    if (dir.isEmpty())               { r.error = "no directory given"; return r; }
+
+    juce::StringArray args { "-C", dir, "add" };
+    if (paths.isEmpty()) args.add ("-A");                 // stage everything (Stage-all)
+    else                 args.addArray (paths);
+
+    juce::String out;
+    if (runGit (args, out, /*alsoStderr*/ true) != 0)
+    {
+        r.error = out.trim().isNotEmpty() ? out.trim() : "git add failed";
+        return r;
+    }
+    r.ok = true;
+    return r;
+}
+
+MainComponent::GitResult MainComponent::apiGitCommit (const juce::String& dir, const juce::String& message, bool amend)
+{
+    GitResult r;
+    juce::String version;
+    if (! apiGitAvailable (version))          { r.error = "git is not installed or not on PATH"; return r; }
+    if (dir.isEmpty())                        { r.error = "no directory given"; return r; }
+    if (message.trim().isEmpty() && ! amend)  { r.error = "a commit message is required"; return r; }
+
+    // `git commit` needs an author identity. Reuse the user's own (global/repo) config;
+    // only if none is set do we supply a neutral fallback for this one commit, so a
+    // never-configured machine (or CI) can still commit without us overwriting a real id.
+    juce::StringArray args;
+    juce::String cfg;
+    if (runGit ({ "-C", dir, "config", "user.email" }, cfg) != 0 || cfg.trim().isEmpty())
+    {
+        args.add ("-c"); args.add ("user.email=gloopy@localhost");
+        args.add ("-c"); args.add ("user.name=Gloopy");
+    }
+    args.add ("-C"); args.add (dir); args.add ("commit");
+    if (amend) args.add ("--amend");
+    if (amend && message.trim().isEmpty())
+        args.add ("--no-edit");                           // amend without a new message → keep the old one
+    else
+    {
+        args.add ("-m"); args.add (message);
+    }
+
+    juce::String out;
+    if (runGit (args, out, /*alsoStderr*/ true) != 0)
+    {
+        r.error = out.trim().isNotEmpty() ? out.trim() : "git commit failed";
+        return r;
+    }
+    r.ok = true;
+    return r;
+}
+
 // Format a status snapshot as the human-readable text the Source Control window shows.
 // (openSourceControl itself lives in MainComponent.cpp, where the shared window helper
 // is in scope.)
