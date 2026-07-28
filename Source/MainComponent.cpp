@@ -3494,7 +3494,10 @@ void MainComponent::openMixer()
 // panel. From the Mixer, Tab returns to the Arrangement.
 void MainComponent::cycleView()
 {
-    setViewMode (viewMode == ViewMode::Arrange ? ViewMode::Session : ViewMode::Arrange);
+    // Tab rotates through all three main views: Arrange -> Session -> Mixer -> Arrange.
+    setViewMode (viewMode == ViewMode::Arrange ? ViewMode::Session
+               : viewMode == ViewMode::Session ? ViewMode::Mixer
+                                               : ViewMode::Arrange);
 }
 
 void MainComponent::setViewMode (ViewMode m) { viewMode = m; applyViewMode(); }
