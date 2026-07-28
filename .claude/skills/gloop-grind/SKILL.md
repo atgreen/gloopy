@@ -209,8 +209,9 @@ product surface, and the session-view/engine tails* — not foundational plumbin
   below 0 (≈ −3 dB), lowering per-track `volume`/synth `gain` as needed.
 - **Commit cadence.** Green build + green tests first. One slice per commit. Source
   headers use `green@moxielogic.com`; commit messages end with
-  `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`. No git
-  remote — commits are local. Commit only a coherent, verified slice; branch first
+  `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`. A remote
+  exists (`origin = cave@cave.moxielogic.com:atgreen/gloopy.git`), but **commit locally
+  and don't push unless asked**. Commit only a coherent, verified slice; branch first
   only if asked. Update `docs/ROADMAP.md` (or a new design doc) with the feature's
   goal/approach, and check the item off in this skill's backlog.
 - **A slice may span sessions — that's fine.** If you must stop mid-slice: commit the
@@ -1927,9 +1928,9 @@ is the proof.
     bump `GIT_TAG`, rebuild, and shake out deprecations/API breaks across our JUCE surface
     (LookAndFeel/`drawButtonBackground`, `ChildProcess`, `AudioFormat*`, plugin-hosting
     `AudioPluginFormatManager` / VST3+LV2, `ValueTree` serialisation, the FileChooser/threading
-    idioms). Watch two vendored JUCE copies: **sfizz** and **surge** each ship their own JUCE
-    under `third_party/*/libs/JUCE` — our upgrade only moves the FetchContent one; keep the
-    embedded-lib builds pinned to what they expect (don't force-share a JUCE). *Done when:* a
+    idioms). Watch the embedded **surge**, which vendors its *own* JUCE under
+    `third_party/surge/libs/JUCE` — our upgrade only moves the FetchContent copy; keep surge's
+    pinned to what it expects (don't force-share a JUCE). *Done when:* a
     clean `cmake --build` is green on the bumped tag, `ctest` + `tests/smoke.sh` pass, and the
     GUI renders (Xvfb screenshot) with no new warnings we introduced.
 32. **Windows build (cross-build or CI-native).** ✦ **L**

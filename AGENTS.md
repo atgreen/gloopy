@@ -13,6 +13,9 @@ cmake --build build --target Gloopy                  # incremental; LTO is off f
 ```
 Needs the gRPC/protobuf and JUCE dev deps in `README.md`. The C++ is generated from
 `proto/gloopy.proto` at build time. This is a GUI app but runs on the current X display.
+JUCE is **pinned at `8.0.15`** in `CMakeLists.txt` (FetchContent). The embedded **surge**
+vendors its *own* JUCE under `third_party/surge/libs/JUCE`, separate from Gloopy's — a
+JUCE bump moves only the FetchContent pin, not surge's copy.
 
 ## Composition (directory) format — Phase 1
 
@@ -77,6 +80,23 @@ Or from Common Lisp: `(asdf:load-system :gloopy)` (the `gloopy` system, needs
 `ocicl install ag-grpc`). To render a project without a GUI, use `RenderToFile`
 (fast, offline) or the `--render` CLI.
 
+## GUI verification (screenshots, under Xvfb)
+
+Every UI slice is screenshot-validated. The live desktop here is **Wayland**, so an X11
+grab of it is black — capture on a headless **Xvfb** display instead:
+
+```sh
+rm -f /tmp/.X99-lock                          # a stale lock silently blocks the launch
+Xvfb :99 -screen 0 1600x1000x24 & export DISPLAY=:99
+./build/Gloopy_artefacts/Release/Gloopy &     # then drive it over gRPC
+xdotool ...                                   # select a clip / click a tab
+ffmpeg -f x11grab -video_size 1600x1000 -i :99 -frames:v 1 shot.png
+```
+- **`pkill -x Gloopy`, never `pkill -f gloopy`** — the scratchpad path contains "gloopy",
+  so a `-f` pattern also matches (and kills) your own harness/shell.
+- Menus (esp. mixer routing) are **coordinate-flaky** under xdotool — for audio-logic
+  checks prefer a debug log or a `RenderToFile` assertion over reading a meter screenshot.
+
 ## Landmines (verified the hard way)
 
 - **proto3 omits zero.** JSON from grpcurl drops `int32`/`bool` fields equal to 0/false.
@@ -94,6 +114,11 @@ Or from Common Lisp: `(asdf:load-system :gloopy)` (the `gloopy` system, needs
   use OSC for those.
 - **MIDI input** goes to the *selected* instrument track (or the first instrument if
   none selected); a virtual ALSA port "Gloopy MIDI In" is always available.
+- **There IS a git remote now** — `origin = cave@cave.moxielogic.com:atgreen/gloopy.git`
+  (self-hosted forge). Commits are still **local until you `git push`**, but don't assume
+  "no remote". (The docs-deploy workflow still targets GitHub Pages, not this forge.)
+- **`.gloopy` is XML.** To stand up a bus/group test topology fast, hand-edit the `MTRACK`
+  `out`/`bus` attrs directly instead of scripting a dozen routing RPCs.
 
 ## Plugin hosting (VST3 + LV2)
 
@@ -127,7 +152,11 @@ The first build compiles sfizz + Abseil (a few minutes, one-time; incremental bu
 are unaffected). To re-vendor a newer sfizz: clone `sfztools/sfizz --recurse-submodules`
 at the desired tag, copy it to `third_party/sfizz/`, and drop `.git`, `tests/`,
 `benchmarks/`, and `external/simde/test/` (the bulk of the weight; keep `scripts/`
-and `clients/` — the top-level CMake references them unconditionally).
+and `clients/` — the top-level CMake references them unconditionally). **Then re-apply
+the `namespace Tunings` → `TuningsSfz` rename** in sfizz's `Tunings.h` / `Tunings.cpp` /
+`Tuning.cpp`: sfizz ships an older strong-symbol `Tunings::` that ODR-clashes with
+surge-common's newer inline one and **SIGSEGVs Surge at startup** when both are linked
+(`GLOOPY_WITH_SURGE=ON`, the default). A fresh copy will silently clobber the rename.
 
 > Historical note: earlier iterations hosted the sfizz **plugin** and injected the
 > `.sfz` path by rewriting its saved state blob (`tools/sfizz-state.py`), and a
