@@ -2215,10 +2215,26 @@ gate them later.
       project (7 tracks) as JSON, and gloopy://model returns the 9.4 KB markdown (mimeType
       text/markdown). Manual how-to gains a Resources section; mkdocs --strict green. *Done-when met:
       resources/list returns the composition; headless renders with no GUI.*
-    - `[ ]` **6 — packaging + registration (+ native subcommand, stretch).** A `gloopy-mcp` entry
-      point + a documented Claude Desktop / Claude Code MCP config snippet; (stretch) the native
-      `gloopy mcp` stdio subcommand for a Python-free path. *Done when:* a stock MCP client registers
-      the server from the documented snippet and lists Gloopy's tools.
+    - `[x]` **6 — packaging + registration LANDED** (commit): the entry point is **`gloopy mcp`** —
+      the native, Python-free stdio server built into the binary (the "stretch" native subcommand
+      became the whole path, so there's no separate `gloopy-mcp` package to ship). Packaging was
+      already in place: `install(TARGETS Gloopy RUNTIME DESTINATION bin)` puts `gloopy` on PATH, so
+      the documented `{"command":"gloopy","args":["mcp"]}` snippet resolves post-install. The manual
+      how-to's registration section now covers the on-PATH form, an absolute-path + project-arg
+      fallback, that `gloopy mcp` is the entry point (no Python), and a "Verify it's registered"
+      handshake. smoke (closes the docs↔reality loop): parse the command+args straight from the
+      how-to's registration JSON snippet, assert command=="gloopy", then run the exact handshake a
+      stock client performs (initialize → notifications/initialized → tools/list) using the built
+      binary as the on-PATH `gloopy` → serverInfo=gloopy and the canonical tools are listed (11
+      tools). mkdocs --strict green. *Done-when met: a stock MCP client registers from the documented
+      snippet and lists Gloopy's tools.*
+      **✅ Wave 11 #33 COMPLETE — all 6 slices. The MCP stdio service is done: a native, Python-free
+      `gloopy mcp` server (initialize/tools/resources) that lets any MCP agent discover state → read
+      resources → build tracks/clips/markers → import & export notes → set tempo → save → render to
+      audio with a loudness report, all headless over stdio, a thin adapter over the same api* the
+      GUI/gRPC use. This also completes Phase A (Waves 9→10→11: git-as-project-management, JUCE
+      upgrade + Windows CI scaffold, MCP). Next: Phase B — return to the beginning, starting with
+      strong-time-types adoption (Wave 7 #21).**
 
 ## Explicitly NOT doing (the guardrails, made concrete)
 

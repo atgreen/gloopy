@@ -17,8 +17,9 @@ the one shared model.
 
 ## Registering the server with a client
 
-MCP clients launch the server as a subprocess. In a Claude Desktop / Claude Code MCP config,
-add an entry that runs the command — for example:
+`gloopy mcp` is the entry point — a self-contained stdio server built into the Gloopy binary,
+with no separate package to install and no Python runtime. MCP clients launch it as a
+subprocess. In a Claude Desktop / Claude Code MCP config, add:
 
 ```json
 {
@@ -28,7 +29,32 @@ add an entry that runs the command — for example:
 }
 ```
 
+`command: "gloopy"` works once Gloopy is installed on your `PATH`. If it isn't, give the full
+path to the binary — and optionally a project to open on startup:
+
+```json
+{
+  "mcpServers": {
+    "gloopy": { "command": "/path/to/gloopy", "args": ["mcp", "/path/to/my-song"] }
+  }
+}
+```
+
 The client then lists Gloopy's tools automatically and the agent can call them.
+
+### Verify it's registered
+
+A client registers by performing the MCP handshake — `initialize`, then `tools/list`. You can
+run the same handshake yourself:
+
+```sh
+printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+  | gloopy mcp
+```
+
+You'll get the server info back, then the full tool list.
 
 ## Available tools
 

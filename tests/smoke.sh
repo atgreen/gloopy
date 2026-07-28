@@ -2351,6 +2351,34 @@ assert len(model)>200 and by[4]['result']['contents'][0]['mimeType']=='text/mark
 print('smoke: PASS — MCP resources expose the composition (%d tracks) + domain model (%d chars)'%(n,len(model)))
 " || { echo "smoke: MCP resources wrong" >&2; exit 1; }
 
+# MCP packaging + registration (Wave 11 #33 slice 6): a stock MCP client registers the server
+# from the DOCUMENTED config snippet and lists the tools. Extract the command+args straight from
+# the how-to's registration snippet, then run the exact handshake a client performs (initialize ->
+# tools/list) using the built binary in place of the on-PATH `gloopy`, and assert the tools list.
+MCP_DOCARGS=$(python3 -c "
+import json,re
+md=open('$ROOT/docs/control-scripting/how-to/mcp-server.md').read()
+blocks=re.findall(r'\`\`\`json\n(.*?)\`\`\`', md, re.S)
+cfg=next((json.loads(b) for b in blocks if 'mcpServers' in b), None)
+assert cfg, 'no mcpServers snippet in the how-to'
+srv=cfg['mcpServers']['gloopy']
+assert srv['command']=='gloopy', 'documented command is not gloopy: %r'%srv['command']
+print(' '.join(srv['args']))
+") || { echo "smoke: MCP registration snippet missing/invalid" >&2; exit 1; }
+printf '%s\n' \
+    '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+    '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+    '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+    | "$BIN" $MCP_DOCARGS 2>/dev/null | python3 -c "
+import json,sys
+by={m['id']:m for m in (json.loads(l) for l in sys.stdin if l.strip()) if 'id' in m}
+assert by[1]['result']['serverInfo']['name']=='gloopy', 'initialize serverInfo'
+tools={t['name'] for t in by[2]['result']['tools']}
+need={'session/get_info','tracks/list','track/add','clip/add','render/mix','render/preset'}
+assert need <= tools, 'documented snippet did not list the canonical tools; missing %r'%(need-tools)
+print('smoke: PASS — MCP client registers from the documented snippet and lists %d tools'%len(tools))
+" || { echo "smoke: MCP registration handshake wrong" >&2; exit 1; }
+
 # MCP bulk note I/O (Wave 11 #33 slice 3): import a JSON melody with clip/add (the write half)
 # then read it back with notes/export_json (the read half) and assert the notes round-trip.
 printf '%s\n' \
