@@ -833,6 +833,9 @@ namespace
         Status CopyClipToSessionSlot (ServerContext*, const pb::SessionSlotSrc* q, pb::Ack* r) override
         { const bool ok = main.apiCopyClipToSessionSlot (q->track_id(), q->clip_index(), q->scene());
           r->set_ok (ok); if (! ok) r->set_error ("no such clip or track"); return Status::OK; }
+        Status SetSessionSlotColour (ServerContext*, const pb::SessionSlotColour* q, pb::Ack* r) override
+        { const bool ok = main.apiSetSessionSlotColour (q->track_id(), q->scene(), js (q->colour()));
+          r->set_ok (ok); if (! ok) r->set_error ("empty slot or no such track"); return Status::OK; }
         Status LaunchSessionClip (ServerContext*, const pb::SessionClipRef* q, pb::Ack* r) override
         { const bool ok = main.apiSessionLaunchClip (q->track_id(), q->scene());
           r->set_ok (ok); if (! ok) r->set_error ("empty slot or unknown track"); return Status::OK; }
