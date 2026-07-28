@@ -938,6 +938,10 @@ class Gloopy:
                 "branch": r.branch, "ahead": r.ahead, "behind": r.behind, "dir": r.dir,
                 "changes": [{"xy": c.xy, "path": c.path} for c in r.changes]}
 
+    def git_init(self, dir: str) -> None:
+        """Turn a folder into a git repository (`git init`); creates the folder if needed."""
+        self._ack(self.stub.GitInit(pb.GitDir(dir=dir)))
+
     def diagnostics(self) -> dict:
         """Engine health: device settings, callback timing, DSP load, dropouts, render speed."""
         d = self.stub.GetDiagnostics(pb.Empty())

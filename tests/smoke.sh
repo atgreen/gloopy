@@ -194,6 +194,16 @@ if command -v git >/dev/null; then
     g -d "{\"dir\":\"$WORK\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitStatus \
         | python3 -c "import json,sys;d=json.load(sys.stdin);assert not d.get('isRepo'),'non-repo dir wrongly reported as a repo: %r'%d;print('smoke: PASS — GitStatus reports a non-repo dir as not a repo')" \
         || { echo "smoke: GitStatus (non-repo) failed" >&2; exit 1; }
+    # GitInit (Wave 9 slice 2): save a composition into a fresh dir, git init it via the
+    # RPC (the New Git Project path), and confirm it becomes a ready-to-commit repo.
+    NEWG="$WORK/newgit"
+    g -d "{\"path\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+    g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitInit \
+        | python3 -c "import json,sys;assert json.load(sys.stdin).get('ok'),'GitInit not ok';print('smoke: PASS — GitInit initialised a repo')" \
+        || { echo "smoke: GitInit failed" >&2; exit 1; }
+    g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitStatus \
+        | python3 -c "import json,sys;d=json.load(sys.stdin);assert d.get('isRepo') and len(d.get('changes',[]))>0,'inited repo not ready to commit: %r'%d;print('smoke: PASS — a saved composition git-inits to a ready-to-commit repo (%d files)'%len(d['changes']))" \
+        || { echo "smoke: GitInit repo not ready to commit" >&2; exit 1; }
 else
     echo "smoke: SKIP — git not installed (GitStatus check)"
 fi

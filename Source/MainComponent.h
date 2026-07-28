@@ -206,8 +206,10 @@ public:
         juce::String dir;                               // the working dir inspected
         std::vector<GitFileChange> changes;             // dirty / untracked files
     };
+    struct GitResult { bool ok = false; juce::String error; };   // for git write-ops (init/commit/...)
     bool apiGitAvailable (juce::String& version);       // true + fills version if git is on PATH
     GitStatusSnap apiGitStatus (const juce::String& dirOverride = {});   // empty = the open project's dir
+    GitResult apiGitInit (const juce::String& dir);     // git init a folder (creating it if needed)
     juce::String gitStatusReport();                     // human-readable status text (Git.cpp)
     void openSourceControl();                           // UI: a Source Control status window (MainComponent.cpp)
 

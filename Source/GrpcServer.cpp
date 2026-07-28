@@ -538,6 +538,13 @@ namespace
             }
             return Status::OK;
         }
+        Status GitInit (ServerContext*, const pb::GitDir* q, pb::Ack* r) override
+        {
+            auto res = main.apiGitInit (js (q->dir()));
+            r->set_ok (res.ok);
+            if (! res.ok) r->set_error (res.error.toStdString());
+            return Status::OK;
+        }
 
         // ---- project / state ----
         Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override

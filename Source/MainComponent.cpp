@@ -4159,6 +4159,8 @@ void MainComponent::showFileMenu()
     menu.addSeparator();
     menu.addItem (8, "Project Notes...");
     menu.addItem (17, "Source Control...");            // git status of the project's dir (Git.cpp)
+    menu.addItem (18, "New Git Project...");           // save as a composition folder + git init
+    menu.addItem (19, "Enable Git", isComposition);    // git init the open composition folder
     // Live MIDI status (read-only): the input sources Gloopy hears + which track they play.
     juce::PopupMenu midiMenu;
     const auto midiIns = apiListMidiInputs();
@@ -4179,6 +4181,48 @@ void MainComponent::showFileMenu()
         {
             if (result == 8) { openNotes(); return; }
             if (result == 17) { openSourceControl(); return; }
+            if (result == 18)   // New Git Project: choose a folder, save the composition into it, git init
+            {
+                fileChooser = std::make_unique<juce::FileChooser> ("New git project folder", juce::File());
+                fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectDirectories,
+                    [this] (const juce::FileChooser& fc)
+                    {
+                        auto d = fc.getResult();
+                        if (d == juce::File()) return;
+                        const auto dir = d.getFullPathName();
+                        auto err = std::make_shared<juce::String>();
+                        runBackground ("Creating git project…",
+                            [this, dir, err]
+                            {
+                                if (! apiSaveComposition (dir)) { *err = "Could not save the composition folder."; return; }
+                                auto r = apiGitInit (dir);
+                                if (! r.ok) *err = r.error;
+                            },
+                            [this, d, err]
+                            {
+                                if (err->isNotEmpty())
+                                {
+                                    juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                        "New Git Project", *err);
+                                    return;
+                                }
+                                currentProjectFile = d.getChildFile ("gloopy.toml");   // the project now lives here
+                                openSourceControl();                                    // show the fresh repo
+                            });
+                    });
+                return;
+            }
+            if (result == 19)   // Enable Git: git init the open composition folder
+            {
+                if (currentProjectFile.getFileName() != "gloopy.toml") return;
+                auto r = apiGitInit (currentProjectFile.getParentDirectory().getFullPathName());
+                if (! r.ok)
+                    juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                        "Enable Git", r.error);
+                else
+                    openSourceControl();
+                return;
+            }
             if (result == 20) { undo(); return; }
             if (result == 21) { redo(); return; }
             if (result >= 100)                                  // New from Template

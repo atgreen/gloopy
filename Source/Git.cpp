@@ -12,17 +12,21 @@
 
 namespace
 {
-    // Run `git <args>` and capture stdout. Returns the exit code, or -1 if git could
-    // not be launched (not installed / not on PATH). Blocking, so callers keep it off
-    // the audio thread; the ops here (version/status) are fast and network-free.
-    int runGit (const juce::StringArray& args, juce::String& out)
+    // Run `git <args>` and capture stdout (and stderr when `alsoStderr`, so write-ops
+    // can surface the failure message). Returns the exit code, or -1 if git could not be
+    // launched (not installed / not on PATH). Blocking, so callers keep it off the audio
+    // thread; the ops here (version/status/init) are fast and network-free.
+    int runGit (const juce::StringArray& args, juce::String& out, bool alsoStderr = false)
     {
         juce::StringArray argv;
         argv.add ("git");
         argv.addArray (args);
 
+        int flags = juce::ChildProcess::wantStdOut;
+        if (alsoStderr) flags |= juce::ChildProcess::wantStdErr;
+
         juce::ChildProcess proc;
-        if (! proc.start (argv, juce::ChildProcess::wantStdOut))
+        if (! proc.start (argv, flags))
             return -1;                                  // git missing / failed to launch
 
         out = proc.readAllProcessOutput();              // reads to EOF (process exits)
@@ -117,6 +121,35 @@ MainComponent::GitStatusSnap MainComponent::apiGitStatus (const juce::String& di
     }
 
     return s;
+}
+
+MainComponent::GitResult MainComponent::apiGitInit (const juce::String& dirStr)
+{
+    GitResult r;
+
+    juce::String version;
+    if (! apiGitAvailable (version)) { r.error = "git is not installed or not on PATH"; return r; }
+    if (dirStr.isEmpty())            { r.error = "no directory given"; return r; }
+
+    juce::File dir (dirStr);
+    if (! dir.exists() && ! dir.createDirectory().wasOk())
+    {
+        r.error = "could not create " + dirStr;
+        return r;
+    }
+
+    // `git init` is safe to run on an already-initialised repo (idempotent), so this
+    // doubles as "Enable Git" for an existing folder. The .gitignore is owned by the
+    // composition writer (kGitignore), so we don't write one here.
+    juce::String out;
+    const int code = runGit ({ "-C", dir.getFullPathName(), "init" }, out, /*alsoStderr*/ true);
+    if (code != 0)
+    {
+        r.error = out.trim().isNotEmpty() ? out.trim() : "git init failed";
+        return r;
+    }
+    r.ok = true;
+    return r;
 }
 
 // Format a status snapshot as the human-readable text the Source Control window shows.

@@ -1923,10 +1923,17 @@ commit messages are user-authored; auto-commit-on-save is opt-in only.
       scratch repo clean→dirty (untracked `??`), and a non-repo dir reported as not-a-repo (all
       headless, git-absent-skipped). Manual how-to page + `mkdocs --strict` green.
       **Follow-up:** the panel grows a Refresh button + live dirty-count indicator in later slices.
-    - `[ ]` **2 — init / enable git.** **File → New Git Project...** → dir chooser → `apiGitInit(dir)`
-      → save the composition in as a folder repo → write a sensible `.gitignore` (exports/, caches,
-      plugin-scan artefacts). Also **"Enable Git"** for an already-open folder project. *Done when:*
-      new-git-project creates a repo with the composition ready to commit, headless.
+    - `[x]` **2 — init / enable git LANDED** (`Source/Git.cpp`, commit): `apiGitInit(dir)` creates
+      the folder if needed and runs `git init` (idempotent, so it doubles as Enable-Git); returns a
+      `GitResult{ok,error}` (runGit gained an `alsoStderr` flag so failures surface). The `.gitignore`
+      is already owned by the composition writer (`kGitignore`: `.gloopy-cache/`, `exports/`,
+      `assets/recordings/raw/`, `*.wav.tmp`, `plugins/scans/`), so init doesn't write one. GitInit RPC
+      (GitDir→Ack) + Python `git_init`. **Desktop:** File → "New Git Project..." (dir chooser →
+      SaveComposition + apiGitInit off-thread via runBackground, then retargets `currentProjectFile`
+      to the new gloopy.toml + opens Source Control) and "Enable Git" (enabled only for an open
+      composition folder → apiGitInit its dir). smoke: SaveComposition into a fresh dir → GitInit →
+      GitStatus is a ready-to-commit repo (is_repo + 15 changed files); screenshot-validated (both
+      menu items, Enable Git correctly greyed with no project open).
     - `[ ]` **3 — stage + commit (user writes the message).** `apiGitAdd(paths | all)` +
       `apiGitCommit(message, amend?)`. **Desktop:** the IDE commit surface — a message editor + a
       changed / staged files tree with per-file selection + Stage-all + Amend + Commit; File →

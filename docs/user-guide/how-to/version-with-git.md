@@ -5,19 +5,24 @@ per track, clip, and setting. That makes it a natural fit for **git**, the same 
 control developers use for code: every save is a diff you can inspect, and you can keep
 a full history of how a track evolved.
 
-This guide covers checking a composition's version-control status. Making commits,
-branching alternate arrangements, tagging finished mixes, and pushing to a remote are
-being added on top of this foundation.
+This guide covers starting a version-controlled project and checking its status. Making
+commits, branching alternate arrangements, tagging finished mixes, and pushing to a
+remote are being added on top of this foundation.
 
 ## Before you start
 
 - Install **git** on your system. Gloopy uses your existing git — including your name,
   email, and any keys or logins you already have set up.
-- Save your project as a **Composition folder** (**File → Save As Composition…**). The
-  single-file `.gloopy` format works too, but the folder format is where version control
-  shines, because each change touches only the files it needs to.
-- Turn the composition folder into a repository once, from a terminal, with
-  `git init` inside it. (Creating the repository from within Gloopy is coming soon.)
+
+## Start a version-controlled project
+
+Use **File → New Git Project…**, choose a folder, and Gloopy saves your song there as a
+**Composition folder** and turns it into a git repository in one step — ready for its
+first commit. (The Composition folder format is where version control shines: each change
+touches only the files it needs to, so history stays clean and readable.)
+
+Already working in a Composition folder? **File → Enable Git** turns the current folder
+into a repository in place.
 
 ## Check the status
 

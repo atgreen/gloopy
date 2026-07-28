@@ -569,6 +569,7 @@ service Gloopy {
   // Git project management (Git.cpp) — shell out to the system git over the composition dir.
   rpc GitAvailable(Empty)  returns (GitVersion);   // is the git binary present + its version
   rpc GitStatus   (GitDir) returns (GitState);     // repo status of the project's (or given) dir
+  rpc GitInit     (GitDir) returns (Ack);          // git init a folder (New Git Project / Enable Git)
   rpc NewProject (Empty)    returns (Ack);
   rpc ListTemplates  (Empty)       returns (TemplateList);   // built-in + user project templates
   rpc NewFromTemplate(TemplateRef) returns (Ack);            // empty + seed a template
