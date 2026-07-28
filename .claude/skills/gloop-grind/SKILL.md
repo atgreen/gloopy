@@ -209,10 +209,10 @@ product surface, and the session-view/engine tails* — not foundational plumbin
   below 0 (≈ −3 dB), lowering per-track `volume`/synth `gain` as needed.
 - **Commit cadence.** Green build + green tests first. One slice per commit. Source
   headers use `green@moxielogic.com`; commit messages end with
-  `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`. A remote
-  exists (`origin = cave@cave.moxielogic.com:atgreen/gloopy.git`), but **commit locally
-  and don't push unless asked**. Commit only a coherent, verified slice; branch first
-  only if asked. Update `docs/ROADMAP.md` (or a new design doc) with the feature's
+  `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`. **Commit and push
+  frequently** to `origin` (`cave@cave.moxielogic.com:atgreen/gloopy.git`) — one green,
+  verified slice = one commit, pushed right away (standing authorization for this repo; see
+  AGENTS.md). Commit only a coherent, verified slice; branch first only if asked. Update `docs/ROADMAP.md` (or a new design doc) with the feature's
   goal/approach, and check the item off in this skill's backlog.
 - **A slice may span sessions — that's fine.** If you must stop mid-slice: commit the
   green sub-step, and write the exact resumption state (done / half-built / next

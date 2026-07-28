@@ -114,9 +114,11 @@ ffmpeg -f x11grab -video_size 1600x1000 -i :99 -frames:v 1 shot.png
   use OSC for those.
 - **MIDI input** goes to the *selected* instrument track (or the first instrument if
   none selected); a virtual ALSA port "Gloopy MIDI In" is always available.
-- **There IS a git remote now** — `origin = cave@cave.moxielogic.com:atgreen/gloopy.git`
-  (self-hosted forge). Commits are still **local until you `git push`**, but don't assume
-  "no remote". (The docs-deploy workflow still targets GitHub Pages, not this forge.)
+- **Commit and push frequently.** `origin = cave@cave.moxielogic.com:atgreen/gloopy.git`
+  (self-hosted forge). One green, verified slice = one commit — then **`git push` to `origin`
+  right away**; don't let local commits pile up. (Standing authorization for this repo: you
+  don't need to ask before pushing here.) The docs-deploy workflow still targets GitHub Pages,
+  not this forge.
 - **`.gloopy` is XML.** To stand up a bus/group test topology fast, hand-edit the `MTRACK`
   `out`/`bus` attrs directly instead of scripting a dozen routing RPCs.
 
