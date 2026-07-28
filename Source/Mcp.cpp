@@ -64,6 +64,11 @@ void MainComponent::runMcpStdio() {
     struct RestoreCout { std::ostream& o; ~RestoreCout() { std::cout.rdbuf (o.rdbuf()); } } restore { protoOut };
     auto emit = [&protoOut] (const juce::var& v) { protoOut << juce::JSON::toString (v, true) << std::endl; };
 
+    // The render tools bounce offline; the headless build skips the audio device, so the
+    // generators need one prepareToPlay before the first render (the CLI render path does the same).
+    bool prepared = false;
+    auto ensurePrepared = [&] () { if (! prepared) { prepareToPlay (512, 44100.0); prepared = true; } };
+
     std::string raw;
     while (std::getline (std::cin, raw)) {
         if (raw.empty()) continue;
@@ -124,6 +129,18 @@ void MainComponent::runMcpStdio() {
             tools.add (toolDef ("project/save", "Save the project to disk (composition folder). "
                 "Defaults to the open project's folder.",
                 objSchema (obj ({ { "path", prop ("string", "destination folder (optional)") } }))));
+            tools.add (toolDef ("render/mix", "Render the project to a WAV/FLAC file (offline bounce). "
+                "Renders the whole song, a named range, or a single track (stem). Returns the path and a "
+                "loudness report.",
+                objSchema (obj ({ { "path",     prop ("string",  "output file path (.wav or .flac)") },
+                                  { "range",    prop ("string",  "render only this named range (optional)") },
+                                  { "track_id", prop ("integer", "render only this track as a stem (optional)") } }),
+                           reqList ({ "path" }))));
+            tools.add (toolDef ("render/preset", "Run a named export profile (defined in the project). "
+                "Returns the written file paths.",
+                objSchema (obj ({ { "name",    prop ("string", "export profile name") },
+                                  { "out_dir", prop ("string", "output directory override (optional)") } }),
+                           reqList ({ "name" }))));
             emit (jrpcResult (id, obj ({ { "tools", juce::var (tools) } })));
         }
         else if (method == "tools/call") {
@@ -180,6 +197,42 @@ void MainComponent::runMcpStdio() {
             else if (name == "notes/export_json") {
                 const auto json = apiExportClipNotesJson ((int) arguments["track_id"], (int) arguments["index"]);
                 emit (jrpcResult (id, toolText (json)));
+            }
+            else if (name == "render/mix") {
+                const auto path = arguments["path"].toString();
+                double startBeat = 0.0, endBeat = 0.0;
+                const auto range = arguments["range"].toString();
+                if (range.isNotEmpty() && ! apiResolveRange (range, startBeat, endBeat)) {
+                    emit (jrpcError (id, -32602, "render/mix: unknown range '" + range + "'"));
+                }
+                else {
+                    const bool hasTrack = arguments.getDynamicObject() != nullptr
+                                          && arguments.getDynamicObject()->hasProperty ("track_id");
+                    ensurePrepared();
+                    const bool ok = apiRenderToFile (path, 2.0, startBeat, endBeat, hasTrack, (int) arguments["track_id"]);
+                    if (! ok) emit (jrpcError (id, -32603, "render/mix: render failed"));
+                    else {
+                        LoudnessReport r {};
+                        const bool measured = apiAnalyzeFile (path, r);
+                        auto result = obj ({ { "path", path } });
+                        if (measured)
+                            result.getDynamicObject()->setProperty ("loudness", obj ({
+                                { "peak_dbfs", r.peakDbfs }, { "true_peak_dbtp", r.truePeakDbtp },
+                                { "rms_dbfs", r.rmsDbfs }, { "lufs", r.lufs } }));
+                        emit (jrpcResult (id, toolText (juce::JSON::toString (result, true))));
+                    }
+                }
+            }
+            else if (name == "render/preset") {
+                ensurePrepared();
+                std::vector<juce::String> files;
+                const bool ok = apiRunExport (arguments["name"].toString(), arguments["out_dir"].toString(), files);
+                if (! ok) emit (jrpcError (id, -32602, "render/preset: unknown profile or export failed"));
+                else {
+                    juce::Array<juce::var> arr;
+                    for (auto& f : files) arr.add (f);
+                    emit (jrpcResult (id, toolText (juce::JSON::toString (obj ({ { "files", juce::var (arr) } }), true))));
+                }
             }
             else if (name == "project/save") {
                 juce::String path = arguments["path"].toString();

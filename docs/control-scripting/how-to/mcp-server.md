@@ -51,6 +51,12 @@ Build the project (each is undoable, just like the same action in the app):
 - **transport/set_tempo** — set the project tempo in beats per minute.
 - **project/save** — write the project to disk (composition folder).
 
+Render to audio:
+
+- **render/mix** — bounce the project to a WAV/FLAC file (the whole song, a named range, or a
+  single track as a stem); returns the path and a loudness report (peak, true-peak, RMS, LUFS).
+- **render/preset** — run a named export profile defined in the project; returns the written paths.
+
 So an agent can build a song from scratch — add tracks, drop in note clips, mark sections,
 set the tempo, and save — then hand it to you to open in Gloopy. More tools (importing and
 exporting note data in bulk, rendering to audio) are on the way.

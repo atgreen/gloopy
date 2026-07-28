@@ -2189,9 +2189,18 @@ gate them later.
       → notes/export_json → assert the exported pitches [60,64,67] and starts [0,1,2] round-trip.
       Manual how-to updated; mkdocs --strict green. *Done-when met: a JSON melody imports → clip (and
       renders, slice-2 proof) and export round-trips.*
-    - `[ ]` **4 — render / export tools.** `render/preset` (RunExport by name), range / stem render;
-      returns the file path + a loudness report (reuse the analyze path). *Done when:* `render/preset`
-      writes the expected WAV and returns its path, headless.
+    - `[x]` **4 — render / export tools LANDED** (`Source/Mcp.cpp`, commit): two bounce tools —
+      **render/mix** (apiRenderToFile → a WAV/FLAC of the whole song, a named **range** (apiResolveRange),
+      or a single **track/stem** (track_id); returns `{path, loudness:{peak_dbfs,true_peak_dbtp,
+      rms_dbfs,lufs}}` via apiAnalyzeFile) and **render/preset** (apiRunExport by name → the written
+      file paths). Both lazily `prepareToPlay(512,44100)` on first render (the headless build skips the
+      audio device, like the CLI render path). smoke: (a) build a bass loop via MCP → render/mix → the
+      tool returns the path + a loudness report (lufs < 0) and the WAV is non-silent (peak 0.24); (b)
+      define an export profile on the live project → SaveComposition → `gloopy mcp <dir>` render/preset
+      "mcppreset" → the returned WAV path exists on disk (isolated via a SaveProject/LoadProject
+      snapshot since DefineExportProfile mutates the project). Manual how-to updated; mkdocs --strict
+      green. *Done-when met: render/preset (and render/mix) writes the expected WAV and returns its
+      path + loudness, headless.*
     - `[ ]` **5 — resources + spawn-headless mode.** Expose the current composition (and `docs`
       model) as MCP **resources** (readable agent context); a `--headless` mode that spawns its own
       Gloopy for agent-only / batch runs. *Done when:* `resources/list` returns the composition and

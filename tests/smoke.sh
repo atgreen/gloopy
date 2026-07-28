@@ -2344,6 +2344,51 @@ assert sorted(n['start'] for n in notes)==[0,1,2], 'starts did not round-trip: %
 print('smoke: PASS — MCP notes/export_json round-trips an imported melody (3 notes)')
 " || { echo "smoke: MCP notes/export_json wrong" >&2; exit 1; }
 
+# MCP render tools (Wave 11 #33 slice 4): build a loop via MCP, then render/mix it to a WAV and
+# assert the tool returns the path + a loudness report and the file is non-silent.
+MCP_RWAV="$WORK/mcp-render.wav"; rm -f "$MCP_RWAV"
+printf '%s\n' \
+    '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+    '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"track/add","arguments":{"name":"Bass"}}}' \
+    '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"clip/add","arguments":{"track_id":1,"start_beat":0,"notes":[{"pitch":48,"start":0,"length":0.9,"velocity":0.9},{"pitch":48,"start":1,"length":0.9,"velocity":0.9},{"pitch":48,"start":2,"length":0.9,"velocity":0.9},{"pitch":48,"start":3,"length":0.9,"velocity":0.9}]}}}' \
+    "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"name\":\"render/mix\",\"arguments\":{\"path\":\"$MCP_RWAV\"}}}" \
+    | "$BIN" mcp 2>/dev/null | python3 -c "
+import json,sys
+by={m['id']:m for m in (json.loads(l) for l in sys.stdin if l.strip()) if 'id' in m}
+res=json.loads(by[4]['result']['content'][0]['text'])
+assert res['path'].endswith('.wav'), 'render/mix did not return the path: %r'%res
+assert 'loudness' in res and res['loudness']['lufs'] < 0, 'render/mix missing loudness report: %r'%res
+print('smoke: PASS — MCP render/mix returns a path + loudness report (lufs %.1f)'%res['loudness']['lufs'])
+" || { echo "smoke: MCP render/mix wrong" >&2; exit 1; }
+python3 -c "
+import wave
+w=wave.open('$MCP_RWAV','rb'); n=w.getnframes(); sw=w.getsampwidth(); raw=w.readframes(n); peak=0
+for i in range(0,len(raw),sw):
+    v=int.from_bytes(raw[i:i+sw],'little',signed=True); peak=max(peak,abs(v)/float(1<<(8*sw-1)))
+assert peak>0.01, 'MCP render/mix wrote a silent WAV (peak %.4f)'%peak
+print('smoke: PASS — MCP render/mix wrote a non-silent WAV (peak %.3f)'%peak)
+" || { echo "smoke: MCP render/mix silent" >&2; exit 1; }
+
+# MCP render/preset (Wave 11 #33 slice 4): define an export profile on the live project, save it as
+# a composition, then have the MCP subcommand RunExport it by name and assert the WAV path is written.
+# Isolated via a SaveProject/LoadProject session snapshot (DefineExportProfile mutates the project).
+g -d "{\"path\":\"$WORK/mcp-rp-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d '{"name":"mcppreset","target":"mix","format":"wav"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/DefineExportProfile >/dev/null
+g -d "{\"path\":\"$WORK/mcp-rp\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+MCP_RPOUT="$WORK/mcp-rp-out"; rm -rf "$MCP_RPOUT"
+printf '%s\n' \
+    '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"render/preset\",\"arguments\":{\"name\":\"mcppreset\",\"out_dir\":\"$MCP_RPOUT\"}}}" \
+    | "$BIN" mcp "$WORK/mcp-rp" 2>/dev/null | python3 -c "
+import json,sys,os
+by={m['id']:m for m in (json.loads(l) for l in sys.stdin if l.strip()) if 'id' in m}
+files=json.loads(by[2]['result']['content'][0]['text'])['files']
+assert files and files[0].endswith('.wav'), 'render/preset returned no WAV path: %r'%files
+assert os.path.exists(files[0]), 'render/preset path does not exist on disk: %r'%files[0]
+print('smoke: PASS — MCP render/preset ran a named profile and wrote %s'%os.path.basename(files[0]))
+" || { echo "smoke: MCP render/preset wrong" >&2; exit 1; }
+g -d "{\"path\":\"$WORK/mcp-rp-snap.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+
 # MIDI file export/import round-trip (last — import resets the project). Export the
 # loaded project to an SMF, reimport into a fresh project, and confirm notes survive
 # as playable clips.
