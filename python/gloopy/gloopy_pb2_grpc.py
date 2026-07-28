@@ -2363,7 +2363,7 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def GitInit(self, request, context):
-        """git init a folder (New Git Project / Enable Git)
+        """git init a folder (saving a composition folder auto-calls this)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

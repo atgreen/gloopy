@@ -67,9 +67,9 @@ later, add effects.
 
 ## 6. Save your work
 
-**File → Save As Composition Folder** — your project is saved as a **composition
-folder**, a directory of readable text files that works well with version control.
-This is the working format.
+**File → Save Project** (or Ctrl+S) — your project is saved as a **composition
+folder**, a directory of readable text files that works well with version control
+(it's a git repository from the first save). This is the working format.
 
 To share the project as one file, use **File → Export Project (.gloopy)** — that
 same folder zipped into a single portable archive. Reopen either with **File →

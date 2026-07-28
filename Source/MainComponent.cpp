@@ -3852,7 +3852,7 @@ void MainComponent::openDiff()
     if (! apiGitStatus (dir).isRepo)
     {
         juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
-            "Changes", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+            "Changes", "This folder isn't a git repository yet — save the project (Ctrl+S) to initialise git.");
         return;
     }
 
@@ -3902,7 +3902,7 @@ void MainComponent::showWorkingTreeMenu()
     if (! apiGitStatus (dir).isRepo)
     {
         juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
-            "Working tree", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+            "Working tree", "This folder isn't a git repository yet — save the project (Ctrl+S) to initialise git.");
         return;
     }
 
@@ -3994,7 +3994,7 @@ void MainComponent::showRemoteMenu()
     if (! st.isRepo)
     {
         juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
-            "Remotes", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+            "Remotes", "This folder isn't a git repository yet — save the project (Ctrl+S) to initialise git.");
         return;
     }
 
@@ -4072,7 +4072,7 @@ void MainComponent::showGitSettings()
     if (! apiGitStatus (dir).isRepo)
     {
         juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
-            "Git settings", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+            "Git settings", "This folder isn't a git repository yet — save the project (Ctrl+S) to initialise git.");
         return;
     }
 
@@ -4111,7 +4111,7 @@ void MainComponent::showConflictMenu()
     if (! apiGitStatus (dir).isRepo)
     {
         juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
-            "Conflicts", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+            "Conflicts", "This folder isn't a git repository yet — save the project (Ctrl+S) to initialise git.");
         return;
     }
 
@@ -4176,7 +4176,7 @@ void MainComponent::showBranchMenu()
     if (! apiGitStatus (dir).isRepo)
     {
         juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
-            "Branches", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+            "Branches", "This folder isn't a git repository yet — save the project (Ctrl+S) to initialise git.");
         return;
     }
 
@@ -4292,7 +4292,7 @@ void MainComponent::showTagMenu()
     if (! apiGitStatus (dir).isRepo)
     {
         juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
-            "Tags", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+            "Tags", "This folder isn't a git repository yet — save the project (Ctrl+S) to initialise git.");
         return;
     }
 
@@ -4377,7 +4377,7 @@ void MainComponent::showVersionPicker()
     if (! st.isRepo)
     {
         juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
-            "Open at version", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+            "Open at version", "This folder isn't a git repository yet — save the project (Ctrl+S) to initialise git.");
         return;
     }
 
@@ -4450,7 +4450,7 @@ void MainComponent::showCommitDialog()
     if (! apiGitStatus (dir).isRepo)
     {
         juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
-            "Commit", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+            "Commit", "This folder isn't a git repository yet — save the project (Ctrl+S) to initialise git.");
         return;
     }
     saveComposition (currentProjectFile.getParentDirectory());   // capture the current edits
@@ -5027,7 +5027,6 @@ void MainComponent::filesDropped (const juce::StringArray& files, int, int)
 void MainComponent::showFileMenu()
 {
     juce::PopupMenu menu;
-    const bool haveProject = currentProjectFile != juce::File();
     const bool isComposition = currentProjectFile.getFileName() == "gloopy.toml";
     // Undo / redo — discoverable here (also bound to Ctrl+Z / Ctrl+Shift+Z). The
     // enabled state reflects the snapshot stacks so users can see when either is live.
@@ -5043,8 +5042,8 @@ void MainComponent::showFileMenu()
     menu.addItem (2, "Open Archive...");                 // a single-file .gloopy / .zip (zipped composition)
     menu.addItem (9, "Import MIDI File...");             // .mid/.midi -> synth track + clip per track
     menu.addSeparator();
-    menu.addItem (3, "Save", haveProject);
-    menu.addItem (7, "Save As Composition Folder...");   // directory format (default)
+    menu.addItem (3, "Save Project");                    // save in place, or prompt for a folder when untitled
+    menu.addItem (7, "Save Project As...");              // save a copy into a new composition folder
     menu.addItem (10, "Save as Template...");
     menu.addSeparator();
     menu.addItem (4, "Export Project (.gloopy)...");   // whole project -> single-file zip archive (for sharing)
@@ -5059,8 +5058,6 @@ void MainComponent::showFileMenu()
     menu.addSeparator();
     menu.addItem (8, "Project Notes...");
     menu.addItem (17, "Source Control...");            // git status of the project's dir (Git.cpp)
-    menu.addItem (18, "New Git Project...");           // save as a composition folder + git init
-    menu.addItem (19, "Enable Git", isComposition);    // git init the open composition folder
     menu.addItem (22, "Commit...", isComposition);     // save + stage all + commit (Git.cpp)
     menu.addItem (23, "History...", isComposition);    // git commit log (Git.cpp)
     menu.addItem (24, "Branches...", isComposition);   // branch popup (Git.cpp)
@@ -5091,48 +5088,6 @@ void MainComponent::showFileMenu()
         {
             if (result == 8) { openNotes(); return; }
             if (result == 17) { openSourceControl(); return; }
-            if (result == 18)   // New Git Project: choose a folder, save the composition into it, git init
-            {
-                fileChooser = std::make_unique<juce::FileChooser> ("New git project folder", juce::File());
-                fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectDirectories,
-                    [this] (const juce::FileChooser& fc)
-                    {
-                        auto d = fc.getResult();
-                        if (d == juce::File()) return;
-                        const auto dir = d.getFullPathName();
-                        auto err = std::make_shared<juce::String>();
-                        runBackground ("Creating git project…",
-                            [this, dir, err]
-                            {
-                                if (! apiSaveComposition (dir)) { *err = "Could not save the composition folder."; return; }
-                                auto r = apiGitInit (dir);
-                                if (! r.ok) *err = r.error;
-                            },
-                            [this, d, err]
-                            {
-                                if (err->isNotEmpty())
-                                {
-                                    juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
-                                        "New Git Project", *err);
-                                    return;
-                                }
-                                currentProjectFile = d.getChildFile ("gloopy.toml");   // the project now lives here
-                                openSourceControl();                                    // show the fresh repo
-                            });
-                    });
-                return;
-            }
-            if (result == 19)   // Enable Git: git init the open composition folder
-            {
-                if (currentProjectFile.getFileName() != "gloopy.toml") return;
-                auto r = apiGitInit (currentProjectFile.getParentDirectory().getFullPathName());
-                if (! r.ok)
-                    juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
-                        "Enable Git", r.error);
-                else
-                    openSourceControl();
-                return;
-            }
             if (result == 22) { showCommitDialog(); return; }   // save + stage all + commit
             if (result == 23) { openHistory(); return; }        // git commit log
             if (result == 24) { showBranchMenu(); return; }     // branch popup
@@ -5247,11 +5202,8 @@ void MainComponent::showFileMenu()
                             });
                     });
             }
-            else if (result == 3)   // Save — same format the project was opened as
-            {
-                if (isComposition) saveComposition (currentProjectFile.getParentDirectory());
-                else               saveProject (currentProjectFile);
-            }
+            else if (result == 3)   // Save Project — save in place, or prompt for a folder when untitled
+                saveCurrentProject();
             else if (result == 4)
             {
                 fileChooser = std::make_unique<juce::FileChooser> ("Export project as .gloopy archive", juce::File(), "*.gloopy");

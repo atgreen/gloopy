@@ -138,9 +138,9 @@ MainComponent::GitResult MainComponent::apiGitInit (const juce::String& dirStr)
         return r;
     }
 
-    // `git init` is safe to run on an already-initialised repo (idempotent), so this
-    // doubles as "Enable Git" for an existing folder. The .gitignore is owned by the
-    // composition writer (kGitignore), so we don't write one here.
+    // `git init` is safe to run on an already-initialised repo (idempotent), so saving a
+    // composition folder can call this unconditionally to auto-init it. The .gitignore is
+    // owned by the composition writer (kGitignore), so we don't write one here.
     juce::String out;
     const int code = runGit ({ "-C", dir.getFullPathName(), "init" }, out, /*alsoStderr*/ true);
     if (code != 0)
@@ -715,7 +715,7 @@ juce::String MainComponent::gitHistoryReport()
     if (s.dir.isEmpty())
         return "No saved project — save as a Composition folder to track it in git.";
     if (! s.isRepo)
-        return "Not a git repository yet — use File \xe2\x86\x92 Enable Git first.";
+        return "Not a git repository yet — save the project (Ctrl+S) to initialise git.";
 
     auto commits = apiGitLog (s.dir, 100);
     if (commits.empty())
@@ -754,7 +754,7 @@ juce::String MainComponent::gitStatusReport()
     text << "Folder:  " << s.dir << "\n";
     if (! s.isRepo)
         return text + "Status:  not a git repository\n"
-                      "         (\"Enable Git\" / \"New Git Project\" arrive in the next slice).\n";
+                      "         (save the project to initialise git — every saved folder is a repo).\n";
 
     text << "Branch:  " << s.branch << (s.detached ? "  (detached HEAD)" : "") << "\n";
     if (s.ahead > 0 || s.behind > 0)
