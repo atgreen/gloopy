@@ -3279,11 +3279,9 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     {
         MixerTrack& mt = *mixerTracks[(size_t) ti];
         { auto sub = subView (mt.buffer); for (auto& fx : mt.effects) { fx->setTempo (fxBpm); fx->process (sub); } }
-        const float mpL = mt.buffer.getMagnitude (0, 0, num), mpR = mt.buffer.getMagnitude (1, 0, num);
-        mt.peakL.store (mpL); mt.peakR.store (mpR);
-        if (mpL >= 1.0f || mpR >= 1.0f) mt.clipped.store (true);
+        const float rawL = mt.buffer.getMagnitude (0, 0, num), rawR = mt.buffer.getMagnitude (1, 0, num);
 
-        // Compute the fader gain + audibility first — post-fader sends need them.
+        // Compute the fader gain + audibility first — post-fader sends AND the meter need them.
         // Solo: audible if nothing is soloed, or this insert is on the transitive solo path
         // (soloImplied — direct/bus solo, incl. soloing a group lighting its members), or it
         // belongs to a soloed control group (VCA solo). Track-solo and group-solo combine.
@@ -3299,6 +3297,12 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
                 if (grp->mute.load()) audible = false;
                 else                  v *= grp->gain.load();
             }
+
+        // Meter POST-fader (like the master): the meter follows the fader, so pulling it to 0 or
+        // muting drops the meter to 0 — what you hear is what you see.
+        const float mpL = audible ? rawL * v : 0.0f, mpR = audible ? rawR * v : 0.0f;
+        mt.peakL.store (mpL); mt.peakR.store (mpR);
+        if (mpL >= 1.0f || mpR >= 1.0f) mt.clipped.store (true);
 
         // Aux sends: tap this insert's post-effects signal into its target buses. A PRE-fader
         // send taps at its own level regardless of the fader/mute (a classic aux); a POST-fader
