@@ -150,11 +150,14 @@ that constraint is the product, not a limitation.
   into a *hosted* plugin via the host state API is a **proven hard blocker**, so the embedded core
   stays as the one path where patch-by-path loading works (backs the Presets tab). Only revisit
   removal if the LV2 patch-message load gets solved. Plan in `docs/surge-embed.md`.
-- `[~]` **Strong time types (Wave 7 #21) — foundation landed.** `Source/Time.h`
-  (`BeatPosition`/`BeatDuration`, `TimePosition`/`TimeDuration`, compile-checked algebra) + a
-  `TimeTypes` static-assert test. **Remaining:** incremental adoption — migrate the
-  `beatToSamples`/`samplesToBeats` layer + clip/loop/marker positions onto the types, add a
-  Sample domain, one subsystem per slice.
+- `[~]` **Strong time types (Wave 7 #21) — foundation + Sample domain landed.** `Source/Time.h`
+  (`BeatPosition`/`BeatDuration`, `TimePosition`/`TimeDuration`, **`SamplePosition`/`SampleDuration`**
+  integer-backed, compile-checked algebra) + typed constant-tempo/rate **conversions**
+  (beats↔seconds↔samples; the empty-tempo-map `beatToSamples`/`samplesToBeats` fast path expressed
+  in the types) + a `TimeTypes` test (algebra, conversions, compile-rejection static_asserts incl.
+  samples+beats/samples+double). **Remaining:** migrate the ENGINE's `beatToSamples`/`samplesToBeats`
+  call sites + clip/loop/marker positions onto the types, one subsystem per slice (tempo-map-aware
+  conversion stays in `TempoConv`).
 - `[~]` **Manual (`docs/`, `mkdocs.yml`).** Material for MkDocs + Diátaxis, two front doors
   (User guide + Control & scripting), the domain model documented **once**; `mkdocs build
   --strict` passes. Keep docs out of implementation-language framing. Deferred: the gRPC/OSC/CL
@@ -1695,6 +1698,24 @@ prior-art references to *read*, not to lift.
     positions and `beatToSamples`/`samplesToBeats` are expressed in the new types; a
     `GloopyTests` case proves the illegal combinations don't compile (or are rejected).
     Low risk, no audio-thread danger, big safety win — **near-term (priority #2).**
+    - `[x]` **Foundation landed** (`Source/Time.h`): beats + seconds domains
+      (`BeatPosition`/`BeatDuration`, `TimePosition`/`TimeDuration`), constexpr, position/duration
+      algebra with the illegal combos rejected; `TimeTypes` static-assert + runtime test.
+    - `[x]` **Sample domain + typed conversions landed** (commit, Phase-B slice 1): added
+      **`SamplePosition`/`SampleDuration`** (integer-backed `std::int64_t`, discrete — same
+      position/duration algebra) + a **conversions** section — `secondsPerBeat`, `toSeconds`/
+      `toBeats` (beats↔seconds by bpm), `toSamples`/`toSeconds` (seconds↔samples by rate, positions/
+      durations rounded to the nearest whole sample), and `toSamples`/`toBeats` composing
+      beats↔samples (bpm + rate). This is the constant-tempo/rate `beatToSamples`/`samplesToBeats`
+      layer expressed in the types (the empty-tempo-map fast path); tempo-map-aware conversion
+      stays in the engine's `TempoConv`. The domain is chosen by argument type, so a conversion
+      can't be called with the wrong kind of time. `TimeTypes` test extended: sample algebra,
+      the 6 conversions (120 bpm → 1 beat = 0.5 s = 24000 @ 48 kHz), and compile-rejection
+      static_asserts (samples+samples, samples+beats, samples+double, sample-dur+time-dur all
+      fail to compile). Pure header + unit test (no engine/proto/UI change — internal plumbing);
+      ctest green, main build + 176-PASS smoke unchanged.
+      **NEXT:** migrate one engine subsystem's `beatToSamples`/`samplesToBeats` call sites (or
+      clip/loop/marker position fields) onto the types.
 
 22. **Undo / redo — fine-grained (ValueTree + `UndoManager`).** ✦ **L** — *deferred/optional.*
     NOTE: snapshot-based undo **already ships** and works (see the reprioritization banner;

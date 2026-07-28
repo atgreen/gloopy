@@ -1421,6 +1421,13 @@ static_assert (! hasAdd<BeatPosition, double>::value,       "typed time + bare d
 static_assert (! hasAdd<BeatPosition, TimePosition>::value, "beats + seconds must NOT compile");
 static_assert (! hasAdd<BeatDuration, TimeDuration>::value, "beat-duration + time-duration must NOT compile");
 static_assert (! hasSub<BeatPosition, TimePosition>::value, "beats - seconds must NOT compile");
+// Sample domain (discrete): same legal/illegal shape, and it does not mix with beats or seconds.
+static_assert (  hasSub<SamplePosition, SamplePosition>::value, "sample position - position must compile (=> duration)");
+static_assert (  hasAdd<SamplePosition, SampleDuration>::value, "sample position + duration must compile");
+static_assert (! hasAdd<SamplePosition, SamplePosition>::value, "sample position + position must NOT compile");
+static_assert (! hasAdd<SamplePosition, double>::value,         "samples + bare double must NOT compile");
+static_assert (! hasAdd<SamplePosition, BeatPosition>::value,   "samples + beats must NOT compile");
+static_assert (! hasAdd<SampleDuration, TimeDuration>::value,   "sample-duration + time-duration must NOT compile");
 } // namespace
 
 struct TimeTypesTests : juce::UnitTest
@@ -1445,10 +1452,29 @@ struct TimeTypesTests : juce::UnitTest
         expectWithinAbsoluteError ((TimePosition { 2.0 } - TimePosition { 0.5 }).inSeconds(), 1.5, 1e-12);
         expect (TimeDuration { 0.5 } < TimeDuration { 1.0 });
 
+        beginTest ("sample domain algebra (discrete)");
+        expect ((SamplePosition { 44100 } - SamplePosition { 100 }).inSamples() == 44000);
+        expect ((SamplePosition { 100 } + SampleDuration { 44000 }).inSamples() == 44100);
+        expect ((SampleDuration { 22050 } * (long long) 2).inSamples() == 44100);
+        expectWithinAbsoluteError (SampleDuration { 44100 } / SampleDuration { 22050 }, 2.0, 1e-12);   // ratio
+        expect (SamplePosition { 100 } < SamplePosition { 200 });
+        expect (SamplePosition { 200 } == SamplePosition { 200 });
+
+        beginTest ("cross-domain conversions (constant tempo / rate)");
+        // 120 bpm -> 1 beat = 0.5 s; at 48 kHz that's 24000 samples.
+        expectWithinAbsoluteError (toSeconds (BeatPosition { 1.0 }, 120.0).inSeconds(), 0.5, 1e-12);
+        expectWithinAbsoluteError (toBeats (TimePosition { 0.5 }, 120.0).inBeats(), 1.0, 1e-12);
+        expect (toSamples (TimeDuration { 1.0 }, 44100.0).inSamples() == 44100);
+        expectWithinAbsoluteError (toSeconds (SampleDuration { 44100 }, 44100.0).inSeconds(), 1.0, 1e-12);
+        expect (toSamples (BeatPosition { 1.0 }, 120.0, 48000.0).inSamples() == 24000);          // beats -> samples
+        expectWithinAbsoluteError (toBeats (SamplePosition { 24000 }, 120.0, 48000.0).inBeats(), 1.0, 1e-12);  // samples -> beats
+
         beginTest ("illegal combinations are rejected at compile time");
         expect (! hasAdd<BeatPosition, BeatPosition>::value, "position + position must be rejected");
         expect (! hasAdd<BeatPosition, TimePosition>::value, "beats + seconds must be rejected");
         expect (! hasAdd<BeatPosition, double>::value,       "typed + bare double must be rejected");
+        expect (! hasAdd<SamplePosition, BeatPosition>::value, "samples + beats must be rejected");
+        expect (! hasAdd<SamplePosition, SamplePosition>::value, "sample position + position must be rejected");
         expect (  hasSub<BeatPosition, BeatPosition>::value, "position - position must be allowed");
         expect (  hasAdd<BeatPosition, BeatDuration>::value, "position + duration must be allowed");
     }
