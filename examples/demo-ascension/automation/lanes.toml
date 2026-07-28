@@ -1,0 +1,8 @@
+[[lanes]]
+id = "lane-5"
+type = 0
+target_id = 5
+slot = 0
+param = ""
+points = "automation/lane-5.points"
+

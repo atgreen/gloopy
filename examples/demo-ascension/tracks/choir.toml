@@ -1,0 +1,24 @@
+id = "choir"
+name = "Choir"
+type = 0
+colour = -2513855
+default_pitch = 60
+volume = 0.60000002384185791
+pan = 0.15000000596046448
+mute = false
+solo = false
+mixer_insert = "ins-8"
+
+[generator]
+type = "sfz"
+path = "Virtual-Playing-Orchestra3/Vocals/choir-MIXED-sustain.sfz"
+
+[[clips]]
+id = "choir"
+name = "Choir"
+ctype = 0
+start = 0
+length = 160
+content_length = 160
+looped = false
+notes = "clips/choir/choir.notes"

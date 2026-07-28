@@ -1,0 +1,94 @@
+id = "bass"
+name = "Bass"
+type = 0
+colour = -11890471
+default_pitch = 45
+volume = 0.80000001192092896
+pan = 0
+mute = false
+solo = false
+mixer_insert = "ins-5"
+
+[generator]
+type = "synth"
+wave = 1
+attack = 0.004999999888241291
+decay = 0.11999999731779099
+sustain = 0.69999998807907104
+release = 0.11999999731779099
+gain = 0.30000001192092896
+osc2wave = 1
+osc2detune = 0
+oscmix = 0
+sub = 0
+ftype = 0
+cutoff = 20000
+reso = 0.69999998807907104
+fenvamt = 0
+fattack = 0.0099999997764825821
+fdecay = 0.20000000298023224
+fsustain = 0.60000002384185791
+frelease = 0.30000001192092896
+lfotarget = 0
+lforate = 5
+lfodepth = 0
+
+[[clips]]
+id = "bass"
+name = "Bass"
+ctype = 0
+start = 32
+length = 32
+content_length = 16
+looped = true
+notes = "clips/bass/bass.notes"
+
+[[clips]]
+id = "bass-2"
+name = "Bass"
+ctype = 0
+start = 64
+length = 32
+content_length = 16
+looped = true
+notes = "clips/bass/bass-2.notes"
+
+[[clips]]
+id = "bass-3"
+name = "Bass"
+ctype = 0
+start = 96
+length = 32
+content_length = 16
+looped = true
+notes = "clips/bass/bass-3.notes"
+
+[[clips]]
+id = "bass-4"
+name = "Bass"
+ctype = 0
+start = 128
+length = 32
+content_length = 16
+looped = true
+notes = "clips/bass/bass-4.notes"
+
+[[clips]]
+id = "bass-5"
+name = "Bass"
+ctype = 0
+start = 160
+length = 32
+content_length = 16
+looped = true
+notes = "clips/bass/bass-5.notes"
+
+[[clips]]
+id = "bass-6"
+name = "Bass"
+ctype = 0
+start = 192
+length = 32
+content_length = 16
+looped = true
+notes = "clips/bass/bass-6.notes"

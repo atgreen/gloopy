@@ -1,0 +1,24 @@
+id = "brass-power"
+name = "Brass Power"
+type = 0
+colour = -11095445
+default_pitch = 60
+volume = 0.62000000476837158
+pan = 0.05000000074505806
+mute = false
+solo = false
+mixer_insert = "ins-3"
+
+[generator]
+type = "sfz"
+path = "Virtual-Playing-Orchestra3/Brass/all-brass-SEC-sustain.sfz"
+
+[[clips]]
+id = "brass-power"
+name = "Brass Power"
+ctype = 0
+start = 0
+length = 160
+content_length = 160
+looped = false
+notes = "clips/brass-power/brass-power.notes"

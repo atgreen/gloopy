@@ -1,0 +1,27 @@
+format = "gloopy-composition"
+version = 1
+title = "demo-nocturne"
+bpm = 76
+swing = 0.5
+
+[[tracks]]
+id = "kick"
+file = "tracks/kick.toml"
+[[tracks]]
+id = "strings-vpo"
+file = "tracks/strings-vpo.toml"
+[[tracks]]
+id = "piano"
+file = "tracks/piano.toml"
+[[tracks]]
+id = "bass"
+file = "tracks/bass.toml"
+[[tracks]]
+id = "lead"
+file = "tracks/lead.toml"
+
+[mixer]
+file = "mixer/inserts.toml"
+
+[automation]
+file = "automation/lanes.toml"

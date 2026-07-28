@@ -1,0 +1,27 @@
+id = "snare"
+name = "Snare"
+type = 0
+colour = -10496
+default_pitch = 60
+volume = 0.5
+pan = 0
+mute = false
+solo = false
+mixer_insert = "ins-2"
+
+[generator]
+type = "sampler"
+sample_file = "assets/samples/snare.wav"
+root = 60
+sample_name = "Snare"
+rate = 44100
+
+[[clips]]
+id = "snare"
+name = "Snare"
+ctype = 0
+start = 0
+length = 96
+content_length = 96
+looped = false
+notes = "clips/snare/snare.notes"

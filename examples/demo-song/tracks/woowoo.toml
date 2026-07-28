@@ -1,0 +1,49 @@
+id = "woowoo"
+name = "WooWoo"
+type = 1
+colour = -4616961
+default_pitch = 60
+volume = 0.60000002384185791
+pan = 0
+mute = false
+solo = false
+mixer_insert = "ins-11"
+
+[generator]
+type = "none"
+
+[[clips]]
+id = "woo"
+name = "Woo"
+ctype = 1
+start = 16
+length = 4.7532864701436122
+content_length = 4
+looped = false
+audio_file = "assets/audio/woowoo-woo.wav"
+audio_rate = 44100
+audio_gain = 1.3999999761581421
+
+[[clips]]
+id = "woo-2"
+name = "Woo"
+ctype = 1
+start = 164
+length = 4.7532864701436122
+content_length = 4
+looped = false
+audio_file = "assets/audio/woowoo-woo-2.wav"
+audio_rate = 44100
+audio_gain = 1.3999999761581421
+
+[[clips]]
+id = "woo-3"
+name = "Woo"
+ctype = 1
+start = 178
+length = 4.7532864701436122
+content_length = 4
+looped = false
+audio_file = "assets/audio/woowoo-woo-3.wav"
+audio_rate = 44100
+audio_gain = 1.3999999761581421

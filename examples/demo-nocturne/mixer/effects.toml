@@ -1,0 +1,9 @@
+[[effects]]
+insert = 0
+slot = 0
+type = "Reverb"
+bypassed = false
+Room = 0.5
+Damp = 0.60000002384185791
+Wet = 0.2199999988079071
+

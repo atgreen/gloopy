@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<PLUGIN name="Surge XT" format="VST3" category="Instrument|Synth" manufacturer="Surge Synth Team"
+        version="1.3.4" file="/home/green/.vst3/Surge XT.vst3/Contents/x86_64-linux/Surge XT.so"
+        uniqueId="190e4fbd" isInstrument="1" fileTime="19142372178" infoUpdateTime="19f9628f233"
+        numInputs="2" numOutputs="2" isShell="0" hasARAExtension="0"
+        uid="b759d69c"/>

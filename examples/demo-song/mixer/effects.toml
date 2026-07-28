@@ -1,0 +1,106 @@
+[[effects]]
+insert = 0
+slot = 0
+type = "Gain"
+bypassed = false
+"Gain dB" = -4.5
+
+[[effects]]
+insert = 3
+slot = 0
+type = "Filter"
+bypassed = false
+Cutoff = 5200
+Reso = 0.20000000298023224
+HP? = 1
+
+[[effects]]
+insert = 5
+slot = 0
+type = "Filter"
+bypassed = false
+Cutoff = 1500
+Reso = 0.2800000011920929
+HP? = 0
+
+[[effects]]
+insert = 6
+slot = 0
+type = "Reverb"
+bypassed = false
+Room = 0.77999997138977051
+Damp = 0.34999999403953552
+Wet = 0.55000001192092896
+
+[[effects]]
+insert = 7
+slot = 0
+type = "Delay"
+bypassed = false
+"Time ms" = 241.93548583984375
+Feedbk = 0.36000001430511475
+Mix = 0.34000000357627869
+
+[[effects]]
+insert = 8
+slot = 0
+type = "Reverb"
+bypassed = false
+Room = 0.85000002384185791
+Damp = 0.30000001192092896
+Wet = 0.55000001192092896
+
+[[effects]]
+insert = 9
+slot = 0
+type = "Delay"
+bypassed = false
+"Time ms" = 362.90322875976562
+Feedbk = 0.34000000357627869
+Mix = 0.2800000011920929
+
+[[effects]]
+insert = 9
+slot = 1
+type = "Reverb"
+bypassed = false
+Room = 0.69999998807907104
+Damp = 0.34999999403953552
+Wet = 0.25999999046325684
+
+[[effects]]
+insert = 10
+slot = 0
+type = "Reverb"
+bypassed = false
+Room = 0.85000002384185791
+Damp = 0.25
+Wet = 0.34000000357627869
+
+[[effects]]
+insert = 11
+slot = 0
+type = "Reverb"
+bypassed = false
+Room = 0.89999997615814209
+Damp = 0.30000001192092896
+Wet = 0.40000000596046448
+
+[[effects]]
+insert = 12
+slot = 0
+type = "Delay"
+bypassed = false
+"Time ms" = 241.93548583984375
+Feedbk = 0.30000001192092896
+Mix = 0.25999999046325684
+
+[[effects]]
+insert = 12
+slot = 1
+type = "Reverb"
+bypassed = false
+Room = 0.64999997615814209
+Damp = 0.30000001192092896
+Wet = 0.25999999046325684
+

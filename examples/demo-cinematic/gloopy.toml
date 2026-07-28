@@ -1,0 +1,15 @@
+format = "gloopy-composition"
+version = 1
+title = "demo-cinematic"
+bpm = 68
+swing = 0.5
+
+[[tracks]]
+id = "strings-vpo"
+file = "tracks/strings-vpo.toml"
+
+[mixer]
+file = "mixer/inserts.toml"
+
+[automation]
+file = "automation/lanes.toml"

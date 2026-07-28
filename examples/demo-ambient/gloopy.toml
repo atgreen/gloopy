@@ -1,0 +1,21 @@
+format = "gloopy-composition"
+version = 1
+title = "demo-ambient"
+bpm = 60
+swing = 0.5
+
+[[tracks]]
+id = "pad"
+file = "tracks/pad.toml"
+[[tracks]]
+id = "sub"
+file = "tracks/sub.toml"
+[[tracks]]
+id = "bell"
+file = "tracks/bell.toml"
+
+[mixer]
+file = "mixer/inserts.toml"
+
+[automation]
+file = "automation/lanes.toml"

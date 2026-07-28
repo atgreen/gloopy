@@ -1,0 +1,44 @@
+id = "lead"
+name = "Lead"
+type = 0
+colour = -7618758
+default_pitch = 60
+volume = 0.55000001192092896
+pan = 0
+mute = false
+solo = false
+mixer_insert = "ins-8"
+
+[generator]
+type = "synth"
+wave = 1
+attack = 0.0099999997764825821
+decay = 0.15000000596046448
+sustain = 0.69999998807907104
+release = 0.2199999988079071
+gain = 0.23999999463558197
+osc2wave = 1
+osc2detune = 0
+oscmix = 0
+sub = 0
+ftype = 0
+cutoff = 20000
+reso = 0.69999998807907104
+fenvamt = 0
+fattack = 0.0099999997764825821
+fdecay = 0.20000000298023224
+fsustain = 0.60000002384185791
+frelease = 0.30000001192092896
+lfotarget = 0
+lforate = 5
+lfodepth = 0
+
+[[clips]]
+id = "lead"
+name = "Lead"
+ctype = 0
+start = 0
+length = 128
+content_length = 128
+looped = false
+notes = "clips/lead/lead.notes"

@@ -1,0 +1,64 @@
+id = "ping"
+name = "Ping"
+type = 0
+colour = -9448449
+default_pitch = 72
+volume = 0.62000000476837158
+pan = 0.2199999988079071
+mute = false
+solo = false
+mixer_insert = "ins-9"
+
+[generator]
+type = "synth"
+wave = 0
+attack = 0.0020000000949949026
+decay = 0.20000000298023224
+sustain = 0
+release = 0.15999999642372131
+gain = 0.41999998688697815
+osc2wave = 1
+osc2detune = 0
+oscmix = 0
+sub = 0
+ftype = 0
+cutoff = 20000
+reso = 0.69999998807907104
+fenvamt = 0
+fattack = 0.0099999997764825821
+fdecay = 0.20000000298023224
+fsustain = 0.60000002384185791
+frelease = 0.30000001192092896
+lfotarget = 0
+lforate = 5
+lfodepth = 0
+
+[[clips]]
+id = "ping"
+name = "Ping"
+ctype = 0
+start = 64
+length = 32
+content_length = 16
+looped = true
+notes = "clips/ping/ping.notes"
+
+[[clips]]
+id = "ping-2"
+name = "Ping"
+ctype = 0
+start = 128
+length = 32
+content_length = 16
+looped = true
+notes = "clips/ping/ping-2.notes"
+
+[[clips]]
+id = "ping-3"
+name = "Ping"
+ctype = 0
+start = 192
+length = 32
+content_length = 16
+looped = true
+notes = "clips/ping/ping-3.notes"

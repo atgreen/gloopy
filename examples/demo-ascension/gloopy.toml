@@ -1,0 +1,45 @@
+format = "gloopy-composition"
+version = 1
+title = "demo-ascension"
+bpm = 140
+swing = 0.5
+
+[[tracks]]
+id = "pad-strings"
+file = "tracks/pad-strings.toml"
+[[tracks]]
+id = "tremolo-str"
+file = "tracks/tremolo-str.toml"
+[[tracks]]
+id = "brass-power"
+file = "tracks/brass-power.toml"
+[[tracks]]
+id = "low-ostinato"
+file = "tracks/low-ostinato.toml"
+[[tracks]]
+id = "timpani"
+file = "tracks/timpani.toml"
+[[tracks]]
+id = "bass-drum"
+file = "tracks/bass-drum.toml"
+[[tracks]]
+id = "cymbals"
+file = "tracks/cymbals.toml"
+[[tracks]]
+id = "melody"
+file = "tracks/melody.toml"
+[[tracks]]
+id = "solo-violin"
+file = "tracks/solo-violin.toml"
+[[tracks]]
+id = "choir"
+file = "tracks/choir.toml"
+[[tracks]]
+id = "glockenspiel"
+file = "tracks/glockenspiel.toml"
+
+[mixer]
+file = "mixer/inserts.toml"
+
+[automation]
+file = "automation/lanes.toml"

@@ -1,0 +1,24 @@
+id = "glockenspiel"
+name = "Glockenspiel"
+type = 0
+colour = -11095445
+default_pitch = 60
+volume = 0.72000002861022949
+pan = 0.25
+mute = false
+solo = false
+mixer_insert = "ins-8"
+
+[generator]
+type = "sfz"
+path = "Virtual-Playing-Orchestra3/Percussion/glockenspiel.sfz"
+
+[[clips]]
+id = "glockenspiel"
+name = "Glockenspiel"
+ctype = 0
+start = 0
+length = 160
+content_length = 160
+looped = false
+notes = "clips/glockenspiel/glockenspiel.notes"

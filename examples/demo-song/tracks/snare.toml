@@ -1,0 +1,97 @@
+id = "snare"
+name = "Snare"
+type = 0
+colour = -2513855
+default_pitch = 60
+volume = 0.75
+pan = 0
+mute = false
+solo = false
+mixer_insert = "ins-2"
+
+[generator]
+type = "sampler"
+sample_file = "assets/samples/snare.wav"
+root = 60
+sample_name = "snare"
+rate = 44100
+
+[[clips]]
+id = "snare"
+name = "Snare"
+ctype = 0
+start = 32
+length = 28
+content_length = 4
+looped = true
+notes = "clips/snare/snare.notes"
+
+[[clips]]
+id = "fill"
+name = "Fill"
+ctype = 0
+start = 60
+length = 4
+content_length = 4
+looped = true
+notes = "clips/snare/fill.notes"
+
+[[clips]]
+id = "snare-2"
+name = "Snare"
+ctype = 0
+start = 64
+length = 32
+content_length = 4
+looped = true
+notes = "clips/snare/snare-2.notes"
+
+[[clips]]
+id = "snare-3"
+name = "Snare"
+ctype = 0
+start = 96
+length = 28
+content_length = 4
+looped = true
+notes = "clips/snare/snare-3.notes"
+
+[[clips]]
+id = "fill-2"
+name = "Fill"
+ctype = 0
+start = 124
+length = 4
+content_length = 4
+looped = true
+notes = "clips/snare/fill-2.notes"
+
+[[clips]]
+id = "snare-4"
+name = "Snare"
+ctype = 0
+start = 128
+length = 32
+content_length = 4
+looped = true
+notes = "clips/snare/snare-4.notes"
+
+[[clips]]
+id = "fill-3"
+name = "Fill"
+ctype = 0
+start = 188
+length = 4
+content_length = 4
+looped = true
+notes = "clips/snare/fill-3.notes"
+
+[[clips]]
+id = "snare-5"
+name = "Snare"
+ctype = 0
+start = 192
+length = 32
+content_length = 4
+looped = true
+notes = "clips/snare/snare-5.notes"

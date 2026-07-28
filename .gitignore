@@ -23,3 +23,10 @@ docs/control-scripting/reference/osc/*
 !docs/control-scripting/reference/osc/index.md
 docs/control-scripting/reference/lisp/*
 !docs/control-scripting/reference/lisp/index.md
+
+# Common Lisp: ocicl-managed vendored dependency systems. Reinstall with
+# `ocicl install` from common-lisp/ocicl.csv (the lockfile IS tracked).
+common-lisp/ocicl/
+
+# Python packaging build artifacts
+*.egg-info/

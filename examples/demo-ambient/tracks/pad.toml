@@ -1,0 +1,44 @@
+id = "pad"
+name = "Pad"
+type = 0
+colour = -2070982
+default_pitch = 60
+volume = 0.60000002384185791
+pan = 0
+mute = false
+solo = false
+mixer_insert = "ins-1"
+
+[generator]
+type = "synth"
+wave = 0
+attack = 1.5
+decay = 0.5
+sustain = 0.89999997615814209
+release = 2
+gain = 0.30000001192092896
+osc2wave = 1
+osc2detune = 0
+oscmix = 0
+sub = 0
+ftype = 0
+cutoff = 20000
+reso = 0.69999998807907104
+fenvamt = 0
+fattack = 0.0099999997764825821
+fdecay = 0.20000000298023224
+fsustain = 0.60000002384185791
+frelease = 0.30000001192092896
+lfotarget = 0
+lforate = 5
+lfodepth = 0
+
+[[clips]]
+id = "pad"
+name = "Pad"
+ctype = 0
+start = 0
+length = 128
+content_length = 128
+looped = false
+notes = "clips/pad/pad.notes"

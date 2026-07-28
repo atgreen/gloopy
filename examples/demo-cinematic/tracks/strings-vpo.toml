@@ -1,0 +1,24 @@
+id = "strings-vpo"
+name = "Strings (VPO)"
+type = 0
+colour = -2070982
+default_pitch = 60
+volume = 0.80000001192092896
+pan = 0
+mute = false
+solo = false
+mixer_insert = "ins-1"
+
+[generator]
+type = "sfz"
+path = "Virtual-Playing-Orchestra3/Strings/all-strings-SEC-sustain.sfz"
+
+[[clips]]
+id = "cinematic"
+name = "Cinematic"
+ctype = 0
+start = 0
+length = 64
+content_length = 64
+looped = false
+notes = "clips/strings-vpo/cinematic.notes"

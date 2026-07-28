@@ -1,0 +1,47 @@
+id = "clap"
+name = "Clap"
+type = 0
+colour = -5085479
+default_pitch = 60
+volume = 0.60000002384185791
+pan = -0.34999999403953552
+mute = false
+solo = false
+mixer_insert = "ins-4"
+
+[generator]
+type = "sampler"
+sample_file = "assets/samples/clap.wav"
+root = 60
+sample_name = "clap"
+rate = 44100
+
+[[clips]]
+id = "clap"
+name = "Clap"
+ctype = 0
+start = 64
+length = 32
+content_length = 4
+looped = true
+notes = "clips/clap/clap.notes"
+
+[[clips]]
+id = "clap-2"
+name = "Clap"
+ctype = 0
+start = 128
+length = 32
+content_length = 4
+looped = true
+notes = "clips/clap/clap-2.notes"
+
+[[clips]]
+id = "clap-3"
+name = "Clap"
+ctype = 0
+start = 192
+length = 32
+content_length = 4
+looped = true
+notes = "clips/clap/clap-3.notes"

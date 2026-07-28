@@ -1,0 +1,44 @@
+[[effects]]
+insert = 0
+slot = 0
+type = "Reverb"
+bypassed = false
+Room = 0.5
+Damp = 0.5
+Wet = 0.33000001311302185
+
+[[effects]]
+insert = 0
+slot = 1
+type = "Limiter"
+bypassed = false
+"Thresh dB" = -1
+"Release ms" = 80
+
+[[effects]]
+insert = 1
+slot = 0
+type = "Filter"
+bypassed = false
+Cutoff = 240
+Reso = 0.30000001192092896
+HP? = 1
+
+[[effects]]
+insert = 2
+slot = 0
+type = "Filter"
+bypassed = false
+Cutoff = 260
+Reso = 0.30000001192092896
+HP? = 1
+
+[[effects]]
+insert = 3
+slot = 0
+type = "Filter"
+bypassed = false
+Cutoff = 150
+Reso = 0.30000001192092896
+HP? = 1
+

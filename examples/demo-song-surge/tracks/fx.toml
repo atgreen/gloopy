@@ -1,0 +1,85 @@
+id = "fx"
+name = "FX"
+type = 1
+colour = -7618758
+default_pitch = 60
+volume = 0.72000002861022949
+pan = 0
+mute = false
+solo = false
+mixer_insert = "ins-8"
+
+[generator]
+type = "none"
+
+[[clips]]
+id = "crash"
+name = "Crash"
+ctype = 1
+start = 64
+length = 3.3066666666666666
+content_length = 4
+looped = false
+audio_file = "assets/audio/fx-crash.wav"
+audio_rate = 44100
+audio_gain = 1
+
+[[clips]]
+id = "crash-2"
+name = "Crash"
+ctype = 1
+start = 128
+length = 3.3066666666666666
+content_length = 4
+looped = false
+audio_file = "assets/audio/fx-crash-2.wav"
+audio_rate = 44100
+audio_gain = 1
+
+[[clips]]
+id = "crash-3"
+name = "Crash"
+ctype = 1
+start = 192
+length = 3.3066666666666666
+content_length = 4
+looped = false
+audio_file = "assets/audio/fx-crash-3.wav"
+audio_rate = 44100
+audio_gain = 1
+
+[[clips]]
+id = "riser"
+name = "Riser"
+ctype = 1
+start = 58
+length = 5.9999879062736206
+content_length = 4
+looped = false
+audio_file = "assets/audio/fx-riser.wav"
+audio_rate = 44100
+audio_gain = 1
+
+[[clips]]
+id = "riser-2"
+name = "Riser"
+ctype = 1
+start = 122
+length = 5.9999879062736206
+content_length = 4
+looped = false
+audio_file = "assets/audio/fx-riser-2.wav"
+audio_rate = 44100
+audio_gain = 1
+
+[[clips]]
+id = "riser-3"
+name = "Riser"
+ctype = 1
+start = 186
+length = 5.9999879062736206
+content_length = 4
+looped = false
+audio_file = "assets/audio/fx-riser-3.wav"
+audio_rate = 44100
+audio_gain = 1

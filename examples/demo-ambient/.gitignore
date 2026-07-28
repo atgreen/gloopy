@@ -1,0 +1,4 @@
+.gloopy-cache/
+exports/
+*.wav.tmp
+plugins/scans/

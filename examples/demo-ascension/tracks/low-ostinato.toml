@@ -1,0 +1,24 @@
+id = "low-ostinato"
+name = "Low Ostinato"
+type = 0
+colour = -5085479
+default_pitch = 60
+volume = 0.85000002384185791
+pan = -0.15000000596046448
+mute = false
+solo = false
+mixer_insert = "ins-4"
+
+[generator]
+type = "sfz"
+path = "Virtual-Playing-Orchestra3/Strings/all-strings-SEC-staccato.sfz"
+
+[[clips]]
+id = "low-ostinato"
+name = "Low Ostinato"
+ctype = 0
+start = 0
+length = 160
+content_length = 160
+looped = false
+notes = "clips/low-ostinato/low-ostinato.notes"

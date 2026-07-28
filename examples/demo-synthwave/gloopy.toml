@@ -1,0 +1,36 @@
+format = "gloopy-composition"
+version = 1
+title = "demo-synthwave"
+bpm = 100
+swing = 0.5
+
+[[tracks]]
+id = "kick"
+file = "tracks/kick.toml"
+[[tracks]]
+id = "snare"
+file = "tracks/snare.toml"
+[[tracks]]
+id = "hat"
+file = "tracks/hat.toml"
+[[tracks]]
+id = "clap"
+file = "tracks/clap.toml"
+[[tracks]]
+id = "bass"
+file = "tracks/bass.toml"
+[[tracks]]
+id = "pad"
+file = "tracks/pad.toml"
+[[tracks]]
+id = "arp"
+file = "tracks/arp.toml"
+[[tracks]]
+id = "lead"
+file = "tracks/lead.toml"
+
+[mixer]
+file = "mixer/inserts.toml"
+
+[automation]
+file = "automation/lanes.toml"

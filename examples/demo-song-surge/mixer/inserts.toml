@@ -1,0 +1,104 @@
+[[inserts]]
+id = "master"
+name = "Master"
+volume = 0.89999997615814209
+pan = 0
+mute = false
+solo = false
+
+[[inserts]]
+id = "ins-1"
+name = "Ins 1"
+volume = 0.85000002384185791
+pan = 0
+mute = false
+solo = false
+
+[[inserts]]
+id = "ins-2"
+name = "Ins 2"
+volume = 0.80000001192092896
+pan = 0
+mute = false
+solo = false
+
+[[inserts]]
+id = "ins-3"
+name = "Ins 3"
+volume = 0.80000001192092896
+pan = 0
+mute = false
+solo = false
+
+[[inserts]]
+id = "ins-4"
+name = "Ins 4"
+volume = 0.80000001192092896
+pan = 0
+mute = false
+solo = false
+
+[[inserts]]
+id = "ins-5"
+name = "Ins 5"
+volume = 0.81999999284744263
+pan = 0
+mute = false
+solo = false
+
+[[inserts]]
+id = "ins-6"
+name = "Ins 6"
+volume = 0.80000001192092896
+pan = 0
+mute = false
+solo = false
+
+[[inserts]]
+id = "ins-7"
+name = "Ins 7"
+volume = 0.77999997138977051
+pan = 0
+mute = false
+solo = false
+
+[[inserts]]
+id = "ins-8"
+name = "Ins 8"
+volume = 0.80000001192092896
+pan = 0
+mute = false
+solo = false
+
+[[inserts]]
+id = "ins-9"
+name = "Ins 9"
+volume = 0.89999997615814209
+pan = 0
+mute = false
+solo = false
+
+[[inserts]]
+id = "ins-10"
+name = "Ins 10"
+volume = 0.89999997615814209
+pan = 0
+mute = false
+solo = false
+
+[[inserts]]
+id = "ins-11"
+name = "Ins 11"
+volume = 0.85000002384185791
+pan = 0
+mute = false
+solo = false
+
+[[inserts]]
+id = "ins-12"
+name = "Ins 12"
+volume = 0.85000002384185791
+pan = 0
+mute = false
+solo = false
+

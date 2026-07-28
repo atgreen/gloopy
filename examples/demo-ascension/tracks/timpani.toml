@@ -1,0 +1,24 @@
+id = "timpani"
+name = "Timpani"
+type = 0
+colour = -11890471
+default_pitch = 60
+volume = 0.85000002384185791
+pan = 0
+mute = false
+solo = false
+mixer_insert = "ins-5"
+
+[generator]
+type = "sfz"
+path = "Virtual-Playing-Orchestra3/Percussion/timpani-hit.sfz"
+
+[[clips]]
+id = "timpani"
+name = "Timpani"
+ctype = 0
+start = 0
+length = 160
+content_length = 160
+looped = false
+notes = "clips/timpani/timpani.notes"

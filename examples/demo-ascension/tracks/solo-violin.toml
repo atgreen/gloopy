@@ -1,0 +1,24 @@
+id = "solo-violin"
+name = "Solo Violin"
+type = 0
+colour = -2070982
+default_pitch = 60
+volume = 0.89999997615814209
+pan = -0.25
+mute = false
+solo = false
+mixer_insert = "ins-8"
+
+[generator]
+type = "sfz"
+path = "Virtual-Playing-Orchestra3/Strings/1st-violin-SOLO-sustain.sfz"
+
+[[clips]]
+id = "solo-violin"
+name = "Solo Violin"
+ctype = 0
+start = 0
+length = 160
+content_length = 160
+looped = false
+notes = "clips/solo-violin/solo-violin.notes"
