@@ -11,7 +11,10 @@
 #include "MainComponent.h"
 #include "SynthGenerator.h"
 #include "Lfo.h"
+#include "ParamId.h"
 #include <cmath>
+#include <cstring>
+#include <cstdlib>
 
 // Canonical single set: replace ANY modulation(s) already on this target with one source.
 bool MainComponent::apiSetModulation (const juce::String& target, float rate, float depth, int shape, float center,
@@ -91,66 +94,86 @@ std::vector<MainComponent::ModSnap> MainComponent::apiListModulations()
 // thread, no undo) — the same discipline evaluateAutomation uses.
 void MainComponent::applyParamValue (const juce::String& id, float v)
 {
-    juce::StringArray tok; tok.addTokens (id, "/", ""); tok.removeEmptyStrings();
-    if (tok.size() < 3) return;
-
-    if (tok[0] == "track")
+    using gloopy::ieq;
+    // Parse the ParamModel id WITHOUT allocating — this runs on the audio thread every block
+    // for each automation/modulation lane (principle 4; verified by Diagnostics.audio_thread_allocs).
+    // Copy into a stack buffer and split on '/' in place (skipping empties, like removeEmptyStrings).
+    char buf[192];
     {
-        const int tid = tok[1].getIntValue();
-        if (tok.size() == 3)
+        const char* src = id.toRawUTF8();
+        const size_t len = std::strlen (src);
+        if (len >= sizeof buf) return;                 // our ids are short; anything longer isn't one
+        std::memcpy (buf, src, len + 1);
+    }
+    const char* seg[6];
+    int nseg = 0;
+    for (char* p = buf; nseg < 6; )
+    {
+        while (*p == '/') ++p;                          // skip empty segments
+        if (*p == 0) break;
+        seg[nseg++] = p;
+        while (*p != 0 && *p != '/') ++p;
+        if (*p == '/') *p++ = 0;
+    }
+    if (nseg < 3) return;
+
+    if (ieq (seg[0], "track"))
+    {
+        const int tid = std::atoi (seg[1]);
+        if (nseg == 3)
         {
             for (auto& t : tracks) if (t->id == tid)
             {
-                if      (tok[2] == "volume") t->volume.store (juce::jlimit (0.0f, 1.0f, v));
-                else if (tok[2] == "pan")    t->pan.store (juce::jlimit (-1.0f, 1.0f, v));
-                else if (tok[2] == "mute")   t->mute.store (v >= 0.5f);
-                else if (tok[2] == "solo")   t->solo.store (v >= 0.5f);
+                if      (ieq (seg[2], "volume")) t->volume.store (juce::jlimit (0.0f, 1.0f, v));
+                else if (ieq (seg[2], "pan"))    t->pan.store (juce::jlimit (-1.0f, 1.0f, v));
+                else if (ieq (seg[2], "mute"))   t->mute.store (v >= 0.5f);
+                else if (ieq (seg[2], "solo"))   t->solo.store (v >= 0.5f);
                 break;
             }
         }
-        else if (tok.size() == 4 && tok[2] == "synth")
+        else if (nseg == 4 && ieq (seg[2], "synth"))
         {
-            for (auto& t : tracks) if (t->id == tid) { applySynthParam (t.get(), tok[3], v); break; }
+            for (auto& t : tracks) if (t->id == tid) { applySynthParam (t.get(), seg[3], v); break; }
         }
-        else if (tok.size() == 4 && tok[2] == "plugin")   // track/<id>/plugin/<index>: normalised 0..1
+        else if (nseg == 4 && ieq (seg[2], "plugin"))   // track/<id>/plugin/<index>: normalised 0..1
         {
             for (auto& t : tracks)
                 if (t->id == tid && t->generator)
                     if (auto* proc = t->generator->getPluginInstance())
                     {
                         const auto& ps = proc->getParameters();
-                        const int pi = tok[3].getIntValue();
+                        const int pi = std::atoi (seg[3]);
                         if (juce::isPositiveAndBelow (pi, ps.size())) ps[pi]->setValue (juce::jlimit (0.0f, 1.0f, v));
                         break;
                     }
         }
     }
-    else if (tok[0] == "insert" && tok.size() == 3)
+    else if (ieq (seg[0], "insert") && nseg == 3)
     {
-        const int i = tok[1].getIntValue();
+        const int i = std::atoi (seg[1]);
         if (juce::isPositiveAndBelow (i, (int) mixerTracks.size()))
         {
             auto& mt = *mixerTracks[(size_t) i];
-            if      (tok[2] == "volume") mt.volume.store (juce::jlimit (0.0f, 1.0f, v));
-            else if (tok[2] == "pan")    mt.pan.store (juce::jlimit (-1.0f, 1.0f, v));
-            else if (tok[2] == "mute")   mt.mute.store (v >= 0.5f);
-            else if (tok[2] == "solo")   mt.solo.store (v >= 0.5f);
+            if      (ieq (seg[2], "volume")) mt.volume.store (juce::jlimit (0.0f, 1.0f, v));
+            else if (ieq (seg[2], "pan"))    mt.pan.store (juce::jlimit (-1.0f, 1.0f, v));
+            else if (ieq (seg[2], "mute"))   mt.mute.store (v >= 0.5f);
+            else if (ieq (seg[2], "solo"))   mt.solo.store (v >= 0.5f);
         }
     }
-    else if (tok[0] == "effect" && tok.size() == 4)
+    else if (ieq (seg[0], "effect") && nseg == 4)
     {
-        const int i = tok[1].getIntValue(), slot = tok[2].getIntValue();
+        const int i = std::atoi (seg[1]), slot = std::atoi (seg[2]);
         if (juce::isPositiveAndBelow (i, (int) mixerTracks.size()))
         {
             auto& fx = mixerTracks[(size_t) i]->effects;
             if (juce::isPositiveAndBelow (slot, (int) fx.size()))
                 for (auto& pr : fx[(size_t) slot]->parameters())
-                    if (pr.name.equalsIgnoreCase (tok[3])) { pr.set (v); break; }
+                    if (pr.name.equalsIgnoreCase (seg[3])) { pr.set (v); break; }   // equalsIgnoreCase(const char*) is alloc-free
         }
     }
-    else if (tok[0] == "effect" && tok.size() == 5 && tok[3] == "plugin")   // effect/<i>/<slot>/plugin/<index>
+    else if (ieq (seg[0], "effect") && nseg == 5 && ieq (seg[3], "plugin"))   // effect/<i>/<slot>/plugin/<index>
     {
-        const int i = tok[1].getIntValue(), slot = tok[2].getIntValue();
+        const int i = std::atoi (seg[1]), slot = std::atoi (seg[2]);
         if (juce::isPositiveAndBelow (i, (int) mixerTracks.size()))
         {
             auto& fx = mixerTracks[(size_t) i]->effects;
@@ -158,7 +181,7 @@ void MainComponent::applyParamValue (const juce::String& id, float v)
                 if (auto* proc = fx[(size_t) slot]->getPluginInstance())
                 {
                     const auto& ps = proc->getParameters();
-                    const int pi = tok[4].getIntValue();
+                    const int pi = std::atoi (seg[4]);
                     if (juce::isPositiveAndBelow (pi, ps.size())) ps[pi]->setValue (juce::jlimit (0.0f, 1.0f, v));
                 }
         }

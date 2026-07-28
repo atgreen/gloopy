@@ -3,6 +3,7 @@
 
 #include "MainComponent.h"
 #include "AudioAllocGuard.h"
+#include "ParamId.h"
 #include "NoteScheduler.h"
 #include "FadeShape.h"
 #include "Sampler.h"
@@ -1100,7 +1101,7 @@ MainComponent::MainComponent (bool headless)
             // the update if the lock is contended (audio mid-block or edit running).
             const juce::ScopedTryLock stl (engineLock);
             if (! stl.isLocked()) return false;
-            return applySynthParam (resolveTrack (id), n, v);
+            return applySynthParam (resolveTrack (id), n.toRawUTF8(), v);
         };
         h.mixerTracks  = &mixerTracks;
         h.engineLock   = &engineLock;
@@ -1583,47 +1584,46 @@ bool MainComponent::apiSetSynthParam (int trackId, const juce::String& name, flo
     // a concurrent RemoveTrack/load (message thread, engineLock) could otherwise
     // free the Track while we dereference t->generator. (The OSC hook takes the
     // engineLock try-lock instead, to stay real-time safe.)
-    return callOnMessageThread ([&] { return applySynthParam (resolveTrack (trackId), name, value); });
+    return callOnMessageThread ([&] { return applySynthParam (resolveTrack (trackId), name.toRawUTF8(), value); });
 }
 
-bool MainComponent::applySynthParam (Track* t, const juce::String& name, float value)
+bool MainComponent::applySynthParam (Track* t, const char* name, float value)
 {
-    {
-        if (t == nullptr) return false;
-        auto* sg = dynamic_cast<SynthGenerator*> (t->generator.get());
-        if (sg == nullptr) return false;
-        auto& p = sg->engine.params;
-        const auto n = name.toLowerCase();
+    if (t == nullptr) return false;
+    auto* sg = dynamic_cast<SynthGenerator*> (t->generator.get());
+    if (sg == nullptr) return false;
+    auto& p = sg->engine.params;
+    // Case-insensitive name match via ieq (alloc-free) — no toLowerCase() heap on the audio thread.
+    using gloopy::ieq;
 
-        // Oscillators
-        if      (n == "wave")       p.waveform.store (juce::jlimit (0, 3, (int) value));
-        else if (n == "osc2wave")   p.osc2Wave.store (juce::jlimit (0, 3, (int) value));
-        else if (n == "osc2detune") p.osc2Detune.store (juce::jlimit (-1200.0f, 1200.0f, value));
-        else if (n == "oscmix")     p.oscMix.store (juce::jlimit (0.0f, 1.0f, value));
-        else if (n == "sub")        p.subLevel.store (juce::jlimit (0.0f, 1.0f, value));
-        // Amp envelope
-        else if (n == "attack")     p.attack.store  (juce::jmax (0.0f, value));
-        else if (n == "decay")      p.decay.store   (juce::jmax (0.0f, value));
-        else if (n == "sustain")    p.sustain.store (juce::jlimit (0.0f, 1.0f, value));
-        else if (n == "release")    p.release.store (juce::jmax (0.0f, value));
-        else if (n == "gain")       p.gain.store    (juce::jlimit (0.0f, 4.0f, value));
-        // Filter + its envelope
-        else if (n == "ftype")      p.filterType.store (juce::jlimit (0, 2, (int) value));
-        else if (n == "cutoff")     p.cutoff.store    (juce::jlimit (20.0f, 20000.0f, value));
-        else if (n == "reso")       p.resonance.store (juce::jlimit (0.5f, 20.0f, value));
-        else if (n == "fenvamt")    p.filterEnvAmt.store (juce::jlimit (0.0f, 8.0f, value));
-        else if (n == "fattack")    p.fAttack.store  (juce::jmax (0.0f, value));
-        else if (n == "fdecay")     p.fDecay.store   (juce::jmax (0.0f, value));
-        else if (n == "fsustain")   p.fSustain.store (juce::jlimit (0.0f, 1.0f, value));
-        else if (n == "frelease")   p.fRelease.store (juce::jmax (0.0f, value));
-        // LFO
-        else if (n == "lfotarget")  p.lfoTarget.store (juce::jlimit (0, 2, (int) value));
-        else if (n == "lforate")    p.lfoRate.store  (juce::jlimit (0.01f, 40.0f, value));
-        else if (n == "lfodepth")   p.lfoDepth.store (juce::jlimit (0.0f, 1.0f, value));
-        else if (n == "detune")     p.detune.store   (juce::jlimit (-2400.0f, 2400.0f, value));   // ±2 octaves (cents)
-        else return false;
-        return true;
-    }
+    // Oscillators
+    if      (ieq (name, "wave"))       p.waveform.store (juce::jlimit (0, 3, (int) value));
+    else if (ieq (name, "osc2wave"))   p.osc2Wave.store (juce::jlimit (0, 3, (int) value));
+    else if (ieq (name, "osc2detune")) p.osc2Detune.store (juce::jlimit (-1200.0f, 1200.0f, value));
+    else if (ieq (name, "oscmix"))     p.oscMix.store (juce::jlimit (0.0f, 1.0f, value));
+    else if (ieq (name, "sub"))        p.subLevel.store (juce::jlimit (0.0f, 1.0f, value));
+    // Amp envelope
+    else if (ieq (name, "attack"))     p.attack.store  (juce::jmax (0.0f, value));
+    else if (ieq (name, "decay"))      p.decay.store   (juce::jmax (0.0f, value));
+    else if (ieq (name, "sustain"))    p.sustain.store (juce::jlimit (0.0f, 1.0f, value));
+    else if (ieq (name, "release"))    p.release.store (juce::jmax (0.0f, value));
+    else if (ieq (name, "gain"))       p.gain.store    (juce::jlimit (0.0f, 4.0f, value));
+    // Filter + its envelope
+    else if (ieq (name, "ftype"))      p.filterType.store (juce::jlimit (0, 2, (int) value));
+    else if (ieq (name, "cutoff"))     p.cutoff.store    (juce::jlimit (20.0f, 20000.0f, value));
+    else if (ieq (name, "reso"))       p.resonance.store (juce::jlimit (0.5f, 20.0f, value));
+    else if (ieq (name, "fenvamt"))    p.filterEnvAmt.store (juce::jlimit (0.0f, 8.0f, value));
+    else if (ieq (name, "fattack"))    p.fAttack.store  (juce::jmax (0.0f, value));
+    else if (ieq (name, "fdecay"))     p.fDecay.store   (juce::jmax (0.0f, value));
+    else if (ieq (name, "fsustain"))   p.fSustain.store (juce::jlimit (0.0f, 1.0f, value));
+    else if (ieq (name, "frelease"))   p.fRelease.store (juce::jmax (0.0f, value));
+    // LFO
+    else if (ieq (name, "lfotarget"))  p.lfoTarget.store (juce::jlimit (0, 2, (int) value));
+    else if (ieq (name, "lforate"))    p.lfoRate.store  (juce::jlimit (0.01f, 40.0f, value));
+    else if (ieq (name, "lfodepth"))   p.lfoDepth.store (juce::jlimit (0.0f, 1.0f, value));
+    else if (ieq (name, "detune"))     p.detune.store   (juce::jlimit (-2400.0f, 2400.0f, value));   // ±2 octaves (cents)
+    else return false;
+    return true;
 }
 
 std::vector<MainComponent::TrackSnap> MainComponent::apiListTracks()

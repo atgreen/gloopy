@@ -3016,6 +3016,11 @@ g -d "{\"id\":$UZ}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
 AATID=$(g -d '{"name":"AllocGuard","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.7,"release":0.2}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | python3 -c 'import json,sys;print(json.load(sys.stdin).get("id",0))')
 g -d "{\"track_id\":$AATID,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":true,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":0.5,\"velocity\":0.8},{\"pitch\":64,\"start_beat\":1,\"length_beats\":0.5,\"velocity\":0.8},{\"pitch\":67,\"start_beat\":2,\"length_beats\":0.5,\"velocity\":0.8},{\"pitch\":72,\"start_beat\":3,\"length_beats\":0.5,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+# Drive automation + modulation on id-addressed synth params so evaluateAutomation /
+# evaluateModulation call applyParamValue every block — the id-parse path that used to
+# StringArray-tokenize + toLowerCase (allocating), now alloc-free (ieq + stack split).
+g -d "{\"param_id\":\"track/$AATID/synth/cutoff\",\"points\":[{\"beat\":0,\"value\":300},{\"beat\":4,\"value\":8000}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetAutomation >/dev/null
+g -d "{\"target\":\"track/$AATID/synth/reso\",\"rate\":3,\"depth\":4,\"center\":6,\"shape\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetModulation >/dev/null
 g -d '{"enabled":true}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetLoop >/dev/null
 g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/Play >/dev/null
 sleep 1
@@ -3026,7 +3031,7 @@ g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/Stop >/dev/null
 python3 -c "
 a,b=$AA1,$AA2
 assert b-a==0, 'audio thread allocated during playback (delta %d: %d -> %d) — the mix is not allocation-free'%(b-a,a,b)
-print('smoke: PASS — audio-thread mix is allocation-free during playback (steady audioThreadAllocs=%d, delta 0)'%b)
+print('smoke: PASS — audio-thread mix (incl. id-addressed automation + modulation) is allocation-free during playback (steady audioThreadAllocs=%d, delta 0)'%b)
 " || { echo 'smoke: audio-thread allocation guard failed' >&2; exit 1; }
 
 echo "smoke: OK"

@@ -99,7 +99,7 @@ public:
     void apiSetTempo (double bpm);
     void apiSetSwing (double amount);
     bool apiSetSynthParam (int trackId, const juce::String& name, float value);
-    bool applySynthParam (Track* t, const juce::String& name, float value);   // atomic, thread-agnostic
+    bool applySynthParam (Track* t, const char* name, float value);   // atomic, thread-agnostic; alloc-free name (audio thread)
     void apiSeek (double beats);
     void apiSetLoop (bool enabled, double startBeat, double endBeat);
     TransportSnap apiGetTransport();

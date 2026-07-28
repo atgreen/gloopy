@@ -374,16 +374,26 @@ measurably single-core-bound on a heavy multi-track session. See Wave 7 for why.
      normalized set lands at the geometric mean and that `params.toml` lists real ids.
      **Follow-up:** re-taper the actual mixer faders to use dB, and a synth-param knob panel
      (no dedicated synth-param UI knobs exist yet to re-taper).
-   - `[ ]` **Cached target resolution (audio-thread alloc-free) — follow-up surfaced by #24's guard.**
-     `applyParamValue(id,v)` (the shared id-addressed writer for automation/modulation/controllers)
-     `StringArray`-tokenizes the id string, and `applySynthParam` does `name.toLowerCase()` — both
-     allocate. Called per lane/target **per audio block** from `evaluateAutomation`/`evaluateModulation`,
-     so a project with id-addressed automation/modulation allocates on the audio thread (principle 4).
-     Fix: resolve each `AutoLaneSnap.target`/`Mod.target` to a **cached handle** (a resolved descriptor
-     or pointer-to-atomic) when the lane/mod is set/loaded, so the render thread writes without parsing
-     strings. This is the ParameterRef refinement the keystone is about. The #24 allocation guard
-     (`Diagnostics.audio_thread_allocs`) is in place to verify it — extend the guarded smoke to a
-     project WITH automation once done.
+   - `[x]` **Audio-thread-alloc-free id writer landed** (commit — the follow-up #24's guard surfaced):
+     `applyParamValue(id,v)` (the shared id-addressed writer for automation/modulation/controllers) used
+     to `StringArray`-tokenize the id string, and `applySynthParam` did `name.toLowerCase()` — both
+     allocate, and both run per lane/target **per audio block** from `evaluateAutomation`/`evaluateModulation`,
+     so any project with id-addressed automation/modulation allocated on the audio thread (principle 4).
+     **Fixed by making the parse alloc-free in place** (simpler + lower-risk than a cached-handle rework,
+     and it fully satisfies principle 4 — the concern is *allocation*, not the O(few-chars) parse):
+     `applyParamValue` now copies the id into a stack `char buf[192]` and splits on `/` in place, and
+     `applySynthParam` takes a `const char*` and matches names via a new alloc-free `gloopy::ieq`
+     (ASCII case-insensitive compare, `Source/ParamId.h`) instead of `toLowerCase()`; the effect-param
+     path compares `pr.name.equalsIgnoreCase(seg)` (the `const char*` overload is alloc-free); the two
+     message-thread `applySynthParam` callers pass `.toRawUTF8()`. Case-insensitive behaviour preserved
+     (so `synth/Cutoff` still resolves). `ieq` unit-tested (`GloopyTests`: case-fold match, prefix
+     non-match, empty). **Verified with #24's guard extended:** the alloc-guard smoke now sets an
+     automation lane on `track/<id>/synth/cutoff` AND an LFO on `track/<id>/synth/reso` before playing,
+     and `audioThreadAllocs` delta stays **0** (was nonzero before) — while GetParameter confirms the
+     automation still writes the param (cutoff swept 300→322 at the read). The full existing automation/
+     modulation/effect-param/controller smoke coverage (which exercises every applyParamValue branch)
+     guards the rewrite's correctness. Internal engine plumbing, no proto/UI change. A *cached-handle*
+     (resolve the target once at set-time) remains a possible micro-opt but isn't needed for alloc-freeness.
 
 2. **Timeline locations — markers / ranges / loop / punch / sections.** ✦ **M**
    *Ardour #3.* A project-level `TimelineLocation { kind: marker|range|loop|punch|
@@ -1946,11 +1956,11 @@ prior-art references to *read*, not to lift.
     `loadFromTree` reset (clears them all under the engineLock). (2) **`applyParamValue` allocates on the
     audio thread** — id-addressed automation/modulation call it per lane/target per block, and it
     `StringArray`-tokenizes the id (`"track/1/synth/cutoff"`) + `applySynthParam` does `name.toLowerCase()`
-    — heap every call. So a project WITH id-addressed automation/modulation is NOT yet alloc-free on the
-    audio thread. **Deferred to a ParameterRef follow-up (belongs with #1/#21):** resolve each lane/mod
-    target to a cached handle (pointer-to-atomic / small resolved descriptor) at set-time so the audio
-    thread never parses strings — then extend the guarded smoke to a project WITH automation. The guard
-    infrastructure is now in place to verify that fix. A lock-free buffer FIFO (the Tracktion-style pool)
+    — heap every call. So a project WITH id-addressed automation/modulation was NOT alloc-free on the
+    audio thread. **NOW FIXED (follow-up commit, logged under #1):** `applyParamValue` parses the id in
+    a stack buffer + `gloopy::ieq` (`Source/ParamId.h`) instead of `StringArray`/`toLowerCase`, and the
+    guarded smoke was extended to run WITH an automation lane + LFO on synth params → `audioThreadAllocs`
+    delta stays 0. A lock-free buffer FIFO (the Tracktion-style pool)
     is only needed once dynamic per-node graph allocation exists (#25) — deferred with it.
 
 25. **Off-thread graph build + atomic swap.** ✦ **L** — *deferred* (do #24 first).

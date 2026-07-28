@@ -21,6 +21,7 @@
 #include "ParamScale.h"
 #include "FileDrop.h"
 #include "BrowserDrag.h"
+#include "ParamId.h"
 #include "StereoWiden.h"
 #include "Lfo.h"
 #include "FadeShape.h"
@@ -1090,6 +1091,18 @@ struct FileDropTests : juce::UnitTest
             expect (! browserDropPlacesClip ("plugin", 2));   // a plugin on a track -> generic action
             expect (! browserDropPlacesClip ("template", 0)); // a template on a track -> seed a project
             expect (! browserDropPlacesClip ("preset", 1));
+        }
+
+        beginTest ("ieq: alloc-free case-insensitive param-name match (applyParamValue dispatch)");
+        {
+            expect (  gloopy::ieq ("cutoff", "cutoff"));
+            expect (  gloopy::ieq ("Cutoff", "cutoff"));   // the old toLowerCase() behaviour, now alloc-free
+            expect (  gloopy::ieq ("SYNTH",  "synth"));
+            expect (  gloopy::ieq ("",       ""));
+            expect (! gloopy::ieq ("cutoff", "reso"));
+            expect (! gloopy::ieq ("cut",    "cutoff"));   // prefix is not a match
+            expect (! gloopy::ieq ("cutoff", "cut"));
+            expect (! gloopy::ieq ("",       "x"));
         }
     }
 };
