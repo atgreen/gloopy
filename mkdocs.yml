@@ -78,12 +78,11 @@ markdown_extensions:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
-# The design records already in docs/ (PRD, ROADMAP, session-view, surge-embed,
+# The design records already in docs/ (ROADMAP, session-view, surge-embed,
 # the older CONTROL-API spec) are internal notes, not the manual. Keep them in the
 # repo but out of the built site — they have links to source files that aren't
 # part of the docs tree.
 exclude_docs: |
-  PRD.md
   ROADMAP.md
   session-view.md
   surge-embed.md

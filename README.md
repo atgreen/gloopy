@@ -193,9 +193,7 @@ with Gloopy() as g:
 ## Layout
 
 See the [manual](docs/) for full documentation — start with
-[The Gloopy model](docs/control-scripting/concepts/model.md). (The original spec,
-[`docs/PRD.md`](docs/PRD.md), predates the linear-arranger design and is kept only
-as history.)
+[The Gloopy model](docs/control-scripting/concepts/model.md).
 
 | Area | Files |
 |------|-------|

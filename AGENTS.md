@@ -1,6 +1,6 @@
 # AGENTS.md — working notes for AI agents
 
-Gloopy is a linear-arranger DAW in C++17 / JUCE 8 (see `README.md`, `docs/PRD.md`).
+Gloopy is a linear-arranger DAW in C++17 / JUCE 8 (see `README.md`).
 This file captures the non-obvious things that are easy to get wrong.
 
 ## Build & run
