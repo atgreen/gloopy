@@ -15,9 +15,13 @@
 class MappingsView : public juce::Component
 {
 public:
-    struct Row { juce::String text, kind, key; };   // kind: "ctrl" | "mod"; key: source (ctrl) / target (mod)
+    // kind: "ctrl" | "mod". key = source (ctrl) / target (mod). For a ctrl row, source/target/
+    // lo/hi/bypass carry the editable state so the row can offer Bypass + Edit-range in place.
+    struct Row { juce::String text, kind, key, source, target; float lo { 0.0f }, hi { 1.0f }; bool bypass { false }; };
 
     std::function<void (const juce::String& kind, const juce::String& key)> onRemove;
+    std::function<void (const juce::String& source, const juce::String& target, bool bypass)> onSetBypass;
+    std::function<void (const juce::String& source, const juce::String& target, float lo, float hi)> onSetRange;
 
     MappingsView()
     {
@@ -35,6 +39,8 @@ public:
         rows = std::move (newRows);
         labels.clear();
         removeButtons.clear();
+        bypassButtons.clear();
+        editButtons.clear();
         for (auto& r : rows)
         {
             auto* lab = new juce::Label();
@@ -48,6 +54,26 @@ public:
             btn->onClick = [this, kind, key] { if (onRemove) onRemove (kind, key); };
             addAndMakeVisible (btn);
             removeButtons.add (btn);
+
+            // Controller maps also get in-place Bypass + Edit-range (LFO routes don't).
+            const bool isCtrl = r.kind == "ctrl";
+            auto* byp = new juce::TextButton (r.bypass ? "Bypassed" : "Bypass");
+            if (isCtrl)
+            {
+                const juce::String src = r.source, tgt = r.target; const bool cur = r.bypass;
+                byp->onClick = [this, src, tgt, cur] { if (onSetBypass) onSetBypass (src, tgt, ! cur); };
+                addAndMakeVisible (byp);
+            }
+            bypassButtons.add (byp);
+
+            auto* ed = new juce::TextButton ("Range...");
+            if (isCtrl)
+            {
+                const juce::String src = r.source, tgt = r.target; const float lo = r.lo, hi = r.hi;
+                ed->onClick = [this, src, tgt, lo, hi] { promptRange (src, tgt, lo, hi); };
+                addAndMakeVisible (ed);
+            }
+            editButtons.add (ed);
         }
         empty.setVisible (rows.empty());
         resized();
@@ -67,14 +93,38 @@ public:
         {
             auto row = b.removeFromTop (rowH);
             removeButtons[i]->setBounds (row.removeFromRight (80).reduced (2));
+            if (rows[(size_t) i].kind == "ctrl")   // controller rows also show Bypass + Range
+            {
+                bypassButtons[i]->setBounds (row.removeFromRight (84).reduced (2));
+                editButtons[i]  ->setBounds (row.removeFromRight (74).reduced (2));
+            }
             labels[i]->setBounds (row);
             b.removeFromTop (4);
         }
     }
 
 private:
+    // Edit a controller map's output range in place (lo>hi inverts). Reuses the AddControllerMap
+    // upsert via onSetRange, so no new backend — just a small prompt.
+    void promptRange (const juce::String& source, const juce::String& target, float lo, float hi)
+    {
+        auto* aw = new juce::AlertWindow ("Map range", source + " -> " + target + "\n(swap Low/High to invert)",
+                                          juce::MessageBoxIconType::NoIcon);
+        aw->addTextEditor ("lo", juce::String (lo, 4), "Low (value at CC 0)");
+        aw->addTextEditor ("hi", juce::String (hi, 4), "High (value at CC 127)");
+        aw->addButton ("Apply",  1, juce::KeyPress (juce::KeyPress::returnKey));
+        aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+        aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, source, target] (int r)
+        {
+            if (r == 1 && onSetRange)
+                onSetRange (source, target, aw->getTextEditorContents ("lo").getFloatValue(),
+                                            aw->getTextEditorContents ("hi").getFloatValue());
+            delete aw;
+        }), false);
+    }
+
     juce::Label title, empty;
     std::vector<Row> rows;
     juce::OwnedArray<juce::Label> labels;
-    juce::OwnedArray<juce::TextButton> removeButtons;
+    juce::OwnedArray<juce::TextButton> removeButtons, bypassButtons, editButtons;
 };

@@ -361,6 +361,16 @@ MainComponent::MainComponent (bool headless)
         else                apiRemoveModulation (key);
         openMappings();   // re-query + rebuild the list
     };
+    mappingsView.onSetBypass = [this] (const juce::String& source, const juce::String& target, bool bypass)
+    {
+        apiSetControllerBypass (source, target, bypass);
+        openMappings();   // refresh the row (Bypass/Bypassed label)
+    };
+    mappingsView.onSetRange = [this] (const juce::String& source, const juce::String& target, float lo, float hi)
+    {
+        apiAddControllerMap (source, target, lo, hi);   // upsert re-ranges the existing map
+        openMappings();
+    };
 
     // ---- project scale selector (drives snap-to-scale + piano-roll highlight) ----
     {
@@ -3722,7 +3732,7 @@ void MainComponent::openMappings()
     {
         juce::String t = c.source + "  ->  " + c.target + "   [" + juce::String (c.lo, 2) + ".." + juce::String (c.hi, 2) + "]";
         if (c.bypass) t += "  (bypassed)";
-        rows.push_back ({ t, "ctrl", c.source });
+        rows.push_back ({ t, "ctrl", c.source, c.source, c.target, c.lo, c.hi, c.bypass });
     }
     static const char* shapeName[] = { "sine", "tri", "saw", "square", "random" };
     for (const auto& m : apiListModulations())

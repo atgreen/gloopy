@@ -176,7 +176,9 @@ tuning, including Scala `.scl` import.
 ### Controller map
 A binding from a **source** — a MIDI CC (`cc:<n>`) or an OSC/API source
 (`osc:<name>`) — to a [parameter](#parameter-the-universal-parameter-model)
-target, the backbone of MIDI-learn. Scaling and bypass are per-mapping.
+target, the backbone of MIDI-learn. Scaling and bypass are per-mapping. The
+desktop **Maps** window lists every mapping and lets you edit its output range
+(swap low/high to invert) or bypass it in place, or remove it.
 
 ## The two control lanes
 

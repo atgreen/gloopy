@@ -1811,8 +1811,22 @@ each shipping with desktop UI + screenshot validation.
       validated.
     - `[x]` **Mapping-rack VIEW landed** (commit): a "Maps" toolbar button opens a Mappings
       window (`Source/MappingsView.h`) listing every controller map AND LFO route with a
-      per-row Remove (see the Wave-6 UI-parity note above). **Not yet:** in-rack editing of a
-      map's range/bypass/smoothing, device-map files, OSC-lane wiring.
+      per-row Remove (see the Wave-6 UI-parity note above).
+    - `[x]` **In-rack range + bypass editing landed** (commit): the Maps window's controller-map
+      rows now carry **Bypass** (toggle a map without deleting it) and **Range...** (edit the map's
+      output low/high in place; swap them to invert) buttons next to Remove; LFO-route rows keep just
+      Remove. Pure desktop wiring over the ALREADY-tested backend — no new RPC: Bypass →
+      `apiSetControllerBypass`, Range → `apiAddControllerMap` (which is an upsert that re-ranges an
+      existing source→target map). `MappingsView::Row` gained source/target/lo/hi/bypass so the row
+      can offer the edits; `onSetBypass`/`onSetRange` callbacks + a small "Map range" prompt, both
+      refreshing the list via `openMappings()`. Screenshot- AND functionally-validated end-to-end:
+      added a cc:20→cutoff map [300..3000] via gRPC, opened Maps (row shows Range.../Bypass/Remove),
+      clicked Bypass → ListControllerMaps reports bypass=true + the button relabels "Bypassed",
+      then the Range dialog (prefilled 300/3000) → typed 500/8000 → Apply → ListControllerMaps shows
+      lo=500/hi=8000 (bypass preserved). Manual model doc notes the Maps window edits range/bypass;
+      mkdocs --strict green; ctest + smoke unchanged (backend already covered; the button clicks
+      aren't gRPC-scriptable). **Not yet:** per-map smoothing (needs per-block ramping of the
+      controller value), device-map files, OSC-lane wiring.
 20. **Product-surface tier** — in-app markdown **project notes** under `notes/`
     (Idea #10); a static-file **localhost web control surface** for transport/mixer/
     markers/live notes, doubling as an API test client (Ardour #7); ~~an MCP tool
