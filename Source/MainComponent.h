@@ -187,7 +187,8 @@ public:
 
     // --- RT diagnostics (Diagnostics.cpp) ---
     struct DiagSnap { double sampleRate; int blockSize, inputs, outputs;
-                      double callbackUs, maxCallbackUs, dspLoad, renderSpeedX; long long dropouts; };
+                      double callbackUs, maxCallbackUs, dspLoad, renderSpeedX; long long dropouts;
+                      long long audioAllocs; };   // heap allocations seen on the audio thread (proof: steady 0)
     DiagSnap apiGetDiagnostics();
 
     // --- offline loudness analysis (Loudness.cpp) ---
@@ -744,6 +745,9 @@ private:
     std::atomic<juce::int64> diagDropouts       { 0 };
     std::atomic<double>      diagRenderSpeedX   { 0.0 };   // last offline bounce, x realtime
     juce::AudioBuffer<float> mixBuffer;
+    // Reused per-instrument-track MIDI scratch in renderBlock — cleared each track, never
+    // reconstructed, so the mix stays allocation-free on the audio thread (principle 4 / #24).
+    juce::MidiBuffer         scratchMidi, scratchLive;
     std::vector<char>        soloImplied;   // audio-thread scratch: transitive insert-solo path (grow-only)
 
     int selTrack { -1 }, selClip { -1 };

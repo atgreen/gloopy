@@ -61,6 +61,7 @@ target_sources(Gloopy PRIVATE
     Source/Modulation.cpp
     Source/Loudness.cpp
     Source/Diagnostics.cpp
+    Source/AudioAllocGuard.cpp
     Source/Tempo.cpp
     Source/Notes.cpp
     Source/Git.cpp

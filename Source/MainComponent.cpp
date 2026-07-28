@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "MainComponent.h"
+#include "AudioAllocGuard.h"
 #include "NoteScheduler.h"
 #include "FadeShape.h"
 #include "Sampler.h"
@@ -3096,6 +3097,8 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
 
     const juce::ScopedLock sl (engineLock);
     mixBuffer.setSize (2, juce::jmax (16, samplesPerBlockExpected));
+    scratchMidi.ensureSize (256 * 4);   // pre-size the reused MIDI scratch so even early blocks don't grow it
+    scratchLive.ensureSize (256 * 4);
     for (auto& t : tracks)
     {
         if (t->generator) t->generator->prepare (sampleRate, samplesPerBlockExpected);
@@ -3350,7 +3353,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
 
         if (t->generator != nullptr)   // instrument track
         {
-            juce::MidiBuffer midi;
+            juce::MidiBuffer& midi = scratchMidi; midi.clear();   // reused: no per-block heap traffic
             // Session view (per-track override): if this track has a launched session clip it plays
             // that (looped from launchBeat) INSTEAD of its arrangement clips; -1 = play arrangement.
             const int  sessionSlot = sessionLauncher.playingSlot (ti);
@@ -3388,7 +3391,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
             // stepped pattern; otherwise pass them straight to the generator. Recording below
             // still captures the raw `live` input (non-destructive: the clip arp re-applies on
             // playback), matching how the clip arp works.
-            juce::MidiBuffer live;
+            juce::MidiBuffer& live = scratchLive;   // removeNextBlockOfMessages clears it first
             t->liveMidi.removeNextBlockOfMessages (live, num);
             if (t->arp.enabled)
                 t->liveArp.process (live, midi, num, spb, t->arp.rate, t->arp.octaves,
@@ -3581,7 +3584,15 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
 
     const bool live = ! renderMode.load();
     const juce::int64 t0 = live ? juce::Time::getHighResolutionTicks() : 0;
-    const juce::int64 loopLen = renderBlock (*out, start, num, renderMode.load());
+    juce::int64 loopLen;
+    {
+        // Arm the audio-thread allocation counter around the mix: any heap allocation in
+        // renderBlock (built-in synth path) increments g_audioAllocCount, so a steady-state
+        // delta of 0 over playback proves the mix is allocation-free (#24). Live only — an
+        // offline bounce legitimately allocates its WAV writer outside renderBlock.
+        gloopy::AudioThreadGuard allocGuard;
+        loopLen = renderBlock (*out, start, num, renderMode.load());
+    }
     if (live)
     {
         const double us = juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0) * 1.0e6;
@@ -5179,6 +5190,22 @@ void MainComponent::newProject()
         const juce::ScopedLock sl (engineLock);
         transport.setPlaying (false);
         tracks.clear();
+        // A new project is a clean slate — clear ALL project-scoped state, not just tracks.
+        // (Previously only tracks were cleared, so a "new" project inherited the old one's
+        // automation/modulation/tempo/locations/etc. — and stale automation/modulation lanes
+        // kept getting evaluated every audio block, allocating on the audio thread. Mirror the
+        // loadFromTree reset.)
+        controlGroups.clear();
+        locations.clear();
+        exportProfiles.clear();
+        mixerScenes.clear();
+        modulations.clear();
+        tempoMap.clear();
+        controllerMaps.clear();
+        automationLanes.clear();
+        scenes.clear();
+        sessionLauncher.reset();
+        sessionBeat = 0.0;
     }
     nextTrackId = 1;
     projectNotes.clear();

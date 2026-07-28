@@ -515,6 +515,7 @@ namespace
             r->set_inputs (d.inputs); r->set_outputs (d.outputs);
             r->set_callback_us (d.callbackUs); r->set_max_callback_us (d.maxCallbackUs);
             r->set_dsp_load (d.dspLoad); r->set_dropouts (d.dropouts); r->set_render_speed_x (d.renderSpeedX);
+            r->set_audio_thread_allocs (d.audioAllocs);
             return Status::OK;
         }
 

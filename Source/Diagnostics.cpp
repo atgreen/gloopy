@@ -8,6 +8,7 @@
 // MainComponent.cpp); this just reads them, so the audio path stays lock-free.
 
 #include "MainComponent.h"
+#include "AudioAllocGuard.h"
 
 MainComponent::DiagSnap MainComponent::apiGetDiagnostics()
 {
@@ -28,6 +29,7 @@ MainComponent::DiagSnap MainComponent::apiGetDiagnostics()
         d.maxCallbackUs = diagMaxCallbackUs.load (std::memory_order_relaxed);
         d.dropouts      = (long long) diagDropouts.load (std::memory_order_relaxed);
         d.renderSpeedX  = diagRenderSpeedX.load (std::memory_order_relaxed);
+        d.audioAllocs   = gloopy::audioAllocCount();   // cumulative; a steady delta of 0 = alloc-free mix
 
         // DSP load = callback time / the block's real-time budget.
         const double budgetUs = d.blockSize > 0 && d.sampleRate > 0

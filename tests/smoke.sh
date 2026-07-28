@@ -3008,4 +3008,25 @@ print('smoke: PASS — undo reverts an added track (%d->%d->%d) and redo re-appl
 UZ=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetState | python3 -c "import json,sys;print([t['id'] for t in json.load(sys.stdin)['tracks']][-1])")
 g -d "{\"id\":$UZ}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RemoveTrack >/dev/null
 
+# --- audio-thread allocation guard (#24): the mix must not touch the heap while playing ---
+# Build a busy looped MIDI clip, play it, and read the audio-thread allocation counter twice a
+# second apart. A steady-state delta of 0 proves getNextAudioBlock/renderBlock is allocation-free
+# (the reused MIDI scratch buffers + no per-block temporaries). The counter is bumped by the global
+# operator new override only while the audio thread is inside the mix (AudioAllocGuard).
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+AATID=$(g -d '{"name":"AllocGuard","wave":"SAW","attack":0.01,"decay":0.1,"sustain":0.7,"release":0.2}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack | python3 -c 'import json,sys;print(json.load(sys.stdin).get("id",0))')
+g -d "{\"track_id\":$AATID,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"looped\":true,\"notes\":[{\"pitch\":60,\"start_beat\":0,\"length_beats\":0.5,\"velocity\":0.8},{\"pitch\":64,\"start_beat\":1,\"length_beats\":0.5,\"velocity\":0.8},{\"pitch\":67,\"start_beat\":2,\"length_beats\":0.5,\"velocity\":0.8},{\"pitch\":72,\"start_beat\":3,\"length_beats\":0.5,\"velocity\":0.8}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d '{"enabled":true}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetLoop >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/Play >/dev/null
+sleep 1
+AA1=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetDiagnostics | python3 -c 'import json,sys;print(json.load(sys.stdin).get("audioThreadAllocs",0))')
+sleep 1.2
+AA2=$(g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetDiagnostics | python3 -c 'import json,sys;print(json.load(sys.stdin).get("audioThreadAllocs",0))')
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/Stop >/dev/null
+python3 -c "
+a,b=$AA1,$AA2
+assert b-a==0, 'audio thread allocated during playback (delta %d: %d -> %d) — the mix is not allocation-free'%(b-a,a,b)
+print('smoke: PASS — audio-thread mix is allocation-free during playback (steady audioThreadAllocs=%d, delta 0)'%b)
+" || { echo 'smoke: audio-thread allocation guard failed' >&2; exit 1; }
+
 echo "smoke: OK"

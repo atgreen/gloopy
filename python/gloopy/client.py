@@ -1139,7 +1139,8 @@ class Gloopy:
         return {"sample_rate": d.sample_rate, "block_size": d.block_size,
                 "inputs": d.inputs, "outputs": d.outputs, "callback_us": d.callback_us,
                 "max_callback_us": d.max_callback_us, "dsp_load": d.dsp_load,
-                "dropouts": d.dropouts, "render_speed_x": d.render_speed_x}
+                "dropouts": d.dropouts, "render_speed_x": d.render_speed_x,
+                "audio_thread_allocs": d.audio_thread_allocs}
 
     def get_waveform(self, path: str, buckets: int = 256) -> dict:
         """Cached min/max waveform peaks for an audio file (per-bucket)."""

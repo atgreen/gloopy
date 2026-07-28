@@ -374,6 +374,16 @@ measurably single-core-bound on a heavy multi-track session. See Wave 7 for why.
      normalized set lands at the geometric mean and that `params.toml` lists real ids.
      **Follow-up:** re-taper the actual mixer faders to use dB, and a synth-param knob panel
      (no dedicated synth-param UI knobs exist yet to re-taper).
+   - `[ ]` **Cached target resolution (audio-thread alloc-free) — follow-up surfaced by #24's guard.**
+     `applyParamValue(id,v)` (the shared id-addressed writer for automation/modulation/controllers)
+     `StringArray`-tokenizes the id string, and `applySynthParam` does `name.toLowerCase()` — both
+     allocate. Called per lane/target **per audio block** from `evaluateAutomation`/`evaluateModulation`,
+     so a project with id-addressed automation/modulation allocates on the audio thread (principle 4).
+     Fix: resolve each `AutoLaneSnap.target`/`Mod.target` to a **cached handle** (a resolved descriptor
+     or pointer-to-atomic) when the lane/mod is set/loaded, so the render thread writes without parsing
+     strings. This is the ParameterRef refinement the keystone is about. The #24 allocation guard
+     (`Diagnostics.audio_thread_allocs`) is in place to verify it — extend the guarded smoke to a
+     project WITH automation once done.
 
 2. **Timeline locations — markers / ranges / loop / punch / sections.** ✦ **M**
    *Ardour #3.* A project-level `TimelineLocation { kind: marker|range|loop|punch|
@@ -1905,12 +1915,43 @@ prior-art references to *read*, not to lift.
     other ids (sends, sidechains, automation targets) rewrites those refs correctly;
     round-trips in the composition.
 
-24. **`AudioBufferPool` — no allocation on the audio thread.** ✦ **M** — **near-term (#3).**
-    Pre-allocate a lock-free FIFO of buffers; nodes/strips `allocate()`/`release()`
-    instead of touching `new` in `getNextAudioBlock`. Prior art:
-    `tracktion_graph/.../tracktion_AudioBufferPool.h`. *Done when:* a churn test proves
-    zero heap allocations on the audio thread during playback (hook the allocator / count).
-    Cheap, self-contained, and a prerequisite for any graph rework.
+24. **`AudioBufferPool` — no allocation on the audio thread.** ✦ **M** — **✅ DONE (commit):** the
+    buffer/MIDI mix path is now allocation-free + proven; the allocation-guard infrastructure this
+    slice adds ALSO surfaced two real bugs (below). *Done-when met (for the mix/buffer path): a churn
+    test proves zero heap allocations on the audio thread during playback (hook the allocator / count).*
+    Investigating `renderBlock` found it already stack-only for buffers (`mixBuffer`/`mt->buffer` are
+    grow-only reused members; `TempoConv`, `std::array<Seg,16>`, tempo-marker C arrays, `soloImplied`,
+    and the `subView` pointer-ctor `AudioBuffer` are all allocation-free) — so a buffer *pool* was NOT
+    the gap. The real per-block heap traffic was **two `juce::MidiBuffer` locals per instrument track**
+    (`midi` + `live`), which allocate their internal array on the first `addEvent` of every block once
+    notes play. **Fix:** hoisted them to reused `MainComponent::scratchMidi`/`scratchLive` members
+    (cleared each track — `removeNextBlockOfMessages` already clears its dest), `ensureSize`d once in
+    `prepareToPlay`, so the mix never grows them again.
+    **Proof (the "hook the allocator / count"):** a new `Source/AudioAllocGuard.{h,cpp}` replaces the
+    global `operator new`/`new[]` with a malloc pass-through that increments `g_audioAllocCount` ONLY
+    while a thread-local `g_onAudioThread` flag is set (one bool check everywhere else); `getNextAudioBlock`
+    wraps the live `renderBlock` call in a `gloopy::AudioThreadGuard`; the count is exposed as
+    `Diagnostics.audio_thread_allocs` (proto field 10 + GrpcServer + Python `diagnostics()`). Only the
+    plain (non-aligned) new forms are replaced — over-aligned allocs keep the default aligned new/delete
+    (no malloc/free-vs-aligned mismatch; glibc free() accepts both). The binary BOOTS with the process-wide
+    override (the key risk — surge + gRPC + JUCE all link + run fine). smoke plays a busy 4-note looped
+    built-in-synth clip, reads `audioThreadAllocs` twice a second apart, asserts **delta 0** (which also
+    empirically proves the built-in SynthGenerator allocates no voices on note-on). No desktop UI
+    (diagnostics/engine plumbing, like the existing dropouts/DSP-load counters). ctest green; full smoke green.
+    **TWO REAL BUGS the guard caught (this is the payoff of the harness):**
+    (1) **`newProject()` leaked project state** — it cleared `tracks` but NOT `automationLanes`/
+    `modulations`/`controllerMaps`/`tempoMap`/`locations`/`exportProfiles`/`mixerScenes`/`controlGroups`/
+    `scenes`, so a "new" project *inherited the old one's* automation/tempo/etc., and stale automation/
+    modulation lanes kept being evaluated every audio block. **Fixed** — `newProject()` now mirrors the
+    `loadFromTree` reset (clears them all under the engineLock). (2) **`applyParamValue` allocates on the
+    audio thread** — id-addressed automation/modulation call it per lane/target per block, and it
+    `StringArray`-tokenizes the id (`"track/1/synth/cutoff"`) + `applySynthParam` does `name.toLowerCase()`
+    — heap every call. So a project WITH id-addressed automation/modulation is NOT yet alloc-free on the
+    audio thread. **Deferred to a ParameterRef follow-up (belongs with #1/#21):** resolve each lane/mod
+    target to a cached handle (pointer-to-atomic / small resolved descriptor) at set-time so the audio
+    thread never parses strings — then extend the guarded smoke to a project WITH automation. The guard
+    infrastructure is now in place to verify that fix. A lock-free buffer FIFO (the Tracktion-style pool)
+    is only needed once dynamic per-node graph allocation exists (#25) — deferred with it.
 
 25. **Off-thread graph build + atomic swap.** ✦ **L** — *deferred* (do #24 first).
     Build the new mixing graph off the audio thread and swap it in lock-free

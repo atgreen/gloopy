@@ -313,6 +313,7 @@ message Diagnostics {
   double sample_rate = 1; int32 block_size = 2; int32 inputs = 3; int32 outputs = 4;
   double callback_us = 5; double max_callback_us = 6; double dsp_load = 7;
   int64 dropouts = 8; double render_speed_x = 9;   // last offline bounce, x realtime
+  int64 audio_thread_allocs = 10;   // cumulative heap allocations on the audio thread (steady delta 0 = alloc-free)
 }
 // Git — source control over the composition-as-repo (Git.cpp).
 message GitVersion { bool available = 1; string version = 2; }   // e.g. "git version 2.43.0"
