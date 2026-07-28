@@ -44,7 +44,7 @@ jobs:
             git cmake ninja-build gcc-c++ make rpm-build \
             alsa-lib-devel freetype-devel libX11-devel libXrandr-devel \
             libXinerama-devel libXcursor-devel libXext-devel \
-            mesa-libGL-devel libXrender-devel \
+            mesa-libGL-devel libXrender-devel libXi-devel \
             grpc-devel grpc-plugins protobuf-devel protobuf-compiler \
             perl which
 
@@ -98,7 +98,7 @@ jobs:
             git ca-certificates cmake ninja-build g++ make dpkg-dev file \
             libasound2-dev libfreetype-dev libx11-dev libxrandr-dev \
             libxinerama-dev libxcursor-dev libxext-dev \
-            libgl1-mesa-dev libxrender-dev \
+            libgl1-mesa-dev libxrender-dev libxi-dev \
             libgrpc++-dev protobuf-compiler-grpc libprotobuf-dev protobuf-compiler
 
       - name: Checkout
