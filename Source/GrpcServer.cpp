@@ -355,7 +355,7 @@ namespace
         Status ListTempoMarkers (ServerContext*, const pb::Empty*, pb::TempoMap* r) override
         {
             for (auto& mk : main.apiListTempoMarkers())
-            { auto* o = r->add_markers(); o->set_beat (mk.beat); o->set_bpm (mk.bpm); }
+            { auto* o = r->add_markers(); o->set_beat (mk.beat.inBeats()); o->set_bpm (mk.bpm); }
             return Status::OK;
         }
         Status BeatsToSeconds (ServerContext*, const pb::Position* q, pb::SecondsValue* r) override

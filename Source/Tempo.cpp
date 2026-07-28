@@ -22,12 +22,14 @@ namespace
 constexpr double kEps = 1.0e-6;
 }
 
+using gloopy::time::BeatPosition;   // tempo markers store their beat position typed; double at the edges
+
 // Effective, sorted marker list (never empty): the map, or a single marker at beat 0
 // carrying the transport's constant bpm.
 static std::vector<MainComponent::TempoMarker> effectiveMarkers (
     const std::vector<MainComponent::TempoMarker>& map, double fallbackBpm)
 {
-    if (map.empty()) return { { 0.0, fallbackBpm } };
+    if (map.empty()) return { { BeatPosition { 0.0 }, fallbackBpm } };
     auto m = map;
     std::sort (m.begin(), m.end(), [] (auto& a, auto& b) { return a.beat < b.beat; });
     return m;
@@ -38,7 +40,7 @@ double MainComponent::tempoAtBeat (double beat)
     const juce::ScopedLock sl (engineLock);
     const auto m = effectiveMarkers (tempoMap, transport.getBpm());
     double bpm = m.front().bpm;                    // before the first marker -> first bpm
-    for (auto& mk : m) { if (mk.beat <= beat + kEps) bpm = mk.bpm; else break; }
+    for (auto& mk : m) { if (mk.beat.inBeats() <= beat + kEps) bpm = mk.bpm; else break; }
     return bpm;
 }
 
@@ -54,9 +56,9 @@ double MainComponent::apiBeatsToSeconds (double beat)
         const double lo = juce::jmax (0.0, s), hi = juce::jmin (beat, e);   // clip to [0, beat]
         if (hi > lo) sec += (hi - lo) * 60.0 / juce::jmax (1.0, bpm);
     };
-    if (m.front().beat > 0.0) addSeg (0.0, m.front().beat, m.front().bpm);   // before first marker
+    if (m.front().beat.inBeats() > 0.0) addSeg (0.0, m.front().beat.inBeats(), m.front().bpm);   // before first marker
     for (size_t i = 0; i < m.size(); ++i)
-        addSeg (m[i].beat, (i + 1 < m.size()) ? m[i + 1].beat : beat, m[i].bpm);
+        addSeg (m[i].beat.inBeats(), (i + 1 < m.size()) ? m[i + 1].beat.inBeats() : beat, m[i].bpm);
     return sec;
 }
 
@@ -74,14 +76,14 @@ double MainComponent::apiSecondsToBeats (double seconds)
         if (acc + dur >= seconds - kEps || ! std::isfinite (e)) return s + (seconds - acc) * b / 60.0;
         acc += dur; return -1.0;
     };
-    if (m.front().beat > 0.0) { double r = seg (0.0, m.front().beat, m.front().bpm); if (r >= 0.0) return r; }
+    if (m.front().beat.inBeats() > 0.0) { double r = seg (0.0, m.front().beat.inBeats(), m.front().bpm); if (r >= 0.0) return r; }
     for (size_t i = 0; i < m.size(); ++i)
     {
-        const double e = (i + 1 < m.size()) ? m[i + 1].beat : std::numeric_limits<double>::infinity();
-        const double r = seg (m[i].beat, e, m[i].bpm);
+        const double e = (i + 1 < m.size()) ? m[i + 1].beat.inBeats() : std::numeric_limits<double>::infinity();
+        const double r = seg (m[i].beat.inBeats(), e, m[i].bpm);
         if (r >= 0.0) return r;
     }
-    return m.back().beat;
+    return m.back().beat.inBeats();
 }
 
 bool MainComponent::apiSetTimeSignature (int num, int denom)
@@ -126,9 +128,9 @@ bool MainComponent::apiAddTempoMarker (double beat, double bpm)
         pushUndoSnapshot();
         const juce::ScopedLock sl (engineLock);
         auto it = std::find_if (tempoMap.begin(), tempoMap.end(),
-                                [&] (const TempoMarker& m) { return std::abs (m.beat - beat) < kEps; });
+                                [&] (const TempoMarker& m) { return std::abs (m.beat.inBeats() - beat) < kEps; });
         if (it != tempoMap.end()) it->bpm = bpm;                 // upsert
-        else                       tempoMap.push_back ({ beat, bpm });
+        else                       tempoMap.push_back ({ BeatPosition { beat }, bpm });
         std::sort (tempoMap.begin(), tempoMap.end(), [] (auto& a, auto& b) { return a.beat < b.beat; });
         std::cout << "[tempo] marker beat=" << beat << " bpm=" << bpm << std::endl;
         return true;
@@ -143,7 +145,7 @@ bool MainComponent::apiRemoveTempoMarker (double beat)
         const juce::ScopedLock sl (engineLock);
         const auto before = tempoMap.size();
         tempoMap.erase (std::remove_if (tempoMap.begin(), tempoMap.end(),
-                            [&] (const TempoMarker& m) { return std::abs (m.beat - beat) < kEps; }),
+                            [&] (const TempoMarker& m) { return std::abs (m.beat.inBeats() - beat) < kEps; }),
                         tempoMap.end());
         return tempoMap.size() != before;
     });

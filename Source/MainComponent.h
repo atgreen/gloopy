@@ -289,7 +289,7 @@ public:
     // --- tempo map (Tempo.cpp) ---
     // Model + exact piecewise beat<->seconds conversion. Render-path integration
     // (variable samplesPerBeat across the map) is a checkpointed follow-up.
-    struct TempoMarker { double beat, bpm; };
+    struct TempoMarker { gloopy::time::BeatPosition beat; double bpm; };
     bool apiAddTempoMarker (double beat, double bpm);   // upsert by beat
     bool apiRemoveTempoMarker (double beat);
     std::vector<TempoMarker> apiListTempoMarkers();

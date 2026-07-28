@@ -1727,9 +1727,26 @@ prior-art references to *read*, not to lift.
       Behavior-identical: main build green, ctest green, smoke 176 PASS with the location assertions
       (split-at-marker, render-by-range 'half' shorter than full, composition round-trip) explicitly
       passing.
+    - `[x]` **Second subsystem migrated: tempo markers (Phase-B slice 3)** (commit): the tempo map's
+      `TempoMarker` now stores its position as **`gloopy::time::BeatPosition`** (`struct TempoMarker {
+      BeatPosition beat; double bpm; }`) instead of a bare `double`, `double` kept only at the edges
+      (the AddTempoMarker/RemoveTempoMarker API params, the ListTempoMarkers proto, the `beat`
+      ValueTree/`tempo.toml` property, and the ruler UI hook). Notable: unlike locations, the tempo
+      map FEEDS THE AUDIO THREAD — the render-block `TempoConv` snapshot reads `tempoMap[i].beat.
+      inBeats()`, proving the pattern works on the hot path (`.inBeats()` is a trivial constexpr
+      accessor: no lock, no allocation, zero cost — principle 4 safe). The two `std::sort`s read
+      naturally as the typed `a.beat < b.beat` (BeatPosition's `operator<`), and the piecewise
+      beats↔seconds integration (`effectiveMarkers`/`apiBeatsToSeconds`/`apiSecondsToBeats`/
+      `tempoAtBeat`) reads `.inBeats()` at each segment edge. Eight edge sites converted (Tempo.cpp,
+      MainComponent toValueTree/loadFromTree + render snapshot + the ruler `getTempoMarkers`,
+      GrpcServer ListTempoMarkers). Internal plumbing (format/engine internals), so no proto/Python/
+      manual/desktop-UI change — the tempo-marker ruler control already exists and the wire stays
+      `double`. Behavior-identical: build green, ctest green, smoke 178 PASS with the tempo assertions
+      (beats↔seconds 8 beats @120→240 = 3 s, mid-song speed-up shortens the render, tempo-synced
+      LFO/delay) explicitly passing.
       **NEXT:** migrate the next subsystem — clip position fields (`Clip.startBeat`/`lengthBeats`) or
-      the engine's `beatToSamples`/`samplesToBeats` call sites (careful: audio-thread hot path — do a
-      non-renderBlock caller first).
+      the transport loop/seek region (careful: audio-thread atomics — the clip fields are the larger
+      but message-thread-heavy surface; loop atomics need an audio-thread-safe typed-atomic story).
 
 22. **Undo / redo — fine-grained (ValueTree + `UndoManager`).** ✦ **L** — *deferred/optional.*
     NOTE: snapshot-based undo **already ships** and works (see the reprioritization banner;

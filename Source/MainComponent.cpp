@@ -341,7 +341,7 @@ MainComponent::MainComponent (bool headless)
     arrangeView->getTempoMarkers = [this]
     {
         std::vector<std::pair<double, double>> out;
-        for (auto& m : apiListTempoMarkers()) out.push_back ({ m.beat, m.bpm });
+        for (auto& m : apiListTempoMarkers()) out.push_back ({ m.beat.inBeats(), m.bpm });
         return out;
     };
     arrangeView->getMarkers = [this]
@@ -3052,7 +3052,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         else
         {
             double beats[TempoConv::kMaxMarkers], bpms[TempoConv::kMaxMarkers];
-            for (int i = 0; i < nm; ++i) { beats[i] = tempoMap[(size_t) i].beat; bpms[i] = tempoMap[(size_t) i].bpm; }
+            for (int i = 0; i < nm; ++i) { beats[i] = tempoMap[(size_t) i].beat.inBeats(); bpms[i] = tempoMap[(size_t) i].bpm; }
             tc.setMarkers (beats, bpms, nm, currentSampleRate, spb);
         }
     }
@@ -5569,7 +5569,7 @@ juce::ValueTree MainComponent::toValueTree()
     for (auto& mk : tempoMap)
     {
         juce::ValueTree v ("TM");
-        v.setProperty ("beat", mk.beat, nullptr); v.setProperty ("bpm", mk.bpm, nullptr);
+        v.setProperty ("beat", mk.beat.inBeats(), nullptr); v.setProperty ("bpm", mk.bpm, nullptr);
         tm.addChild (v, -1, nullptr);
     }
     root.addChild (tm, -1, nullptr);
@@ -5987,7 +5987,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     for (int i = 0; i < tm.getNumChildren(); ++i)
     {
         auto v = tm.getChild (i);
-        tempoMap.push_back ({ (double) v.getProperty ("beat", 0.0), (double) v.getProperty ("bpm", 120.0) });
+        tempoMap.push_back ({ gloopy::time::BeatPosition { (double) v.getProperty ("beat", 0.0) }, (double) v.getProperty ("bpm", 120.0) });
     }
     // The render snapshot integrates the tempo map assuming beat-ascending order; a
     // hand-edited project may not be, so enforce the invariant here.
