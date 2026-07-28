@@ -2081,17 +2081,19 @@ the foundation current. Both items are ✦ design forks (toolchain decisions) an
 **headless-verifiable by construction**: a green build on the target + `tests/smoke.sh` passing
 is the proof.
 
-31. **Upgrade JUCE to the latest release.** ✦ **M**
-    JUCE is pinned at **8.0.15** via `FetchContent` (`CMakeLists.txt:19`, `GIT_TAG 8.0.15`).
-    Track the newest stable JUCE tag (latest 8.x today; move to 9.x when it ships). *Approach:*
-    bump `GIT_TAG`, rebuild, and shake out deprecations/API breaks across our JUCE surface
-    (LookAndFeel/`drawButtonBackground`, `ChildProcess`, `AudioFormat*`, plugin-hosting
-    `AudioPluginFormatManager` / VST3+LV2, `ValueTree` serialisation, the FileChooser/threading
-    idioms). Watch the embedded **surge**, which vendors its *own* JUCE under
-    `third_party/surge/libs/JUCE` — our upgrade only moves the FetchContent copy; keep surge's
-    pinned to what it expects (don't force-share a JUCE). *Done when:* a
-    clean `cmake --build` is green on the bumped tag, `ctest` + `tests/smoke.sh` pass, and the
-    GUI renders (Xvfb screenshot) with no new warnings we introduced.
+31. **Upgrade JUCE to the latest release.** ✦ **M** — **✅ DONE (commit): bumped 8.0.15 → 9.0.0.**
+    JUCE was pinned at 8.0.15 via `FetchContent`; the newest stable tag is now **9.0.0** (a major
+    version — 8.0.15 was already the latest 8.x). Bumped `GIT_TAG` to `9.0.0` in `CMakeLists.txt`,
+    reconfigured (FetchContent re-fetched + checked out 9.0.0), and rebuilt clean. **The 8→9 major
+    bump was transparent** — ZERO API-break errors across our JUCE surface (plugin hosting VST3+LV2,
+    LookAndFeel, ChildProcess, AudioFormat, ValueTree, FileChooser). The embedded **surge** vendors
+    its own JUCE under `third_party/surge/libs/JUCE`; our bump only moved the FetchContent copy and
+    surge-common built + linked fine (Surge LV2 still loads). *Verified (the done-when):* clean
+    `cmake --build` green on 9.0.0 (`strings` confirms `JUCE v9.0.0` in the binary), `ctest` 100%,
+    `tests/smoke.sh` 167 PASS unchanged (the upgrade is transparent to all existing assertions —
+    the right headless proof for a toolchain slice), and the GUI renders on Xvfb (screenshot: full
+    transport / toolbar / instrument track / STEPS editor, identical to 8.x). No new warnings we
+    introduced (the pre-existing sign-conversion/shadow warnings in our own headers are unchanged).
 32. **Windows build (cross-build or CI-native).** ✦ **L**
     Gloopy is Linux-first today; make a Windows binary. *✦ Fork:* **(a) true cross-compile from
     Linux with `mingw-w64`** (a CMake toolchain file + cross-built gRPC/protobuf, sfizz, surge,
