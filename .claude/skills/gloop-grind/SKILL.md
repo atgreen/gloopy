@@ -1777,8 +1777,26 @@ each shipping with desktop UI + screenshot validation.
       Screenshot-validated end-to-end (the Sampler dialog shows the new "Loop crossfade (s)" field
       reflecting a 0.007 value set via the API). Manual model doc notes the sampler's looping +
       seam-crossfade; mkdocs --strict green.
+    - `[x]` **Interpolation quality (linear/cubic) landed** (commit): a `Sampler.interp` (0 linear /
+      1 cubic) picks the resampling kernel when a sample plays at a fractional rate (pitch-shifted).
+      Linear is the cheap 2-point read; **cubic is 4-point Catmull-Rom** — C1-continuous across
+      sample boundaries (no slope kink), so a pitch-shifted sample tracks the waveform's curve and is
+      smoother / less distorted. The cubic math is a pure `gloopy::catmullRom` (`Source/Interp.h`),
+      **unit-tested** (`GloopyTests`: passes through the control points at t=0/1, equals linear on a
+      collinear ramp, overshoots a (0,1,1,0) hump to 1.125 — decisive proof of the kernel). Extended
+      the SAME plumbing as the window/fade/loop/mono/xfade slices: `interp` on apiSet/GetSamplerControls
+      + the SamplerControls proto (both messages) + Python + ValueTree (`sinterp`, omitted when 0) /
+      composition (`interp`) serialisation + an "Interpolation" (Linear / Cubic (smoother)) combo on
+      the Sampler header prompt. smoke (SaveProject/LoadProject-isolated): a coarse sine (~8 samples/
+      cycle) played up a fifth (fractional rate ~1.498) renders **differently** under cubic vs linear
+      (mean|delta| ~5% of level — proof the setting is wired + active), and the value round-trips
+      through GetSamplerControls + a composition save/reload. Screenshot-validated (the Sampler dialog
+      shows the "Interpolation" combo on "Cubic (smoother)"). Manual model doc notes linear/cubic
+      interpolation; mkdocs --strict green. (Honest scope: a decisive "cubic is objectively better /
+      less aliased" scalar needs spectral analysis / FFT, which isn't linked — so the smoke proves the
+      knob is active + the kernel is correct via the unit test, not an aliasing-reduction figure.)
       **Not yet:** cross-track choke *groups*, root-note keyboard-mapped multisamples,
-      interpolation quality, waveform thumbnails/peak cache.
+      waveform thumbnails/peak cache.
 19. **Controller rack / MIDI-learn / parameter linking + MIDI device maps** — a
     source→target mapping view; MIDI-learn for any `ParamModel` id; OSC/API sources as
     mappable controllers; per-mapping scaling/inversion/smoothing/range/bypass;

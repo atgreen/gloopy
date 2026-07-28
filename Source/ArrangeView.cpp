@@ -577,6 +577,9 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 juce::StringArray voices { "Poly", "Mono (choke)" };
                 aw->addComboBox ("voices", voices, "Voices");
                 aw->getComboBoxComponent ("voices")->setSelectedItemIndex (sc.mono ? 1 : 0);
+                juce::StringArray interp { "Linear", "Cubic (smoother)" };
+                aw->addComboBox ("interp", interp, "Interpolation");
+                aw->getComboBoxComponent ("interp")->setSelectedItemIndex (sc.interp);
                 aw->addButton ("Apply",  1, juce::KeyPress (juce::KeyPress::returnKey));
                 aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
                 aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, tk] (int r)
@@ -592,7 +595,8 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                         const bool  rev = aw->getComboBoxComponent ("dir")->getSelectedItemIndex() == 1;
                         const bool  lp  = aw->getComboBoxComponent ("mode")->getSelectedItemIndex() == 1;
                         const bool  mn  = aw->getComboBoxComponent ("voices")->getSelectedItemIndex() == 1;
-                        onSetSamplerControls (tk, s, en, rev, rt, fi, fo, lp, mn, lxf);
+                        const int   itp = aw->getComboBoxComponent ("interp")->getSelectedItemIndex();
+                        onSetSamplerControls (tk, s, en, rev, rt, fi, fo, lp, mn, lxf, itp);
                     }
                     delete aw;
                 }), false);

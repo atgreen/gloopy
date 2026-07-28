@@ -337,6 +337,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
              .boolean ("loop", (bool) sm.getProperty ("sloop", false))
              .boolean ("mono", (bool) sm.getProperty ("smono", false))
              .number ("loop_xfade", (double) sm.getProperty ("sloopxf", 0.0))
+             .number ("interp", (double) (int) sm.getProperty ("sinterp", 0))
              .str ("sample_name", sm.getProperty ("sname").toString())
              .number ("rate", sm.getProperty ("rate", 44100.0));
         }
@@ -838,6 +839,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                     s.setProperty ("sloop", g->getBool ("loop", false), nullptr);
                     if (g->getBool ("mono", false)) s.setProperty ("smono", true, nullptr);
                     if (g->getDouble ("loop_xfade", 0.0) > 0.0) s.setProperty ("sloopxf", g->getDouble ("loop_xfade", 0.0), nullptr);
+                    if ((int) g->getDouble ("interp", 0.0) != 0) s.setProperty ("sinterp", (int) g->getDouble ("interp", 0.0), nullptr);
                     s.setProperty ("sname", g->getString ("sample_name"), nullptr);
                     tr.addChild (s, -1, nullptr);
                 }

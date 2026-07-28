@@ -22,6 +22,7 @@
 #include "FileDrop.h"
 #include "BrowserDrag.h"
 #include "ParamId.h"
+#include "Interp.h"
 #include "StereoWiden.h"
 #include "Lfo.h"
 #include "FadeShape.h"
@@ -1103,6 +1104,18 @@ struct FileDropTests : juce::UnitTest
             expect (! gloopy::ieq ("cut",    "cutoff"));   // prefix is not a match
             expect (! gloopy::ieq ("cutoff", "cut"));
             expect (! gloopy::ieq ("",       "x"));
+        }
+
+        beginTest ("catmullRom: passes through control points, linear on a ramp, curves on a hump");
+        {
+            // Endpoints: t=0 -> p1, t=1 -> p2 (for any neighbours).
+            expectWithinAbsoluteError (gloopy::catmullRom (0.0f, 1.0f, 2.0f, 3.0f, 0.0f), 1.0f, 1e-5f);
+            expectWithinAbsoluteError (gloopy::catmullRom (0.0f, 1.0f, 2.0f, 3.0f, 1.0f), 2.0f, 1e-5f);
+            // On a straight line (collinear points) cubic == linear (no overshoot): midpoint of 1..2 = 1.5.
+            expectWithinAbsoluteError (gloopy::catmullRom (0.0f, 1.0f, 2.0f, 3.0f, 0.5f), 1.5f, 1e-5f);
+            // A hump (0,1,1,0): the true curve peaks above 1 between the equal samples — cubic
+            // overshoots to 1.125 (tracks the curve), where linear would flatten to 1.0.
+            expectWithinAbsoluteError (gloopy::catmullRom (0.0f, 1.0f, 1.0f, 0.0f, 0.5f), 1.125f, 1e-5f);
         }
     }
 };

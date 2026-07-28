@@ -7,6 +7,7 @@
 #include <array>
 #include <cmath>
 #include "Generator.h"
+#include "Interp.h"
 
 /** A simple one-shot sample player. Each note-on starts a voice that plays the
     loaded sample from the start; note number sets the playback rate relative to
@@ -77,6 +78,13 @@ public:
     // (a startFrac > 0) for the smoothest blend; with the window at the very start it clamps.
     void  setLoopXfade (float seconds) { loopXfade = juce::jmax (0.0f, seconds); }
     float getLoopXfade() const { return loopXfade; }
+
+    // Interpolation quality when the sample is played at a fractional rate (pitch-shifted /
+    // resampled): 0 = linear (2-point, cheap), 1 = cubic (4-point Catmull-Rom, smoother — less
+    // aliasing/distortion). Linear leaves a slope kink at every source-sample boundary; cubic is
+    // C1-continuous, so it tracks the waveform's curve.
+    void setInterp (int mode) { interp = juce::jlimit (0, 1, mode); }
+    int  getInterp() const { return interp; }
 
     // Mono / choke: a new note-on cuts every currently-ringing voice, so overlapping hits
     // don't stack (classic hi-hat choke / mono 808). Off = polyphonic (voices ring out).
@@ -244,10 +252,17 @@ private:
     float readInterpolated (double pos) const
     {
         const int   i0   = (int) pos;
-        const int   i1   = i0 + 1;
-        const float frac = (float) (pos - i0);
-        const auto* d = sample.getReadPointer (0);
-        return d[i0] * (1.0f - frac) + d[i1] * frac;
+        const float t    = (float) (pos - i0);
+        const auto* d    = sample.getReadPointer (0);
+        const int   len  = sample.getNumSamples();
+        if (interp == 0)                                   // linear (2-point)
+            return d[i0] * (1.0f - t) + d[juce::jmin (i0 + 1, len - 1)] * t;
+        // Cubic Catmull-Rom (4-point); clamp the neighbour indices in-buffer.
+        const float p0 = d[juce::jmax (0, i0 - 1)];
+        const float p1 = d[i0];
+        const float p2 = d[juce::jmin (i0 + 1, len - 1)];
+        const float p3 = d[juce::jmin (i0 + 2, len - 1)];
+        return gloopy::catmullRom (p0, p1, p2, p3, t);
     }
 
     // Crossfaded loop read: within `loopXfade` of the wrap point, blend the current content
@@ -279,6 +294,7 @@ private:
     float       fadeOut    { 0.0f };   // per-voice fade-out / release (seconds)
     bool        loop       { false };  // window repeats until note-off (vs one-shot)
     float       loopXfade  { 0.0f };   // loop-seam crossfade (seconds, 0 = off)
+    int         interp     { 0 };      // 0 = linear, 1 = cubic (resampling interpolation)
     bool        mono       { false };  // choke: a new note-on cuts all ringing voices
     juce::String sampleName;
 

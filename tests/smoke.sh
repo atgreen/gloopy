@@ -914,6 +914,41 @@ print('smoke: PASS — sampler loop crossfade smooths the seam (max jump %d -> %
 " || { echo 'smoke: sampler loop crossfade wrong' >&2; exit 1; }
 g -d "{\"path\":\"$WORK/xf_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 
+# Sampler interpolation quality (Wave 6 #18): a coarse sine (~8 samples/cycle) played up a fifth
+# (fractional rate ~1.498) is resampled. Cubic (Catmull-Rom, 4-point) interpolation tracks the
+# curve differently from linear (2-point), so the render CHANGES when the mode is switched — proof
+# the setting is wired + active (the cubic math itself is unit-tested in GloopyTests). NewProject is
+# destructive, so snapshot + restore around it.
+g -d "{\"path\":\"$WORK/ip_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+python3 -c "
+import wave, struct, math
+w=wave.open('$WORK/coarse.wav','w'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(44100)
+w.writeframes(b''.join(struct.pack('<h', int(0.8*math.sin(2*math.pi*5512.5*i/44100)*30000)) for i in range(44100))); w.close()
+"
+IT=$(g -d "{\"name\":\"ipsmp\",\"path\":\"$WORK/coarse.wav\",\"root_note\":60}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSamplerTrack | grep -o '[0-9]\+' | head -1)
+g -d "{\"track_id\":$IT,\"start_beat\":0,\"length_beats\":4,\"content_len_beats\":4,\"notes\":[{\"pitch\":67,\"start_beat\":0,\"length_beats\":2,\"velocity\":1.0}]}" 127.0.0.1:$PORT gloopy.v1.Gloopy/AddClip >/dev/null
+g -d "{\"track_id\":$IT,\"start\":0,\"end\":1,\"reverse\":false,\"root_note\":0,\"interp\":0}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSamplerControls >/dev/null
+g -d "{\"path\":\"$WORK/lin.wav\",\"tail_seconds\":0,\"end_beat\":2}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+g -d "{\"track_id\":$IT,\"start\":0,\"end\":1,\"reverse\":false,\"root_note\":0,\"interp\":1}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SetSamplerControls >/dev/null
+g -d "{\"path\":\"$WORK/cub.wav\",\"tail_seconds\":0,\"end_beat\":2}" 127.0.0.1:$PORT gloopy.v1.Gloopy/RenderToFile >/dev/null
+IPRB=$(g -d "{\"id\":$IT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetSamplerControls | python3 -c "import json,sys;print(json.load(sys.stdin).get('interp',0))")
+g -d "{\"path\":\"$WORK/ip.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+g -d "{\"path\":\"$WORK/ip.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadComposition >/dev/null
+IPRB2=$(g -d "{\"id\":$IT}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GetSamplerControls | python3 -c "import json,sys;print(json.load(sys.stdin).get('interp',0))")
+python3 -c "
+import wave
+def rd(p):
+    w=wave.open(p);f=w.readframes(w.getnframes());return [int.from_bytes(f[i:i+3],'little',signed=True) for i in range(0,len(f),6)]
+lin=rd('$WORK/lin.wav');cub=rd('$WORK/cub.wav');a,b=2000,min(len(lin),len(cub),18000)
+delta=sum(abs(cub[i]-lin[i]) for i in range(a,b))/(b-a); lvl=sum(abs(lin[i]) for i in range(a,b))/(b-a)
+assert delta > lvl*0.01, 'cubic interp did not change the resampled render (delta %.0f vs level %.0f)'%(delta,lvl)
+assert '$IPRB'=='1', 'interp not read back: got $IPRB'
+assert '$IPRB2'=='1', 'interp did not survive composition round-trip: got $IPRB2'
+print('smoke: PASS — sampler cubic interp changes the resampled render (mean|delta|=%.0f, %.1f%% of level), value round-trips'%(delta,100*delta/max(1,lvl)))
+" || { echo 'smoke: sampler interp wrong' >&2; exit 1; }
+g -d "{\"path\":\"$WORK/ip_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+
 # Notes copy/paste as JSON (Wave 2 #5): ExportNotesJSON emits a clip's notes as a JSON
 # array; ImportNotesJSON builds a new clip from that JSON on another track. Round-trip: the
 # pasted clip's notes match the source (pitch/start/length/velocity), verified via GetClipNotes.

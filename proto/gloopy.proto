@@ -207,8 +207,8 @@ message MoveTrackRequest       { int32 track_id = 1; int32 delta = 2; }         
 message SetTrackPolarityRequest{ int32 track_id = 1; bool invert = 2; }         // phase invert a track
 message ExportTrackRequest     { int32 track_id = 1; string path = 2; }         // bounce one track to a stem WAV/FLAC
 message AddSamplerTrackRequest { string name = 1; string path = 2; int32 root_note = 3; }
-message SamplerControlsRequest { int32 track_id = 1; float start = 2; float end = 3; bool reverse = 4; int32 root_note = 5; float fade_in = 6; float fade_out = 7; bool loop = 8; bool mono = 9; float loop_xfade = 10; }
-message SamplerControls { bool ok = 1; float start = 2; float end = 3; bool reverse = 4; int32 root_note = 5; string name = 6; float fade_in = 7; float fade_out = 8; bool loop = 9; bool mono = 10; float loop_xfade = 11; }
+message SamplerControlsRequest { int32 track_id = 1; float start = 2; float end = 3; bool reverse = 4; int32 root_note = 5; float fade_in = 6; float fade_out = 7; bool loop = 8; bool mono = 9; float loop_xfade = 10; int32 interp = 11; }   // interp: 0 linear, 1 cubic
+message SamplerControls { bool ok = 1; float start = 2; float end = 3; bool reverse = 4; int32 root_note = 5; string name = 6; float fade_in = 7; float fade_out = 8; bool loop = 9; bool mono = 10; float loop_xfade = 11; int32 interp = 12; }
 message AddSfzTrackRequest     { string name = 1; string path = 2; }   // native SFZ instrument
 message AddSurgeTrackRequest   { string name = 1; string patch = 2; } // embedded Surge XT (patch = optional .fxp)
 message AddPluginTrackRequest  { string identifier = 1; }                        // PluginInfo.identifier

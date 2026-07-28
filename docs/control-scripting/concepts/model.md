@@ -42,8 +42,9 @@ state, an optional [arpeggiator](#arpeggiator), its `clips`, and its
 ### Generator
 The sound engine behind an Instrument track. One of: the built-in **Synth**
 (waveform + ADSR), the **Sampler** (a `.wav` player with a start/end playback
-window, reverse, per-voice fades, mono-choke voicing, and one-shot or **looping**
-playback — a loop can **crossfade its seam** so it repeats without a click), the
+window, reverse, per-voice fades, mono-choke voicing, linear or cubic resampling
+interpolation, and one-shot or **looping** playback — a loop can **crossfade its
+seam** so it repeats without a click), the
 vendored **sfizz** SFZ player, the embedded **Surge** core, or a **hosted plugin**
 (VST3 / LV2). They
 share one interface (prepare / render / all-notes-off), so the rest of the model

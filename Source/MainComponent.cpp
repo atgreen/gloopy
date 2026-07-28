@@ -475,12 +475,12 @@ MainComponent::MainComponent (bool headless)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return {};
         const auto s = apiGetSamplerControls (tracks[(size_t) trackIdx]->id);
-        return { s.ok, s.start, s.end, s.reverse, s.rootNote, s.fadeIn, s.fadeOut, s.loop, s.mono, s.loopXfade };
+        return { s.ok, s.start, s.end, s.reverse, s.rootNote, s.fadeIn, s.fadeOut, s.loop, s.mono, s.loopXfade, s.interp };
     };
-    arrangeView->onSetSamplerControls = [this] (int trackIdx, float start, float end, bool reverse, int root, float fadeIn, float fadeOut, bool loop, bool mono, float loopXfade)
+    arrangeView->onSetSamplerControls = [this] (int trackIdx, float start, float end, bool reverse, int root, float fadeIn, float fadeOut, bool loop, bool mono, float loopXfade, int interp)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
-        apiSetSamplerControls (tracks[(size_t) trackIdx]->id, start, end, reverse, root, fadeIn, fadeOut, loop, mono, loopXfade);
+        apiSetSamplerControls (tracks[(size_t) trackIdx]->id, start, end, reverse, root, fadeIn, fadeOut, loop, mono, loopXfade, interp);
     };
     arrangeView->getPunchRange = [this] (double& in, double& out) -> bool
     {
@@ -2288,7 +2288,7 @@ int MainComponent::apiAddSamplerTrack (const juce::String& name, const juce::Str
 // Live playback controls for a one-shot Sampler track: window [start,end] (fractions of
 // the sample), reverse, and root note. rootNote <= 0 leaves the root unchanged. Set under
 // engineLock (the audio thread reads these fields in render/startVoice).
-bool MainComponent::apiSetSamplerControls (int trackId, float startFrac, float endFrac, bool reverse, int rootNote, float fadeIn, float fadeOut, bool loop, bool mono, float loopXfade)
+bool MainComponent::apiSetSamplerControls (int trackId, float startFrac, float endFrac, bool reverse, int rootNote, float fadeIn, float fadeOut, bool loop, bool mono, float loopXfade, int interp)
 {
     return callOnMessageThread ([&] () -> bool
     {
@@ -2303,6 +2303,7 @@ bool MainComponent::apiSetSamplerControls (int trackId, float startFrac, float e
                     sm->setLoop (loop);
                     sm->setMono (mono);
                     sm->setLoopXfade (loopXfade);
+                    sm->setInterp (interp);
                     if (rootNote > 0) sm->setRootNote (rootNote);
                     return true;
                 }
@@ -2319,7 +2320,7 @@ MainComponent::SamplerSnap MainComponent::apiGetSamplerControls (int trackId)
             if (t->id == trackId)
                 if (auto* sm = dynamic_cast<Sampler*> (t->generator.get()))
                     return { true, sm->getStartFrac(), sm->getEndFrac(), sm->getReverse(), sm->getRootNote(),
-                             sm->getFadeIn(), sm->getFadeOut(), sm->getLoop(), sm->getMono(), sm->getLoopXfade(), sm->getName() };
+                             sm->getFadeIn(), sm->getFadeOut(), sm->getLoop(), sm->getMono(), sm->getLoopXfade(), sm->getInterp(), sm->getName() };
         return {};
     });
 }
@@ -5495,6 +5496,7 @@ juce::ValueTree MainComponent::toValueTree()
             s.setProperty ("sloop", sm->getLoop(), nullptr);
             if (sm->getMono()) s.setProperty ("smono", true, nullptr);
             if (sm->getLoopXfade() > 0.0f) s.setProperty ("sloopxf", sm->getLoopXfade(), nullptr);
+            if (sm->getInterp() != 0) s.setProperty ("sinterp", sm->getInterp(), nullptr);
             s.setProperty ("sname", sm->getName(), nullptr);
             juce::MemoryBlock mb ((size_t) buf.getNumChannels() * (size_t) buf.getNumSamples() * sizeof (float));
             auto* dst = (float*) mb.getData();
@@ -5871,6 +5873,7 @@ std::unique_ptr<Track> MainComponent::buildTrackFromTree (const juce::ValueTree&
             sm->setLoop ((bool) s.getProperty ("sloop", false));
             sm->setMono ((bool) s.getProperty ("smono", false));
             sm->setLoopXfade ((float) (double) s.getProperty ("sloopxf", 0.0));
+            sm->setInterp ((int) s.getProperty ("sinterp", 0));
             gen = std::move (sm);
         }
         if (gen) gen->prepare (currentSampleRate, currentBlockSize);
