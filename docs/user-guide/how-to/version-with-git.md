@@ -69,6 +69,16 @@ to see your branches (the current one is ticked) and:
 Work on a branch, commit as you go, then either merge it back into your main version or
 leave it as an alternate take you can return to any time.
 
+## Mark a milestone with a tag
+
+A **tag** is a memorable name for a specific version — the demo you sent, the master you
+delivered, the album cut. Open **File → Tags → Tag this version…**, give it a name (and an
+optional note), and that commit is bookmarked forever.
+
+Later, **File → Tags → Check out: <name>** loads the song exactly as it was at that
+milestone, so you can listen back or compare. (You'll be viewing a fixed point in history;
+use **File → Branches** to return to your working version when you're done.)
+
 ## From a script
 
 The same status is available to scripts and agents through the control API, so you can

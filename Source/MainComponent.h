@@ -222,12 +222,16 @@ public:
     GitResult apiGitMerge (const juce::String& dir, const juce::String& name);     // merge <name> into current
     GitResult apiGitBranchDelete (const juce::String& dir, const juce::String& name, bool force);
     GitResult apiGitBranchRename (const juce::String& dir, const juce::String& oldName, const juce::String& newName);
+    juce::StringArray apiGitTags (const juce::String& dir);
+    GitResult apiGitTagCreate (const juce::String& dir, const juce::String& name, const juce::String& message);   // message empty = lightweight
+    GitResult apiGitTagDelete (const juce::String& dir, const juce::String& name);
     juce::String gitStatusReport();                     // human-readable status text (Git.cpp)
     juce::String gitHistoryReport();                    // human-readable commit log (Git.cpp)
     void openSourceControl();                           // UI: a Source Control status window (MainComponent.cpp)
     void showCommitDialog();                            // UI: stage-all + commit dialog (MainComponent.cpp)
     void openHistory();                                 // UI: a commit-history window (MainComponent.cpp)
     void showBranchMenu();                              // UI: branch popup — checkout/create/merge (MainComponent.cpp)
+    void showTagMenu();                                 // UI: tag popup — tag this version / checkout (MainComponent.cpp)
 
     // --- waveform thumbnail cache (Waveform.cpp) ---
     // Min/max peaks per bucket for an audio file, cached by path+mtime+size. Feeds

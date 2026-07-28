@@ -331,6 +331,8 @@ message GitLogResult { repeated GitCommitInfo commits = 1; }             // newe
 message GitBranchList    { string current = 1; repeated string branches = 2; }
 message GitBranchRequest { string dir = 1; string name = 2; string start_point = 3; string new_name = 4; bool force = 5; }
 message GitRefRequest    { string dir = 1; string ref = 2; }
+message GitTagList       { repeated string tags = 1; }
+message GitTagRequest    { string dir = 1; string name = 2; string message = 3; }   // message empty = lightweight
 message RenderRequest {                       // offline bounce to WAV
   string path = 1;
   double tail_seconds = 2;
@@ -590,6 +592,9 @@ service Gloopy {
   rpc GitMerge       (GitRefRequest)    returns (Ack);            // merge a branch into the current one
   rpc GitBranchDelete(GitBranchRequest) returns (Ack);            // delete a branch (force = -D)
   rpc GitBranchRename(GitBranchRequest) returns (Ack);            // rename (name -> new_name)
+  rpc GitTags        (GitDir)        returns (GitTagList);         // all tags (newest-created first)
+  rpc GitTagCreate   (GitTagRequest) returns (Ack);               // tag HEAD (annotated if message set)
+  rpc GitTagDelete   (GitTagRequest) returns (Ack);               // delete a tag
   rpc NewProject (Empty)    returns (Ack);
   rpc ListTemplates  (Empty)       returns (TemplateList);   // built-in + user project templates
   rpc NewFromTemplate(TemplateRef) returns (Ack);            // empty + seed a template

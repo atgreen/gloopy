@@ -594,6 +594,12 @@ namespace
         { setAck (r, main.apiGitBranchDelete (js (q->dir()), js (q->name()), q->force())); return Status::OK; }
         Status GitBranchRename (ServerContext*, const pb::GitBranchRequest* q, pb::Ack* r) override
         { setAck (r, main.apiGitBranchRename (js (q->dir()), js (q->name()), js (q->new_name()))); return Status::OK; }
+        Status GitTags (ServerContext*, const pb::GitDir* q, pb::GitTagList* r) override
+        { for (auto& t : main.apiGitTags (js (q->dir()))) r->add_tags (t.toStdString()); return Status::OK; }
+        Status GitTagCreate (ServerContext*, const pb::GitTagRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitTagCreate (js (q->dir()), js (q->name()), js (q->message()))); return Status::OK; }
+        Status GitTagDelete (ServerContext*, const pb::GitTagRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitTagDelete (js (q->dir()), js (q->name()))); return Status::OK; }
 
         // ---- project / state ----
         Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override

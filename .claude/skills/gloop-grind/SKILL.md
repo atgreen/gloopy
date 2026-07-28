@@ -1969,10 +1969,16 @@ commit messages are user-authored; auto-commit-on-save is opt-in only.
       checkout → commit-on-feat → checkout main → merge → GitLog shows the feature commit on main;
       screenshot-validated (the popup on a 2-branch repo, main ticked). Branches = alternate
       arrangements. **Not yet:** stash-on-dirty-checkout (slice 9), merge-conflict UI (slice 11).
-    - `[ ]` **6 — tags (milestone mixes).** `apiGitTagList / Create (lightweight + annotated) /
-      Delete / Checkout`. **Desktop:** "Tag this version..." (name + optional message) on the Source
-      Control panel + File menu; a tag list. *Done when:* tag a commit → it lists → checkout by tag
-      loads that version, headless.
+    - `[x]` **6 — tags LANDED** (`Source/Git.cpp`, commit): `apiGitTags(dir)` (for-each-ref
+      `refs/tags`, newest-created first) + `apiGitTagCreate(dir,name,message)` (lightweight when no
+      message, else `-a -m` annotated with the same commit identity-fallback) + `apiGitTagDelete`.
+      Checkout-by-tag reuses `apiGitCheckout` from slice 5. GitTags/GitTagCreate/GitTagDelete RPCs
+      (`GitTagList`/`GitTagRequest`) + Python. **Desktop:** File → "Tags..." (`showTagMenu`) — "Tag
+      this version..." (name + optional description → tag HEAD), each tag "Check out: <name>"
+      (detached-HEAD checkout + reload + a "viewing tag, switch back via Branches" note; guarded on a
+      dirty tree), and a Delete-tag submenu. smoke: tag HEAD → GitTags lists it → checkout by tag →
+      GitStatus reports a detached HEAD; screenshot-validated (the popup on a tagged repo). Tags =
+      milestone mixes (demo / master / album-cut).
     - `[ ]` **7 — checkout any version (audition an old cut).** `apiGitCheckout(ref)` where ref =
       branch | tag | commit → checkout (**detached-HEAD aware**) and **reload the project at that
       revision**; guarded on a dirty tree (stash / commit / discard first). **Desktop:** a

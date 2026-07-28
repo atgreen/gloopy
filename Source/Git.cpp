@@ -319,6 +319,66 @@ MainComponent::GitResult MainComponent::apiGitBranchRename (const juce::String& 
     return gitWrite (*this, { "-C", dir, "branch", "-m", oldName.trim(), newName.trim() }, dir);
 }
 
+juce::StringArray MainComponent::apiGitTags (const juce::String& dir)
+{
+    juce::StringArray tags;
+    juce::String version;
+    if (! apiGitAvailable (version) || dir.isEmpty())
+        return tags;
+    juce::String out;
+    // newest-created first, so recent milestone mixes sit at the top of the list
+    if (runGit ({ "-C", dir, "for-each-ref", "--sort=-creatordate", "--format=%(refname:short)", "refs/tags" }, out) == 0)
+    {
+        tags = juce::StringArray::fromLines (out);
+        tags.removeEmptyStrings();
+        tags.trim();
+    }
+    return tags;
+}
+
+MainComponent::GitResult MainComponent::apiGitTagCreate (const juce::String& dir, const juce::String& name, const juce::String& message)
+{
+    GitResult r;
+    juce::String version;
+    if (! apiGitAvailable (version)) { r.error = "git is not installed or not on PATH"; return r; }
+    if (dir.isEmpty())               { r.error = "no directory given"; return r; }
+    if (name.trim().isEmpty())       { r.error = "a tag name is required"; return r; }
+
+    juce::StringArray args;
+    // An annotated tag (with a message) records a tagger identity, so reuse the same
+    // fallback as commit when the user has none configured. A lightweight tag needs none.
+    if (message.trim().isNotEmpty())
+    {
+        juce::String cfg;
+        if (runGit ({ "-C", dir, "config", "user.email" }, cfg) != 0 || cfg.trim().isEmpty())
+        {
+            args.add ("-c"); args.add ("user.email=gloopy@localhost");
+            args.add ("-c"); args.add ("user.name=Gloopy");
+        }
+        args.add ("-C"); args.add (dir); args.add ("tag"); args.add ("-a"); args.add (name.trim());
+        args.add ("-m"); args.add (message);
+    }
+    else
+    {
+        args.add ("-C"); args.add (dir); args.add ("tag"); args.add (name.trim());
+    }
+
+    juce::String out;
+    if (runGit (args, out, /*alsoStderr*/ true) != 0)
+    {
+        r.error = out.trim().isNotEmpty() ? out.trim() : "git tag failed";
+        return r;
+    }
+    r.ok = true;
+    return r;
+}
+
+MainComponent::GitResult MainComponent::apiGitTagDelete (const juce::String& dir, const juce::String& name)
+{
+    if (name.trim().isEmpty()) { GitResult r; r.error = "a tag name is required"; return r; }
+    return gitWrite (*this, { "-C", dir, "tag", "-d", name.trim() }, dir);
+}
+
 juce::String MainComponent::gitHistoryReport()
 {
     juce::String version;

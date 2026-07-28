@@ -915,6 +915,21 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.GitBranchRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.GitTags = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitTags',
+                request_serializer=gloopy__pb2.GitDir.SerializeToString,
+                response_deserializer=gloopy__pb2.GitTagList.FromString,
+                _registered_method=True)
+        self.GitTagCreate = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitTagCreate',
+                request_serializer=gloopy__pb2.GitTagRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitTagDelete = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitTagDelete',
+                request_serializer=gloopy__pb2.GitTagRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.NewProject = channel.unary_unary(
                 '/gloopy.v1.Gloopy/NewProject',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -2188,6 +2203,27 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GitTags(self, request, context):
+        """all tags (newest-created first)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitTagCreate(self, request, context):
+        """tag HEAD (annotated if message set)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitTagDelete(self, request, context):
+        """delete a tag
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def NewProject(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -3203,6 +3239,21 @@ def add_GloopyServicer_to_server(servicer, server):
             'GitBranchRename': grpc.unary_unary_rpc_method_handler(
                     servicer.GitBranchRename,
                     request_deserializer=gloopy__pb2.GitBranchRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitTags': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitTags,
+                    request_deserializer=gloopy__pb2.GitDir.FromString,
+                    response_serializer=gloopy__pb2.GitTagList.SerializeToString,
+            ),
+            'GitTagCreate': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitTagCreate,
+                    request_deserializer=gloopy__pb2.GitTagRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitTagDelete': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitTagDelete,
+                    request_deserializer=gloopy__pb2.GitTagRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'NewProject': grpc.unary_unary_rpc_method_handler(
@@ -8058,6 +8109,87 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/GitBranchRename',
             gloopy__pb2.GitBranchRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitTags(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitTags',
+            gloopy__pb2.GitDir.SerializeToString,
+            gloopy__pb2.GitTagList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitTagCreate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitTagCreate',
+            gloopy__pb2.GitTagRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitTagDelete(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitTagDelete',
+            gloopy__pb2.GitTagRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

@@ -981,6 +981,18 @@ class Gloopy:
         """Rename branch `name` to `new_name`."""
         self._ack(self.stub.GitBranchRename(pb.GitBranchRequest(dir=dir, name=name, new_name=new_name)))
 
+    def git_tags(self, dir: str) -> list[str]:
+        """All tags in `dir`, newest-created first."""
+        return list(self.stub.GitTags(pb.GitDir(dir=dir)).tags)
+
+    def git_tag_create(self, dir: str, name: str, message: str = "") -> None:
+        """Tag the current commit (annotated when `message` is given, else lightweight)."""
+        self._ack(self.stub.GitTagCreate(pb.GitTagRequest(dir=dir, name=name, message=message)))
+
+    def git_tag_delete(self, dir: str, name: str) -> None:
+        """Delete tag `name`."""
+        self._ack(self.stub.GitTagDelete(pb.GitTagRequest(dir=dir, name=name)))
+
     def diagnostics(self) -> dict:
         """Engine health: device settings, callback timing, DSP load, dropouts, render speed."""
         d = self.stub.GetDiagnostics(pb.Empty())

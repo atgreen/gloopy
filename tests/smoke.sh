@@ -243,6 +243,16 @@ if command -v git >/dev/null; then
     g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitLog \
         | python3 -c "import json,sys;subs=[c['subject'] for c in json.load(sys.stdin)['commits']];assert 'feature work' in subs,'merge did not bring the feature commit onto main: %r'%subs;print('smoke: PASS — merged the feature branch back into main')" \
         || { echo "smoke: branch merge failed" >&2; exit 1; }
+    # Tags (Wave 9 slice 6): tag the current commit, list it, and checkout by tag (detached).
+    g -d "{\"dir\":\"$NEWG\",\"name\":\"v1\",\"message\":\"milestone\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitTagCreate >/dev/null
+    g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitTags \
+        | python3 -c "import json,sys;t=json.load(sys.stdin)['tags'];assert 'v1' in t,'tag not listed: %r'%t;print('smoke: PASS — GitTagCreate + GitTags list the milestone tag')" \
+        || { echo "smoke: tag create/list failed" >&2; exit 1; }
+    g -d "{\"dir\":\"$NEWG\",\"ref\":\"v1\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCheckout >/dev/null
+    g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitStatus \
+        | python3 -c "import json,sys;d=json.load(sys.stdin);assert d.get('detached'),'checkout of a tag should be a detached HEAD: %r'%d;print('smoke: PASS — checkout by tag lands on a detached HEAD at that version')" \
+        || { echo "smoke: tag checkout failed" >&2; exit 1; }
+    g -d "{\"dir\":\"$NEWG\",\"ref\":\"main\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCheckout >/dev/null
 else
     echo "smoke: SKIP — git not installed (GitStatus check)"
 fi

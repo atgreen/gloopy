@@ -3830,6 +3830,88 @@ void MainComponent::showBranchMenu()
         });
 }
 
+void MainComponent::showTagMenu()
+{
+    // Tags = milestone mixes (demo / master / album-cut). "Tag this version" marks the
+    // current commit; clicking a tag checks it out (detached HEAD) and reloads the song.
+    if (currentProjectFile.getFileName() != "gloopy.toml") return;
+    const auto dir = currentProjectFile.getParentDirectory().getFullPathName();
+    if (! apiGitStatus (dir).isRepo)
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+            "Tags", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+        return;
+    }
+
+    auto tags = apiGitTags (dir);
+    juce::PopupMenu m;
+    m.addItem (-1, "Tags (milestone mixes)", false);
+    m.addItem (1, "Tag this version...");
+    if (tags.size() > 0)
+    {
+        m.addSeparator();
+        for (int i = 0; i < tags.size(); ++i) m.addItem (100 + i, "Check out: " + tags[i]);
+        juce::PopupMenu delM;
+        for (int i = 0; i < tags.size(); ++i) delM.addItem (200 + i, tags[i]);
+        m.addSubMenu ("Delete tag", delM);
+    }
+
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
+        [this, dir, tags] (int r)
+        {
+            if (r == 0) return;
+            auto ok = [] (const juce::String& title, const GitResult& res)
+            {
+                if (! res.ok) juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, title, res.error);
+                return res.ok;
+            };
+
+            if (r >= 100 && r < 200)            // checkout a tag (detached HEAD) -> reload
+            {
+                const auto name = tags[r - 100];
+                if (! apiGitStatus (dir).changes.empty())
+                {
+                    juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+                        "Checkout tag", "Commit your changes before checking out a tag."); return;
+                }
+                if (ok ("Checkout tag", apiGitCheckout (dir, name)))
+                {
+                    openAny (currentProjectFile);
+                    if (sourceControlWindow != nullptr && sourceControlWindow->isVisible()) openSourceControl();
+                    juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon, "Checkout tag",
+                        "Now viewing tag '" + name + "' (detached). Switch back via File \xe2\x86\x92 Branches.");
+                }
+            }
+            else if (r >= 200)                  // delete a tag
+            {
+                ok ("Delete tag", apiGitTagDelete (dir, tags[r - 200]));
+            }
+            else if (r == 1)                    // tag this version...
+            {
+                auto* aw = new juce::AlertWindow ("Tag this version",
+                    "Name this milestone (e.g. demo, master, album-cut). A description is optional.",
+                    juce::MessageBoxIconType::NoIcon);
+                aw->addTextEditor ("name", "", "Tag name");
+                aw->addTextEditor ("msg", "", "Description (optional)");
+                aw->addButton ("Tag", 1, juce::KeyPress (juce::KeyPress::returnKey));
+                aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+                aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, dir] (int rr)
+                {
+                    if (rr == 1)
+                    {
+                        const auto name = aw->getTextEditorContents ("name").trim();
+                        const auto msg  = aw->getTextEditorContents ("msg");
+                        if (name.isNotEmpty())
+                            if (! apiGitTagCreate (dir, name, msg).ok)
+                                juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                    "Tag this version", "Could not create the tag '" + name + "' (does it already exist?).");
+                    }
+                    delete aw;
+                }), false);
+            }
+        });
+}
+
 void MainComponent::showCommitDialog()
 {
     // The IDE commit surface: save the current edits, list what changed, and let the
@@ -4352,6 +4434,7 @@ void MainComponent::showFileMenu()
     menu.addItem (22, "Commit...", isComposition);     // save + stage all + commit (Git.cpp)
     menu.addItem (23, "History...", isComposition);    // git commit log (Git.cpp)
     menu.addItem (24, "Branches...", isComposition);   // branch popup (Git.cpp)
+    menu.addItem (25, "Tags...", isComposition);       // tag popup (Git.cpp)
     // Live MIDI status (read-only): the input sources Gloopy hears + which track they play.
     juce::PopupMenu midiMenu;
     const auto midiIns = apiListMidiInputs();
@@ -4417,6 +4500,7 @@ void MainComponent::showFileMenu()
             if (result == 22) { showCommitDialog(); return; }   // save + stage all + commit
             if (result == 23) { openHistory(); return; }        // git commit log
             if (result == 24) { showBranchMenu(); return; }     // branch popup
+            if (result == 25) { showTagMenu(); return; }        // tag popup
             if (result == 20) { undo(); return; }
             if (result == 21) { redo(); return; }
             if (result >= 100)                                  // New from Template
