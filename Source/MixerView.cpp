@@ -156,6 +156,18 @@ public:
         drawBar (m.removeFromLeft (m.getWidth() / 2).reduced (1, 0), meterL);
         drawBar (m.reduced (1, 0), meterR);
 
+        // Group-member hover cue: while a group bus strip is hovered, its member strips (and the
+        // group strip itself) get a colour bar at the bottom so you can see what feeds the group.
+        if (owner.hoverGroupBus >= 0 && (index == owner.hoverGroupBus || owner.hoverMembers.count (index)))
+        {
+            const bool isGroup = (index == owner.hoverGroupBus);
+            auto rr = getLocalBounds().toFloat().reduced (2.0f);
+            g.setColour (owner.hoverColour.withAlpha (isGroup ? 0.13f : 0.08f));
+            g.fillRoundedRectangle (rr, Palette::radius);
+            g.setColour (owner.hoverColour);
+            g.fillRoundedRectangle (rr.removeFromBottom (isGroup ? 4.0f : 3.0f), 1.5f);
+        }
+
         // Selected for grouping: accent ring + faint wash (so a multi-select reads at a glance).
         if (owner.groupSel.count (index))
         {
@@ -798,4 +810,46 @@ void MixerView::timerCallback()
 {
     for (auto& s : strips)
         s->updateMeter();
+
+    int hov = -1;   // which strip is the mouse over (incl. its child fader/buttons)?
+    for (auto& s : strips) if (s && s->isMouseOver (true)) { hov = s->index; break; }
+    updateGroupHover (hov);
+}
+
+// If the hovered strip is a group bus, light up the strips that flow into it (transitively).
+void MixerView::updateGroupHover (int hoveredIndex)
+{
+    int newBus = -1;
+    std::set<int> newMembers;
+    juce::Colour newColour;
+    if (hoveredIndex >= 0)
+    {
+        const juce::ScopedLock sl (engineLock);
+        const int N = (int) tracks.size();
+        if (juce::isPositiveAndBelow (hoveredIndex, N) && tracks[(size_t) hoveredIndex]->isBus)
+        {
+            for (int i = 1; i < N; ++i)               // any insert whose output-chain reaches the bus
+            {
+                int cur = i;
+                for (int guard = 0; guard < N; ++guard)
+                {
+                    const int o = tracks[(size_t) cur]->output.load();
+                    if (o <= 0 || o >= N || o == cur) break;
+                    if (o == hoveredIndex) { newMembers.insert (i); break; }
+                    cur = o;
+                }
+            }
+            if (! newMembers.empty())
+            {
+                newBus = hoveredIndex;
+                newColour = tracks[(size_t) hoveredIndex]->colour.getARGB() != 0
+                              ? tracks[(size_t) hoveredIndex]->colour : Palette::accent;
+            }
+        }
+    }
+    if (newBus != hoverGroupBus || newMembers != hoverMembers)
+    {
+        hoverGroupBus = newBus; hoverMembers = std::move (newMembers); hoverColour = newColour;
+        for (auto& s : strips) if (s) s->repaint();
+    }
 }

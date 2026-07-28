@@ -127,5 +127,12 @@ private:
     std::set<int> groupSel;                                 // strips selected for grouping (highlighted)
     void toggleStripSel (int index, const juce::ModifierKeys& mods);   // called by a Strip on name-click
 
+    // Group-member hover cue: while the mouse is over a group bus strip, its (transitive) member
+    // strips get a colour bar so you can see at a glance what feeds the group. Polled in the timer.
+    int           hoverGroupBus { -1 };                     // hovered group bus, or -1
+    std::set<int> hoverMembers;                             // inserts that flow into hoverGroupBus
+    juce::Colour  hoverColour;                              // the group's colour (bar tint)
+    void updateGroupHover (int hoveredIndex);
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MixerView)
 };
