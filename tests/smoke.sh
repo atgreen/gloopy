@@ -2260,6 +2260,29 @@ for p in d: assert 'vendor' in p and 'category' in p and 'num_outputs' in p, 'mi
 print('smoke: PASS — CLI scan emitted %d cached plugins as JSON'%len(d))
 " || { echo "smoke: CLI scan did not emit a valid JSON array" >&2; exit 1; }
 
+# MCP stdio server (Wave 11 #33 slice 1): pipe JSON-RPC (initialize -> tools/list ->
+# tools/call) into `gloopy mcp <project>` over stdio and assert it returns live state.
+# Standalone headless subcommand (no gRPC/Python), so independent of the running instance.
+printf '%s\n' \
+    '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+    '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+    '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+    '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"session/get_info","arguments":{}}}' \
+    '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"tracks/list","arguments":{}}}' \
+    '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"transport/set_tempo","arguments":{"bpm":140}}}' \
+    '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"session/get_info","arguments":{}}}' \
+    | "$BIN" mcp "$ROOT/examples/demo-lofi.gloopy" 2>/dev/null | python3 -c "
+import json,sys
+by={m['id']:m for m in (json.loads(l) for l in sys.stdin if l.strip()) if 'id' in m}
+txt=lambda m: json.loads(m['result']['content'][0]['text'])
+assert by[1]['result']['serverInfo']['name']=='gloopy', 'initialize'
+assert {t['name'] for t in by[2]['result']['tools']}=={'session/get_info','tracks/list','transport/set_tempo'}, 'tools/list'
+si=txt(by[3]); assert si['tracks']>0 and si['bpm']>0, 'session/get_info empty'
+assert len(txt(by[4]))==si['tracks'], 'tracks/list count'
+assert abs(txt(by[6])['bpm']-140.0)<0.01, 'set_tempo not reflected'
+print('smoke: PASS — MCP stdio server (initialize/tools.list/tools.call) returns live state (%d tracks, tempo set to 140)'%si['tracks'])
+" || { echo "smoke: MCP stdio server wrong" >&2; exit 1; }
+
 # MIDI file export/import round-trip (last — import resets the project). Export the
 # loaded project to an SMF, reimport into a fresh project, and confirm notes survive
 # as playable clips.

@@ -323,6 +323,17 @@ public:
             return;
         }
 
+        if (args.size() >= 1 && args[0] == "mcp")   // mcp [project] — MCP stdio server (agents drive Gloopy)
+        {
+            std::unique_ptr<MainComponent> comp;
+            { CoutSilencer s; comp = std::make_unique<MainComponent> (true);   // headless
+              if (args.size() >= 2) comp->openProjectFile (resolve (args[1])); }
+            comp->runMcpStdio();   // reads/writes JSON-RPC on stdio until EOF
+            setApplicationReturnValue (0);
+            quit();
+            return;
+        }
+
         if (args.size() >= 2 && (args[0] == "inspect" || args[0] == "validate" || args[0] == "pack"
                                  || args[0] == "render" || args[0] == "export-stems"))
         {

@@ -109,7 +109,9 @@ nav:
           - The Gloopy model: control-scripting/concepts/model.md
       - Tutorials:
           - Drive Gloopy from Python: control-scripting/tutorials/python-quickstart.md
-      - How-to guides: control-scripting/how-to/index.md
+      - How-to guides:
+          - control-scripting/how-to/index.md
+          - Let an AI agent drive Gloopy (MCP): control-scripting/how-to/mcp-server.md
       - Reference:
           - control-scripting/reference/index.md
           - gRPC API: control-scripting/reference/grpc/index.md

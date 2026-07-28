@@ -49,6 +49,7 @@ target_sources(Gloopy PRIVATE
     Source/Locations.cpp
     Source/Exports.cpp
     Source/Cli.cpp
+    Source/Mcp.cpp
     Source/Midi.cpp
     Source/ClipOps.cpp
     Source/MixerScenes.cpp

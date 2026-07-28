@@ -2143,10 +2143,26 @@ gate them later.
 33. **MCP stdio service.** ✦ **L (multi-session)** *(thin gRPC adapter; each slice is provable by
     piping a JSON-RPC sequence into the server over stdio and asserting the reply — scriptable,
     headless.)*
-    - `[ ]` **1 — stdio skeleton + tool discovery.** A FastMCP server that connects to a running
-      Gloopy over gRPC; `initialize` + `tools/list` return the canonical tools; a read-only handful
-      wired (`session/get_info`, `tracks/list`, `transport/set_tempo`). *Done when:* piping
-      initialize → tools/list → tools/call over stdio returns live state, headless.
+    - `[x]` **1 — stdio skeleton + tool discovery LANDED** (`Source/Mcp.cpp` + `gloopy mcp`
+      subcommand, commit). **DESIGN ADAPTED — native C++ stdio subcommand, not Python FastMCP.**
+      The box's Python 3.14 can't import `grpc` OR `mcp` (both fail; the Python client stack was
+      already known-broken), so the Python-first path is un-verifiable here. The design fork already
+      lists a native `gloopy mcp` subcommand ("MCP framing in C++, zero Python runtime") as valid —
+      and it's *fully local + verifiable*, so it becomes slice 1. **It's better for the spawn-headless
+      mode too:** `gloopy mcp [project]` runs a **headless MainComponent in-process** and translates
+      MCP JSON-RPC (newline-delimited, over stdin/stdout) **directly to the same api\* methods** — no
+      gRPC hop, no separate server process, no Python. Handles `initialize` (serverInfo "gloopy",
+      protocol 2024-11-05, tools capability), `tools/list` (the 3 canonical tools with inputSchemas),
+      and `tools/call` for **session/get_info** (apiGetTransport + track count), **tracks/list**
+      (apiListTracks), **transport/set_tempo** (apiSetTempo). Runs on the message thread (inside
+      `initialise()`), so `callOnMessageThread` executes inline. smoke (standalone, independent of the
+      live gRPC instance): pipe initialize → tools/list → tools/call into `gloopy mcp
+      examples/demo-lofi.gloopy` → serverInfo=gloopy, the 3 tools, session/get_info shows the loaded
+      project's real state (bpm 76, 7 tracks), tracks/list returns all 7, set_tempo 140 → re-read
+      shows bpm=140. Manual how-to (`control-scripting/how-to/mcp-server.md`, incl. the Claude Desktop
+      registration snippet); mkdocs --strict green. *Done-when met: piping JSON-RPC over stdio returns
+      live state, headless.* **Note for later slices: build on the native C++ subcommand (the Python
+      FastMCP variant stays a stretch, gated on a working Python grpc/mcp env).**
     - `[ ]` **2 — mutating tools.** `track/add`, `clip/add` (from a JSON note list), `clip/move`,
       `markers/add_range` — each a thin gRPC call, undoable. *Done when:* an agent transcript builds
       a 2-track loop and a render proves it non-silent.
