@@ -9,6 +9,11 @@ You can also **drag a row out of the browser and drop it onto the arrangement** 
 does the same thing as clicking (adds the plugin, imports the sample, seeds the
 template, loads the patch), whichever you find quicker.
 
+Dropping is **position-aware for samples**: drop a sample **onto an existing track** and
+it lands as an audio clip at the bar you dropped it on, instead of creating a new track —
+so you can place a hit or loop exactly where you want it. Drop a sample on empty space (or
+below the tracks) and it still gets its own new audio track as before.
+
 ## The tabs
 
 | Tab | Rows are… | Clicking a row |

@@ -382,10 +382,17 @@ MainComponent::MainComponent (bool headless)
     arrangeView = std::make_unique<ArrangeView> (tracks, transport, engineLock);
     // Browser drag-and-drop: a row dropped on the arrangement instantiates it (same actions
     // as clicking). The payload is "kind\tref\tlabel"; dispatchBrowserItem does the work.
-    arrangeView->onBrowserDrop = [this] (const juce::String& desc)
+    arrangeView->onBrowserDrop = [this] (const juce::String& desc, int targetTrack, double beat)
     {
         const auto it = parseBrowserDrag (desc);
-        if (it.valid) dispatchBrowserItem (it.kind, it.ref, it.label);
+        if (! it.valid) return;
+        // A sample dropped ONTO an existing track lands as an audio clip at the drop beat,
+        // instead of the generic "new track" action — precise placement by drag.
+        if (browserDropPlacesClip (it.kind, targetTrack)
+            && juce::isPositiveAndBelow (targetTrack, (int) tracks.size()))
+            apiAddAudioClip (tracks[(size_t) targetTrack]->id, beat, it.ref, 1.0f);
+        else
+            dispatchBrowserItem (it.kind, it.ref, it.label);
     };
     arrangeView->onClipSelected = [this] (int t, int c) { selectClip (t, c); };
     arrangeView->onChanged      = [this] { if (arrangeView) arrangeView->repaint(); };

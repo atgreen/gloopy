@@ -1453,6 +1453,26 @@ each shipping with desktop UI + screenshot validation.
       **Next:** target-specific drops (drop a plugin onto a track → add as an effect via
       apiAddPluginEffect; drop a sample at a beat/track) — needs drop-position hit-testing + a couple
       of positional-import API additions.
+    - `[x]` **Target-specific sample drop landed** (commit): the "drop a sample at a beat/track" half
+      of the flagged Next — a sample dragged from the browser and dropped **onto an existing track
+      lane** now lands as an audio clip at the bar you dropped it on, instead of spawning a new track
+      (precise placement by drag). Turned out to need **zero new backend**: `apiAddAudioClip(trackId,
+      startBeat, path, gain)` (+ its AddAudioClip RPC + Python `add_audio_clip`) already decodes a
+      file and adds an audio clip to an existing track at a beat — so this slice is pure desktop
+      drop-targeting. **Mechanism:** `ArrangeView::onBrowserDrop` now carries `(desc, targetTrack,
+      beat)` — `itemDropped` hit-tests the drop point (`trackAtY(y)` → the lane, -1 if it missed;
+      `snapToBar(beatForX(x))` → the bar-snapped beat); the MainComponent hook routes a sample-on-a-
+      track to `apiAddAudioClip(tracks[t]->id, beat, ref)` and everything else (a sample that missed
+      the lanes, or any non-sample kind) to the generic `dispatchBrowserItem`. The routing decision is
+      a pure `browserDropPlacesClip(kind, targetTrack)` in `Source/BrowserDrag.h` (sample && track>=0),
+      unit-tested (`FileDropTests`: sample-on-lane yes; sample-off-lane, plugin, template, preset no).
+      Screenshot- AND headless-validated: NewProject → ImportAudio(bass220) = 1 track/1 clip → dragged
+      tone660 from the Samples tab onto that track's lane at bar 3 → ListTracks shows STILL 1 track but
+      clips 1→2, and the shot shows tone660 placed at bar 3 on the bass220 track (no new track). smoke
+      182 PASS unchanged (apiAddAudioClip is already smoke-covered; the drop gesture isn't gRPC-
+      scriptable). Manual how-to notes position-aware sample drops; mkdocs --strict green.
+      **Still deferred:** plugin-onto-track-as-effect (blocked — the Plugins tab lists only
+      instruments, and there's no effects-browser tab or instrument-swap API; needs backend first).
     - `[x]` **User templates ("Save as Template") landed** (commit): the current project can
       be saved as a reusable template — `apiSaveAsTemplate(name)` writes a `.gloopy` into a
       user templates dir (`<userAppData>/Gloopy/templates`, or `$GLOOPY_TEMPLATE_PATH`, the

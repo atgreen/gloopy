@@ -19,13 +19,22 @@ class ArrangeView : public juce::Component,
 {
 public:
     // A browser row was dropped on the arrangement — payload is "kind\tref\tlabel".
-    std::function<void (const juce::String&)> onBrowserDrop;
+    // targetTrack = the track lane under the drop (-1 if it missed the lanes / hit the ruler);
+    // beat = the bar-snapped drop position, so a sample lands where it was dropped.
+    std::function<void (const juce::String& desc, int targetTrack, double beat)> onBrowserDrop;
     bool isInterestedInDragSource (const SourceDetails& d) override
     { return d.description.toString().containsChar ('\t'); }   // our rows carry tab-separated payloads
     void itemDragEnter (const SourceDetails&) override { dropHighlight = true; repaint(); }
     void itemDragExit  (const SourceDetails&) override { dropHighlight = false; repaint(); }
     void itemDropped (const SourceDetails& d) override
-    { dropHighlight = false; repaint(); if (onBrowserDrop) onBrowserDrop (d.description.toString()); }
+    {
+        dropHighlight = false; repaint();
+        if (! onBrowserDrop) return;
+        const auto p = d.localPosition.toFloat();
+        const int  tt = trackAtY (p.y);
+        const double beat = tt >= 0 ? juce::jmax (0.0, snapToBar (beatForX (p.x))) : 0.0;
+        onBrowserDrop (d.description.toString(), tt, beat);
+    }
 
     ArrangeView (std::vector<std::unique_ptr<Track>>& tracksRef,
                  Transport& transportRef,

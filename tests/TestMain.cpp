@@ -1081,6 +1081,16 @@ struct FileDropTests : juce::UnitTest
             expect (! parseBrowserDrag ("").valid);
             expect (! parseBrowserDrag ("templateonly").valid);  // no tab -> not a valid payload
         }
+
+        beginTest ("browser drop targets a track only for a sample dropped on a lane");
+        {
+            expect (  browserDropPlacesClip ("sample", 0));   // sample on the first track lane
+            expect (  browserDropPlacesClip ("sample", 3));   // sample on some track lane
+            expect (! browserDropPlacesClip ("sample", -1));  // sample missed the lanes -> new track
+            expect (! browserDropPlacesClip ("plugin", 2));   // a plugin on a track -> generic action
+            expect (! browserDropPlacesClip ("template", 0)); // a template on a track -> seed a project
+            expect (! browserDropPlacesClip ("preset", 1));
+        }
     }
 };
 

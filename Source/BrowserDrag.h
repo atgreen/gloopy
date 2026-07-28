@@ -29,3 +29,11 @@ inline BrowserDragItem parseBrowserDrag (const juce::String& desc)
     }
     return it;
 }
+
+// When a browser row is dropped ON an existing track (targetTrack >= 0), a sample is placed
+// as an audio clip at the drop beat instead of spawning a new track. Every other kind (and a
+// drop that misses the track lanes) falls back to the generic "add to the project" action.
+inline bool browserDropPlacesClip (const juce::String& kind, int targetTrack)
+{
+    return kind == "sample" && targetTrack >= 0;
+}
