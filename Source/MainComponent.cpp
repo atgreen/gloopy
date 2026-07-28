@@ -763,6 +763,13 @@ MainComponent::MainComponent (bool headless)
         if (sessionPane) sessionPane->rebuild();
         if (mixerView)   mixerView->rebuild();
     };
+    grid.onUngroup = [this] (int bus)
+    {
+        closeAllPluginWindows();
+        apiUngroup (bus);
+        if (mixerView)   mixerView->rebuild();
+        if (sessionPane) sessionPane->rebuild();
+    };
     sceneCol.getQuantumBeats   = [this] { return apiGetLaunchQuantumBeats(); };
     sceneCol.onSetQuantumBeats = [this] (double b) { apiSetLaunchQuantumBeats (b); };
     sceneCol.getMasterVolume   = [this] { return mixerTracks.empty() ? 0.8f : mixerTracks[0]->volume.load(); };
@@ -933,6 +940,13 @@ MainComponent::MainComponent (bool headless)
         const int bus = apiGroupInserts (inserts, "Group");
         if (bus > 0) apiGatherGroup (bus);
         if (mixerView)   { mixerView->rebuild(); mixerView->revealLastStrip(); }
+        if (sessionPane) sessionPane->rebuild();
+    };
+    mixerView->onUngroup = [this] (int bus)
+    {
+        closeAllPluginWindows();
+        apiUngroup (bus);
+        if (mixerView)   mixerView->rebuild();
         if (sessionPane) sessionPane->rebuild();
     };
 
@@ -4189,6 +4203,9 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     if (key == juce::KeyPress ('s', MK::commandModifier, 0))                      { saveCurrentProject(); return true; }
     if (key == juce::KeyPress ('g', MK::commandModifier, 0) && viewMode == ViewMode::Mixer && mixerView)
     { mixerView->groupSelected(); return true; }                                              // group selected strips
+    if (key == juce::KeyPress ('g', MK::commandModifier | MK::shiftModifier, 0) && viewMode == ViewMode::Mixer && mixerView)
+    { mixerView->ungroupSelected(); return true; }                                            // ungroup the selection's group
+    if (key == juce::KeyPress ('f', MK::commandModifier | MK::shiftModifier, 0)) { toggleFoldAllGroups(); return true; }  // fold/unfold all groups
     if (key == juce::KeyPress ('z', MK::commandModifier, 0))                      { undo(); return true; }
     if (key == juce::KeyPress ('z', MK::commandModifier | MK::shiftModifier, 0))  { redo(); return true; }
     if (key == juce::KeyPress ('y', MK::commandModifier, 0))                      { redo(); return true; }

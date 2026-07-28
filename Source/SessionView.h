@@ -119,6 +119,7 @@ public:
     std::function<void (int busIndex, bool)>           onSetGroupFolded;   // collapse/expand a group's members
     std::function<void (int busIndex)>                 onOpenBusFx;        // open a group/bus effect chain
     std::function<void (int busIndex, juce::Colour)>   onSetGroupColour;   // recolour a group (transparent = auto)
+    std::function<void (int busIndex)>                 onUngroup;          // dissolve the group (reparent members, remove bus)
 
     void rebuild()
     {
@@ -524,18 +525,23 @@ public:
     {
         if (! onSetGroupColour) return;
         static const char* names[] = { "Red", "Orange", "Yellow", "Green", "Teal", "Blue", "Purple", "Pink" };
+        bool folded = false;
+        for (auto& col : cols) if (col.bus == bus) { folded = col.folded; break; }
         juce::PopupMenu m;
+        if (onSetGroupFolded) { m.addItem (300, folded ? "Unfold group" : "Fold group"); m.addSeparator(); }
         m.addSectionHeader ("Group colour");
         for (int i = 0; i < 8; ++i)
             m.addColouredItem (100 + i, juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xa0")) + "  " + names[i], kGroupSwatches[i]);
-        m.addSeparator();
         m.addItem (200, "Auto (from first track)");
+        if (onUngroup) { m.addSeparator(); m.addItem (301, "Ungroup"); }
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this)
                              .withTargetScreenArea ({ screenPos.x, screenPos.y, 1, 1 }),
-                         [this, bus] (int r)
+                         [this, bus, folded] (int r)
                          {
                              if      (r >= 100 && r < 108) onSetGroupColour (bus, kGroupSwatches[r - 100]);
                              else if (r == 200)            onSetGroupColour (bus, juce::Colour (0u));   // auto
+                             else if (r == 300 && onSetGroupFolded) onSetGroupFolded (bus, ! folded);
+                             else if (r == 301 && onUngroup)        onUngroup (bus);
                          });
     }
 

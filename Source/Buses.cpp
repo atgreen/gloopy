@@ -64,6 +64,42 @@ bool MainComponent::apiRemoveBus (int busIndex)
     });
 }
 
+// Ungroup: dissolve a group bus. Its members are reparented to the group's own output (its parent
+// group, or master for a top-level group — so ungrouping an INNER group keeps its tracks in the
+// outer one), then the bus is removed. Mirrors apiRemoveBus's re-indexing but reroutes members to
+// the parent instead of blanket-to-master.
+bool MainComponent::apiUngroup (int busIndex)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        bool ok = false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (busIndex, (int) mixerTracks.size())) return false;
+            if (! mixerTracks[(size_t) busIndex]->isBus) return false;
+            const int parent    = mixerTracks[(size_t) busIndex]->output.load();   // group's parent (0 = master)
+            const int newParent = (parent > busIndex) ? parent - 1 : 0;            // its index after the erase (parent is 0 or higher)
+            mixerTracks.erase (mixerTracks.begin() + busIndex);
+            for (auto& mt : mixerTracks)
+            {
+                auto& sends = mt->sends;
+                sends.erase (std::remove_if (sends.begin(), sends.end(),
+                                 [&] (const MixerTrack::Send& s) { return s.bus == busIndex; }), sends.end());
+                for (auto& s : sends) if (s.bus > busIndex) --s.bus;
+                const int o = mt->output.load();
+                if      (o == busIndex) mt->output.store (newParent);   // member -> the group's parent
+                else if (o >  busIndex) mt->output.store (o - 1);       // shifted down by the erase
+            }
+            ok = true;
+        }
+        emitChange ("effect_changed", -1, busIndex);
+        if (mixerView) mixerView->rebuild();
+        std::cout << "[bus] ungrouped insert " << busIndex << std::endl;
+        return ok;
+    });
+}
+
 bool MainComponent::apiSetSend (int insert, int bus, float level, bool postFader)
 {
     return callOnMessageThread ([&] () -> bool
@@ -178,4 +214,39 @@ int MainComponent::apiGroupInserts (const std::vector<int>& inserts, const juce:
         if (i > 0 && i < bus) apiSetInsertOutput (i, bus);
     if (mixerView) mixerView->rebuild();
     return bus;
+}
+
+// A "group" is a bus that at least one insert routes its main output into (i.e. shows as a session
+// group column). Fold/unfold every such bus at once.
+void MainComponent::foldAllGroups (bool fold)
+{
+    {
+        const juce::ScopedLock sl (engineLock);
+        std::vector<char> hasMember (mixerTracks.size(), 0);
+        for (auto& mt : mixerTracks)
+        {
+            const int o = mt->output.load();
+            if (o > 0 && o < (int) mixerTracks.size()) hasMember[(size_t) o] = 1;
+        }
+        for (size_t i = 0; i < mixerTracks.size(); ++i)
+            if (mixerTracks[i]->isBus && hasMember[i]) mixerTracks[i]->folded.store (fold);
+    }
+    if (sessionPane) sessionPane->rebuild();
+}
+
+void MainComponent::toggleFoldAllGroups()
+{
+    bool anyOpen = false;
+    {
+        const juce::ScopedLock sl (engineLock);
+        std::vector<char> hasMember (mixerTracks.size(), 0);
+        for (auto& mt : mixerTracks)
+        {
+            const int o = mt->output.load();
+            if (o > 0 && o < (int) mixerTracks.size()) hasMember[(size_t) o] = 1;
+        }
+        for (size_t i = 0; i < mixerTracks.size(); ++i)
+            if (mixerTracks[i]->isBus && hasMember[i] && ! mixerTracks[i]->folded.load()) { anyOpen = true; break; }
+    }
+    foldAllGroups (anyOpen);   // any group open -> fold them all; otherwise unfold all
 }

@@ -579,10 +579,22 @@ void MixerView::showGroupMenu (int insertIndex)
         m.addSubMenu ("Output", out);
     }
 
+    // Ungroup: only for a bus that inserts route their main output into (a real group, not a return).
+    int memberCount = 0;
+    if (thisIsBus && onUngroup)
+    { const juce::ScopedLock sl (engineLock);
+      for (auto& mt : tracks) if (mt->output.load() == insertIndex) ++memberCount; }
+    if (memberCount > 0)
+    {
+        m.addSeparator();
+        m.addItem (9, "Ungroup (" + juce::String (memberCount) + " tracks)");
+    }
+
     m.showMenuAsync (juce::PopupMenu::Options(), [this, insertIndex, cur, groups, buses, sends] (int r)
     {
         if (r == 0) return;
         if (r == 8) { groupSelected(); return; }   // group the multi-selection into a new bus
+        if (r == 9 && onUngroup) { onUngroup (insertIndex); return; }   // dissolve this group bus
         if (r == 7 && onSetInsertName)   // rename this mixer strip
         {
             juce::String curName;
@@ -669,6 +681,23 @@ void MixerView::groupSelected()
     const std::vector<int> ins (groupSel.begin(), groupSel.end());   // std::set is sorted ascending
     groupSel.clear();
     onGroupInserts (ins);   // owner creates the bus, routes + gathers members, then rebuilds
+}
+
+void MixerView::ungroupSelected()
+{
+    if (! onUngroup || groupSel.empty()) return;
+    int target = -1;
+    {
+        const juce::ScopedLock sl (engineLock);
+        auto members = [&] (int bus) { int n = 0; for (auto& mt : tracks) if (mt->output.load() == bus) ++n; return n; };
+        for (int i : groupSel)   // a selected group bus itself
+            if (juce::isPositiveAndBelow (i, (int) tracks.size()) && tracks[(size_t) i]->isBus && members (i) > 0) { target = i; break; }
+        if (target < 0)          // else the bus a selected member routes into
+            for (int i : groupSel)
+                if (juce::isPositiveAndBelow (i, (int) tracks.size()))
+                { const int o = tracks[(size_t) i]->output.load(); if (o > 0) { target = o; break; } }
+    }
+    if (target >= 0) { groupSel.clear(); onUngroup (target); }
 }
 
 void MixerView::promptNewBus()

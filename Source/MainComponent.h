@@ -265,7 +265,10 @@ public:
     bool apiSetSend (int insert, int bus, float level, bool postFader = false);   // upsert an aux send (level<=0 removes)
     bool apiSetInsertOutput (int insert, int target);                // route main output: 0=master, else a group/bus
     int  apiGroupInserts (const std::vector<int>& inserts, const juce::String& name);   // create a bus + route members into it
+    bool apiUngroup (int busIndex);                                  // dissolve a group bus: reparent members, then remove it
     bool apiGatherGroup (int busIndex);                              // reorder a bus's member tracks contiguous
+    void foldAllGroups (bool fold);                                  // fold/unfold every group column (session)
+    void toggleFoldAllGroups();                                      // any open -> fold all, else unfold all
 
     // --- control groups / VCA-lite (ControlGroups.cpp) ---
     // A named group whose fader SCALES its member inserts' volumes (control scaling,
