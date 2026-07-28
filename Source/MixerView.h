@@ -72,6 +72,10 @@ public:
     std::function<void (int, int, float, bool)>      onSetSend;     // insert, busIndex, level (<=0 removes), post-fader
     std::function<void (const juce::String&)>        onAddBus;      // create a bus by name
     std::function<void (int, const juce::String&)>   onSetInsertName;  // insert index, new strip name
+    // A mixer insert may be the channel for an arrangement track. When it is, the strip shows the
+    // TRACK's name + colour (not the generic insert name), and renaming renames the track.
+    struct BackingTrack { bool valid = false; juce::String name; juce::Colour colour; };
+    std::function<BackingTrack (int)>                getBackingTrack;  // the track patched into this insert, if any
     // Main-output routing (submix / group): route a strip's whole signal to master (0) or a bus.
     std::function<void (int, int)>                   onSetOutput;    // insert, target (0 = master, else bus index)
     std::function<int (int)>                         onInsertOutput; // an insert's current output target (0 = master)

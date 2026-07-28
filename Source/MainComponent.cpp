@@ -948,7 +948,23 @@ MainComponent::MainComponent (bool headless)
     };
     mixerView->onSetSend     = [this] (int insert, int bus, float level, bool post) { apiSetSend (insert, bus, level, post); if (mixerView) mixerView->rebuild(); };
     mixerView->onAddBus      = [this] (const juce::String& name) { apiAddBus (name); if (mixerView) { mixerView->rebuild(); mixerView->revealLastStrip(); } };   // scroll to show the new bus
-    mixerView->onSetInsertName = [this] (int index, const juce::String& name) { apiSetInsertName (index, name); };
+    mixerView->getBackingTrack = [this] (int insert) -> MixerView::BackingTrack
+    {
+        const juce::ScopedLock sl (engineLock);
+        for (auto& t : tracks)
+            if (t->mixerTrack.load() == insert) return { true, t->name, t->colour };
+        return {};
+    };
+    mixerView->onSetInsertName = [this] (int index, const juce::String& name)
+    {
+        // If a track is patched into this insert, rename the TRACK (so arrange/session/mixer stay in
+        // sync); otherwise it's a bus / unused channel -> rename the insert itself.
+        int backingId = -1;
+        { const juce::ScopedLock sl (engineLock);
+          for (auto& t : tracks) if (t->mixerTrack.load() == index) { backingId = t->id; break; } }
+        if (backingId >= 0) apiRenameTrack (backingId, name);
+        else                apiSetInsertName (index, name);
+    };
     mixerView->onSetOutput   = [this] (int insert, int target)
     {
         apiSetInsertOutput (insert, target);
@@ -2045,6 +2061,7 @@ bool MainComponent::apiRenameTrack (int id, const juce::String& name)
         }
         emitChange ("track_renamed", id);
         if (arrangeView) arrangeView->rebuild();
+        if (mixerView)   mixerView->rebuild();   // the track's mixer strip shows its name -> refresh the label
         resized();
         return true;
     });

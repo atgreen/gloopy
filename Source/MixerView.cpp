@@ -12,7 +12,14 @@ class MixerView::Strip : public juce::Component
 public:
     Strip (MixerTrack* t, int idx, MixerView& own) : track (t), index (idx), owner (own)
     {
-        name.setText (t->name, juce::dontSendNotification);
+        // If an arrangement track is patched into this insert, label the strip with the TRACK's
+        // name + colour (not the generic "Ins N"); buses / Master / unused channels keep their own.
+        if (owner.getBackingTrack)
+        {
+            auto bt = owner.getBackingTrack (idx);
+            if (bt.valid) { backingName = bt.name; trackColour = bt.colour; hasTrackColour = true; }
+        }
+        name.setText (hasTrackColour ? backingName : t->name, juce::dontSendNotification);
         name.setJustificationType (juce::Justification::centred);
         name.setFont (juce::FontOptions (12.0f, juce::Font::bold));
         addAndMakeVisible (name);
@@ -127,6 +134,11 @@ public:
             g.setColour (Palette::accent.withAlpha (0.5f));
             g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (2.0f), Palette::radius, 1.0f);
         }
+        if (hasTrackColour)   // track-backed channel: the track's colour on the top edge (like the arrange/session headers)
+        {
+            g.setColour (trackColour.withAlpha (0.9f));
+            g.fillRoundedRectangle (getLocalBounds().toFloat().reduced (3.0f).removeFromTop (3.0f), 1.5f);
+        }
 
         // Routing cue under the name (GROUP/RETURN/BUS, or "-> target").
         if (cueText.isNotEmpty())
@@ -209,6 +221,9 @@ private:
     float meterL { 0.0f }, meterR { 0.0f };
     juce::String  cueText;                           // routing cue: GROUP/RETURN/BUS or "-> target"
     juce::Colour  cueColour { Palette::textDim };
+    juce::String  backingName;                        // arrangement track name, when this insert backs one
+    juce::Colour  trackColour;                        // that track's colour (top-edge accent)
+    bool          hasTrackColour { false };
 };
 
 // ===========================================================================
@@ -610,6 +625,8 @@ void MixerView::showGroupMenu (int insertIndex)
         if (r == 7 && onSetInsertName)   // rename this mixer strip
         {
             juce::String curName;
+            if (getBackingTrack) { auto bt = getBackingTrack (insertIndex); if (bt.valid) curName = bt.name; }   // track name, if this insert backs one
+            if (curName.isEmpty())
             { const juce::ScopedLock sl (engineLock);
               if (juce::isPositiveAndBelow (insertIndex, (int) tracks.size())) curName = tracks[(size_t) insertIndex]->name; }
             auto* aw = new juce::AlertWindow ("Rename strip", "New strip name", juce::MessageBoxIconType::NoIcon);
