@@ -345,6 +345,8 @@ message GitRemote        { string name = 1; string url = 2; }
 message GitRemoteList    { repeated GitRemote remotes = 1; }
 message GitAddRemoteRequest { string dir = 1; string name = 2; string url = 3; }
 message GitSyncRequest   { string dir = 1; string remote = 2; string branch = 3; }   // fetch/pull/push
+message GitConflictList  { repeated string files = 1; }
+message GitResolveRequest { string dir = 1; string path = 2; string mode = 3; }   // mode: ours|theirs|both
 message RenderRequest {                       // offline bounce to WAV
   string path = 1;
   double tail_seconds = 2;
@@ -619,6 +621,10 @@ service Gloopy {
   rpc GitFetch       (GitSyncRequest)      returns (Ack);        // fetch from a remote (empty = --all)
   rpc GitPull        (GitSyncRequest)      returns (Ack);        // pull remote/branch
   rpc GitPush        (GitSyncRequest)      returns (Ack);        // push remote/branch (explicit; sets upstream)
+  rpc GitConflicts    (GitDir)             returns (GitConflictList);   // files with merge conflicts
+  rpc GitResolve      (GitResolveRequest)  returns (Ack);              // resolve a conflicted file (ours|theirs|both)
+  rpc GitMergeContinue(GitDir)             returns (Ack);              // finish the merge
+  rpc GitMergeAbort   (GitDir)             returns (Ack);              // abort the merge
   rpc NewProject (Empty)    returns (Ack);
   rpc ListTemplates  (Empty)       returns (TemplateList);   // built-in + user project templates
   rpc NewFromTemplate(TemplateRef) returns (Ack);            // empty + seed a template

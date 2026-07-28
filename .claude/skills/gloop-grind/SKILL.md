@@ -2037,11 +2037,22 @@ commit messages are user-authored; auto-commit-on-save is opt-in only.
       `git -C <bare> log` shows the commit + ListRemotes returns origin. Screenshot-validated (the
       popup: origin → url, Add remote, Fetch/Pull/Push). *Done-when met: push to a bare local repo
       lands the commit there.*
-    - `[ ]` **11 — merge-conflict resolution.** When a merge / pull conflicts, surface the conflicted
-      composition files (TOML / `.notes`) with **accept-ours / accept-theirs / keep-both**, mark
-      resolved, continue the merge, reload. The composition text format makes conflicts human-
-      readable — lean into that rather than shelling users out to a terminal. *Done when:* a
-      hand-built conflicting merge is resolved in-app and the merge completes, headless.
+    - `[x]` **11 — merge-conflict resolution LANDED** (`Source/Git.cpp`, commit): `apiGitConflicts`
+      (`git diff --name-only --diff-filter=U`), `apiGitResolve(dir,path,mode)` — `ours`/`theirs`
+      (`git checkout --ours|--theirs -- <path>` + stage) / `both` (strip the `<<<<<<<`/`=======`/
+      `>>>>>>>` marker lines in-place, keeping ours-then-theirs, + stage), `apiGitMergeContinue`
+      (`git commit --no-edit`, identity-fallback since a merge commit needs an author),
+      `apiGitMergeAbort` (`git merge --abort`). RPCs GitConflicts/GitResolve/GitMergeContinue/
+      GitMergeAbort (`GitConflictList`/`GitResolveRequest`) + Python. **Desktop:** File → "Resolve
+      conflicts..." (`showConflictMenu`) lists each conflicted file with an Accept-ours / Accept-
+      theirs / Keep-both submenu; Continue merge (enabled only once all resolved — detects mid-merge
+      via `.git/MERGE_HEAD`) + Abort merge; each resolve re-opens the menu, continue/abort reload.
+      **Also:** a branch **Merge that conflicts now auto-opens the resolver** (showBranchMenu checks
+      `apiGitConflicts` after a failed merge). smoke (isolated via a SaveProject/LoadProject
+      snapshot): branch feat cutoff=500 vs main cutoff=900 → GitMerge conflicts (2 files) → resolve
+      each `ours` → GitMergeContinue → GitConflicts 0, no `.git/MERGE_HEAD`, on-disk `cutoff = 900`
+      (ours kept). Screenshot-validated (the popup: params.toml/tracks/lead.toml, Continue greyed
+      while unresolved). *Done-when met: a hand-built conflicting merge resolved in-app + completed.*
     - `[ ]` **12 — config + polish.** Per-project identity override (user.name / user.email),
       **auto-stage-on-save / auto-commit-on-save** toggles (opt-in only), **Git LFS** setup for large
       WAV / plugin sidecars, commit-message templates, and file-history / blame (stretch). Rounds out

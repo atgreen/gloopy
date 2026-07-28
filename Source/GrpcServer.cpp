@@ -632,6 +632,14 @@ namespace
         { setAck (r, main.apiGitPull (js (q->dir()), js (q->remote()), js (q->branch()))); return Status::OK; }
         Status GitPush (ServerContext*, const pb::GitSyncRequest* q, pb::Ack* r) override
         { setAck (r, main.apiGitPush (js (q->dir()), js (q->remote()), js (q->branch()))); return Status::OK; }
+        Status GitConflicts (ServerContext*, const pb::GitDir* q, pb::GitConflictList* r) override
+        { for (auto& f : main.apiGitConflicts (js (q->dir()))) r->add_files (f.toStdString()); return Status::OK; }
+        Status GitResolve (ServerContext*, const pb::GitResolveRequest* q, pb::Ack* r) override
+        { setAck (r, main.apiGitResolve (js (q->dir()), js (q->path()), js (q->mode()))); return Status::OK; }
+        Status GitMergeContinue (ServerContext*, const pb::GitDir* q, pb::Ack* r) override
+        { setAck (r, main.apiGitMergeContinue (js (q->dir()))); return Status::OK; }
+        Status GitMergeAbort (ServerContext*, const pb::GitDir* q, pb::Ack* r) override
+        { setAck (r, main.apiGitMergeAbort (js (q->dir()))); return Status::OK; }
 
         // ---- project / state ----
         Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override

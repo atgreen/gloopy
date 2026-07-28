@@ -354,6 +354,40 @@ print('yes' if ok else 'no')")
         && echo "smoke: PASS — GitAddRemote + GitPush landed the commit in a bare remote (ListRemotes=$RMLIST)" \
         || { echo "smoke: git push wrong (list=$RMLIST, bare log=$(git -C "$BARE" log --oneline 2>&1 | head -1))" >&2; exit 1; }
     g -d "{\"path\":\"$WORK/rmt_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
+    # Merge-conflict resolution (Wave 9 slice 11): two branches change the SAME cutoff line ->
+    # merge conflicts -> resolve each 'ours' -> continue -> conflicts clear, merge completes,
+    # the on-disk value is 'ours' (900). Snapshot + restore around the live-session churn.
+    g -d "{\"path\":\"$WORK/cnf_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
+    CND="$WORK/cnfproj"; rm -rf "$CND"
+    g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
+    g -d '{"name":"cnflead","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack >/dev/null
+    g -d "{\"path\":\"$CND\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+    g -d "{\"dir\":\"$CND\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitInit >/dev/null
+    g -d "{\"dir\":\"$CND\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAdd >/dev/null
+    g -d "{\"dir\":\"$CND\",\"message\":\"base\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit >/dev/null
+    CNBR=$(g -d "{\"dir\":\"$CND\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitStatus | python3 -c "import json,sys;print(json.load(sys.stdin).get('branch',''))")
+    g -d "{\"dir\":\"$CND\",\"name\":\"feat\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitBranchCreate >/dev/null
+    g -d "{\"dir\":\"$CND\",\"ref\":\"feat\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCheckout >/dev/null
+    g -d '{"id":"track/1/synth/cutoff","value":500}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null
+    g -d "{\"path\":\"$CND\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+    g -d "{\"dir\":\"$CND\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAdd >/dev/null
+    g -d "{\"dir\":\"$CND\",\"message\":\"feat 500\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit >/dev/null
+    g -d "{\"dir\":\"$CND\",\"ref\":\"$CNBR\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCheckout >/dev/null
+    g -d '{"id":"track/1/synth/cutoff","value":900}' 127.0.0.1:$PORT gloopy.v1.Gloopy/SetParameter >/dev/null
+    g -d "{\"path\":\"$CND\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveComposition >/dev/null
+    g -d "{\"dir\":\"$CND\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAdd >/dev/null
+    g -d "{\"dir\":\"$CND\",\"message\":\"main 900\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit >/dev/null
+    g -d "{\"dir\":\"$CND\",\"ref\":\"feat\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitMerge >/dev/null   # conflicts
+    CNF1=$(g -d "{\"dir\":\"$CND\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitConflicts | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('files',[])))")
+    for f in $(g -d "{\"dir\":\"$CND\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitConflicts | python3 -c "import json,sys;print(' '.join(json.load(sys.stdin).get('files',[])))"); do
+        g -d "{\"dir\":\"$CND\",\"path\":\"$f\",\"mode\":\"ours\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitResolve >/dev/null
+    done
+    g -d "{\"dir\":\"$CND\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitMergeContinue >/dev/null
+    CNF2=$(g -d "{\"dir\":\"$CND\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitConflicts | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('files',[])))")
+    { [ "$CNF1" -ge 1 ] && [ "$CNF2" -eq 0 ] && [ ! -f "$CND/.git/MERGE_HEAD" ] && grep -q 'cutoff = 900' "$CND/tracks/cnflead.toml"; } \
+        && echo "smoke: PASS — conflicting merge resolved ($CNF1 conflicts -> 0) and completed; kept ours (cutoff 900)" \
+        || { echo "smoke: merge-conflict resolution wrong (c1=$CNF1 c2=$CNF2)" >&2; exit 1; }
+    g -d "{\"path\":\"$WORK/cnf_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
 else
     echo "smoke: SKIP — git not installed (GitStatus check)"
 fi

@@ -1044,6 +1044,22 @@ class Gloopy:
         """Push remote/branch (explicit; sets upstream)."""
         self._ack(self.stub.GitPush(pb.GitSyncRequest(dir=dir, remote=remote, branch=branch)))
 
+    def git_conflicts(self, dir: str) -> list[str]:
+        """List files with merge conflicts."""
+        return list(self.stub.GitConflicts(pb.GitDir(dir=dir)).files)
+
+    def git_resolve(self, dir: str, path: str, mode: str) -> None:
+        """Resolve a conflicted file (mode: ours | theirs | both), then stage it."""
+        self._ack(self.stub.GitResolve(pb.GitResolveRequest(dir=dir, path=path, mode=mode)))
+
+    def git_merge_continue(self, dir: str) -> None:
+        """Finish the merge once all conflicts are resolved."""
+        self._ack(self.stub.GitMergeContinue(pb.GitDir(dir=dir)))
+
+    def git_merge_abort(self, dir: str) -> None:
+        """Abort the in-progress merge."""
+        self._ack(self.stub.GitMergeAbort(pb.GitDir(dir=dir)))
+
     def diagnostics(self) -> dict:
         """Engine health: device settings, callback timing, DSP load, dropouts, render speed."""
         d = self.stub.GetDiagnostics(pb.Empty())

@@ -130,6 +130,22 @@ The menu shows how far **ahead or behind** the remote you are, so you know when 
 push or pull. Network steps run in the background with a progress indicator, so a slow upload
 never freezes the app.
 
+## Resolve a merge conflict
+
+When you merge a branch (or pull from a remote) and both versions changed the *same* thing,
+git can't decide for you — that's a **conflict**. Gloopy makes this painless: **File → Resolve
+conflicts…** lists each affected part of your song (a track, a clip, a setting) and, for each,
+lets you choose:
+
+- **Accept ours** — keep your current branch's version.
+- **Accept theirs** — take the incoming version.
+- **Keep both** — merge both sets of changes together.
+
+Once every conflict is settled, **Continue merge** finishes the job and reloads your song; or
+**Abort merge** backs out entirely and leaves things as they were. Because a Composition folder
+is readable text, conflicts are about real, understandable things — not an opaque "project file
+is corrupt" dead end.
+
 ## From a script
 
 The same status is available to scripts and agents through the control API, so you can

@@ -243,6 +243,10 @@ public:
     GitResult apiGitFetch (const juce::String& dir, const juce::String& remote);          // remote empty = --all
     GitResult apiGitPull (const juce::String& dir, const juce::String& remote, const juce::String& branch);
     GitResult apiGitPush (const juce::String& dir, const juce::String& remote, const juce::String& branch);   // sets upstream (-u)
+    juce::StringArray apiGitConflicts (const juce::String& dir);                          // files with merge conflicts
+    GitResult apiGitResolve (const juce::String& dir, const juce::String& path, const juce::String& mode);   // ours|theirs|both
+    GitResult apiGitMergeContinue (const juce::String& dir);                              // finish the merge (commit)
+    GitResult apiGitMergeAbort (const juce::String& dir);                                 // bail out of the merge
     juce::String gitStatusReport();                     // human-readable status text (Git.cpp)
     juce::String gitHistoryReport();                    // human-readable commit log (Git.cpp)
     void openSourceControl();                           // UI: a Source Control status window (MainComponent.cpp)
@@ -254,6 +258,7 @@ public:
     void openDiff();                                    // UI: a working-tree diff window (MainComponent.cpp)
     void showWorkingTreeMenu();                         // UI: discard / stash / revert / reset popup (MainComponent.cpp)
     void showRemoteMenu();                              // UI: remotes / fetch / pull / push popup (MainComponent.cpp)
+    void showConflictMenu();                            // UI: merge-conflict resolver popup (MainComponent.cpp)
 
     // --- waveform thumbnail cache (Waveform.cpp) ---
     // Min/max peaks per bucket for an audio file, cached by path+mtime+size. Feeds

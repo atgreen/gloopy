@@ -3937,6 +3937,71 @@ void MainComponent::showRemoteMenu()
         });
 }
 
+void MainComponent::showConflictMenu()
+{
+    // Merge-conflict resolution over the composition text format. When a merge / pull leaves
+    // conflicted TOML / .notes files, resolve each (accept ours / theirs / keep both), then
+    // continue the merge and reload. The readable format makes each conflict legible.
+    if (currentProjectFile.getFileName() != "gloopy.toml") return;
+    const auto dir = currentProjectFile.getParentDirectory().getFullPathName();
+    if (! apiGitStatus (dir).isRepo)
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+            "Conflicts", "This folder isn't a git repository yet — use File \xe2\x86\x92 Enable Git first.");
+        return;
+    }
+
+    const auto conflicts = apiGitConflicts (dir);
+    const bool merging = juce::File (dir).getChildFile (".git").getChildFile ("MERGE_HEAD").existsAsFile();
+    if (conflicts.isEmpty() && ! merging)
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+            "Conflicts", "No merge in progress — nothing to resolve.");
+        return;
+    }
+
+    auto reload = [this]
+    {
+        openAny (currentProjectFile);
+        if (sourceControlWindow != nullptr && sourceControlWindow->isVisible()) openSourceControl();
+    };
+    auto run = [this] (const GitResult& r)
+    {
+        if (! r.ok)
+            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Conflicts", r.error);
+    };
+
+    juce::PopupMenu m;
+    m.addItem (-1, conflicts.isEmpty() ? "Merge conflicts — all resolved" : "Merge conflicts", false);
+    for (int i = 0; i < conflicts.size(); ++i)
+    {
+        juce::PopupMenu sub;
+        sub.addItem (100 + i * 3 + 0, "Accept ours (this branch)");
+        sub.addItem (100 + i * 3 + 1, "Accept theirs (incoming)");
+        sub.addItem (100 + i * 3 + 2, "Keep both");
+        m.addSubMenu (conflicts[i], sub);
+    }
+    m.addSeparator();
+    m.addItem (1, "Continue merge", conflicts.isEmpty());
+    m.addItem (2, "Abort merge");
+
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
+        [this, dir, conflicts, reload, run] (int r)
+        {
+            if (r == 0) return;
+            if (r == 1) { run (apiGitMergeContinue (dir)); reload(); return; }
+            if (r == 2) { run (apiGitMergeAbort (dir));    reload(); return; }
+            if (r >= 100)
+            {
+                const int i = (r - 100) / 3, mode = (r - 100) % 3;
+                if (i >= conflicts.size()) return;
+                const juce::String modeStr = mode == 0 ? "ours" : mode == 1 ? "theirs" : "both";
+                run (apiGitResolve (dir, conflicts[i], modeStr));
+                showConflictMenu();   // re-open to resolve the rest / enable Continue
+            }
+        });
+}
+
 void MainComponent::showBranchMenu()
 {
     // Branches = alternate arrangements. Checkout / merge change files on disk, so we
@@ -3999,7 +4064,10 @@ void MainComponent::showBranchMenu()
                 const auto name = others[r - 2000];
                 if (dirty()) { juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
                     "Merge", "Commit your changes before merging."); return; }
-                if (ok ("Merge", apiGitMerge (dir, name))) reloadProject();
+                auto mr = apiGitMerge (dir, name);
+                if (mr.ok) reloadProject();
+                else if (! apiGitConflicts (dir).isEmpty()) showConflictMenu();   // conflicts → resolve in-app
+                else ok ("Merge", mr);
             }
             else if (r >= 3000)                 // delete a branch (safe -d; git refuses if unmerged)
             {
@@ -4735,6 +4803,7 @@ void MainComponent::showFileMenu()
     menu.addItem (27, "Changes (Diff)...", isComposition);    // working-tree diff (Git.cpp)
     menu.addItem (28, "Discard / Stash / Reset...", isComposition);   // working-tree ops (Git.cpp)
     menu.addItem (29, "Remotes / Push / Pull...", isComposition);     // remote sync (Git.cpp)
+    menu.addItem (30, "Resolve conflicts...", isComposition);         // merge-conflict resolver (Git.cpp)
     // Live MIDI status (read-only): the input sources Gloopy hears + which track they play.
     juce::PopupMenu midiMenu;
     const auto midiIns = apiListMidiInputs();
@@ -4805,6 +4874,7 @@ void MainComponent::showFileMenu()
             if (result == 27) { openDiff(); return; }           // working-tree diff
             if (result == 28) { showWorkingTreeMenu(); return; }  // discard / stash / revert / reset
             if (result == 29) { showRemoteMenu(); return; }       // remotes / push / pull
+            if (result == 30) { showConflictMenu(); return; }     // merge-conflict resolver
             if (result == 20) { undo(); return; }
             if (result == 21) { redo(); return; }
             if (result >= 100)                                  // New from Template

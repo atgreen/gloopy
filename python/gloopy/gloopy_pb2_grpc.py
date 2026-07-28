@@ -990,6 +990,26 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.GitSyncRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.GitConflicts = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitConflicts',
+                request_serializer=gloopy__pb2.GitDir.SerializeToString,
+                response_deserializer=gloopy__pb2.GitConflictList.FromString,
+                _registered_method=True)
+        self.GitResolve = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitResolve',
+                request_serializer=gloopy__pb2.GitResolveRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitMergeContinue = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitMergeContinue',
+                request_serializer=gloopy__pb2.GitDir.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.GitMergeAbort = channel.unary_unary(
+                '/gloopy.v1.Gloopy/GitMergeAbort',
+                request_serializer=gloopy__pb2.GitDir.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.NewProject = channel.unary_unary(
                 '/gloopy.v1.Gloopy/NewProject',
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
@@ -2367,6 +2387,34 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GitConflicts(self, request, context):
+        """files with merge conflicts
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitResolve(self, request, context):
+        """resolve a conflicted file (ours|theirs|both)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitMergeContinue(self, request, context):
+        """finish the merge
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GitMergeAbort(self, request, context):
+        """abort the merge
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def NewProject(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -3457,6 +3505,26 @@ def add_GloopyServicer_to_server(servicer, server):
             'GitPush': grpc.unary_unary_rpc_method_handler(
                     servicer.GitPush,
                     request_deserializer=gloopy__pb2.GitSyncRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitConflicts': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitConflicts,
+                    request_deserializer=gloopy__pb2.GitDir.FromString,
+                    response_serializer=gloopy__pb2.GitConflictList.SerializeToString,
+            ),
+            'GitResolve': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitResolve,
+                    request_deserializer=gloopy__pb2.GitResolveRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitMergeContinue': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitMergeContinue,
+                    request_deserializer=gloopy__pb2.GitDir.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'GitMergeAbort': grpc.unary_unary_rpc_method_handler(
+                    servicer.GitMergeAbort,
+                    request_deserializer=gloopy__pb2.GitDir.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'NewProject': grpc.unary_unary_rpc_method_handler(
@@ -8717,6 +8785,114 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/GitPush',
             gloopy__pb2.GitSyncRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitConflicts(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitConflicts',
+            gloopy__pb2.GitDir.SerializeToString,
+            gloopy__pb2.GitConflictList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitResolve(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitResolve',
+            gloopy__pb2.GitResolveRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitMergeContinue(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitMergeContinue',
+            gloopy__pb2.GitDir.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GitMergeAbort(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/GitMergeAbort',
+            gloopy__pb2.GitDir.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

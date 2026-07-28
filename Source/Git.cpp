@@ -561,6 +561,87 @@ MainComponent::GitResult MainComponent::apiGitPush (const juce::String& dir, con
     return gitWrite (*this, args, dir);
 }
 
+juce::StringArray MainComponent::apiGitConflicts (const juce::String& dir)
+{
+    juce::StringArray out;
+    juce::String version;
+    if (! apiGitAvailable (version) || dir.isEmpty())
+        return out;
+    juce::String res;
+    // Unmerged paths (diff-filter=U) — the files with conflict markers to resolve.
+    if (runGit ({ "-C", dir, "diff", "--name-only", "--diff-filter=U" }, res) == 0)
+    {
+        out = juce::StringArray::fromLines (res);
+        out.removeEmptyStrings();
+        out.trim();
+    }
+    return out;
+}
+
+MainComponent::GitResult MainComponent::apiGitResolve (const juce::String& dir, const juce::String& path, const juce::String& mode)
+{
+    GitResult r;
+    juce::String version;
+    if (! apiGitAvailable (version)) { r.error = "git is not installed or not on PATH"; return r; }
+    if (dir.isEmpty() || path.trim().isEmpty()) { r.error = "a directory and file are required"; return r; }
+    const auto m = mode.trim();
+
+    if (m == "ours" || m == "theirs")
+    {
+        // Take one whole side of the conflict.
+        juce::String out;
+        if (runGit ({ "-C", dir, "checkout", "--" + m, "--", path.trim() }, out, /*alsoStderr*/ true) != 0)
+        { r.error = out.trim().isNotEmpty() ? out.trim() : "git checkout failed"; return r; }
+    }
+    else if (m == "both")
+    {
+        // Keep both sides: strip the conflict markers, leaving ours-then-theirs content.
+        // The composition text format makes this a legible, valid result.
+        auto file = juce::File (dir).getChildFile (path.trim());
+        if (! file.existsAsFile()) { r.error = "conflicted file not found"; return r; }
+        juce::StringArray lines;
+        lines.addLines (file.loadFileAsString());
+        juce::StringArray kept;
+        for (auto& line : lines)
+            if (! (line.startsWith ("<<<<<<<") || line.startsWith ("=======") || line.startsWith (">>>>>>>")))
+                kept.add (line);
+        file.replaceWithText (kept.joinIntoString ("\n"));
+    }
+    else { r.error = "resolve mode must be ours, theirs, or both"; return r; }
+
+    // Mark resolved by staging the file.
+    return apiGitAdd (dir, { path.trim() });
+}
+
+MainComponent::GitResult MainComponent::apiGitMergeContinue (const juce::String& dir)
+{
+    GitResult r;
+    juce::String version;
+    if (! apiGitAvailable (version)) { r.error = "git is not installed or not on PATH"; return r; }
+    if (dir.isEmpty())              { r.error = "no directory given"; return r; }
+
+    // Finishing a merge writes a merge commit, so it needs an author identity (same fallback
+    // as commit). `commit --no-edit` uses the prepared MERGE_MSG.
+    juce::StringArray args;
+    juce::String cfg;
+    if (runGit ({ "-C", dir, "config", "user.email" }, cfg) != 0 || cfg.trim().isEmpty())
+    {
+        args.add ("-c"); args.add ("user.email=gloopy@localhost");
+        args.add ("-c"); args.add ("user.name=Gloopy");
+    }
+    args.add ("-C"); args.add (dir); args.add ("commit"); args.add ("--no-edit");
+    juce::String out;
+    if (runGit (args, out, /*alsoStderr*/ true) != 0)
+    { r.error = out.trim().isNotEmpty() ? out.trim() : "git commit failed"; return r; }
+    r.ok = true;
+    return r;
+}
+
+MainComponent::GitResult MainComponent::apiGitMergeAbort (const juce::String& dir)
+{
+    return gitWrite (*this, { "-C", dir, "merge", "--abort" }, dir);
+}
+
 juce::String MainComponent::gitHistoryReport()
 {
     juce::String version;
