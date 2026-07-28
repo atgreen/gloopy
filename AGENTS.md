@@ -3,6 +3,15 @@
 Gloopy is a linear-arranger DAW in C++17 / JUCE 8 (see `README.md`).
 This file captures the non-obvious things that are easy to get wrong.
 
+## Remotes — cave is UPSTREAM, GitHub is a mirror
+
+**`cave.moxielogic.com` (the `origin` remote, `cave@cave.moxielogic.com:atgreen/gloopy.git`)
+is upstream — always push there.** A post-receive hook on cave mirrors to
+**`github.com/atgreen/gloopy`**, which is a read-only mirror (do NOT push to it). GitHub
+Actions run on that mirror, so check CI there with `gh run list -R atgreen/gloopy`
+(clear the env token first — it's invalid: `env -u GITHUB_TOKEN gh ...`). Never redirect
+`origin` to GitHub; a small/empty commit pushed to cave is how you kick the mirror.
+
 ## Build & run
 
 ```sh

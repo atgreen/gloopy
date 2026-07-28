@@ -23,8 +23,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build g++ make \
-            libasound2-dev libfreetype-dev libx11-dev libxrandr-dev \
+            cmake ninja-build g++ make pkg-config \
+            libasound2-dev libfreetype6-dev libfontconfig1-dev libgl1-mesa-dev \
+            libx11-dev libxrandr-dev \
             libxinerama-dev libxcursor-dev libxext-dev \
             libgrpc++-dev protobuf-compiler-grpc libprotobuf-dev protobuf-compiler \
             xvfb
