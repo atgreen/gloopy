@@ -1,6 +1,6 @@
 # Gloopy
 
-A linear-arranger DAW built in C++ with [JUCE](https://juce.com/).
+A linear-arranger DAW.
 
 Lay instrument, audio, and MIDI **tracks** down a timeline; each track owns its
 **clips**. Edit a clip's notes in a **step grid** or a **piano roll**, drive
@@ -13,6 +13,9 @@ bounce it to a WAV.
 
 - **Linear arranger** — tracks arranged down a timeline; every clip owns its own
   content (MIDI notes or audio), positioned and looped independently.
+- **Session view** — an Ableton-style clip-launch grid (tracks × scenes) beside
+  the arrangement; press **Tab** to switch. Launch looping clips live, record
+  into empty slots, and capture a session performance back onto the timeline.
 - **Track types** — *instrument* (synth, sampler, an **SFZ** instrument, or a
   hosted plugin), *audio* (import and play `.wav` clips with waveforms), and
   *MIDI out*.
@@ -37,22 +40,24 @@ bounce it to a WAV.
 - **Recording** — arm instrument/audio tracks, record MIDI and audio with a
   **punch** region and count-in; loop-recording stacks **takes** you can comp,
   promote, and clean up.
-- **Mixer + effects** — tracks route to inserts → master (plus **aux buses/sends**
-  and recallable **mixer scenes**), each with fader/pan/mute/solo/meters and an
-  effect chain (**Gain, Filter, EQ, Delay, Reverb, Compressor, Bitcrusher,
-  Waveshaper**, or any hosted plugin effect).
+- **Mixer + effects** — tracks route to inserts → master (plus **aux buses/sends**,
+  **control groups** (VCA-style), and recallable **mixer scenes**), each with
+  fader/pan/mute/solo/meters and an effect chain of built-ins (**Gain, Filter,
+  EQ, Compressor, Limiter, Noise Gate, Delay, Reverb, Chorus, Flanger, Phaser,
+  Tremolo, Auto-Pan, Auto-Wah, Stereo Widener, Bitcrusher, Waveshaper, Ring
+  Mod**) or any hosted plugin effect.
 - **Live MIDI input** — play the selected instrument track from a MIDI keyboard;
   Gloopy opens available hardware inputs and exposes a virtual **"Gloopy MIDI In"**
   port that a controller or another app can connect to at any time.
 - **Control API** — drive Gloopy from an external program (Common Lisp, Python,
   anything): **gRPC** for structural commands/queries and streamed feedback,
   **OSC** for low-latency live notes and knob turns. See
-  [`docs/CONTROL-API.md`](docs/CONTROL-API.md).
+  [Control & scripting](docs/control-scripting/index.md).
 - **Save / Load / Render** — projects persist either to a single `.gloopy` file
-  (JUCE `ValueTree` → XML, with embedded sample and plugin-state data) or to a
-  diff-friendly **composition-as-repo** directory (readable TOML + `.notes`/
-  `.points` + WAV sidecars). `--render` bounces to a WAV offline, and named
-  **export profiles** (mix / range / track / stems) drive batch renders.
+  (XML with embedded sample and plugin-state data) or to a diff-friendly
+  **composition-as-repo** directory (readable TOML + `.notes`/`.points` + WAV
+  sidecars). `--render` bounces to a WAV offline, and named **export profiles**
+  (mix / range / track / stems) drive batch renders.
 - **Headless + scriptable** — every capability is reachable over the control API,
   plus offline CLI utilities (`scan`, `analyze`, `inspect`/`validate`/`pack`,
   `render` / `export-stems` — both with an optional `--range <startBeat> <endBeat>`) and
@@ -127,6 +132,20 @@ binary), configure with `-DGLOOPY_WITH_SURGE=OFF`. Surge XT is GPL-3.0 — see
 4. Open the **Mixer** to add insert effects and balance levels.
 5. **File → Save As** to store the project; **File → Open** to reload it.
 
+## Documentation
+
+The full manual lives in [`docs/`](docs/) — a docs-as-code site (Material for
+MkDocs) with two front doors: a **User guide** for musicians and producers, and
+**Control & scripting** for driving Gloopy over the API. The domain model —
+tracks, clips, scenes, transport, the mixer — is defined once in
+[The Gloopy model](docs/control-scripting/concepts/model.md), and the OSC + gRPC
+control surface is documented alongside it. Preview it locally:
+
+```sh
+pip install -r requirements-docs.txt && pip install ./python
+mkdocs serve   # http://127.0.0.1:8000
+```
+
 ## Control API
 
 Gloopy listens on two ports at startup: **OSC** on UDP `9000` and **gRPC** on
@@ -137,7 +156,7 @@ playhead and meters. Two worked Common Lisp clients live in `examples/`: the str
 `(asdf:load-system :gloopy)`, built on [ag-grpc](https://github.com/atgreen/ag-grpc))
 and [`gloopy-osc.lisp`](examples/gloopy-osc.lisp) (the live OSC lane). The full
 design and the gRPC/OSC split are documented in
-[`docs/CONTROL-API.md`](docs/CONTROL-API.md).
+[Control & scripting](docs/control-scripting/index.md).
 
 ```sh
 # poke it with grpcurl (structural commands & queries):
@@ -173,18 +192,21 @@ with Gloopy() as g:
 
 ## Layout
 
-See [`docs/PRD.md`](docs/PRD.md) for the product spec and architecture.
+See the [manual](docs/) for full documentation — start with
+[The Gloopy model](docs/control-scripting/concepts/model.md). (The original spec,
+[`docs/PRD.md`](docs/PRD.md), predates the linear-arranger design and is kept only
+as history.)
 
 | Area | Files |
 |------|-------|
 | App shell / audio engine | `Source/Main.cpp`, `Source/MainComponent.*` |
-| Model | `Track.h`, `Clip.h`, `Note.h`, `MixerTrack.h` |
+| Model | `Track.h`, `Clip.h`, `Note.h`, `MixerTrack.h`, `SessionModel.h` |
 | Generators | `Generator.h`, `Sampler.h`, `SfizzGenerator.h` (vendored sfizz), `SynthGenerator.h`, `SynthEngine.h`, `SynthVoice.h`, `DrumSynth.h`, `PluginInstrument.h` |
 | Vendored | `third_party/sfizz/` (SFZ engine), `THIRD-PARTY-LICENSES.md` |
 | Effects | `Effect.h`, `Effects.h`, `PluginEffect.h` |
 | Plugin hosting | `PluginHost.h` |
 | Transport | `Transport.h` |
-| UI | `ArrangeView.*`, `PianoRoll.*`, `StepEditor.h`, `MixerView.*`, `GloopyLookAndFeel.*` |
+| UI | `ArrangeView.*`, `SessionView.h`, `PianoRoll.*`, `StepEditor.h`, `MixerView.*`, `GloopyLookAndFeel.*` |
 | Control API | `OscControl.h`, `GrpcServer.*`, `proto/gloopy.proto` |
 | Lisp clients | `gloopy.asd`, `examples/gloopy-grpc.lisp`, `gloopy-pb.lisp`, `gloopy-osc.lisp` |
 | Python client | `python/gloopy/`, `python/example.py`, `python/README.md` |
