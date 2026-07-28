@@ -67,13 +67,13 @@ later, add effects.
 
 ## 6. Save your work
 
-**File → Save As**. You can save either as:
+**File → Save As Composition Folder** — your project is saved as a **composition
+folder**, a directory of readable text files that works well with version control.
+This is the working format.
 
-- a **composition folder** (the default) — a directory of readable text files that
-  works well with version control, or
-- a single **`.gloopy` archive** — that same folder zipped into one portable file.
-
-Either reopens with **File → Open**.
+To share the project as one file, use **File → Export Project (.gloopy)** — that
+same folder zipped into a single portable archive. Reopen either with **File →
+Open** (a folder) or **File → Open Archive** (a `.gloopy`/`.zip`).
 
 ## What you learned
 

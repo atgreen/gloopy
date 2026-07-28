@@ -5045,8 +5045,9 @@ void MainComponent::showFileMenu()
     menu.addSeparator();
     menu.addItem (3, "Save", haveProject);
     menu.addItem (7, "Save As Composition Folder...");   // directory format (default)
-    menu.addItem (4, "Save As .gloopy Archive...");      // single-file zip of a composition
     menu.addItem (10, "Save as Template...");
+    menu.addSeparator();
+    menu.addItem (4, "Export Project (.gloopy)...");   // whole project -> single-file zip archive (for sharing)
     menu.addItem (13, "Export MIDI File...");          // whole project -> .mid (loops tiled)
     menu.addItem (14, "Export Audio (WAV)...");        // whole mix -> offline WAV bounce
     menu.addItem (15, "Export Loop Region (WAV)...", transport.isLoopEnabled());   // just the loop selection
@@ -5253,7 +5254,7 @@ void MainComponent::showFileMenu()
             }
             else if (result == 4)
             {
-                fileChooser = std::make_unique<juce::FileChooser> ("Save as .gloopy archive", juce::File(), "*.gloopy");
+                fileChooser = std::make_unique<juce::FileChooser> ("Export project as .gloopy archive", juce::File(), "*.gloopy");
                 fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
                                             | juce::FileBrowserComponent::warnAboutOverwriting,
                     [this] (const juce::FileChooser& fc)
