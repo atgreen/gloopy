@@ -561,6 +561,20 @@ namespace
             if (! res.ok) r->set_error (res.error.toStdString());
             return Status::OK;
         }
+        Status GitLog (ServerContext*, const pb::GitLogRequest* q, pb::GitLogResult* r) override
+        {
+            for (auto& c : main.apiGitLog (js (q->dir()), q->max()))
+            {
+                auto* e = r->add_commits();
+                e->set_hash (c.hash.toStdString());
+                for (auto& p : c.parents) e->add_parents (p.toStdString());
+                e->set_refs (c.refs.toStdString());
+                e->set_author (c.author.toStdString());
+                e->set_date (c.date.toStdString());
+                e->set_subject (c.subject.toStdString());
+            }
+            return Status::OK;
+        }
 
         // ---- project / state ----
         Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override

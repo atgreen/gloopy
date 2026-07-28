@@ -48,6 +48,12 @@ attributed to you.
 Commit whenever you reach a state worth returning to — a finished section, a mix you like,
 before a risky experiment. Each commit is a point you can compare against or come back to.
 
+## Review the history
+
+Open **File → History** to see the list of commits, newest first — each with its short
+identifier, the message you wrote, and who made it when. It's the timeline of how your
+song evolved, and the reference for the version-navigation features coming next.
+
 ## From a script
 
 The same status is available to scripts and agents through the control API, so you can

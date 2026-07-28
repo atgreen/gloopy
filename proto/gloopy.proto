@@ -322,6 +322,12 @@ message GitState {
 }
 message GitAddRequest    { string dir = 1; repeated string paths = 2; }   // empty paths = stage all
 message GitCommitRequest { string dir = 1; string message = 2; bool amend = 3; }
+message GitLogRequest    { string dir = 1; int32 max = 2; }              // max 0 = default (50)
+message GitCommitInfo {
+  string hash = 1; repeated string parents = 2; string refs = 3;   // refs = branch/tag decoration
+  string author = 4; string date = 5; string subject = 6;
+}
+message GitLogResult { repeated GitCommitInfo commits = 1; }             // newest first
 message RenderRequest {                       // offline bounce to WAV
   string path = 1;
   double tail_seconds = 2;
@@ -574,6 +580,7 @@ service Gloopy {
   rpc GitInit     (GitDir) returns (Ack);          // git init a folder (New Git Project / Enable Git)
   rpc GitAdd      (GitAddRequest)    returns (Ack);   // stage files (empty paths = stage all)
   rpc GitCommit   (GitCommitRequest) returns (Ack);   // commit staged changes with a message
+  rpc GitLog      (GitLogRequest)    returns (GitLogResult);   // recent commits (newest first)
   rpc NewProject (Empty)    returns (Ack);
   rpc ListTemplates  (Empty)       returns (TemplateList);   // built-in + user project templates
   rpc NewFromTemplate(TemplateRef) returns (Ack);            // empty + seed a template

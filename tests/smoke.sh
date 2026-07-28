@@ -221,6 +221,14 @@ if command -v git >/dev/null; then
     g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit \
         | python3 -c "import json,sys;assert not json.load(sys.stdin).get('ok'),'empty-message commit unexpectedly succeeded';print('smoke: PASS — GitCommit rejects an empty message')" \
         || { echo "smoke: empty-message commit not rejected" >&2; exit 1; }
+    # GitLog (Wave 9 slice 4): a second commit, then confirm the log lists commits
+    # newest-first with the right parent linkage. Uses a scratch file so no live state moves.
+    echo "second" > "$NEWG/CHANGELOG.txt"
+    g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAdd >/dev/null
+    g -d "{\"dir\":\"$NEWG\",\"message\":\"second smoke commit\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitCommit >/dev/null
+    g -d "{\"dir\":\"$NEWG\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitLog \
+        | python3 -c "import json,sys;c=json.load(sys.stdin)['commits'];assert len(c)>=2 and c[0]['subject']=='second smoke commit' and c[1]['subject']=='smoke commit','log order wrong: %r'%c;assert c[1]['hash'] in c[0]['parents'],'parent linkage wrong: %r'%c;print('smoke: PASS — GitLog lists commits newest-first with correct parent linkage')" \
+        || { echo "smoke: GitLog wrong" >&2; exit 1; }
 else
     echo "smoke: SKIP — git not installed (GitStatus check)"
 fi

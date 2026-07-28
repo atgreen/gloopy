@@ -1948,10 +1948,15 @@ commit messages are user-authored; auto-commit-on-save is opt-in only.
       Screenshot-validated end-to-end (the dialog listing `M gloopy.toml` / `M mixer/inserts.toml`
       / `M params.toml` / `?? tracks/bass.toml` for a newly-added track — the readable-diff payoff).
       **Not yet:** per-file / hunk staging (dialog stages all for now); a multiline message editor.
-    - `[ ]` **4 — history / commit graph.** `apiGitLog(dir, n)` → commits {hash, parents, refs
-      (branch / tag), author, date, subject}. **Desktop:** a History panel drawing the **DAG** with
-      per-commit diff + a path / text filter. *Done when:* the log returns the parent-linked series
-      + refs after N commits, headless.
+    - `[x]` **4 — history / commit graph LANDED** (`Source/Git.cpp`, commit): `apiGitLog(dir, max)`
+      → `GitCommitInfo{hash, parents[], refs, author, date, subject}` newest-first, parsed from
+      `git log --pretty=format` with a `0x1f` unit-separator between fields (so subjects can't collide
+      with the delimiter) + `--date=short`. GitLog RPC (GitLogRequest/GitLogResult/GitCommitInfo) +
+      Python `git_log`. **Desktop:** File → "History..." (`openHistory`) opens a read-only window
+      listing each commit (hash, `(refs)`, subject, author · date, merge indicator) — the seed of the
+      full commit-graph panel. smoke: two commits → GitLog is newest-first with the newest's parents
+      linking to the oldest's hash; screenshot-validated (a 2-commit repo showing `(HEAD -> main)`).
+      **Not yet:** the DAG lines / per-commit diff / filter (a richer panel in a later pass).
     - `[ ]` **5 — branches (alternate arrangements).** `apiGitBranchList / Create / Checkout /
       Rename / Delete / Merge`. **Desktop:** a branch popup — current branch, checkout, new-branch-
       from-here, merge-into-current; **guard a dirty checkout** (offer stash / commit / cancel).

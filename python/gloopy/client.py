@@ -950,6 +950,12 @@ class Gloopy:
         """Commit staged changes in `dir` with `message` (reuses your git identity)."""
         self._ack(self.stub.GitCommit(pb.GitCommitRequest(dir=dir, message=message, amend=amend)))
 
+    def git_log(self, dir: str, max: int = 50) -> list[dict]:
+        """Recent commits in `dir` (newest first): hash, parents, refs, author, date, subject."""
+        r = self.stub.GitLog(pb.GitLogRequest(dir=dir, max=max))
+        return [{"hash": c.hash, "parents": list(c.parents), "refs": c.refs,
+                 "author": c.author, "date": c.date, "subject": c.subject} for c in r.commits]
+
     def diagnostics(self) -> dict:
         """Engine health: device settings, callback timing, DSP load, dropouts, render speed."""
         d = self.stub.GetDiagnostics(pb.Empty())

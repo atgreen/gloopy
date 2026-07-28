@@ -212,9 +212,14 @@ public:
     GitResult apiGitInit (const juce::String& dir);     // git init a folder (creating it if needed)
     GitResult apiGitAdd (const juce::String& dir, const juce::StringArray& paths);   // stage (empty = all)
     GitResult apiGitCommit (const juce::String& dir, const juce::String& message, bool amend);
+    struct GitCommitInfo { juce::String hash; juce::StringArray parents;
+                           juce::String refs, author, date, subject; };
+    std::vector<GitCommitInfo> apiGitLog (const juce::String& dir, int maxCount);   // newest first
     juce::String gitStatusReport();                     // human-readable status text (Git.cpp)
+    juce::String gitHistoryReport();                    // human-readable commit log (Git.cpp)
     void openSourceControl();                           // UI: a Source Control status window (MainComponent.cpp)
     void showCommitDialog();                            // UI: stage-all + commit dialog (MainComponent.cpp)
+    void openHistory();                                 // UI: a commit-history window (MainComponent.cpp)
 
     // --- waveform thumbnail cache (Waveform.cpp) ---
     // Min/max peaks per bucket for an audio file, cached by path+mtime+size. Feeds
@@ -928,6 +933,8 @@ private:
     std::unique_ptr<juce::DocumentWindow> notesWindow;
     std::unique_ptr<juce::DocumentWindow> sourceControlWindow;   // git status readout (Git.cpp)
     juce::TextEditor sourceControlEditor;
+    std::unique_ptr<juce::DocumentWindow> historyWindow;         // git commit log (Git.cpp)
+    juce::TextEditor historyEditor;
     MappingsView mappingsView;
     std::unique_ptr<juce::DocumentWindow> mappingsWindow;
     juce::TextEditor notesEditor;

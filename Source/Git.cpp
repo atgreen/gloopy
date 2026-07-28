@@ -210,6 +210,74 @@ MainComponent::GitResult MainComponent::apiGitCommit (const juce::String& dir, c
     return r;
 }
 
+std::vector<MainComponent::GitCommitInfo> MainComponent::apiGitLog (const juce::String& dir, int maxCount)
+{
+    std::vector<GitCommitInfo> out;
+    juce::String version;
+    if (! apiGitAvailable (version) || dir.isEmpty())
+        return out;
+
+    const int n = maxCount > 0 ? maxCount : 50;
+    // One commit per line; fields separated by the unit-separator byte (0x1f) so subjects
+    // etc. can't collide with the delimiter. %h hash · %p parents · %D refs · %an author ·
+    // %ad date · %s subject.
+    const juce::String US = juce::String::charToString ((juce::juce_wchar) 0x1f);
+    const juce::String fmt = "%h" + US + "%p" + US + "%D" + US + "%an" + US + "%ad" + US + "%s";
+
+    juce::String res;
+    if (runGit ({ "-C", dir, "log", "-n", juce::String (n), "--date=short",
+                  "--pretty=format:" + fmt }, res) != 0)
+        return out;                                     // not a repo / no commits yet
+
+    for (auto& line : juce::StringArray::fromLines (res))
+    {
+        if (line.isEmpty()) continue;
+        auto f = juce::StringArray::fromTokens (line, US, {});
+        if (f.size() < 6) continue;
+        GitCommitInfo c;
+        c.hash    = f[0];
+        c.parents = juce::StringArray::fromTokens (f[1], " ", {});
+        c.parents.removeEmptyStrings();
+        c.refs    = f[2];
+        c.author  = f[3];
+        c.date    = f[4];
+        c.subject = f[5];
+        out.push_back (std::move (c));
+    }
+    return out;
+}
+
+juce::String MainComponent::gitHistoryReport()
+{
+    juce::String version;
+    if (! apiGitAvailable (version))
+        return "git is not installed or not on PATH.";
+
+    // Resolve the open project's dir (same rule as apiGitStatus, via a default dir).
+    auto s = apiGitStatus();
+    if (s.dir.isEmpty())
+        return "No saved project — save as a Composition folder to track it in git.";
+    if (! s.isRepo)
+        return "Not a git repository yet — use File \xe2\x86\x92 Enable Git first.";
+
+    auto commits = apiGitLog (s.dir, 100);
+    if (commits.empty())
+        return "No commits yet — make your first commit with File \xe2\x86\x92 Commit...";
+
+    juce::String text;
+    text << "History of " << s.dir << " (" << (int) commits.size() << " commits, newest first):\n\n";
+    for (auto& c : commits)
+    {
+        text << c.hash;
+        if (c.refs.isNotEmpty()) text << "  (" << c.refs << ")";
+        text << "  " << c.subject << "\n";
+        text << "        " << c.author << " \xc2\xb7 " << c.date;
+        if (c.parents.size() > 1) text << " \xc2\xb7 merge of " << c.parents.size() << " parents";
+        text << "\n";
+    }
+    return text;
+}
+
 // Format a status snapshot as the human-readable text the Source Control window shows.
 // (openSourceControl itself lives in MainComponent.cpp, where the shared window helper
 // is in scope.)

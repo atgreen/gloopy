@@ -3691,6 +3691,31 @@ void MainComponent::openSourceControl()
     sourceControlWindow->toFront (true);
 }
 
+void MainComponent::openHistory()
+{
+    // The commit-history window — the seed of the full commit-graph panel (the DAG lines
+    // + per-commit diff land in later slices). Read-only; refreshed each time it opens.
+    if (historyWindow == nullptr)
+    {
+        historyEditor.setMultiLine (true);
+        historyEditor.setReadOnly (true);
+        historyEditor.setScrollbarsShown (true);
+        historyEditor.setFont (juce::Font (juce::FontOptions (
+            juce::Font::getDefaultMonospacedFontName(), 13.0f, juce::Font::plain)));
+
+        auto w = std::make_unique<HideOnCloseWindow>();
+        w->setName ("History");
+        w->setContentNonOwned (&historyEditor, false);
+        w->setResizable (true, false);
+        w->setSize (640, 480);
+        w->centreWithSize (640, 480);
+        historyWindow = std::move (w);
+    }
+    historyEditor.setText (gitHistoryReport(), juce::dontSendNotification);
+    historyWindow->setVisible (true);
+    historyWindow->toFront (true);
+}
+
 void MainComponent::showCommitDialog()
 {
     // The IDE commit surface: save the current edits, list what changed, and let the
@@ -4211,6 +4236,7 @@ void MainComponent::showFileMenu()
     menu.addItem (18, "New Git Project...");           // save as a composition folder + git init
     menu.addItem (19, "Enable Git", isComposition);    // git init the open composition folder
     menu.addItem (22, "Commit...", isComposition);     // save + stage all + commit (Git.cpp)
+    menu.addItem (23, "History...", isComposition);    // git commit log (Git.cpp)
     // Live MIDI status (read-only): the input sources Gloopy hears + which track they play.
     juce::PopupMenu midiMenu;
     const auto midiIns = apiListMidiInputs();
@@ -4274,6 +4300,7 @@ void MainComponent::showFileMenu()
                 return;
             }
             if (result == 22) { showCommitDialog(); return; }   // save + stage all + commit
+            if (result == 23) { openHistory(); return; }        // git commit log
             if (result == 20) { undo(); return; }
             if (result == 21) { redo(); return; }
             if (result >= 100)                                  // New from Template
