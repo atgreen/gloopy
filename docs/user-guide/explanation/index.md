@@ -3,11 +3,15 @@
 Background and rationale for how Gloopy works — the *why*, not the steps. Read
 these when you want to understand the design, not accomplish a specific task.
 
+## Available now
+
+- **[Arrangement vs. Session](arrangement-vs-session.md)** — two ways to organise
+  the same clips, when each earns its place, and why renders come only from the
+  arrangement.
+
 !!! note "Being written"
     Planned essays for this section:
 
-    - **Arrangement vs. Session** — two ways to organise the same clips, and when
-      each earns its place.
     - **The musical model** — beats, the tempo map, scales, and why everything is
       quarter-note-relative.
     - **Gain staging** — faders are normalized, not decibels; how the mapping

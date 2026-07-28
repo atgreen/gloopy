@@ -105,8 +105,12 @@ nav:
           - user-guide/how-to/index.md
           - Browse content and pin favorites: user-guide/how-to/browse-and-favorites.md
           - Version your project with git: user-guide/how-to/version-with-git.md
-      - Explanation: user-guide/explanation/index.md
-      - Reference: user-guide/reference/index.md
+      - Explanation:
+          - user-guide/explanation/index.md
+          - Arrangement vs. Session: user-guide/explanation/arrangement-vs-session.md
+      - Reference:
+          - user-guide/reference/index.md
+          - Keyboard shortcuts: user-guide/reference/keyboard-shortcuts.md
   - Control & scripting:
       - control-scripting/index.md
       - Concepts:
