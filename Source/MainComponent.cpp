@@ -3350,9 +3350,15 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
                 else                  v *= grp->gain.load();
             }
 
-        // Meter POST-fader (like the master): the meter follows the fader, so pulling it to 0 or
-        // muting drops the meter to 0 — what you hear is what you see.
-        const float mpL = audible ? rawL * v : 0.0f, mpR = audible ? rawR * v : 0.0f;
+        // Constant-power pan law (also applied to the output below): fold it into the meter so
+        // each channel reflects the balance, not just the fader.
+        const float pan   = mt.pan.load();
+        const float theta = (pan + 1.0f) * 0.25f * juce::MathConstants<float>::pi;
+        const float panL  = std::cos (theta), panR = std::sin (theta);
+
+        // Meter POST-fader AND POST-pan (like the master): pulling the fader to 0, muting, or
+        // panning hard drops the corresponding channel's meter — what you hear is what you see.
+        const float mpL = audible ? rawL * v * panL : 0.0f, mpR = audible ? rawR * v * panR : 0.0f;
         mt.peakL.store (mpL); mt.peakR.store (mpR);
         if (mpL >= 1.0f || mpR >= 1.0f) mt.clipped.store (true);
 
@@ -3370,15 +3376,13 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
             }
 
         if (! audible) continue;
-        const float pan = mt.pan.load();
-        const float theta = (pan + 1.0f) * 0.25f * juce::MathConstants<float>::pi;
         // Main output → master (0) by default, or into a group/bus insert. The target must be
         // processed later in this loop (higher index) so it accumulates before it's summed; else
         // fall back to master rather than lose/delay the signal.
         const int out = mt.output.load();
         auto& dest = (out > ti && out < numTracks) ? mixerTracks[(size_t) out]->buffer : master.buffer;
-        dest.addFrom (0, 0, mt.buffer, 0, 0, num, v * std::cos (theta));
-        dest.addFrom (1, 0, mt.buffer, 1, 0, num, v * std::sin (theta));
+        dest.addFrom (0, 0, mt.buffer, 0, 0, num, v * panL);
+        dest.addFrom (1, 0, mt.buffer, 1, 0, num, v * panR);
     }
 
     // --- master -> output ---
