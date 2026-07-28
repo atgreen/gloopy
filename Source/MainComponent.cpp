@@ -347,7 +347,7 @@ MainComponent::MainComponent (bool headless)
     arrangeView->getMarkers = [this]
     {
         std::vector<std::pair<juce::String, double>> out;
-        for (auto& l : apiListLocations()) out.push_back ({ l.name, l.startBeat });
+        for (auto& l : apiListLocations()) out.push_back ({ l.name, l.startBeat.inBeats() });
         return out;
     };
     arrangeView->getMidiActivity = [this] (int trackId) -> float
@@ -5508,7 +5508,7 @@ juce::ValueTree MainComponent::toValueTree()
     {
         juce::ValueTree lv ("LOC");
         lv.setProperty ("name", l.name, nullptr);   lv.setProperty ("kind", l.kind, nullptr);
-        lv.setProperty ("start", l.startBeat, nullptr); lv.setProperty ("end", l.endBeat, nullptr);
+        lv.setProperty ("start", l.startBeat.inBeats(), nullptr); lv.setProperty ("end", l.endBeat.inBeats(), nullptr);
         locs.addChild (lv, -1, nullptr);
     }
     root.addChild (locs, -1, nullptr);
@@ -5922,7 +5922,8 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     {
         auto l = locs.getChild (i);
         locations.push_back ({ l.getProperty ("name").toString(), l.getProperty ("kind").toString(),
-                               (double) l.getProperty ("start"), (double) l.getProperty ("end") });
+                               gloopy::time::BeatPosition { (double) l.getProperty ("start") },
+                               gloopy::time::BeatPosition { (double) l.getProperty ("end") } });
     }
 
     auto exps = root.getChildWithName ("EXPORTS");

@@ -787,7 +787,7 @@ private:
     int nextSinkId { 0 };
 
     std::vector<AutoLaneSnap> automationLanes;   // guarded by engineLock
-    struct TimelineLocation { juce::String name, kind; double startBeat, endBeat; };
+    struct TimelineLocation { juce::String name, kind; gloopy::time::BeatPosition startBeat, endBeat; };  // typed positions (Time.h); double at the API/wire edges
     std::vector<TimelineLocation> locations;     // guarded by engineLock
     struct ExportProfile { juce::String name, target, rangeName, format; int trackId; double tailSeconds; };
     std::vector<ExportProfile> exportProfiles;   // guarded by engineLock

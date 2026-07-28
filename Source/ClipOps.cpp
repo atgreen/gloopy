@@ -23,7 +23,7 @@ int MainComponent::apiSplitClipAtMarker (int trackId, int index, const juce::Str
         {
             const juce::ScopedLock sl (engineLock);
             for (auto& l : locations)
-                if (l.name == marker) { beat = l.startBeat; break; }
+                if (l.name == marker) { beat = l.startBeat.inBeats(); break; }
         }
         if (beat < 0.0) return -1;                    // no such marker
         return apiSplitClip (trackId, index, beat);   // re-enters on the message thread; no-op if outside the clip

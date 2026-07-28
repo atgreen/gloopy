@@ -1714,8 +1714,22 @@ prior-art references to *read*, not to lift.
       static_asserts (samples+samples, samples+beats, samples+double, sample-dur+time-dur all
       fail to compile). Pure header + unit test (no engine/proto/UI change — internal plumbing);
       ctest green, main build + 176-PASS smoke unchanged.
-      **NEXT:** migrate one engine subsystem's `beatToSamples`/`samplesToBeats` call sites (or
-      clip/loop/marker position fields) onto the types.
+    - `[x]` **First subsystem migrated: timeline locations (Phase-B slice 2)** (commit): the
+      `TimelineLocation` model (markers / ranges / sections — `Source/Locations.cpp`) now stores its
+      `startBeat`/`endBeat` as **`gloopy::time::BeatPosition`** instead of bare `double`, with `double`
+      kept only at the API params (`apiAddLocation`/`apiResolveRange`), the proto boundary
+      (ListLocations/AddLocation), the ValueTree (`start`/`end` props) and the inspect JSON — i.e.
+      typed internally, `double` at every wire/edge (the adoption pattern later subsystems follow).
+      Message-thread-only data (never read in `renderBlock`), so zero audio-thread risk. Reads become
+      `.inBeats()`; the resolve-range check reads naturally as the typed comparison `l.endBeat >
+      l.startBeat`. Six edge sites converted (Locations.cpp, GrpcServer ListLocations, MainComponent
+      toValueTree/loadFromTree + the ruler `getMarkers`, Cli inspect, ClipOps split-at-marker).
+      Behavior-identical: main build green, ctest green, smoke 176 PASS with the location assertions
+      (split-at-marker, render-by-range 'half' shorter than full, composition round-trip) explicitly
+      passing.
+      **NEXT:** migrate the next subsystem — clip position fields (`Clip.startBeat`/`lengthBeats`) or
+      the engine's `beatToSamples`/`samplesToBeats` call sites (careful: audio-thread hot path — do a
+      non-renderBlock caller first).
 
 22. **Undo / redo — fine-grained (ValueTree + `UndoManager`).** ✦ **L** — *deferred/optional.*
     NOTE: snapshot-based undo **already ships** and works (see the reprioritization banner;

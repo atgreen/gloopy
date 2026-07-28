@@ -780,7 +780,7 @@ namespace
             {
                 auto* o = r->add_locations();
                 o->set_name (l.name.toStdString());   o->set_kind (l.kind.toStdString());
-                o->set_start_beat (l.startBeat);       o->set_end_beat (l.endBeat);
+                o->set_start_beat (l.startBeat.inBeats());   o->set_end_beat (l.endBeat.inBeats());
             }
             return Status::OK;
         }

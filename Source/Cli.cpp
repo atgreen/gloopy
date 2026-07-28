@@ -57,7 +57,7 @@ juce::String MainComponent::apiInspectJson()
     {
         juce::DynamicObject::Ptr o = new juce::DynamicObject();
         o->setProperty ("name", l.name);   o->setProperty ("kind", l.kind);
-        o->setProperty ("start", l.startBeat); o->setProperty ("end", l.endBeat);
+        o->setProperty ("start", l.startBeat.inBeats()); o->setProperty ("end", l.endBeat.inBeats());
         larr.add (obj (o));
     }
     root->setProperty ("locations", larr);

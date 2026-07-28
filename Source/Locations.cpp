@@ -9,6 +9,8 @@
 
 #include "MainComponent.h"
 
+using gloopy::time::BeatPosition;
+
 bool MainComponent::apiAddLocation (const juce::String& name, const juce::String& kind,
                                     double startBeat, double endBeat)
 {
@@ -23,9 +25,9 @@ bool MainComponent::apiAddLocation (const juce::String& name, const juce::String
             auto it = std::find_if (locations.begin(), locations.end(),
                                     [&] (const TimelineLocation& l) { return l.name == name; });
             if (it != locations.end())
-                *it = { name, kind, s, e };                       // upsert
+                *it = { name, kind, BeatPosition { s }, BeatPosition { e } };                       // upsert
             else
-                locations.push_back ({ name, kind, s, e });
+                locations.push_back ({ name, kind, BeatPosition { s }, BeatPosition { e } });
         }
         std::cout << "[loc] " << kind << " '" << name << "' [" << s << ".." << e << "]" << std::endl;
         return true;
@@ -57,10 +59,10 @@ bool MainComponent::apiResolveRange (const juce::String& name, double& startBeat
 {
     const juce::ScopedLock sl (engineLock);
     for (auto& l : locations)
-        if (l.name == name && l.endBeat > l.startBeat)
+        if (l.name == name && l.endBeat > l.startBeat)          // typed position comparison (Time.h)
         {
-            startBeat = l.startBeat;
-            endBeat   = l.endBeat;
+            startBeat = l.startBeat.inBeats();
+            endBeat   = l.endBeat.inBeats();
             return true;
         }
     return false;
