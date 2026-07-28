@@ -20,6 +20,7 @@
 #include "Onsets.h"
 #include "ParamScale.h"
 #include "FileDrop.h"
+#include "BrowserDrag.h"
 #include "StereoWiden.h"
 #include "Lfo.h"
 #include "FadeShape.h"
@@ -1064,6 +1065,21 @@ struct FileDropTests : juce::UnitTest
             dir.createDirectory();
             expect (classifyDroppedFile (dir) == DroppedFileKind::Project);
             dir.deleteRecursively();
+        }
+
+        beginTest ("browser drag payload round-trips, keeping spaces in the ref (tab-delimited)");
+        {
+            // a sample path with spaces (the reason we tab-delimit, not space-delimit)
+            const auto ref = juce::String ("/home/me/My Samples/kick 01.wav");
+            const auto it  = parseBrowserDrag (makeBrowserDrag ("sample", ref, "kick 01.wav"));
+            expect (it.valid);
+            expectEquals (it.kind, juce::String ("sample"));
+            expectEquals (it.ref, ref);                          // path + spaces intact
+            expectEquals (it.label, juce::String ("kick 01.wav"));
+            // label defaults to ref when omitted; empty/garbage is invalid
+            expectEquals (parseBrowserDrag ("plugin\tacme.synth").label, juce::String ("acme.synth"));
+            expect (! parseBrowserDrag ("").valid);
+            expect (! parseBrowserDrag ("templateonly").valid);  // no tab -> not a valid payload
         }
     }
 };

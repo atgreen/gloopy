@@ -11,6 +11,7 @@
 #include "SessionLauncher.h"
 #include "SessionView.h"
 #include "FileDrop.h"
+#include "BrowserDrag.h"
 #include "Clip.h"
 #include "Time.h"
 #include "ArrangeView.h"
@@ -41,6 +42,7 @@
 class MainComponent : public juce::AudioAppComponent,
                       public juce::MidiInputCallback,
                       public juce::FileDragAndDropTarget,
+                      public juce::DragAndDropContainer,   // browser rows drag into the arrange view
                       public juce::KeyListener,
                       private juce::Timer
 {
@@ -166,6 +168,9 @@ public:
     // persisted OUTSIDE the composition (like presets/templates), so they follow the user, not
     // the song. A favorite is { kind, ref, label }: kind picks the action, ref is its argument.
     struct FavoriteInfo { juce::String kind, ref, label; };
+    // Instantiate a browser item by kind (shared by the Favs tab and browser drag-and-drop):
+    // plugin -> instrument track, sample -> audio track, template -> seed, demo -> open, preset -> Surge.
+    void dispatchBrowserItem (const juce::String& kind, const juce::String& ref, const juce::String& label);
     juce::File favoritesFile() const;                             // GLOOPY_FAVORITES_PATH override
     std::vector<FavoriteInfo> apiListFavorites() const;
     bool apiAddFavorite (const juce::String& kind, const juce::String& ref, const juce::String& label);

@@ -24,6 +24,7 @@ public:
         std::function<void (const juce::String&)>   onChoose;   // a row (label) was left-clicked
         std::function<void (const juce::String&)>   onFavorite; // optional: right-click action (add/remove favorite)
         juce::String                                favLabel;   // menu text for the right-click action
+        std::function<juce::String (const juce::String&)> dragDescription; // optional: label -> drag payload ("kind\tref\tlabel")
     };
 
     BrowserSidebar()
@@ -126,6 +127,8 @@ private:
             b->setColour (juce::TextButton::textColourOffId, Palette::text);
             const auto onChoose = cat.onChoose;
             b->onClick = [onChoose, name] { if (onChoose) onChoose (name); };
+            if (cat.dragDescription)                         // draggable into the arrange view
+                b->dragDesc = cat.dragDescription (name);
             if (cat.onFavorite)                              // right-click -> add/remove favorite
             {
                 const auto onFav = cat.onFavorite;
@@ -153,17 +156,29 @@ private:
         itemHolder.setSize (w, juce::jmax (viewport.getHeight(), (int) rows.size() * rowH + 6));
     }
 
-    // A browser row: left-click runs onClick (TextButton), right-click runs onRightClick.
+    // A browser row: left-click runs onClick (TextButton), right-click runs onRightClick,
+    // and a left-drag past the threshold starts a drag with dragDesc (into the arrange view).
     struct RowButton : juce::TextButton
     {
         using juce::TextButton::TextButton;
         std::function<void()> onRightClick;
+        juce::String dragDesc;                            // payload; empty = not draggable
         void mouseDown (const juce::MouseEvent& e) override
         {
             if (onRightClick && (e.mods.isPopupMenu()))   // right-click / ctrl-click
             { onRightClick(); return; }
             juce::TextButton::mouseDown (e);
         }
+        void mouseDrag (const juce::MouseEvent& e) override
+        {
+            if (dragDesc.isNotEmpty() && ! dragging
+                && e.getDistanceFromDragStart() > 6 && ! e.mods.isPopupMenu())
+                if (auto* c = juce::DragAndDropContainer::findParentDragContainerFor (this))
+                { dragging = true; c->startDragging (dragDesc, this); return; }
+            juce::TextButton::mouseDrag (e);
+        }
+        void mouseUp (const juce::MouseEvent& e) override { dragging = false; juce::TextButton::mouseUp (e); }
+        bool dragging { false };
     };
 
     static constexpr int headerH = 30;

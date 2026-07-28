@@ -5,6 +5,10 @@ things you drop into a project in one place. Toggle it with the **☰** button i
 toolbar. Along the top of the panel are tabs, and each row inside a tab does something
 when you click it.
 
+You can also **drag a row out of the browser and drop it onto the arrangement** — it
+does the same thing as clicking (adds the plugin, imports the sample, seeds the
+template, loads the patch), whichever you find quicker.
+
 ## The tabs
 
 | Tab | Rows are… | Clicking a row |

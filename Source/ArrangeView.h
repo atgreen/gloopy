@@ -14,9 +14,19 @@
     the right, one playhead. Create/move/resize/delete clips; selecting a clip
     notifies the owner so it can open the clip in the editor below. */
 class ArrangeView : public juce::Component,
+                    public juce::DragAndDropTarget,   // accept browser rows dragged in
                     private juce::Timer
 {
 public:
+    // A browser row was dropped on the arrangement — payload is "kind\tref\tlabel".
+    std::function<void (const juce::String&)> onBrowserDrop;
+    bool isInterestedInDragSource (const SourceDetails& d) override
+    { return d.description.toString().containsChar ('\t'); }   // our rows carry tab-separated payloads
+    void itemDragEnter (const SourceDetails&) override { dropHighlight = true; repaint(); }
+    void itemDragExit  (const SourceDetails&) override { dropHighlight = false; repaint(); }
+    void itemDropped (const SourceDetails& d) override
+    { dropHighlight = false; repaint(); if (onBrowserDrop) onBrowserDrop (d.description.toString()); }
+
     ArrangeView (std::vector<std::unique_ptr<Track>>& tracksRef,
                  Transport& transportRef,
                  juce::CriticalSection& engineLockRef);
@@ -130,6 +140,7 @@ private:
 
     // Ruler drag (seek / loop region; Alt = punch region).
     bool   rulerDrag { false }, loopDragged { false }, rulerAlt { false };
+    bool   dropHighlight { false };   // a browser drag is hovering the arrangement
     double rulerStartBeat { 0.0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ArrangeView)

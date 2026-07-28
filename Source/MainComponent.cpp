@@ -225,23 +225,9 @@ MainComponent::MainComponent (bool headless)
 
     // Collapsible left browser: tabbed categories that seed / open projects on click.
     browser = std::make_unique<BrowserSidebar>();
-    // Perform a favorite's pinned action (dispatch by kind) — mirrors the source tabs.
+    // Perform a favorite's pinned action — shared with browser drag-and-drop (dispatchBrowserItem).
     auto dispatchFavorite = [this] (const MainComponent::FavoriteInfo& f)
-    {
-        if (f.kind == "template")
-        { busyOverlay.show ("Loading " + f.label + "…");
-          juce::MessageManager::callAsync ([this, ref = f.ref] { apiNewFromTemplate (ref); busyOverlay.hide(); }); }
-        else if (f.kind == "plugin")
-        { busyOverlay.show ("Loading " + f.label + "…");
-          juce::MessageManager::callAsync ([this, ref = f.ref] { apiAddPluginTrack (ref); busyOverlay.hide(); }); }
-        else if (f.kind == "sample")
-        { busyOverlay.show ("Importing " + f.label + "…");
-          juce::MessageManager::callAsync ([this, ref = f.ref] { apiImportAudio (ref); busyOverlay.hide(); }); }
-       #ifdef GLOOPY_WITH_SURGE
-        else if (f.kind == "preset")
-            addSurgeTrackAsync (f.ref, f.label);          // off-thread behind the busy overlay
-       #endif
-    };
+    { dispatchBrowserItem (f.kind, f.ref, f.label); };
 
     std::vector<BrowserSidebar::Category> cats {
         { "Templates",
@@ -252,7 +238,8 @@ MainComponent::MainComponent (bool headless)
               juce::MessageManager::callAsync ([this, name] { apiNewFromTemplate (name); busyOverlay.hide(); });
           },
           [this] (const juce::String& name) { apiAddFavorite ("template", name, name); browser->refresh(); },
-          "Add to Favorites" },
+          "Add to Favorites",
+          [] (const juce::String& name) { return "template\t" + name + "\t" + name; } },
         { "Demos",
           [this] { return listDemos(); },
           [this] (const juce::String& name)
@@ -260,7 +247,9 @@ MainComponent::MainComponent (bool headless)
               const auto f = demosDir().getChildFile (name);
               busyOverlay.show ("Opening " + name + "…");
               juce::MessageManager::callAsync ([this, f] { openAny (f); busyOverlay.hide(); });
-          } },
+          },
+          {}, {},
+          [this] (const juce::String& name) { return "demo\t" + demosDir().getChildFile (name).getFullPathName() + "\t" + name; } },
         { "Plugins",
           [this]                                            // installed instrument plugins
           {
@@ -288,7 +277,9 @@ MainComponent::MainComponent (bool headless)
               const auto it = browserPluginIds.find (label);
               if (it != browserPluginIds.end()) { apiAddFavorite ("plugin", it->second, label); browser->refresh(); }
           },
-          "Add to Favorites" },
+          "Add to Favorites",
+          [this] (const juce::String& label)
+          { auto it = browserPluginIds.find (label); return it != browserPluginIds.end() ? "plugin\t" + it->second + "\t" + label : juce::String(); } },
         { "Samples",
           [this] { return listSamples(); },                 // audio files under samplesDir()
           [this] (const juce::String& name)
@@ -299,7 +290,8 @@ MainComponent::MainComponent (bool headless)
           },
           [this] (const juce::String& name)
           { apiAddFavorite ("sample", samplesDir().getChildFile (name).getFullPathName(), name); browser->refresh(); },
-          "Add to Favorites" },
+          "Add to Favorites",
+          [this] (const juce::String& name) { return "sample\t" + samplesDir().getChildFile (name).getFullPathName() + "\t" + name; } },
     };
    #ifdef GLOOPY_WITH_SURGE
     // Surge factory patches — click a preset to add a Surge track loaded with it.
@@ -316,7 +308,9 @@ MainComponent::MainComponent (bool headless)
             const auto it = browserSurgePatches.find (label);
             if (it != browserSurgePatches.end()) { apiAddFavorite ("preset", it->second, label); browser->refresh(); }
         },
-        "Add to Favorites" });
+        "Add to Favorites",
+        [this] (const juce::String& label)
+        { auto it = browserSurgePatches.find (label); return it != browserSurgePatches.end() ? "preset\t" + it->second + "\t" + label : juce::String(); } });
    #endif
     // Favorites — the user's pinned items; click to run, right-click to unpin.
     cats.push_back ({ "Favs",
@@ -336,7 +330,13 @@ MainComponent::MainComponent (bool headless)
             for (auto& f : browserFavorites)
                 if (f.label == label) { apiRemoveFavorite (f.kind, f.ref); browser->refresh(); return; }
         },
-        "Remove from Favorites" });
+        "Remove from Favorites",
+        [this] (const juce::String& label)
+        {
+            for (auto& f : browserFavorites)
+                if (f.label == label) return f.kind + "\t" + f.ref + "\t" + f.label;
+            return juce::String();
+        } });
     browser->setCategories (std::move (cats));
     addChildComponent (*browser);   // hidden until toggled
     browseButton.setClickingTogglesState (true);
@@ -380,6 +380,13 @@ MainComponent::MainComponent (bool headless)
 
     // ---- arrange view ----
     arrangeView = std::make_unique<ArrangeView> (tracks, transport, engineLock);
+    // Browser drag-and-drop: a row dropped on the arrangement instantiates it (same actions
+    // as clicking). The payload is "kind\tref\tlabel"; dispatchBrowserItem does the work.
+    arrangeView->onBrowserDrop = [this] (const juce::String& desc)
+    {
+        const auto it = parseBrowserDrag (desc);
+        if (it.valid) dispatchBrowserItem (it.kind, it.ref, it.label);
+    };
     arrangeView->onClipSelected = [this] (int t, int c) { selectClip (t, c); };
     arrangeView->onChanged      = [this] { if (arrangeView) arrangeView->repaint(); };
     arrangeView->onLoopChanged  = [this]

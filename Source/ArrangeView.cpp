@@ -381,6 +381,18 @@ void ArrangeView::paint (juce::Graphics& g)
         tri.addTriangle (px - 5.0f, 0.0f, px + 5.0f, 0.0f, px, 8.0f);
         g.fillPath (tri);
     }
+
+    // A browser item is being dragged over the arrangement — invite the drop.
+    if (dropHighlight)
+    {
+        g.setColour (Palette::accent.withAlpha (0.10f));
+        g.fillRect (getLocalBounds());
+        g.setColour (Palette::accent);
+        g.drawRect (getLocalBounds(), 2);
+        g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+        g.drawText ("Drop to add to the project", getLocalBounds().removeFromTop (rulerHeight + 24),
+                    juce::Justification::centred, false);
+    }
 }
 
 // ---------------------------------------------------------------------------

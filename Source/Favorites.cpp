@@ -105,3 +105,26 @@ bool MainComponent::apiRemoveFavorite (const juce::String& kind, const juce::Str
         favoritesFile().replaceWithText (rebuilt);
     return removed;
 }
+
+// Instantiate a browser item by kind — shared by the Favs tab (click) and browser
+// drag-and-drop onto the arrange view. Each action reuses the same api* op the source
+// tab uses, off the message thread behind the busy overlay.
+void MainComponent::dispatchBrowserItem (const juce::String& kind, const juce::String& ref, const juce::String& label)
+{
+    if (kind == "template")
+    { busyOverlay.show ("Loading " + label + "…");
+      juce::MessageManager::callAsync ([this, ref] { apiNewFromTemplate (ref); busyOverlay.hide(); }); }
+    else if (kind == "plugin")
+    { busyOverlay.show ("Loading " + label + "…");
+      juce::MessageManager::callAsync ([this, ref] { apiAddPluginTrack (ref); busyOverlay.hide(); }); }
+    else if (kind == "sample")
+    { busyOverlay.show ("Importing " + label + "…");
+      juce::MessageManager::callAsync ([this, ref] { apiImportAudio (ref); busyOverlay.hide(); }); }
+    else if (kind == "demo")
+    { busyOverlay.show ("Opening " + label + "…");
+      juce::MessageManager::callAsync ([this, ref] { openAny (juce::File (ref)); busyOverlay.hide(); }); }
+   #ifdef GLOOPY_WITH_SURGE
+    else if (kind == "preset")
+        addSurgeTrackAsync (ref, label);          // off-thread behind the busy overlay
+   #endif
+}

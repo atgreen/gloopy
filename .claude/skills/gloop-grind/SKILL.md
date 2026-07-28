@@ -1430,6 +1430,29 @@ each shipping with desktop UI + screenshot validation.
       + fixed a "★"-glyph mojibake in the button font → renamed the tab "Favs"). Manual how-to
       (`user-guide/how-to/browse-and-favorites.md`) documents the browser + favorites; mkdocs --strict
       green. **Next:** first-class drag-and-drop from the browser onto tracks/inserts.
+    - `[x]` **Browser drag-and-drop landed** (`Source/BrowserDrag.h`, commit): the "first-class
+      drag-and-drop from the browser" item — a row dragged out of any tab and dropped on the
+      arrangement instantiates it (plugin → instrument track, sample → audio track, template →
+      seed, demo → open, preset → Surge track, favorite → its action), the SAME actions as
+      clicking. Unified the Favorites-tab dispatch and the drop into one member
+      `dispatchBrowserItem(kind, ref, label)`. **Mechanism:** MainComponent is now a
+      `juce::DragAndDropContainer`; each `BrowserSidebar::Category` gained a `dragDescription(label)
+      -> "kind\tref\tlabel"` and the `RowButton` starts a drag (mouseDrag past a 6px threshold, so
+      a click still clicks) with that payload; `ArrangeView` is a `juce::DragAndDropTarget` (drop
+      highlight + "Drop to add to the project" invite) whose `onBrowserDrop` parses the payload and
+      dispatches. The payload is **tab-delimited** (not space/comma) so a `ref` that's a file path or
+      plugin identifier keeps its spaces — a pure `parseBrowserDrag`/`makeBrowserDrag` in
+      `Source/BrowserDrag.h`, unit-tested (`FileDropTests`: a path with spaces round-trips, label
+      defaults to ref, empty/no-tab is invalid). The drop actions reuse already-smoke-proven api* ops
+      (apiImportAudio / apiAddPluginTrack / apiNewFromTemplate / openAny). Screenshot-validated
+      end-to-end (xdotool-dragged bass220.wav from the Samples tab into the arrangement → an AUDIO
+      track "bass220" appeared with its clip at bar 1; ListTracks confirmed). **Gotcha logged (crash):**
+      first wired `arrangeView->onBrowserDrop` in the browser-setup block (~line 344) but `arrangeView`
+      isn't constructed until ~line 390 → null-deref SIGSEGV at launch; moved the hook to right after
+      the `make_unique<ArrangeView>`. Manual how-to notes the drag gesture; mkdocs --strict green.
+      **Next:** target-specific drops (drop a plugin onto a track → add as an effect via
+      apiAddPluginEffect; drop a sample at a beat/track) — needs drop-position hit-testing + a couple
+      of positional-import API additions.
     - `[x]` **User templates ("Save as Template") landed** (commit): the current project can
       be saved as a reusable template — `apiSaveAsTemplate(name)` writes a `.gloopy` into a
       user templates dir (`<userAppData>/Gloopy/templates`, or `$GLOOPY_TEMPLATE_PATH`, the
