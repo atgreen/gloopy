@@ -264,6 +264,16 @@ actually next, in order:
    drag-and-drop from the browser onto tracks/inserts — Templates/Demos/Plugins/Samples/Presets
    tabs already landed) and the rest of Waves 2–5.
 
+Newly committed epics (user-requested 2026-07-28), sequence them per the user's call — the git
+epic is flagged **central to project management** and realizes the "store it in git" half of the
+north star, so it's a strong candidate to jump early:
+- **Git as project management** (Wave 9 #30) — init/status/stage/commit/log/remote/push, shell
+  out to the system `git`; a native version-control workflow over the composition-as-repo format.
+- **Upgrade JUCE to the latest** (Wave 10 #31) — bump the `FetchContent` pin off 8.0.15, shake
+  out deprecations; low-risk foundation refresh.
+- **Windows build** (Wave 10 #32) — CI-native Windows binary (recommended) or mingw-w64
+  cross-compile; widens the audience.
+
 The heavy engine items (off-thread graph swap #5, **multicore rendering #6**) stay
 *deferred* and gated on a real profiling trigger — do not start them until Gloopy is
 measurably single-core-bound on a heavy multi-track session. See Wave 7 for why.
@@ -1838,6 +1848,104 @@ render-wiring design in `docs/session-view.md`.
     - `[ ]` **Slice 6 — polish:** clip colours in the grid, follow-actions, capture, a
       launch-quantize menu, launch-mode indicators.
 
+### Wave 9 — Git as project management (composition-as-repo, realized) ✦
+
+The north star is "the DAW you can drive from a script **and store in git**" — this epic
+delivers the second half. Gloopy's composition-as-repo format is already a first-class git
+citizen (readable TOML / `.notes` / `.points`, content-addressed dirty writes → minimal
+diffs), so wrapping it in git makes **version control a native DAW workflow**: familiar from
+every IDE (VS Code's "Source Control" view is the mental model), novel in a DAW. Keep it
+**curated** — init / status / stage / commit / log / remote / push / pull, not a full git GUI.
+
+**✦ Design fork — shell out to the system `git`; do NOT vendor libgit2.** "Gloopy should make
+sure git is available" = detect the `git` binary and reuse the user's existing identity, SSH
+keys, and credential helpers, so push/pull "just work" with their setup. Shelling out via
+`juce::ChildProcess` off the message thread means no new dependency, no auth reimplementation,
+and no AGPL/GPL linking entanglement (a process boundary, not a link — fits principle 5's
+"don't embed a second VM": reuse the platform tool). A `Source/Git.cpp` `runGit(dir, args) ->
+{code, out, err}` helper is the whole substrate.
+
+**Where git state lives:** in `.git`, *out of band* — NOT in the composition format. So this
+epic adds **no new composition serialisation** (principle 2 is satisfied trivially: git wraps
+the existing text format). Git targets the **folder composition** (the diff-friendly one);
+a single-file `.gloopy` can be tracked too, but the win is the folder repo. A fresh untitled
+project has no dir until first save, so "New Git Project" establishes dir → `git init` → save
+up front; existing folder projects get "Enable Git" (init in place).
+
+**Realtime + safety:** every git op is message-thread / off-thread `ChildProcess` — NEVER the
+audio thread (principle 4). Network ops (push / pull / clone) run behind `runBackground` + the
+busy overlay. **Push is outward-facing** — always an explicit user action, never automatic;
+commit messages are user-authored; auto-commit-on-save is opt-in only.
+
+30. **Git project management.** ✦ **L (multi-session)** *(realizes the north star; each slice is
+    API-reachable + desktop-UI + headless-proven against a temp repo.)*
+    - `[ ]` **Slice 1 — git availability + repo status.** Detect `git` at startup
+      (`apiGitAvailable` → present + version; features grey out with a hint when absent).
+      The `Source/Git.cpp` `runGit()` substrate. `apiGitStatus(dir)` → {is_repo, branch,
+      ahead/behind, dirty files [path + XY code]}. Track the open project's working dir.
+      **Desktop:** a "Source Control" indicator/panel (branch + dirty count). GitStatus RPC +
+      Python. *Done when:* status of a temp repo reports clean → dirty across an edit, headless.
+    - `[ ]` **Slice 2 — init on new project (choose dir + `git init`).** New-project flow gains
+      **File → New Git Project...** → directory chooser → `apiGitInit(dir)` → save the
+      composition into it as a folder repo → write a sensible `.gitignore` (exports/, generated
+      caches, plugin-scan artefacts). Also **"Enable Git"** for an already-open folder project.
+      GitInit RPC + Python. *Done when:* new-git-project creates a repo with the composition
+      inside it, ready to commit, headless.
+    - `[ ]` **Slice 3 — stage + commit (the user writes the message).** `apiGitAdd(paths | all)`
+      + `apiGitCommit(message)`. Save stages the composition files. **Desktop:** a Commit dialog
+      — a message editor + the changed/staged file list + Stage-all + Commit (the familiar IDE
+      commit surface); File → "Commit..." and the Source Control panel. GitAdd / GitCommit RPCs +
+      Python. *Done when:* edit → save → add → commit, and `git log` shows the message, headless.
+    - `[ ]` **Slice 4 — history / log (+ restore).** `apiGitLog(dir, n)` → recent commits
+      {hash, author, date, subject}. **Desktop:** a History panel listing commits; (stretch)
+      **open the project as of a commit** (checkout into a temp worktree → load) for A/B and
+      recovery. GitLog RPC + Python. *Done when:* log returns the commit series after N commits,
+      headless.
+    - `[ ]` **Slice 5 — remote + push / pull.** `apiGitAddRemote(name, url)`,
+      `apiGitPush(remote, branch)`, `apiGitPull()` — network ops off-thread behind the busy
+      overlay, reusing the user's SSH/credential helper. **Desktop:** "Add Remote...", "Push",
+      "Pull" on the Source Control menu/panel; push is always explicit. GitAddRemote / GitPush /
+      GitPull RPCs + Python. *Done when:* push to a **bare local repo** lands the commit there
+      (assert via `git -C <bare> log`), headless — no network needed for the test.
+    - `[ ]` **Slice 6 — configurable git + polish.** The "other git things, configurable":
+      branch create / switch, per-project git identity override (user.name / user.email), the
+      **auto-stage-on-save** / **auto-commit-on-save** toggles (opt-in), discard/restore a
+      changed file, view a file's diff. Optional **Git LFS** guidance for large WAV / plugin
+      sidecars (configurable, later — keep binaries lean or LFS-tracked). Keep it curated — a
+      DAW *with* source control, not a git client.
+
+### Wave 10 — Build, platform & toolchain ✦
+
+Cross-cutting infrastructure — no user-facing model, but it widens who can run Gloopy and keeps
+the foundation current. Both items are ✦ design forks (toolchain decisions) and are
+**headless-verifiable by construction**: a green build on the target + `tests/smoke.sh` passing
+is the proof.
+
+31. **Upgrade JUCE to the latest release.** ✦ **M**
+    JUCE is pinned at **8.0.15** via `FetchContent` (`CMakeLists.txt:19`, `GIT_TAG 8.0.15`).
+    Track the newest stable JUCE tag (latest 8.x today; move to 9.x when it ships). *Approach:*
+    bump `GIT_TAG`, rebuild, and shake out deprecations/API breaks across our JUCE surface
+    (LookAndFeel/`drawButtonBackground`, `ChildProcess`, `AudioFormat*`, plugin-hosting
+    `AudioPluginFormatManager` / VST3+LV2, `ValueTree` serialisation, the FileChooser/threading
+    idioms). Watch two vendored JUCE copies: **sfizz** and **surge** each ship their own JUCE
+    under `third_party/*/libs/JUCE` — our upgrade only moves the FetchContent one; keep the
+    embedded-lib builds pinned to what they expect (don't force-share a JUCE). *Done when:* a
+    clean `cmake --build` is green on the bumped tag, `ctest` + `tests/smoke.sh` pass, and the
+    GUI renders (Xvfb screenshot) with no new warnings we introduced.
+32. **Windows build (cross-build or CI-native).** ✦ **L**
+    Gloopy is Linux-first today; make a Windows binary. *✦ Fork:* **(a) true cross-compile from
+    Linux with `mingw-w64`** (a CMake toolchain file + cross-built gRPC/protobuf, sfizz, surge,
+    JUCE) — self-contained but the dependency chain (gRPC especially) is painful to cross-build;
+    or **(b) CI-native Windows build** (a GitHub-Actions `windows` runner + MSVC/clang-cl, `vcpkg`
+    or FetchContent for gRPC/protobuf) — the pragmatic path, and it also gets us Windows CI.
+    **Recommend (b) first** (real Windows toolchain, standard for JUCE apps), keep (a) as a
+    stretch. Platform notes to resolve in the slice: **VST3 is the Windows plugin format** — set
+    `JUCE_PLUGINHOST_VST3=1`, likely `JUCE_PLUGINHOST_LV2=0` on Windows (LV2 hosting is niche
+    there); path handling (backslashes, `%APPDATA%` for presets/plugin cache) already goes through
+    `juce::File`, but audit our env-var / sample-path resolvers; the **git-PM epic (#30)** must
+    find `git.exe` (detection already probes `PATH`). *Done when:* a Windows Gloopy.exe builds in
+    CI, boots, hosts a VST3, and renders a non-silent WAV (the smoke assertion) on Windows.
+
 ## Explicitly NOT doing (the guardrails, made concrete)
 
 - No full Ardour-style recording/post-production workflow; no general patchbay until
@@ -1847,6 +1955,9 @@ render-wiring design in `docs/session-view.md`.
 - No built-in-effect catalog — keep the set small and high-value (#15); Gloopy hosts
   VST3/LV2 for the long tail.
 - No broad foreign-format support before the composition-as-repo format is rock-solid.
+- No reimplementing git or vendoring libgit2 (#30) — **detect and shell out to the system
+  `git`**, reusing the user's identity/SSH/credentials. Git state lives in `.git`, never in the
+  composition format. **Never auto-push** — push is always an explicit user action.
 - **Never** copy third-party code/assets without an explicit AGPL-3.0 license review
   (Ardour is GPL), and **never** name other DAWs/trackers as the source in code, docs,
   or commit messages — borrow the idea, not the brand.
