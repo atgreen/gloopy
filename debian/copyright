@@ -1,0 +1,15 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: gloopy
+Source: https://github.com/atgreen/gloopy
+
+Files: *
+Copyright: 2026 Anthony Green <green@moxielogic.com>
+License: AGPL-3.0-only
+
+Files: debian/*
+Copyright: 2026 Anthony Green <green@moxielogic.com>
+License: AGPL-3.0-only
+
+Comment: The binary embeds the Surge XT synth engine (GPL-3.0-or-later); the
+ combined work is distributable under the GNU AGPL-3.0 (AGPLv3 section 13 permits
+ combination with GPLv3-covered code).

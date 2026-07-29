@@ -218,28 +218,38 @@ endif()
 # Kept out of the default build so it doesn't slow the app iteration loop.
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
-# Install rules. The exe-adjacent asset fallback in findPianoSfz() looks for
-# <exeDir>/assets/SalamanderGrandPiano/..., so lay the samples down there. The
-# GUI app artefact lands in bin/, and the vendored piano beside it in bin/assets.
+# Install rules — FHS layout, all under the `gloopy` install COMPONENT so packaging
+# stages ONLY these files. Critically, the vendored deps (JUCE via FetchContent, sfizz,
+# surge, the grpc CMake configs) each run their own install() rules — a plain
+# `cmake --install` drags in JUCE's headers/juceaide and a pile of CMake configs. Tagging
+# gloopy's own files with COMPONENT gloopy lets the packaging do
+# `cmake --install --component gloopy`, which installs just these.
+#
+#   bin/gloopy                          the app
+#   share/gloopy/SalamanderGrandPiano   the vendored piano  (findPianoSfz)
+#   share/gloopy/surge-data             Surge factory content  (SurgeGenerator::dataDir)
+#   lib(64)/gloopy/plugins/*.lv2        the bundled Surge XT LV2  (PluginHost::bundledPluginDirs)
+#
+# The app resolves these at runtime relative to the exe: <prefix>/bin/gloopy ->
+# <prefix>/share/gloopy and <prefix>/lib(64)/gloopy/plugins.
 # ---------------------------------------------------------------------------
+include(GNUInstallDirs)
 install(TARGETS Gloopy
-    RUNTIME DESTINATION bin
-    BUNDLE  DESTINATION .)
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT gloopy
+    BUNDLE  DESTINATION .                        COMPONENT gloopy)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/SalamanderGrandPiano
-    DESTINATION bin/assets)
-# Bundled Surge factory content (patches + wavetables) for the Presets tab / factory
-# sounds out of the box; installed beside the binary and found by SurgeGenerator::dataDir().
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/gloopy
+    COMPONENT gloopy)
 if(GLOOPY_WITH_SURGE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-data")
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-data
-        DESTINATION bin/assets)
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/gloopy
+        COMPONENT gloopy)
 endif()
-# Bundled Surge XT LV2 plugin (built by scripts/build-surge-plugin.sh) — shipped beside the
-# binary so "+ Synth -> Surge XT (full editor)" works with no external install; PluginHost
-# adds <exeDir>/plugins to its scan path. The vendored bundle is a Linux .lv2; skip on
-# Windows, which hosts VST3 only (a Windows Surge VST3 would be bundled by the CI build).
+# The vendored bundle is a Linux .lv2; skip on Windows (VST3-only, bundled by the CI build).
 if(NOT WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-plugin")
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-plugin/
-        DESTINATION bin/plugins)
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/gloopy/plugins
+        COMPONENT gloopy)
 endif()
 
 option(GLOOPY_TESTS "Build the Gloopy unit-test target" OFF)
@@ -260,33 +270,9 @@ if(GLOOPY_TESTS)
 endif()
 
 # ---------------------------------------------------------------------------
-# Packaging (CPack) — `cpack -G RPM` / `cpack -G DEB` build native packages from
-# the install() rules above. Driven by .github/workflows/release.yaml on a tag.
-# Shared-library dependencies are auto-detected (RPM AUTOREQ / DEB SHLIBDEPS).
+# Packaging is done TRADITIONALLY, not via CPack — CPack packaged the whole install
+# tree (dragging in JUCE's headers/juceaide and vendored CMake configs) and used an
+# exe-adjacent /usr/bin/assets layout. The RPM spec (packaging/gloopy.spec) and the
+# Debian packaging (debian/) instead `cmake --install --component gloopy` into an FHS
+# tree and ship exactly the binary + share/gloopy + lib/gloopy/plugins.
 # ---------------------------------------------------------------------------
-set(CPACK_PACKAGE_NAME "gloopy")
-set(CPACK_PACKAGE_VENDOR "atgreen")
-set(CPACK_PACKAGE_CONTACT "Anthony Green <green@moxielogic.com>")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A scriptable, composition-as-repo DAW")
-set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/atgreen/gloopy")
-set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
-set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")   # -> /usr/bin/gloopy, /usr/bin/assets/...
-set(CPACK_STRIP_FILES ON)
-# With Surge embedded the binary is a combined AGPL-3.0 / GPL-3.0 work.
-if(GLOOPY_WITH_SURGE)
-    set(_gloopy_license "AGPL-3.0-only AND GPL-3.0-or-later")
-else()
-    set(_gloopy_license "AGPL-3.0-only")
-endif()
-# RPM
-set(CPACK_RPM_PACKAGE_LICENSE "${_gloopy_license}")
-set(CPACK_RPM_PACKAGE_GROUP "Applications/Multimedia")
-set(CPACK_RPM_PACKAGE_AUTOREQ ON)
-set(CPACK_RPM_FILE_NAME "RPM-DEFAULT")
-# DEB
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_CONTACT}")
-set(CPACK_DEBIAN_PACKAGE_SECTION "sound")
-set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
-include(CPack)

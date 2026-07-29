@@ -1,0 +1,6 @@
+gloopy (0.1.0-1) unstable; urgency=medium
+
+  * Traditional debhelper packaging (FHS layout, gloopy component only), replacing
+    the CPack-generated package.
+
+ -- Anthony Green <green@moxielogic.com>  Wed, 29 Jul 2026 00:00:00 +0000

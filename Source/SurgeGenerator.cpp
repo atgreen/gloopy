@@ -52,10 +52,13 @@ juce::File SurgeGenerator::dataDir()
     auto bundled = juce::File (GLOOPY_ASSETS_DIR).getChildFile ("surge-data");   // vendored factory data (dev tree)
     if (bundled.isDirectory()) return bundled;
    #endif
-    // Installed layout: <exeDir>/assets/surge-data (see the install rule + Salamander piano).
-    auto exeAdj = juce::File::getSpecialLocation (juce::File::currentExecutableFile)
-                      .getParentDirectory().getChildFile ("assets").getChildFile ("surge-data");
+    // Portable layout: <exeDir>/assets/surge-data (next to the exe, e.g. the Windows zip).
+    auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
+    auto exeAdj = exeDir.getChildFile ("assets").getChildFile ("surge-data");
     if (exeAdj.isDirectory()) return exeAdj;
+    // Installed FHS layout: <prefix>/share/gloopy/surge-data (exe at <prefix>/bin).
+    auto fhs = exeDir.getParentDirectory().getChildFile ("share").getChildFile ("gloopy").getChildFile ("surge-data");
+    if (fhs.isDirectory()) return fhs;
     return {};
 }
 

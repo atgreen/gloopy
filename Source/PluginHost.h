@@ -40,8 +40,13 @@ public:
        #ifdef GLOOPY_ASSETS_DIR
         dirs.add (juce::File (GLOOPY_ASSETS_DIR).getChildFile ("surge-plugin"));
        #endif
-        dirs.add (juce::File::getSpecialLocation (juce::File::currentExecutableFile)
-                      .getParentDirectory().getChildFile ("plugins"));
+        auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
+        dirs.add (exeDir.getChildFile ("plugins"));   // portable: <exeDir>/plugins (e.g. the Windows zip)
+        // Installed FHS layout: <prefix>/lib(64)/gloopy/plugins (exe at <prefix>/bin). Check both
+        // because Fedora uses lib64 and Debian uses lib for the arch-specific plugin bundle.
+        auto prefix = exeDir.getParentDirectory();
+        for (auto* libd : { "lib", "lib64" })
+            dirs.add (prefix.getChildFile (libd).getChildFile ("gloopy").getChildFile ("plugins"));
         return dirs;
     }
 

@@ -1,0 +1,21 @@
+#!/usr/bin/make -f
+# Traditional debhelper packaging. The CI builds gloopy + the bundled Surge LV2 first;
+# this only stages the `gloopy` CMake install component (binary + share/gloopy +
+# lib/gloopy/plugins) into an FHS tree — never the vendored deps' headers/tools.
+export DH_VERBOSE = 1
+GLOOPY_BUILDDIR ?= build
+
+%:
+	dh $@
+
+# Already built by the CI before dpkg-buildpackage — skip configure/build/test.
+override_dh_auto_configure:
+override_dh_auto_build:
+override_dh_auto_test:
+
+override_dh_auto_install:
+	DESTDIR=$(CURDIR)/debian/gloopy cmake --install $(GLOOPY_BUILDDIR) --component gloopy --prefix /usr
+
+# The bundled Surge LV2 is a private plugin, not a public shared library.
+override_dh_makeshlibs:
+	dh_makeshlibs --no-scripts

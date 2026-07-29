@@ -1,0 +1,3 @@
+# The Surge XT LV2 is a deliberately bundled private plugin under /usr/lib/gloopy.
+gloopy: embedded-library
+gloopy: package-installs-into-obsolete-dir

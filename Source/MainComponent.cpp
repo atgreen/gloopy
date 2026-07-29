@@ -2706,11 +2706,14 @@ juce::File MainComponent::findPianoSfz() const
         if (f.existsAsFile()) return f;
     }
    #endif
-    // Next to the executable (installed / relocated builds).
+    // Next to the executable (portable / relocated builds: <exeDir>/assets/...).
     {
         auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
         auto f = exeDir.getChildFile ("assets").getChildFile (vendored);
         if (f.existsAsFile()) return f;
+        // Installed FHS layout: <prefix>/share/gloopy/... (the exe lives at <prefix>/bin).
+        auto s = exeDir.getParentDirectory().getChildFile ("share").getChildFile ("gloopy").getChildFile (vendored);
+        if (s.existsAsFile()) return s;
     }
     // The user's own ~/sfz collection.
     auto dir = juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("sfz");
