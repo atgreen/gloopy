@@ -94,6 +94,13 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: debian:stable
+    env:
+      # The debian:stable container defaults to the C/POSIX locale; cpack's DEB generator
+      # then can't handle a UTF-8 factory-patch filename (Surge's "µcomputer.fxp") — "Can't
+      # lstat". C.UTF-8 is built into glibc (no `locales` package needed). Fedora already
+      # defaults to UTF-8, so the RPM job is fine.
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
     steps:
       - name: Install build dependencies
         run: |
