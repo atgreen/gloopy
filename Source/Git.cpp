@@ -306,7 +306,18 @@ MainComponent::GitResult MainComponent::apiGitCheckout (const juce::String& dir,
 MainComponent::GitResult MainComponent::apiGitMerge (const juce::String& dir, const juce::String& name)
 {
     if (name.trim().isEmpty()) { GitResult r; r.error = "a branch to merge is required"; return r; }
-    return gitWrite (*this, { "-C", dir, "merge", "--no-edit", name.trim() }, dir);
+    // A merge records a merge commit, so git needs a committer identity — and it checks up
+    // front, refusing to merge at all when none is set (a never-configured machine / CI).
+    // Supply the same neutral fallback as commit/tag/revert when the user has none.
+    juce::StringArray args;
+    juce::String cfg;
+    if (runGit ({ "-C", dir, "config", "user.email" }, cfg) != 0 || cfg.trim().isEmpty())
+    {
+        args.add ("-c"); args.add ("user.email=gloopy@localhost");
+        args.add ("-c"); args.add ("user.name=Gloopy");
+    }
+    args.add ("-C"); args.add (dir); args.add ("merge"); args.add ("--no-edit"); args.add (name.trim());
+    return gitWrite (*this, args, dir);
 }
 
 MainComponent::GitResult MainComponent::apiGitBranchDelete (const juce::String& dir, const juce::String& name, bool force)
