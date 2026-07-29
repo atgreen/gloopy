@@ -26,7 +26,10 @@ permissions:
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    # windows-2022 (stable VS 2022 / MSVC 14.4x), NOT windows-latest: the latter moved to a
+    # preview VS 2026 (MSVC 14.51) whose CRT <ctime> header JUCE 9.0.0 fails to compile
+    # against ("'strftime' is not a member of global namespace"). 2022 is a known-good JUCE combo.
+    runs-on: windows-2022
     env:
       # vcpkg binary caching: build each component (grpc + abseil/protobuf/openssl/re2/c-ares/zlib)
       # ONCE, then restore the prebuilt package and skip its build on every later run. Two tiers:

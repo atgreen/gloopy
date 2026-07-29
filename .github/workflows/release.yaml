@@ -186,7 +186,9 @@ jobs:
   # =====================================================================
   windows:
     if: ${{ github.event_name == 'push' || github.event.inputs.packages == 'all' || github.event.inputs.packages == 'windows' }}
-    runs-on: windows-latest
+    # windows-2022 (stable VS 2022 / MSVC 14.4x): windows-latest moved to a preview VS 2026
+    # (MSVC 14.51) whose CRT <ctime> header JUCE 9.0.0 won't compile against.
+    runs-on: windows-2022
     env:
       # Binary cache, two tiers: nuget on GitHub Packages is DURABLE (survives the Actions-cache
       # 10 GB / 7-day eviction), so grpc + its deps are built ONCE and restored forever; x-gha is
