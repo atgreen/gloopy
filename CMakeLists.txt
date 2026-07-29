@@ -251,6 +251,17 @@ if(NOT WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-plugin")
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/gloopy/plugins
         COMPONENT gloopy)
 endif()
+# Third-party license texts (gathered by packaging/collect-licenses.sh into ./licenses/) +
+# the manifest, so a distributed build carries the full licensing of the vendored/bundled
+# code (sfizz + externals, Surge XT + sub-libs, JUCE, the Salamander piano).
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/THIRD-PARTY-LICENSES.md
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/gloopy
+    COMPONENT gloopy)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/licenses")
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/licenses/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/gloopy/third-party-licenses
+        COMPONENT gloopy)
+endif()
 
 option(GLOOPY_TESTS "Build the Gloopy unit-test target" OFF)
 if(GLOOPY_TESTS)

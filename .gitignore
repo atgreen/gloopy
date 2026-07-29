@@ -30,3 +30,4 @@ common-lisp/ocicl/
 
 # Python packaging build artifacts
 *.egg-info/
+licenses/

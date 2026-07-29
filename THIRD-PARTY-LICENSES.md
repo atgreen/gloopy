@@ -55,8 +55,9 @@ from the `third_party/surge` submodule:
    standalone.
 2. **Bundled Surge XT LV2 plugin** — the *full* Surge XT LV2 plugin (with its JUCE
    editor UI) is built by `scripts/build-surge-plugin.sh`, staged at
-   `third_party/surge-plugin/Surge XT.lv2`, and **shipped beside the Gloopy binary**
-   (installed to `bin/plugins`, so it is included in the released RPM/DEB packages).
+   `third_party/surge-plugin/Surge XT.lv2`, and **shipped with the Gloopy binary**
+   (installed to `lib/gloopy/plugins`, so it is included in the released RPM/DEB packages;
+   on Windows the equivalent is a bundled Surge XT **VST3** under `plugins/`).
    Gloopy hosts it for the real Surge editor via `+ Synth → Surge XT (full editor)`,
    with no external Surge install required. This is a separate GPL-3.0 shared object
    — it is loaded at runtime as an LV2 plugin, not linked into Gloopy's own binary.
@@ -105,3 +106,24 @@ Drums** template:
   preserved, which the table above and the vendored `README` satisfy. The samples
   are data, not linked code, so they place no license obligation on Gloopy's own
   source.
+
+## Control-API libraries (gRPC / Protobuf / Abseil)
+
+| Component | License | Notes |
+|-----------|---------|-------|
+| **gRPC** | Apache-2.0 | the control API's structural lane |
+| **Protocol Buffers** | BSD-3-Clause | wire format for gRPC |
+| **Abseil** | Apache-2.0 | gRPC/Protobuf dependency |
+
+On **Linux** these come from the distribution's own packages (`grpc`, `protobuf`), so
+the RPM/DEB **depend** on them rather than bundling them — the system carries their
+licenses. On **Windows** they are **statically linked** from vcpkg, so their copyright
+texts are bundled into the zip under `licenses/vcpkg/`. Apache-2.0 and BSD-3-Clause are
+one-way compatible into a GPL/AGPL-3.0 work.
+
+## Where the license texts ship
+
+`packaging/collect-licenses.sh` gathers every in-tree third-party license text into
+`licenses/`, which is installed to **`share/doc/gloopy/third-party-licenses/`** in the
+RPM/DEB (alongside this manifest) and copied into the Windows zip's `licenses/` folder —
+so a distributed build always carries the full licensing of the code it ships.

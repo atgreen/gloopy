@@ -66,6 +66,12 @@ jobs:
       - name: Build bundled Surge XT plugin
         run: bash scripts/build-surge-plugin.sh
 
+      # Gather the vendored/bundled third-party license texts into ./licenses/ BEFORE
+      # configure (the install rule's EXISTS check is configure-time). They then ship in
+      # the package via the gloopy component (share/doc/gloopy/third-party-licenses).
+      - name: Collect third-party licenses
+        run: bash packaging/collect-licenses.sh
+
       - name: Configure + build
         run: |
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -137,6 +143,12 @@ jobs:
       # run before "Configure + build" for that rule to fire.
       - name: Build bundled Surge XT plugin
         run: bash scripts/build-surge-plugin.sh
+
+      # Gather the vendored/bundled third-party license texts into ./licenses/ BEFORE
+      # configure (the install rule's EXISTS check is configure-time). They then ship in
+      # the package via the gloopy component (share/doc/gloopy/third-party-licenses).
+      - name: Collect third-party licenses
+        run: bash packaging/collect-licenses.sh
 
       - name: Configure + build
         run: |
@@ -249,6 +261,11 @@ jobs:
         shell: bash
         run: bash scripts/build-surge-vst3.sh
 
+      # Gather the vendored/bundled third-party license texts into ./licenses/ (Git Bash).
+      - name: Collect third-party licenses
+        shell: bash
+        run: bash packaging/collect-licenses.sh
+
       # Assemble a self-contained folder. The vcpkg toolchain (app-local deps) copies
       # the dependent DLLs next to gloopy.exe at build time, so the Release artefact dir
       # is already runnable; we add the vendored assets exe-adjacent, because the
@@ -271,6 +288,23 @@ jobs:
           }
           New-Item -ItemType Directory -Force -Path "$stage/plugins" | Out-Null
           Copy-Item third_party/surge-plugin/* "$stage/plugins/" -Recurse -Force
+          # Third-party license texts: the collected in-tree set + the manifest, plus the
+          # vcpkg-linked deps' copyrights (grpc/protobuf/abseil/... are statically linked on
+          # Windows, unlike Linux where the system packages carry them).
+          New-Item -ItemType Directory -Force -Path "$stage/licenses" | Out-Null
+          Copy-Item THIRD-PARTY-LICENSES.md "$stage/licenses/" -Force
+          Copy-Item licenses/* "$stage/licenses/" -Recurse -Force
+          $vcpkgShare = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-release/share"
+          if (Test-Path $vcpkgShare) {
+            Get-ChildItem $vcpkgShare -Directory | ForEach-Object {
+              $cr = Join-Path $_.FullName "copyright"
+              if (Test-Path $cr) {
+                $d = "$stage/licenses/vcpkg/$($_.Name)"
+                New-Item -ItemType Directory -Force -Path $d | Out-Null
+                Copy-Item $cr $d -Force
+              }
+            }
+          }
           @"
           Gloopy - portable Windows build (x64)
 
