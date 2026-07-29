@@ -337,3 +337,219 @@ jobs:
         with:
           name: windows-zip
           path: gloopy-windows-x64.zip
+
+  # =====================================================================
+  # Package repositories, hosted on GitHub Pages (like the icl repos).
+  #
+  # These run on a TAG push only — they turn the RPM/DEB attached to the
+  # GitHub Release into installable dnf/apt repositories:
+  #   * RPM: createrepo_c metadata whose <location> hrefs point back at the
+  #          Release download URLs, so Pages serves only the small metadata
+  #          and the .rpm bytes come from the Release.
+  #   * DEB: a pool/ + dists/ tree that carries the .deb itself.
+  # deploy-pages pushes both into the gh-pages branch (under rpm-repo/ and
+  # deb-repo/), alongside the mike-published manual — a plain branch push,
+  # so it works even before the repo is public / Pages is enabled.
+  #
+  # GPG signing is optional: set the RPM_GPG_PRIVATE_KEY secret (base64 of an
+  # ASCII-armored private key — the same one icl uses) to sign the repo
+  # metadata; without it the repos publish unsigned and clients need
+  # gpgcheck=0 / an unsigned apt source.
+  # =====================================================================
+  build-rpm-repo:
+    needs: rpm
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install createrepo_c
+        run: sudo apt-get update && sudo apt-get install -y createrepo-c
+
+      - name: Download RPM built earlier in this run
+        uses: actions/download-artifact@v4
+        with:
+          name: rpm-package
+          path: /tmp/rpms
+
+      - name: Build repodata
+        run: createrepo_c /tmp/rpms
+
+      # The .rpm is a Release asset, not served from Pages — rewrite the repodata
+      # hrefs to the Release download URL so dnf fetches the package from there.
+      - name: Rewrite package locations to release asset URLs
+        run: |
+          BASE="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}"
+          cd /tmp/rpms/repodata
+
+          gunzip -f *-primary.xml.gz
+          PRIMARY=$(ls *-primary.xml)
+          sed -i "s|<location href=\"\([^\"]*\.rpm\)\"|<location href=\"${BASE}/\1\"|g" "${PRIMARY}"
+          gzip -9 "${PRIMARY}"
+
+          # Rebuild repomd.xml with the recompressed files' checksums/sizes.
+          cd /tmp/rpms
+          REPODATA=repodata
+          cat > "${REPODATA}/repomd.xml" <<'XMLHEADER'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <repomd xmlns="http://linux.duke.edu/metadata/repo">
+          XMLHEADER
+          for gz in "${REPODATA}"/*.xml.gz; do
+            fname="$(basename "${gz}")"
+            type="$(echo "${fname}" | sed 's/.*-\([a-z_]*\)\.xml\.gz/\1/')"
+            checksum="$(sha256sum "${gz}" | awk '{print $1}')"
+            size="$(stat -c%s "${gz}")"
+            open_file="${gz%.gz}"
+            gunzip -k -f "${gz}"
+            open_checksum="$(sha256sum "${open_file}" | awk '{print $1}')"
+            open_size="$(stat -c%s "${open_file}")"
+            rm -f "${open_file}"
+            cat >> "${REPODATA}/repomd.xml" <<XMLDATA
+            <data type="${type}">
+              <checksum type="sha256">${checksum}</checksum>
+              <open-checksum type="sha256">${open_checksum}</open-checksum>
+              <location href="repodata/${fname}"/>
+              <size>${size}</size>
+              <open-size>${open_size}</open-size>
+            </data>
+          XMLDATA
+          done
+          echo "</repomd>" >> "${REPODATA}/repomd.xml"
+          sed -i 's/^          //' "${REPODATA}/repomd.xml"
+
+      - name: Sign repomd.xml and export public key
+        env:
+          RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
+        if: ${{ env.RPM_GPG_PRIVATE_KEY != '' }}
+        run: |
+          echo "${RPM_GPG_PRIVATE_KEY}" | base64 -d | gpg --batch --import
+          gpg --batch --detach-sign --armor /tmp/rpms/repodata/repomd.xml
+          gpg --batch --export --armor > /tmp/rpms/RPM-GPG-KEY-gloopy
+
+      # Assemble the exact directory that will be served at /gloopy/rpm-repo:
+      # the metadata, the .repo client config, and the signing key (if any).
+      - name: Assemble rpm-repo dir
+        run: |
+          mkdir -p rpm-repo
+          cp -r /tmp/rpms/repodata rpm-repo/
+          cp packaging/gloopy.repo rpm-repo/gloopy.repo
+          [ -f /tmp/rpms/RPM-GPG-KEY-gloopy ] && cp /tmp/rpms/RPM-GPG-KEY-gloopy rpm-repo/ || true
+          find rpm-repo -type f | sort
+
+      - name: Upload rpm-repo artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-repo
+          path: rpm-repo
+
+  build-deb-repo:
+    needs: deb
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install APT repo tools
+        run: sudo apt-get update && sudo apt-get install -y dpkg-dev gpg
+
+      - name: Download DEB built earlier in this run
+        uses: actions/download-artifact@v4
+        with:
+          name: deb-package
+          path: /tmp/debs
+
+      - name: Import GPG key
+        env:
+          RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
+        if: ${{ env.RPM_GPG_PRIVATE_KEY != '' }}
+        run: |
+          echo "${RPM_GPG_PRIVATE_KEY}" | base64 -d | gpg --batch --import
+          # apt's signed-by expects the ASCII-armored key; name matches the URL in install docs.
+          gpg --batch --export --armor > /tmp/debs/gloopy-archive-keyring.gpg
+
+      - name: Build APT repository
+        run: |
+          REPO_DIR=/tmp/apt-repo
+          mkdir -p "${REPO_DIR}/pool/main" "${REPO_DIR}/dists/stable/main/binary-amd64"
+          cp /tmp/debs/*.deb "${REPO_DIR}/pool/main/"
+
+          cd "${REPO_DIR}"
+          dpkg-scanpackages pool/main > dists/stable/main/binary-amd64/Packages
+          gzip -9c dists/stable/main/binary-amd64/Packages > dists/stable/main/binary-amd64/Packages.gz
+
+          cd dists/stable
+          cat > Release <<EOF
+          Origin: gloopy
+          Label: gloopy
+          Suite: stable
+          Codename: stable
+          Date: $(date -Ru)
+          Architectures: amd64
+          Components: main
+          Description: Gloopy APT repository
+          EOF
+          sed -i 's/^          //' Release
+          {
+            echo "MD5Sum:"
+            for f in main/binary-amd64/Packages main/binary-amd64/Packages.gz; do
+              printf " %s %16d %s\n" "$(md5sum "$f" | awk '{print $1}')" "$(stat -c%s "$f")" "$f"
+            done
+            echo "SHA256:"
+            for f in main/binary-amd64/Packages main/binary-amd64/Packages.gz; do
+              printf " %s %16d %s\n" "$(sha256sum "$f" | awk '{print $1}')" "$(stat -c%s "$f")" "$f"
+            done
+          } >> Release
+
+      - name: Sign Release file
+        env:
+          RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
+        if: ${{ env.RPM_GPG_PRIVATE_KEY != '' }}
+        run: |
+          echo "${RPM_GPG_PRIVATE_KEY}" | base64 -d | gpg --batch --import
+          cd /tmp/apt-repo/dists/stable
+          gpg --batch --yes --armor --detach-sign -o Release.gpg Release
+          gpg --batch --yes --armor --clearsign -o InRelease Release
+
+      - name: Copy keyring into repo
+        run: |
+          [ -f /tmp/debs/gloopy-archive-keyring.gpg ] && cp /tmp/debs/gloopy-archive-keyring.gpg /tmp/apt-repo/ || true
+          find /tmp/apt-repo -type f | sort
+
+      - name: Upload deb-repo artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-repo
+          path: /tmp/apt-repo
+
+  # Push both repos into the gh-pages branch (under rpm-repo/ and deb-repo/),
+  # keeping the mike-published manual that already lives there. A plain branch
+  # push via peaceiris — no Pages-enabled dependency, so it works while the repo
+  # is still private; it starts serving once the repo is public + Pages is on.
+  deploy-pages:
+    needs: [build-rpm-repo, build-deb-repo]
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    # Serialize against docs.yml (mike), which also pushes gh-pages on tags.
+    concurrency:
+      group: gh-pages
+      cancel-in-progress: false
+    steps:
+      - name: Download rpm-repo
+        uses: actions/download-artifact@v4
+        with:
+          name: rpm-repo
+          path: public/rpm-repo
+
+      - name: Download deb-repo
+        uses: actions/download-artifact@v4
+        with:
+          name: deb-repo
+          path: public/deb-repo
+
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./public
+          keep_files: true   # preserve the mike-published manual (and each other)
+          commit_message: "repo: publish rpm/deb repositories for ${{ github.ref_name }}"

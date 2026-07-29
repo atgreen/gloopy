@@ -1,8 +1,9 @@
 # Install Gloopy
 
-Prebuilt packages are attached to each tagged release on the
-[**Releases page**](https://github.com/atgreen/gloopy/releases). Grab the one for
-your system.
+On Linux, the easiest route is to add the Gloopy **package repository** — you get
+`gloopy` on your `PATH` and future releases arrive with your normal system updates.
+The repositories are hosted on GitHub Pages; the packages are the full build, with
+the bundled Surge XT synth.
 
 | System | Download | Includes |
 |--------|----------|----------|
@@ -12,12 +13,16 @@ your system.
 
 ## Fedora / RHEL (RPM)
 
-Download the `.rpm` from the latest release, then install it — dependencies
-resolve automatically from your repositories:
+Add the Gloopy repository and install — future releases then update with
+`dnf upgrade`:
 
 ```sh
-sudo dnf install ./gloopy-*.rpm
+sudo dnf config-manager addrepo --from-repofile=https://atgreen.github.io/gloopy/rpm-repo/gloopy.repo
+sudo dnf install gloopy
 ```
+
+When the packages are GPG-signed, dnf imports the signing key from the repository
+automatically on first install.
 
 It installs to `/usr/bin/gloopy`. Launch it from a terminal:
 
@@ -25,15 +30,25 @@ It installs to `/usr/bin/gloopy`. Launch it from a terminal:
 gloopy
 ```
 
+Prefer a one-off download? Grab the `.rpm` from the
+[Releases page](https://github.com/atgreen/gloopy/releases) and
+`sudo dnf install ./gloopy-*.rpm` instead.
+
 ## Debian / Ubuntu (DEB)
 
-Download the `.deb`, then:
+Add the Gloopy repository and install — future releases then update with
+`apt upgrade`:
 
 ```sh
-sudo apt install ./gloopy_*.deb
+curl -fsSL https://atgreen.github.io/gloopy/deb-repo/gloopy-archive-keyring.gpg | sudo tee /usr/share/keyrings/gloopy-archive-keyring.asc > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/gloopy-archive-keyring.asc] https://atgreen.github.io/gloopy/deb-repo stable main" | sudo tee /etc/apt/sources.list.d/gloopy.list
+sudo apt update
+sudo apt install gloopy
 ```
 
-`apt` pulls in the required libraries. Then run `gloopy`.
+Prefer a one-off download? Grab the `.deb` from the
+[Releases page](https://github.com/atgreen/gloopy/releases) and
+`sudo apt install ./gloopy_*.deb` instead.
 
 ## Windows (portable zip)
 

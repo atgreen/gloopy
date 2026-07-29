@@ -23,6 +23,12 @@ on:
 permissions:
   contents: write   # mike pushes to the gh-pages branch
 
+# Serialize against release.yaml's deploy-pages, which also pushes gh-pages on
+# tags (the package repos live beside mike's manual on that branch).
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
