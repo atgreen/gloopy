@@ -70,12 +70,22 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       # Doc versions track the PROTOCOL version, not the app version.
-      # Tag pushes deploy a named version and move the `latest` alias.
+      # Tag pushes deploy a named version and move the `latest` alias, and point the
+      # site root at it (so https://<pages>/ redirects to the newest release docs).
       - name: Deploy versioned docs
         if: startsWith(github.ref, 'refs/tags/v')
-        run: mike deploy --push --update-aliases "${GITHUB_REF_NAME#v}" latest
+        run: |
+          mike deploy --push --update-aliases "${GITHUB_REF_NAME#v}" latest
+          mike set-default --push latest
 
-      # Pushes to main publish a rolling "dev" build.
+      # Pushes to main publish a rolling "dev" build. Also set the site's default version
+      # so the root isn't a 404: prefer `latest` (a real release) if one exists, else `dev`.
       - name: Deploy dev docs
         if: github.ref == 'refs/heads/main'
-        run: mike deploy --push dev
+        run: |
+          mike deploy --push dev
+          if mike list 2>/dev/null | grep -q 'latest'; then
+            mike set-default --push latest
+          else
+            mike set-default --push dev
+          fi
