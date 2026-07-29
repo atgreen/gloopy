@@ -250,14 +250,16 @@ jobs:
       - name: Install gRPC (vcpkg)
         shell: pwsh
         run: |
-          Get-PSDrive C | Format-Table Name,@{n='UsedGB';e={[math]::Round($_.Used/1GB,1)}},@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
-          # x64-windows-release (ci/triplets) is release-only — the default x64-windows builds
-          # every dep twice (debug + release), which is most of the multi-hour build. --clean-*
-          # -after-build additionally keeps peak disk down (grpc pulls openssl/protobuf/abseil/...).
+          Get-PSDrive C,D | Format-Table Name,@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
+          # Put vcpkg's buildtrees + downloads on the roomy workspace drive (D:) — C: has only
+          # ~14 GB free and grpc's from-source buildtree overflowed it. `installed` stays on C:.
+          $bt = "D:\vcpkg-bt"; $dl = "D:\vcpkg-dl"
+          New-Item -ItemType Directory -Force -Path $bt,$dl | Out-Null
           & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install grpc:x64-windows-release `
             --overlay-triplets="$env:GITHUB_WORKSPACE/ci/triplets" `
+            --x-buildtrees-root=$bt --downloads-root=$dl `
             --clean-buildtrees-after-build --clean-downloads-after-build
-          Get-PSDrive C | Format-Table Name,@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
+          Get-PSDrive C,D | Format-Table Name,@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
 
       # Ninja (not MSBuild) — lighter scheduling. CMAKE_BUILD_TYPE=Release (Ninja is single-config).
       - name: Configure
