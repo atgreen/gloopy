@@ -435,7 +435,14 @@ print('yes' if ok else 'no')")
     CNF2=$(g -d "{\"dir\":\"$CND\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitConflicts | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('files',[])))")
     { [ "$CNF1" -ge 1 ] && [ "$CNF2" -eq 0 ] && [ ! -f "$CND/.git/MERGE_HEAD" ] && grep -q 'cutoff = 900' "$CND/tracks/cnflead.toml"; } \
         && echo "smoke: PASS — conflicting merge resolved ($CNF1 conflicts -> 0) and completed; kept ours (cutoff 900)" \
-        || { echo "smoke: merge-conflict resolution wrong (c1=$CNF1 c2=$CNF2)" >&2; exit 1; }
+        || { echo "smoke: merge-conflict resolution wrong (c1=$CNF1 c2=$CNF2)" >&2
+             { echo "  DIAG git=$(git --version)"
+               echo "  DIAG HEAD=$(git -C "$CND" rev-parse --abbrev-ref HEAD 2>&1)"
+               echo "  DIAG branches=[$(git -C "$CND" for-each-ref --format='%(refname:short)' refs/heads 2>&1 | tr '\n' ' ')]"
+               echo "  DIAG status=[$(git -C "$CND" status --porcelain 2>&1 | tr '\n' ';')]"
+               echo "  DIAG base_cutoff=[$(git -C "$CND" show "$CNBR":tracks/cnflead.toml 2>/dev/null | grep -i cutoff | tr '\n' ' ')]"
+               echo "  DIAG feat_cutoff=[$(git -C "$CND" show feat:tracks/cnflead.toml 2>/dev/null | grep -i cutoff | tr '\n' ' ')]"; } >&2
+             exit 1; }
     g -d "{\"path\":\"$WORK/cnf_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
     # Config + polish (Wave 9 slice 12): per-project identity override + opt-in auto-commit-on-save.
     # Identity -> the commit author matches; auto-commit ON -> a SaveComposition adds a commit;
