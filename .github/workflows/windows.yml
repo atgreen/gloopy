@@ -30,9 +30,28 @@ jobs:
       # Cache vcpkg-built binaries (grpc + its deps) in the GitHub Actions cache, so only the
       # first run pays the from-source build; later runs restore in minutes.
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      SCCACHE_GHA_ENABLED: "true"   # sccache stores compiled objects in the GHA cache
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # The single biggest Windows-CI speedup: Defender real-time scanning of every .obj/.pch/
+      # .exe the compiler writes dominates C++ build I/O. Best-effort (tamper protection may block).
+      - name: Disable Windows Defender real-time protection
+        shell: pwsh
+        continue-on-error: true
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
+
+      # Ninja needs cl.exe on PATH (the VS generator finds it itself; Ninja doesn't). Also
+      # brings ninja.exe from the VS install onto PATH.
+      - name: Set up MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      # Compiler cache: skip recompiling unchanged translation units across runs.
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.7
 
       # x-gha (the vcpkg GHA cache backend) needs these runner-internal vars exported.
       - name: Enable vcpkg binary caching
@@ -57,17 +76,21 @@ jobs:
             --clean-buildtrees-after-build --clean-downloads-after-build
           Get-PSDrive C | Format-Table Name,@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
 
+      # Ninja (not MSBuild) — lighter scheduling, and it supports CMAKE_*_COMPILER_LAUNCHER so
+      # sccache can wrap cl.exe. CMAKE_BUILD_TYPE=Release (Ninja is single-config).
       - name: Configure
         shell: pwsh
         run: >
-          cmake -B build -G "Visual Studio 17 2022" -A x64
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_TARGET_TRIPLET=x64-windows-release
           -DVCPKG_OVERLAY_TRIPLETS="$env:GITHUB_WORKSPACE/ci/triplets"
           -DGLOOPY_WITH_SURGE=OFF -DGLOOPY_TESTS=ON
 
       - name: Build
-        run: cmake --build build --config Release
+        run: cmake --build build   # Ninja parallelises across all cores by default
 
       - name: Unit tests (ctest)
         run: ctest --test-dir build --build-config Release --output-on-failure
