@@ -100,6 +100,38 @@ target_link_libraries(Gloopy PRIVATE
     juce::juce_recommended_warning_flags)   # LTO omitted: much faster builds
 
 # ---------------------------------------------------------------------------
+# Vendored sfizz (third_party/sfizz) — the native SFZ engine, built as a static
+# library and linked directly (no plugin hosting, no state hack). Library only:
+# plugins/JACK/render/tests off, dr_libs audio backend (no libsndfile LGPL),
+# submodule check off (we copied the source in, there's no .git).
+#
+# Added BEFORE the gRPC find_package on purpose: on vcpkg platforms sfizz and
+# gRPC share vcpkg's Abseil (SFIZZ_USE_SYSTEM_ABSEIL below), and sfizz promotes
+# the absl:: imported targets to global scope — which only works if sfizz is the
+# directory that first find_package()'d them, i.e. before gRPC pulls them in.
+# ---------------------------------------------------------------------------
+set(SFIZZ_SHARED              OFF CACHE BOOL "" FORCE)
+set(SFIZZ_JACK                OFF CACHE BOOL "" FORCE)
+set(SFIZZ_RENDER              OFF CACHE BOOL "" FORCE)
+set(SFIZZ_DEMOS               OFF CACHE BOOL "" FORCE)
+set(SFIZZ_TESTS               OFF CACHE BOOL "" FORCE)
+set(SFIZZ_BENCHMARKS          OFF CACHE BOOL "" FORCE)
+set(SFIZZ_DEVTOOLS            OFF CACHE BOOL "" FORCE)
+set(SFIZZ_USE_SNDFILE         OFF CACHE BOOL "" FORCE)
+set(SFIZZ_GIT_SUBMODULE_CHECK OFF CACHE BOOL "" FORCE)
+set(ENABLE_LTO                OFF CACHE BOOL "" FORCE)
+# On vcpkg platforms (Windows/mingw cross) gRPC brings vcpkg's Abseil as CMake
+# config targets; sfizz vendoring a SECOND Abseil then collides on the absl::
+# targets. Use the one Abseil (vcpkg's) for both. On Linux gRPC comes via
+# pkg-config (no absl:: targets), so sfizz keeps its vendored Abseil.
+if(WIN32)
+    set(SFIZZ_USE_SYSTEM_ABSEIL ON CACHE BOOL "" FORCE)
+endif()
+add_subdirectory(third_party/sfizz EXCLUDE_FROM_ALL)
+target_link_libraries(Gloopy PRIVATE sfizz::sfizz)
+target_include_directories(Gloopy PRIVATE third_party/sfizz/src)
+
+# ---------------------------------------------------------------------------
 # gRPC control API — generate C++ from proto/gloopy.proto and link.
 # Use Fedora's protoc/grpc_cpp_plugin (matches the system libprotobuf), NOT a
 # stray protoc from PATH, to avoid codegen/runtime version mismatches.
@@ -145,26 +177,6 @@ target_sources(Gloopy PRIVATE
     Source/GrpcServer.cpp)
 target_include_directories(Gloopy PRIVATE ${GLOOPY_GEN})
 target_link_libraries(Gloopy PRIVATE ${GLOOPY_GRPC_LIBS})
-
-# ---------------------------------------------------------------------------
-# Vendored sfizz (third_party/sfizz) — the native SFZ engine, built as a static
-# library and linked directly (no plugin hosting, no state hack). Library only:
-# plugins/JACK/render/tests off, dr_libs audio backend (no libsndfile LGPL),
-# submodule check off (we copied the source in, there's no .git).
-# ---------------------------------------------------------------------------
-set(SFIZZ_SHARED              OFF CACHE BOOL "" FORCE)
-set(SFIZZ_JACK                OFF CACHE BOOL "" FORCE)
-set(SFIZZ_RENDER              OFF CACHE BOOL "" FORCE)
-set(SFIZZ_DEMOS               OFF CACHE BOOL "" FORCE)
-set(SFIZZ_TESTS               OFF CACHE BOOL "" FORCE)
-set(SFIZZ_BENCHMARKS          OFF CACHE BOOL "" FORCE)
-set(SFIZZ_DEVTOOLS            OFF CACHE BOOL "" FORCE)
-set(SFIZZ_USE_SNDFILE         OFF CACHE BOOL "" FORCE)
-set(SFIZZ_GIT_SUBMODULE_CHECK OFF CACHE BOOL "" FORCE)
-set(ENABLE_LTO                OFF CACHE BOOL "" FORCE)
-add_subdirectory(third_party/sfizz EXCLUDE_FROM_ALL)
-target_link_libraries(Gloopy PRIVATE sfizz::sfizz)
-target_include_directories(Gloopy PRIVATE third_party/sfizz/src)
 
 # ---------------------------------------------------------------------------
 # Vendored Surge XT synth engine (GPL-3.0) — the default instrument voice.

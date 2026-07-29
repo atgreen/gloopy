@@ -13,6 +13,7 @@
 #include "SIMDHelpers.h"
 #include "utility/Debug.h"
 #include <absl/container/flat_hash_map.h>
+#include <absl/strings/str_cat.h>   // gloopy: newer Abseil no longer pulls StrCat/StrAppend in transitively
 #include <absl/strings/string_view.h>
 #include <vector>
 #include <algorithm>

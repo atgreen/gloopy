@@ -58,22 +58,16 @@ endif()
 # is set to 14. This happens at least with Archlinux and FreeBSD.
 # We'll need also to check if to set ABSL_PROPAGATE_CXX_STD=OFF in future versions.
 if(SFIZZ_USE_SYSTEM_ABSEIL)
-    find_package(absl REQUIRED)
+    # gloopy local change: find Abseil with GLOBAL so ALL its imported targets are
+    # visible to sibling directories (notably gRPC, which re-find_package()s absl).
+    # The upstream code promoted only three targets to global scope, which left
+    # Abseil's export set half-defined and tripped its "some (but not all) targets
+    # already defined" guard when gRPC pulled absl in. GLOBAL (CMake 3.24+, and we
+    # require 4.x) makes the whole set global in one shot. See also the Tunings note.
+    find_package(absl REQUIRED GLOBAL)
     if(absl_FOUND)
         # Workaround for silent Abseil module, see #1117
         message(STATUS "Found system Abseil libraries, version ${absl_VERSION}")
-
-        # Make Abseil to be usable globally also for plugins project:
-        # in CMake 3.24+ we can use `find_package(absl REQUIRED GLOBAL)`,
-        # this requires CMake 3.11+ instead.
-        # For older versions compatibility see
-        # https://stackoverflow.com/questions/45401212/how-to-make-imported-target-global-afterwards
-        set_target_properties(
-            absl::strings
-            absl::optional
-            absl::container_common
-                PROPERTIES IMPORTED_GLOBAL TRUE
-        )
     endif()
 else()
     function(sfizz_add_vendor_abseil)
@@ -99,8 +93,10 @@ if(SFIZZ_USE_SYSTEM_CXXOPTS)
     add_library(sfizz_cxxopts INTERFACE)
     target_include_directories(sfizz_cxxopts INTERFACE "${CXXOPTS_INCLUDE_DIR}")
 else()
+    # gloopy local change: dropped a redundant `add_library(sfizz::cxxopts ALIAS ...)`
+    # here — the unconditional one just below defines it for both branches. The
+    # duplicate is tolerated by plain CMake but rejected by vcpkg's add_library wrapper.
     add_library(sfizz_cxxopts INTERFACE)
-    add_library(sfizz::cxxopts ALIAS sfizz_cxxopts)
     target_include_directories(sfizz_cxxopts INTERFACE "external/cxxopts")
 endif()
 add_library(sfizz::cxxopts ALIAS sfizz_cxxopts)
