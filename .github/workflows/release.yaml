@@ -54,7 +54,11 @@ jobs:
       # Init ONLY the Surge sub-libs surge-common needs (NOT JUCE). init-surge.sh
       # also inits the third_party/surge submodule itself.
       - name: Initialize Surge source
-        run: bash scripts/init-surge.sh
+        run: |
+          # The container runs as root over a checkout actions/checkout made as another user,
+          # so git rejects it as "dubious ownership" — trust the workspace for the git steps.
+          git config --global --add safe.directory '*'
+          bash scripts/init-surge.sh
 
       # Build the full Surge XT LV2 plugin and stage it at third_party/surge-plugin/, so the
       # CMake install rule (if(EXISTS ...), evaluated at configure time) bundles it — this MUST
@@ -105,7 +109,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Initialize Surge source
-        run: bash scripts/init-surge.sh
+        run: |
+          # The container runs as root over a checkout actions/checkout made as another user,
+          # so git rejects it as "dubious ownership" — trust the workspace for the git steps.
+          git config --global --add safe.directory '*'
+          bash scripts/init-surge.sh
 
       # Build the full Surge XT LV2 plugin and stage it at third_party/surge-plugin/, so the
       # CMake install rule (if(EXISTS ...), evaluated at configure time) bundles it — this MUST
