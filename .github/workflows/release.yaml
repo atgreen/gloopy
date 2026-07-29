@@ -41,7 +41,7 @@ jobs:
       - name: Install build dependencies
         run: |
           dnf install -y --setopt=install_weak_deps=False \
-            git cmake ninja-build gcc-c++ make rpm-build \
+            git cmake ninja-build gcc-c++ make rpm-build pkgconf-pkg-config \
             alsa-lib-devel freetype-devel libX11-devel libXrandr-devel \
             libXinerama-devel libXcursor-devel libXext-devel \
             mesa-libGL-devel libXrender-devel libXi-devel \
@@ -99,7 +99,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            git ca-certificates cmake ninja-build g++ make dpkg-dev file \
+            git ca-certificates cmake ninja-build g++ make dpkg-dev file pkg-config \
             libasound2-dev libfreetype-dev libx11-dev libxrandr-dev \
             libxinerama-dev libxcursor-dev libxext-dev \
             libgl1-mesa-dev libxrender-dev libxi-dev \
