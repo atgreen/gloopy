@@ -107,8 +107,7 @@ jobs:
             --clean-buildtrees-after-build --clean-downloads-after-build
           Get-PSDrive C | Format-Table Name,@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
 
-      # Ninja (not MSBuild) — lighter scheduling, and it supports CMAKE_*_COMPILER_LAUNCHER so
-      # sccache can wrap cl.exe. CMAKE_BUILD_TYPE=Release (Ninja is single-config).
+      # Ninja (not MSBuild) — lighter scheduling. CMAKE_BUILD_TYPE=Release (Ninja is single-config).
       - name: Configure
         shell: pwsh
         run: >
