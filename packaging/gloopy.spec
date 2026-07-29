@@ -38,6 +38,7 @@ install -Dm0644 "%{gloopy_srcdir}/LICENSE" "%{buildroot}%{_defaultlicensedir}/%{
 %license %{_defaultlicensedir}/%{name}/LICENSE
 %{_bindir}/gloopy
 %{_datadir}/gloopy/
+%doc %{_datadir}/doc/gloopy/
 %{_libdir}/gloopy/
 
 %changelog
