@@ -1,30 +1,38 @@
 # SPDX-FileCopyrightText: 2026 Anthony Green <green@moxielogic.com>
 # SPDX-License-Identifier: AGPL-3.0-only
+#
+# The single Linux CI. A lean build (GLOOPY_WITH_SURGE=OFF — the Surge-enabled
+# build is exercised by release.yaml), then: unit tests, a bit-reproducible render
+# check, the headless gRPC smoke test, and a sanitized (ASan+UBSan) test pass.
+# The Windows build lives in windows.yml; packaging in release.yaml.
 name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  build-and-test:
-    runs-on: ubuntu-24.04
+  build-test:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build g++ pkg-config \
+            cmake ninja-build g++ make pkg-config \
             libasound2-dev libjack-jackd2-dev \
             libx11-dev libxext-dev libxrandr-dev libxinerama-dev \
             libxcursor-dev libxcomposite-dev libxi-dev libxrender-dev \
             libfreetype6-dev libfontconfig1-dev libgl1-mesa-dev \
-            libprotobuf-dev protobuf-compiler \
-            libgrpc++-dev protobuf-compiler-grpc \
+            libgrpc++-dev protobuf-compiler-grpc libprotobuf-dev protobuf-compiler \
             xvfb
 
       - name: Install grpcurl (smoke-test driver)
@@ -39,14 +47,35 @@ jobs:
           path: build/_deps
           key: juce-8.0.15-${{ runner.os }}
 
+      # Lean build: fast, pure-AGPL, no Surge submodule. The Surge-enabled build is
+      # validated by the release workflow.
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGLOOPY_TESTS=ON
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGLOOPY_WITH_SURGE=OFF -DGLOOPY_TESTS=ON
 
-      - name: Build app + tests
+      - name: Build
         run: cmake --build build
 
-      - name: Unit tests (NoteScheduler / serialization)
+      - name: Unit tests (ctest)
         run: ctest --test-dir build --output-on-failure
 
+      # Composition-as-repo relies on bit-reproducible renders: render an example twice
+      # and fail if the output isn't byte-identical (catches run-to-run nondeterminism).
+      - name: Render determinism
+        run: bash scripts/check-render-determinism.sh
+
+      # Drives the app over gRPC and renders audio offline, under a virtual X server.
       - name: Headless smoke test (gRPC + offline render)
-        run: xvfb-run -a ./tests/smoke.sh
+        run: xvfb-run -a bash tests/smoke.sh
+
+      # Unit tests under ASan + UBSan (a separate instrumented Debug build) to catch memory
+      # errors / UB in the DSP/logic code. -fno-sanitize-recover makes UBSan fail on the first
+      # violation; leak detection is off (LSan needs ptrace the runner may deny, and static-init
+      # "leaks" are benign).
+      - name: Sanitized unit tests (ASan + UBSan)
+        run: |
+          cmake -B build-san -G Ninja -DCMAKE_BUILD_TYPE=Debug -DGLOOPY_WITH_SURGE=OFF -DGLOOPY_TESTS=ON \
+            -DCMAKE_CXX_FLAGS="-fsanitize=undefined,address -fno-omit-frame-pointer -fno-sanitize-recover=undefined" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=undefined,address"
+          cmake --build build-san --target GloopyTests
+          UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 ASAN_OPTIONS=detect_leaks=0 \
+            ctest --test-dir build-san --output-on-failure
