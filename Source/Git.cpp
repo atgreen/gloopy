@@ -141,8 +141,10 @@ MainComponent::GitResult MainComponent::apiGitInit (const juce::String& dirStr)
     // `git init` is safe to run on an already-initialised repo (idempotent), so saving a
     // composition folder can call this unconditionally to auto-init it. The .gitignore is
     // owned by the composition writer (kGitignore), so we don't write one here.
+    // `-b main` pins the initial branch so a new project is deterministic regardless of the
+    // user's init.defaultBranch (some systems still default to `master`); ignored on re-init.
     juce::String out;
-    const int code = runGit ({ "-C", dir.getFullPathName(), "init" }, out, /*alsoStderr*/ true);
+    const int code = runGit ({ "-C", dir.getFullPathName(), "init", "-b", "main" }, out, /*alsoStderr*/ true);
     if (code != 0)
     {
         r.error = out.trim().isNotEmpty() ? out.trim() : "git init failed";
