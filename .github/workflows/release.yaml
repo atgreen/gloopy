@@ -192,7 +192,6 @@ jobs:
       # 10 GB / 7-day eviction), so grpc + its deps are built ONCE and restored forever; x-gha is
       # a fast, evictable backstop. Restoring skips the from-source build that exhausted disk.
       VCPKG_BINARY_SOURCES: "clear;nuget,GitHubPackages,readwrite;x-gha,readwrite"
-      SCCACHE_GHA_ENABLED: "true"   # sccache stores compiled objects in the GHA cache
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -210,10 +209,6 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-
-      # Compiler cache: skip recompiling unchanged translation units across runs.
-      - name: Set up sccache
-        uses: mozilla-actions/sccache-action@v0.0.7
 
       # x-gha (the vcpkg GHA cache backend) needs these runner-internal vars exported.
       - name: Enable vcpkg binary caching
@@ -264,14 +259,12 @@ jobs:
             --clean-buildtrees-after-build --clean-downloads-after-build
           Get-PSDrive C | Format-Table Name,@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
 
-      # Ninja (not MSBuild) — lighter scheduling, and it supports CMAKE_*_COMPILER_LAUNCHER so
-      # sccache can wrap cl.exe. CMAKE_BUILD_TYPE=Release (Ninja is single-config).
+      # Ninja (not MSBuild) — lighter scheduling. CMAKE_BUILD_TYPE=Release (Ninja is single-config).
       - name: Configure
         shell: pwsh
         run: >
           cmake -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_TARGET_TRIPLET=x64-windows-release
           -DVCPKG_OVERLAY_TRIPLETS="$env:GITHUB_WORKSPACE/ci/triplets"
