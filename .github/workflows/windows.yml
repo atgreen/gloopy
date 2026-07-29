@@ -48,7 +48,12 @@ jobs:
       - name: Install gRPC (vcpkg)
         shell: pwsh
         run: |
-          & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install grpc:x64-windows
+          Get-PSDrive C | Format-Table Name,@{n='UsedGB';e={[math]::Round($_.Used/1GB,1)}},@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
+          # --clean-*-after-build keeps peak disk down: grpc pulls openssl/protobuf/abseil/...,
+          # whose build trees can otherwise exhaust the runner's C: drive (a multi-hour build
+          # that then fails). The installed packages are kept for the build below.
+          & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install grpc:x64-windows --clean-buildtrees-after-build --clean-downloads-after-build
+          Get-PSDrive C | Format-Table Name,@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
 
       - name: Configure
         shell: pwsh
