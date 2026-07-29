@@ -399,9 +399,9 @@ print('yes' if ok else 'no')")
     g -d "{\"dir\":\"$RMD\",\"name\":\"origin\",\"url\":\"$BARE\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitAddRemote >/dev/null
     RMLIST=$(g -d "{\"dir\":\"$RMD\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitListRemotes | python3 -c "import json,sys;r=json.load(sys.stdin).get('remotes',[]);print(r[0]['name'] if r else '')")
     g -d "{\"dir\":\"$RMD\",\"remote\":\"origin\",\"branch\":\"$RMBR\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/GitPush >/dev/null
-    { [ "$RMLIST" = origin ] && git -C "$BARE" log --oneline 2>/dev/null | grep -q pushme; } \
+    { [ "$RMLIST" = origin ] && git -C "$BARE" log --oneline --all 2>/dev/null | grep -q pushme; } \
         && echo "smoke: PASS — GitAddRemote + GitPush landed the commit in a bare remote (ListRemotes=$RMLIST)" \
-        || { echo "smoke: git push wrong (list=$RMLIST, bare log=$(git -C "$BARE" log --oneline 2>&1 | head -1))" >&2; exit 1; }
+        || { echo "smoke: git push wrong (list=$RMLIST, bare log=$(git -C "$BARE" log --oneline --all 2>&1 | head -1))" >&2; exit 1; }
     g -d "{\"path\":\"$WORK/rmt_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
     # Merge-conflict resolution (Wave 9 slice 11): two branches change the SAME cutoff line ->
     # merge conflicts -> resolve each 'ours' -> continue -> conflicts clear, merge completes,
