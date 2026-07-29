@@ -440,8 +440,14 @@ print('yes' if ok else 'no')")
                echo "  DIAG HEAD=$(git -C "$CND" rev-parse --abbrev-ref HEAD 2>&1)"
                echo "  DIAG branches=[$(git -C "$CND" for-each-ref --format='%(refname:short)' refs/heads 2>&1 | tr '\n' ' ')]"
                echo "  DIAG status=[$(git -C "$CND" status --porcelain 2>&1 | tr '\n' ';')]"
-               echo "  DIAG base_cutoff=[$(git -C "$CND" show "$CNBR":tracks/cnflead.toml 2>/dev/null | grep -i cutoff | tr '\n' ' ')]"
-               echo "  DIAG feat_cutoff=[$(git -C "$CND" show feat:tracks/cnflead.toml 2>/dev/null | grep -i cutoff | tr '\n' ' ')]"; } >&2
+               echo "  DIAG main_cutoff=[$(git -C "$CND" show "$CNBR":tracks/cnflead.toml 2>/dev/null | grep -i cutoff | tr '\n' ' ')]"
+               echo "  DIAG feat_cutoff=[$(git -C "$CND" show feat:tracks/cnflead.toml 2>/dev/null | grep -i cutoff | tr '\n' ' ')]"
+               echo "  DIAG mergebase=[$(git -C "$CND" merge-base "$CNBR" feat 2>&1 | tr '\n' ' ')]"
+               echo "  DIAG anc_cutoff=[$(mb=$(git -C "$CND" merge-base "$CNBR" feat 2>/dev/null); git -C "$CND" show "$mb:tracks/cnflead.toml" 2>/dev/null | grep -i cutoff | tr '\n' ' ')]"
+               echo "  DIAG graph=[$(git -C "$CND" log --oneline --all --graph 2>&1 | tr '\n' ';')]"
+               # Re-run the merge to capture git's actual message (the app swallows it), then abort.
+               echo "  DIAG remerge=[$(git -C "$CND" merge --no-edit feat 2>&1 | tr '\n' ';')]"
+               git -C "$CND" merge --abort 2>/dev/null || true; } >&2
              exit 1; }
     g -d "{\"path\":\"$WORK/cnf_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/LoadProject >/dev/null   # restore the session
     # Config + polish (Wave 9 slice 12): per-project identity override + opt-in auto-commit-on-save.
