@@ -22,14 +22,20 @@ on:
 
 permissions:
   contents: read
+  packages: write   # push vcpkg binary packages to the GitHub Packages NuGet feed (durable cache)
 
 jobs:
   build-windows:
     runs-on: windows-latest
     env:
-      # Cache vcpkg-built binaries (grpc + its deps) in the GitHub Actions cache, so only the
-      # first run pays the from-source build; later runs restore in minutes.
-      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      # vcpkg binary caching: build each component (grpc + abseil/protobuf/openssl/re2/c-ares/zlib)
+      # ONCE, then restore the prebuilt package and skip its build on every later run. Two tiers:
+      #   * nuget on GitHub Packages — DURABLE: not subject to the Actions-cache 10 GB / 7-day
+      #     eviction, so once grpc is seeded it is restored indefinitely (the persistence we need).
+      #   * x-gha (Actions cache) — fast local tier, but evictable; a backstop, not the source of truth.
+      # Restoring skips the giant from-source buildtree entirely, which is what avoids the disk
+      # exhaustion (LNK1180) that killed the seeding run — see the Install gRPC step.
+      VCPKG_BINARY_SOURCES: "clear;nuget,GitHubPackages,readwrite;x-gha,readwrite"
       SCCACHE_GHA_ENABLED: "true"   # sccache stores compiled objects in the GHA cache
     steps:
       - name: Checkout
@@ -62,8 +68,38 @@ jobs:
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
             core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
 
+      # Durable binary cache: authenticate vcpkg's nuget against the repo's GitHub Packages
+      # feed so each built component is PUSHED there and RESTORED on later runs (survives the
+      # Actions-cache eviction). Uses the job's GITHUB_TOKEN; the source name matches
+      # VCPKG_BINARY_SOURCES above. Best-effort: a fork PR has no packages:write, so tolerate failure.
+      - name: Set up NuGet binary cache (GitHub Packages)
+        shell: pwsh
+        continue-on-error: true
+        env:
+          GH_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $feed = "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          $nuget = & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" fetch nuget | Select-Object -Last 1
+          & $nuget sources add -Source $feed -Name GitHubPackages -Username "${{ github.repository_owner }}" -Password "$env:GH_PACKAGES_TOKEN" -StorePasswordInClearText
+          & $nuget setapikey "$env:GH_PACKAGES_TOKEN" -Source $feed
+
+      # Free space on C: before the (cache-cold) seed build. The runner leaves only ~14 GB
+      # free; the from-source grpc build overflowed it once (LNK1180). Removing the large,
+      # unused Android SDK reclaims ~9 GB — enough headroom for the release-only seed build.
+      # Once the NuGet cache is seeded, later runs restore prebuilts and skip this pressure.
+      - name: Free up disk space
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          foreach ($p in @("C:\Android", "${env:ANDROID_SDK_ROOT}", "${env:ANDROID_HOME}")) {
+            if ($p -and (Test-Path $p)) { Remove-Item $p -Recurse -Force -ErrorAction SilentlyContinue }
+          }
+          Get-PSDrive C | Format-Table Name,@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
+
       # gRPC + protobuf via the vcpkg pre-installed on the runner ($VCPKG_INSTALLATION_ROOT).
       # This is the long pole; grpc pulls protobuf/abseil/re2/c-ares/zlib/openssl.
+      # With the caches above, the FIRST run seeds them (from source); every later run restores
+      # the prebuilt packages and skips this build entirely.
       - name: Install gRPC (vcpkg)
         shell: pwsh
         run: |

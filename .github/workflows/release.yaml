@@ -27,6 +27,7 @@ on:
 
 permissions:
   contents: write   # create the GitHub release + upload assets (tag runs only)
+  packages: write   # push vcpkg binary packages to the GitHub Packages NuGet feed (durable cache)
 
 jobs:
   # =====================================================================
@@ -187,9 +188,10 @@ jobs:
     if: ${{ github.event_name == 'push' || github.event.inputs.packages == 'all' || github.event.inputs.packages == 'windows' }}
     runs-on: windows-latest
     env:
-      # Cache vcpkg-built binaries (grpc + deps) in the GitHub Actions cache, so only the
-      # first run pays the from-source build; later runs restore in minutes.
-      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      # Binary cache, two tiers: nuget on GitHub Packages is DURABLE (survives the Actions-cache
+      # 10 GB / 7-day eviction), so grpc + its deps are built ONCE and restored forever; x-gha is
+      # a fast, evictable backstop. Restoring skips the from-source build that exhausted disk.
+      VCPKG_BINARY_SOURCES: "clear;nuget,GitHubPackages,readwrite;x-gha,readwrite"
       SCCACHE_GHA_ENABLED: "true"   # sccache stores compiled objects in the GHA cache
     steps:
       - name: Checkout
@@ -222,9 +224,34 @@ jobs:
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
             core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
 
+      # Durable binary cache: authenticate vcpkg's nuget against the repo's GitHub Packages feed
+      # (source name matches VCPKG_BINARY_SOURCES). Seeded once, restored on every later run.
+      - name: Set up NuGet binary cache (GitHub Packages)
+        shell: pwsh
+        continue-on-error: true
+        env:
+          GH_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $feed = "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          $nuget = & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" fetch nuget | Select-Object -Last 1
+          & $nuget sources add -Source $feed -Name GitHubPackages -Username "${{ github.repository_owner }}" -Password "$env:GH_PACKAGES_TOKEN" -StorePasswordInClearText
+          & $nuget setapikey "$env:GH_PACKAGES_TOKEN" -Source $feed
+
+      # Reclaim disk before the cache-cold seed build (the runner leaves only ~14 GB free;
+      # a from-source grpc build overflowed it once). The unused Android SDK is ~9 GB.
+      - name: Free up disk space
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          foreach ($p in @("C:\Android", "${env:ANDROID_SDK_ROOT}", "${env:ANDROID_HOME}")) {
+            if ($p -and (Test-Path $p)) { Remove-Item $p -Recurse -Force -ErrorAction SilentlyContinue }
+          }
+          Get-PSDrive C | Format-Table Name,@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
+
       # gRPC + protobuf via the vcpkg pre-installed on the runner. This is the long
       # pole (grpc pulls protobuf/abseil/re2/c-ares/zlib/openssl) — hence a manual
-      # dispatch can pick `packages: linux` to skip it.
+      # dispatch can pick `packages: linux` to skip it. With the caches above, only the
+      # first run builds from source; later runs restore the prebuilts.
       - name: Install gRPC (vcpkg)
         shell: pwsh
         run: |
