@@ -1,5 +1,13 @@
 # Gloopy
 
+> ⚠️ **Highly experimental — don't bother trying it yet.**
+> Gloopy is under active development: unstable, incomplete, and subject to change
+> without notice. There are no supported releases, and interfaces, project
+> formats, and behaviour will break from one commit to the next.
+>
+> **Upstream is `cave.moxielogic.com:atgreen/gloopy` — this GitHub repository is a
+> read-only mirror of it.**
+
 A linear-arranger DAW.
 
 Lay instrument, audio, and MIDI **tracks** down a timeline; each track owns its
