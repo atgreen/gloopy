@@ -49,10 +49,12 @@ jobs:
         shell: pwsh
         run: |
           Get-PSDrive C | Format-Table Name,@{n='UsedGB';e={[math]::Round($_.Used/1GB,1)}},@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
-          # --clean-*-after-build keeps peak disk down: grpc pulls openssl/protobuf/abseil/...,
-          # whose build trees can otherwise exhaust the runner's C: drive (a multi-hour build
-          # that then fails). The installed packages are kept for the build below.
-          & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install grpc:x64-windows --clean-buildtrees-after-build --clean-downloads-after-build
+          # x64-windows-release (ci/triplets) is release-only — the default x64-windows builds
+          # every dep twice (debug + release), which is most of the multi-hour build. --clean-*
+          # -after-build additionally keeps peak disk down (grpc pulls openssl/protobuf/abseil/...).
+          & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install grpc:x64-windows-release `
+            --overlay-triplets="$env:GITHUB_WORKSPACE/ci/triplets" `
+            --clean-buildtrees-after-build --clean-downloads-after-build
           Get-PSDrive C | Format-Table Name,@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
 
       - name: Configure
@@ -60,7 +62,8 @@ jobs:
         run: >
           cmake -B build -G "Visual Studio 17 2022" -A x64
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
-          -DVCPKG_TARGET_TRIPLET=x64-windows
+          -DVCPKG_TARGET_TRIPLET=x64-windows-release
+          -DVCPKG_OVERLAY_TRIPLETS="$env:GITHUB_WORKSPACE/ci/triplets"
           -DGLOOPY_WITH_SURGE=OFF -DGLOOPY_TESTS=ON
 
       - name: Build
