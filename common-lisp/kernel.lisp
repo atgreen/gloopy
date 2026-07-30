@@ -122,6 +122,14 @@
                                      :request-type 'gloopy.pb::gen-request  :response-type 'gloopy.pb::gen-result)
     (format t "KERNEL-PORT ~a~%" port)
     (finish-output)
+    ;; Robust handshake: if the host passed a port-file path, write the port there
+    ;; (atomically) so it doesn't have to parse our stdout past the proto-compile output.
+    (let ((pf (sb-ext:posix-getenv "GLOOPY_KERNEL_PORTFILE")))
+      (when pf
+        (let ((tmp (concatenate 'string pf ".tmp")))
+          (with-open-file (o tmp :direction :output :if-exists :supersede :if-does-not-exist :create)
+            (format o "~a~%" port))
+          (rename-file tmp pf))))
     (ag-grpc:server-start server)))
 
 ;;; Self-test: exercise the Generate handler with a synthetic request (no server /

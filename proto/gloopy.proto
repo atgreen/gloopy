@@ -214,6 +214,8 @@ message AddSfzTrackRequest     { string name = 1; string path = 2; }   // native
 message AddSurgeTrackRequest   { string name = 1; string patch = 2; } // embedded Surge XT (patch = optional .fxp)
 message AddPluginTrackRequest  { string identifier = 1; }                        // PluginInfo.identifier
 message ClipRef            { int32 track_id = 1; int32 index = 2; }
+// Mark a clip as a script clip (source/lang/seed) and (re)generate its notes from the kernel.
+message RegenerateRequest  { int32 track_id = 1; int32 index = 2; string script = 3; string lang = 4; int64 seed = 5; }
 message RenameClipRequest  { int32 track_id = 1; int32 index = 2; string name = 3; }   // empty -> track name
 message ClipColourRequest  { int32 track_id = 1; int32 index = 2; string colour = 3; }   // 8-hex ARGB; empty -> inherit track
 message ScaleTimeRequest  { int32 track_id = 1; int32 index = 2; double factor = 3; }   // 0.5 double-time, 2 half-time
@@ -486,6 +488,7 @@ service Gloopy {
   rpc AddSurgeTrack   (AddSurgeTrackRequest)   returns (TrackId);
   rpc AddPluginTrack  (AddPluginTrackRequest)  returns (TrackId);
   rpc RemoveClip      (ClipRef)                returns (Ack);
+  rpc RegenerateClip  (RegenerateRequest)      returns (Ack);   // mark a clip as a script clip and generate its notes from the kernel
   rpc MoveClip        (MoveClipRequest)        returns (Ack);
   rpc AddAudioClip    (AddAudioClipRequest)    returns (ClipId);
   rpc SplitClip       (SplitClipRequest)       returns (ClipId);    // -> new (right) clip

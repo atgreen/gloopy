@@ -2476,6 +2476,51 @@ bool MainComponent::apiRemoveClip (int trackId, int index)
     });
 }
 
+// Mark a clip as a script clip and (re)generate its notes from the language kernel.
+// The kernel call runs on the CALLING thread (it can block on first launch while the
+// image compiles); only the note materialisation touches the model, on the message thread.
+bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::String& source,
+                                       const juce::String& lang, juce::int64 seed, juce::String& error)
+{
+    KernelHost::GenParams p;
+    p.source = source; p.trackId = trackId; p.clipIndex = index; p.seed = seed;
+    p.tempoBpm = transport.getBpm();
+    bool found = callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        const juce::ScopedLock sl (engineLock);
+        if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+        p.clipLenBeats = t->clips[(size_t) index].contentLenBeats;
+        return true;
+    });
+    if (! found) { error = "regenerate: no such clip"; return false; }
+
+    std::vector<Note> notes;
+    if (! kernelHost.generate (p, notes, error)) return false;   // off the message thread
+
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+            auto& c = t->clips[(size_t) index];
+            c.type = ClipType::Midi;
+            c.scriptSource = source;
+            c.scriptLang   = lang.isNotEmpty() ? lang : juce::String ("common-lisp");
+            c.scriptSeed   = seed;
+            c.notes        = notes;
+        }
+        emitChange ("clip_changed", trackId);
+        if (arrangeView) arrangeView->rebuild();
+        loadSelectedClipIntoEditor();
+        return true;
+    });
+}
+
 bool MainComponent::apiMoveClip (int trackId, int index, double startBeat, bool hasToTrack, int toTrackId)
 {
     return callOnMessageThread ([&] () -> bool

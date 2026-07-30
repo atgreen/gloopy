@@ -91,6 +91,7 @@ target_sources(Gloopy PRIVATE
     Source/Tempo.cpp
     Source/Notes.cpp
     Source/Git.cpp
+    Source/KernelHost.cpp
     Source/Controllers.cpp
     Source/Waveform.cpp
     Source/ArrangeView.cpp

@@ -16,6 +16,7 @@
 #include "TimeTypes.h"
 #include "ArrangeView.h"
 #include "BusyOverlay.h"
+#include "KernelHost.h"
 #include "PianoRoll.h"
 #include "StepEditor.h"
 #include "IconButton.h"
@@ -508,6 +509,9 @@ public:
     juce::StringArray sampleSearchRoots() const;
     int  apiAddPluginTrack (const juce::String& identifier);           // track id, or -1
     bool apiRemoveClip (int trackId, int index);
+    // Mark a clip as a script clip and generate its notes from the language kernel (cave #9).
+    bool apiRegenerateClip (int trackId, int index, const juce::String& source,
+                            const juce::String& lang, juce::int64 seed, juce::String& error);
     bool apiMoveClip (int trackId, int index, double startBeat, bool hasToTrack, int toTrackId);
     int  apiAddAudioClip (int trackId, double startBeat, const juce::String& path, float gain);  // clip index, or -1
 
@@ -886,6 +890,7 @@ private:
     // `done` runs back on the message thread (safe to touch the engine) before the
     // overlay hides.
     BusyOverlay busyOverlay;
+    KernelHost  kernelHost;                          // language kernel for script clips (cave #9)
     juce::ThreadPool bgPool { 1 };
     void runBackground (const juce::String& label,
                         std::function<void()> heavy, std::function<void()> done);

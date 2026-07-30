@@ -934,6 +934,15 @@ namespace
         Status RemoveClip (ServerContext*, const gpb::ClipRef* q, gpb::Ack* r) override
         { const bool ok = main.apiRemoveClip (q->track_id(), q->index()); r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
 
+        Status RegenerateClip (ServerContext*, const gpb::RegenerateRequest* q, gpb::Ack* r) override
+        {
+            juce::String err;
+            const bool ok = main.apiRegenerateClip (q->track_id(), q->index(), js (q->script()),
+                                                    js (q->lang()), (juce::int64) q->seed(), err);
+            r->set_ok (ok); if (! ok) r->set_error (err.toStdString());
+            return Status::OK;
+        }
+
         Status MoveClip (ServerContext*, const gpb::MoveClipRequest* q, gpb::Ack* r) override
         {
             const bool ok = main.apiMoveClip (q->track_id(), q->index(), q->start_beat(),
