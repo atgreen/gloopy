@@ -23,6 +23,9 @@ tagged release.
 ### Fixed
 - The About dialog and status bar now show the actual release version instead of a
   hardcoded `0.1.0`.
+- Long, message-thread-bound loads (templates, opening a project, adding a plugin,
+  importing audio) now reliably show the "Loading…" busy indicator instead of briefly
+  freezing with no feedback.
 
 ## [0.1.1] - 2026-07-30
 

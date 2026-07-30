@@ -889,6 +889,10 @@ private:
     juce::ThreadPool bgPool { 1 };
     void runBackground (const juce::String& label,
                         std::function<void()> heavy, std::function<void()> done);
+    // Show the busy overlay, then run message-thread-bound `work` after it has painted, so
+    // a long load shows the "Loading…" indicator rather than a frozen UI. Prefer
+    // runBackground() when the work can move off the message thread (that also animates).
+    void showBusyThen (const juce::String& label, std::function<void()> work);
     std::unordered_map<int, Track*> idMap;
     juce::CriticalSection idMapLock;
     std::unique_ptr<OscControl> osc;

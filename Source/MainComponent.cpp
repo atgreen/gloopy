@@ -102,8 +102,7 @@ MainComponent::MainComponent (bool headless)
                 "with scripts/build-surge-plugin.sh, then Rescan Plugins.");
             return;
         }
-        busyOverlay.show ("Adding Surge XT…");
-        juce::MessageManager::callAsync ([this, id] { apiAddPluginTrack (id); busyOverlay.hide(); });
+        showBusyThen ("Adding Surge XT…", [this, id] { apiAddPluginTrack (id); });
     };
     auto addBasicSynth = [this]
     {
@@ -242,8 +241,7 @@ MainComponent::MainComponent (bool headless)
           [this] { return apiListTemplates(); },
           [this] (const juce::String& name)
           {
-              busyOverlay.show ("Loading " + name + "…");
-              juce::MessageManager::callAsync ([this, name] { apiNewFromTemplate (name); busyOverlay.hide(); });
+              showBusyThen ("Loading " + name + "…", [this, name] { apiNewFromTemplate (name); });
           },
           [this] (const juce::String& name) { apiAddFavorite ("template", name, name); browser->refresh(); },
           "Add to Favorites",
@@ -253,8 +251,7 @@ MainComponent::MainComponent (bool headless)
           [this] (const juce::String& name)
           {
               const auto f = demosDir().getChildFile (name);
-              busyOverlay.show ("Opening " + name + "…");
-              juce::MessageManager::callAsync ([this, f] { openAny (f); busyOverlay.hide(); });
+              showBusyThen ("Opening " + name + "…", [this, f] { openAny (f); });
           },
           {}, {},
           [this] (const juce::String& name) { return "demo\t" + demosDir().getChildFile (name).getFullPathName() + "\t" + name; } },
@@ -277,8 +274,7 @@ MainComponent::MainComponent (bool headless)
               const auto it = browserPluginIds.find (label);
               if (it == browserPluginIds.end()) return;
               const auto id = it->second;
-              busyOverlay.show ("Loading " + label + "…");
-              juce::MessageManager::callAsync ([this, id] { apiAddPluginTrack (id); busyOverlay.hide(); });
+              showBusyThen ("Loading " + label + "…", [this, id] { apiAddPluginTrack (id); });
           },
           [this] (const juce::String& label)
           {
@@ -293,8 +289,7 @@ MainComponent::MainComponent (bool headless)
           [this] (const juce::String& name)
           {
               const auto f = samplesDir().getChildFile (name);
-              busyOverlay.show ("Importing " + name + "…");
-              juce::MessageManager::callAsync ([this, f] { apiImportAudio (f.getFullPathName()); busyOverlay.hide(); });
+              showBusyThen ("Importing " + name + "…", [this, f] { apiImportAudio (f.getFullPathName()); });
           },
           [this] (const juce::String& name)
           { apiAddFavorite ("sample", samplesDir().getChildFile (name).getFullPathName(), name); browser->refresh(); },
@@ -2837,6 +2832,22 @@ void MainComponent::buildTemplate (const juce::String& name)
     seed (2, { 0, 2, 4, 6, 8, 10, 12, 14 });
     seed (3, { 8 });
     seed (4, { 0, 3, 6, 8, 11, 14 });
+}
+
+// Show the busy overlay and defer message-thread-bound `work` by one timer tick, so the
+// overlay paints its "Loading…" indicator before the (blocking) work freezes the message
+// thread. For work that can run off the message thread, use runBackground() — that keeps
+// the spinner animating throughout.
+void MainComponent::showBusyThen (const juce::String& label, std::function<void()> work)
+{
+    busyOverlay.show (label);
+    juce::Component::SafePointer<MainComponent> sp { this };
+    juce::Timer::callAfterDelay (60, [sp, work = std::move (work)]
+    {
+        if (sp == nullptr) return;
+        work();
+        sp->busyOverlay.hide();
+    });
 }
 
 void MainComponent::runBackground (const juce::String& label,
@@ -5488,10 +5499,8 @@ void MainComponent::showFileMenu()
                 {
                     const auto name = templates[(size_t) (result - 100)];
                     // A template may load a big sampled instrument (piano SFZ) — show the
-                    // busy overlay while it builds so the UI doesn't look frozen.
-                    busyOverlay.show ("Loading " + name + "…");
-                    juce::MessageManager::callAsync ([this, name]
-                        { apiNewFromTemplate (name); busyOverlay.hide(); });
+                    // busy overlay (and let it paint) while it builds so the UI shows progress.
+                    showBusyThen ("Loading " + name + "…", [this, name] { apiNewFromTemplate (name); });
                 }
                 return;
             }
