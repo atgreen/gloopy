@@ -344,6 +344,9 @@ jobs:
           # Third-party license texts: the collected in-tree set + the manifest, plus the
           # vcpkg-linked deps' copyrights (grpc/protobuf/abseil/... are statically linked on
           # Windows, unlike Linux where the system packages carry them).
+          # Gloopy's own AGPL-3.0 license text, at the zip root (a distributed AGPL binary
+          # must carry the license itself, not just the third-party notices).
+          Copy-Item LICENSE "$stage/LICENSE.txt" -Force
           New-Item -ItemType Directory -Force -Path "$stage/licenses" | Out-Null
           Copy-Item THIRD-PARTY-LICENSES.md "$stage/licenses/" -Force
           Copy-Item licenses/* "$stage/licenses/" -Recurse -Force
