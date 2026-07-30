@@ -3,7 +3,33 @@
 
 cmake_minimum_required(VERSION 3.22)
 
-project(Gloopy VERSION 0.1.0 LANGUAGES C CXX)
+# --- Version -------------------------------------------------------------------------
+# The in-app version (About box + status-bar) is JUCE_APPLICATION_VERSION_STRING, which
+# comes from this project() version — so it MUST track the release, not a hardcoded value.
+# Resolution order:
+#   1. -DGLOOPY_VERSION=X.Y.Z   the release packaging passes the tag (see release.yaml)
+#   2. the nearest git tag       a local checkout with tags (dev builds)
+#   3. GLOOPY_VERSION_FALLBACK   tarball builds with no .git / no tags
+set(GLOOPY_VERSION_FALLBACK "0.1.1")
+if(NOT DEFINED GLOOPY_VERSION OR GLOOPY_VERSION STREQUAL "")
+  set(GLOOPY_VERSION "")
+  find_program(GIT_EXECUTABLE git)
+  if(GIT_EXECUTABLE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+    execute_process(
+      COMMAND "${GIT_EXECUTABLE}" describe --tags --abbrev=0
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+      OUTPUT_VARIABLE GLOOPY_VERSION
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_QUIET)
+    string(REGEX REPLACE "^v" "" GLOOPY_VERSION "${GLOOPY_VERSION}")
+  endif()
+  if(GLOOPY_VERSION STREQUAL "")
+    set(GLOOPY_VERSION "${GLOOPY_VERSION_FALLBACK}")
+  endif()
+endif()
+message(STATUS "Gloopy version: ${GLOOPY_VERSION}")
+
+project(Gloopy VERSION ${GLOOPY_VERSION} LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

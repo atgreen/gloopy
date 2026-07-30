@@ -75,7 +75,10 @@ jobs:
 
       - name: Configure + build
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          # Bake the release version into the binary (About box + status bar). On a tag
+          # build use the tag; dispatch runs (ref=main) fall back to CMake's default.
+          VERSION="${GITHUB_REF_NAME#v}"; case "$VERSION" in [0-9]*) VER_ARG="-DGLOOPY_VERSION=$VERSION" ;; *) VER_ARG="" ;; esac
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release $VER_ARG
           cmake --build build
 
       # Traditional rpmbuild (packaging/gloopy.spec), NOT CPack — stages only the `gloopy`
@@ -175,7 +178,10 @@ jobs:
 
       - name: Configure + build
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          # Bake the release version into the binary (About box + status bar). On a tag
+          # build use the tag; dispatch runs (ref=main) fall back to CMake's default.
+          VERSION="${GITHUB_REF_NAME#v}"; case "$VERSION" in [0-9]*) VER_ARG="-DGLOOPY_VERSION=$VERSION" ;; *) VER_ARG="" ;; esac
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release $VER_ARG
           cmake --build build
 
       # Traditional dpkg-buildpackage (debian/), NOT CPack — override_dh_auto_install stages
@@ -295,13 +301,18 @@ jobs:
       # Ninja (not MSBuild) — lighter scheduling. CMAKE_BUILD_TYPE=Release (Ninja is single-config).
       - name: Configure
         shell: pwsh
-        run: >
-          cmake -B build -G Ninja
-          -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
-          -DVCPKG_TARGET_TRIPLET=x64-windows-release
-          -DVCPKG_OVERLAY_TRIPLETS="$env:GITHUB_WORKSPACE/ci/triplets"
-          -DGLOOPY_WITH_SURGE=OFF
+        run: |
+          # Bake the release version into the binary (About box + status bar); dispatch
+          # runs (ref=main) fall back to CMake's default.
+          $ver = "${{ github.ref_name }}" -replace '^v',''
+          $verArg = if ($ver -match '^\d') { "-DGLOOPY_VERSION=$ver" } else { "" }
+          cmake -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-release `
+            -DVCPKG_OVERLAY_TRIPLETS="$env:GITHUB_WORKSPACE/ci/triplets" `
+            -DGLOOPY_WITH_SURGE=OFF `
+            $verArg
 
       - name: Build
         run: cmake --build build   # Ninja parallelises across all cores by default
