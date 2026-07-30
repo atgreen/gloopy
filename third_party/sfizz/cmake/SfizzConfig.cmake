@@ -107,7 +107,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     endif()
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:/Zc:__cplusplus>)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    # gloopy: dynamic CRT (…DLL = /MD, /MDd), not the static /MT sfizz defaults to — JUCE,
+    # gloopy, and vcpkg's x64-windows-release deps (grpc/protobuf/abseil) are all /MD, and MSVC
+    # refuses to link mixed CRTs (LNK2038). Empty on non-MSVC.
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 endif()
 
 function(sfizz_enable_fast_math NAME)
