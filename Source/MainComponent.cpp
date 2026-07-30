@@ -5896,6 +5896,12 @@ juce::ValueTree MainComponent::clipToTree (const Clip& c, const juce::Identifier
     if (c.fadeInBeats  > 0.0) cl.setProperty ("fadein",  c.fadeInBeats,  nullptr);
     if (c.fadeOutBeats > 0.0) cl.setProperty ("fadeout", c.fadeOutBeats, nullptr);
     if (c.fadeShape != 0)     cl.setProperty ("fadeshape", c.fadeShape, nullptr);
+    if (c.scriptSource.isNotEmpty())   // script clip: source + seed; the notes below are the cached output
+    {
+        cl.setProperty ("script", c.scriptSource, nullptr);
+        if (c.scriptLang.isNotEmpty()) cl.setProperty ("scriptlang", c.scriptLang, nullptr);
+        if (c.scriptSeed != 0)         cl.setProperty ("scriptseed", (juce::int64) c.scriptSeed, nullptr);
+    }
     if (c.isAudio() && c.audioFile.isNotEmpty())
     {
         // Referenced audio (recorded take / import) — store the path, not the blob.
@@ -5949,6 +5955,9 @@ Clip MainComponent::clipFromTree (const juce::ValueTree& cl)
     c.fadeInBeats  = (double) cl.getProperty ("fadein", 0.0);
     c.fadeOutBeats = (double) cl.getProperty ("fadeout", 0.0);
     c.fadeShape    = (int) cl.getProperty ("fadeshape", 0);
+    c.scriptSource = cl.getProperty ("script", "").toString();
+    c.scriptLang   = cl.getProperty ("scriptlang", "").toString();
+    c.scriptSeed   = (juce::int64) cl.getProperty ("scriptseed", (juce::int64) 0);
 
     if (c.isAudio() && cl.hasProperty ("afile"))
     {

@@ -42,6 +42,15 @@ struct Clip
     juce::String audioFile;
     juce::String takeId;
 
+    // Script clip: when scriptSource is non-empty, this clip's `notes` are the CACHED
+    // output of a language kernel (see the gloopy.v1.Kernel service). scriptSource is the
+    // source-file path relative to the composition; the notes are the materialised
+    // "lockfile" so the clip plays without a runtime — only regenerating needs the kernel.
+    juce::String scriptSource;         // "" = a normal, hand-authored clip
+    juce::String scriptLang;           // kernel/language id, e.g. "common-lisp", "python"
+    juce::int64  scriptSeed { 0 };     // deterministic RNG seed passed to the kernel
+    bool   isScript() const noexcept { return scriptSource.isNotEmpty(); }
+
     bool   muted { false };      // take-lane: inactive alternate takes are muted
     juce::Colour colour;         // per-clip colour override; ARGB 0 (default) = inherit the track colour
     double endBeat() const noexcept { return startBeat + lengthBeats; }

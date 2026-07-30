@@ -389,6 +389,15 @@ bool MainComponent::saveComposition (const juce::File& dir)
             if ((double) cl.getProperty ("fadeout", 0.0) > 0.0) w.number ("fade_out", cl.getProperty ("fadeout", 0.0));
             if ((int) cl.getProperty ("fadeshape", 0) != 0) w.number ("fade_shape", (double) (int) cl.getProperty ("fadeshape", 0));
             if ((int) cl.getProperty ("colour", 0) != 0) w.integer ("colour", (juce::int64) (int) cl.getProperty ("colour", 0));   // per-clip colour override
+            if (cl.hasProperty ("script"))   // script clip: source file + seed (notes below are the cached output)
+            {
+                const auto src = cl.getProperty ("script").toString();
+                w.str ("script", src);
+                if (cl.hasProperty ("scriptlang")) w.str ("script_lang", cl.getProperty ("scriptlang").toString());
+                if ((juce::int64) cl.getProperty ("scriptseed", (juce::int64) 0) != 0)
+                    w.integer ("script_seed", (juce::int64) cl.getProperty ("scriptseed", (juce::int64) 0));
+                ctx.keep (src);              // don't prune the script source file
+            }
 
             if (cl.hasProperty ("afile"))    // referenced audio (recorded take / import)
             {
@@ -952,6 +961,13 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                     if (cd.getDouble ("fade_out", 0.0) > 0.0) cl.setProperty ("fadeout", cd.getDouble ("fade_out", 0.0), nullptr);
                     if ((int) cd.getDouble ("fade_shape", 0.0) != 0) cl.setProperty ("fadeshape", (int) cd.getDouble ("fade_shape", 0.0), nullptr);
                     if (cd.getInt ("colour", 0) != 0) cl.setProperty ("colour", cd.getInt ("colour", 0), nullptr);   // per-clip colour override
+                    if (cd.has ("script"))        // script clip: source file + seed
+                    {
+                        cl.setProperty ("script", cd.getString ("script"), nullptr);
+                        if (cd.has ("script_lang")) cl.setProperty ("scriptlang", cd.getString ("script_lang"), nullptr);
+                        if (const auto sd = cd.getString ("script_seed").getLargeIntValue(); sd != 0)
+                            cl.setProperty ("scriptseed", (juce::int64) sd, nullptr);
+                    }
                     if (cd.has ("take"))          // referenced take/asset — keep the reference
                     {
                         cl.setProperty ("afile", cd.getString ("audio_file"), nullptr);
