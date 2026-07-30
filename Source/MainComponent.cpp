@@ -1180,6 +1180,7 @@ MainComponent::MainComponent (bool headless)
 MainComponent::~MainComponent()
 {
     if (auto* host = keyListenerHost.getComponent()) host->removeKeyListener (this);
+    if (replKernel != nullptr && replKernel->isRunning()) replKernel->kill();   // stop the SWANK kernel
     stopTimer();
     teardownMidiInputs();        // stop MIDI callbacks before tracks/audio go away
     grpc.reset();                // stop gRPC (and its message-thread callbacks) first
@@ -2559,6 +2560,20 @@ bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::Strin
         loadSelectedClipIntoEditor();
         return true;
     });
+}
+
+// Start (or reuse) a persistent SBCL kernel running a SWANK server, so you can attach
+// SLIME/Sly and develop generators interactively in a warm image (cave #15).
+bool MainComponent::apiStartKernelRepl (int& swankPort, juce::String& error)
+{
+    if (replKernel != nullptr && replKernel->isRunning()) { swankPort = replSwankPort; return true; }
+    int port = 0;
+    auto proc = KernelHost::launchRepl (port, error);
+    if (proc == nullptr) return false;
+    replKernel = std::move (proc);
+    replSwankPort = port;
+    swankPort = port;
+    return true;
 }
 
 juce::File MainComponent::scriptsDir() const
@@ -5633,6 +5648,7 @@ void MainComponent::showFileMenu()
                                                                         : juce::String ("(select an instrument track)")), false);
     menu.addSubMenu ("MIDI Inputs", midiMenu);
     menu.addItem (5, "Rescan Plugins");
+    menu.addItem (42, "Start Lisp REPL (SWANK)...");   // warm kernel for interactive script development
     menu.addSeparator();
     menu.addItem (41, "About Gloopy...");
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
@@ -5652,6 +5668,27 @@ void MainComponent::showFileMenu()
             if (result == 31) { showGitSettings(); return; }      // identity + auto-commit
             if (result == 20) { undo(); return; }
             if (result == 21) { redo(); return; }
+            if (result == 42)   // Start Lisp REPL (SWANK) — warm kernel for interactive script dev
+            {
+                busyOverlay.show ("Starting Lisp kernel...");
+                juce::Thread::launch ([this]
+                {
+                    int port = 0; juce::String err;
+                    const bool ok = apiStartKernelRepl (port, err);
+                    juce::MessageManager::callAsync ([this, ok, port, err]
+                    {
+                        busyOverlay.hide();
+                        juce::NativeMessageBox::showMessageBoxAsync (
+                            ok ? juce::MessageBoxIconType::InfoIcon : juce::MessageBoxIconType::WarningIcon,
+                            "Lisp REPL (SWANK)",
+                            ok ? ("SWANK is listening on 127.0.0.1:" + juce::String (port)
+                                  + "\n\nAttach from Emacs:  M-x slime-connect  RET  127.0.0.1  RET  "
+                                  + juce::String (port) + "  RET\n\nThe kernel prelude (note, set-generator) is loaded.")
+                               : err);
+                    });
+                });
+                return;
+            }
             if (result == 41)   // About — version, licensing, and the source offer (AGPL §13)
             {
                 const juce::String about =

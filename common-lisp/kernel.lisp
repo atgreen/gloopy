@@ -179,9 +179,27 @@
         (ag-grpc:channel-close channel)))
     (sb-ext:exit :code (if ok 0 1))))
 
+;;; SWANK mode (cave #15): a persistent, warm image with a SWANK server so you can attach
+;;; SLIME/Sly and inspect/redefine/restart generators interactively (the prelude — note,
+;;; set-generator, default-generate — is already loaded). Writes the SWANK port to
+;;; GLOOPY_KERNEL_PORTFILE so Gloopy can show it, then stays alive.
+(defun swank-repl ()
+  (handler-bind ((warning #'muffle-warning)) (require :asdf) (asdf:load-system :swank))
+  (let ((port (free-port))
+        (pf   (sb-ext:posix-getenv "GLOOPY_KERNEL_PORTFILE")))
+    (funcall (find-symbol "CREATE-SERVER" "SWANK") :port port :dont-close t)
+    (when pf
+      (let ((tmp (concatenate 'string pf ".tmp")))
+        (with-open-file (o tmp :direction :output :if-exists :supersede :if-does-not-exist :create)
+          (format o "~a~%" port))
+        (rename-file tmp pf)))
+    (format t "SWANK-PORT ~a~%" port) (finish-output)
+    (loop (sleep 3600))))
+
 ;;; Entry point. Launch with:  sbcl --non-interactive --load common-lisp/kernel.lisp
 ;;; (--script is NOT usable — it skips ~/.sbclrc, where ocicl registers ag-grpc.)
-;;; GLOOPY_JOB runs submit mode; KERNEL_SELFTEST=1 runs the offline self-test; else serve.
+;;; GLOOPY_SWANK -> SWANK REPL; GLOOPY_JOB -> submit mode; KERNEL_SELFTEST -> self-test; else serve.
 (cond ((sb-ext:posix-getenv "KERNEL_SELFTEST") (selftest))
+      ((sb-ext:posix-getenv "GLOOPY_SWANK")    (swank-repl))
       ((sb-ext:posix-getenv "GLOOPY_JOB")      (submit-job))
       (t (main (let ((p (sb-ext:posix-getenv "KERNEL_PORT"))) (and p (parse-integer p :junk-allowed t))))))

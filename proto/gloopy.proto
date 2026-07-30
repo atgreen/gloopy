@@ -219,6 +219,7 @@ message RegenerateRequest  { int32 track_id = 1; int32 index = 2; string script 
 // A kernel posts generated notes back for a job. The kernel is an ag-grpc CLIENT of this
 // Gloopy service (the proven direction) — it launches, generates, and submits here.
 message KernelSubmitRequest { string job = 1; bool ok = 2; repeated Note notes = 3; string error = 4; }
+message KernelReplInfo      { int32 swank_port = 1; }   // SWANK port to attach SLIME/Sly to
 message RenameClipRequest  { int32 track_id = 1; int32 index = 2; string name = 3; }   // empty -> track name
 message ClipColourRequest  { int32 track_id = 1; int32 index = 2; string colour = 3; }   // 8-hex ARGB; empty -> inherit track
 message ScaleTimeRequest  { int32 track_id = 1; int32 index = 2; double factor = 3; }   // 0.5 double-time, 2 half-time
@@ -493,6 +494,7 @@ service Gloopy {
   rpc RemoveClip      (ClipRef)                returns (Ack);
   rpc RegenerateClip  (RegenerateRequest)      returns (Ack);   // mark a clip as a script clip and generate its notes from the kernel
   rpc KernelSubmit    (KernelSubmitRequest)    returns (Ack);   // a kernel posts back generated notes for a job (kernel is the client)
+  rpc StartKernelRepl (Empty)                  returns (KernelReplInfo);   // start a persistent SWANK kernel; returns the port for SLIME
   rpc MoveClip        (MoveClipRequest)        returns (Ack);
   rpc AddAudioClip    (AddAudioClipRequest)    returns (ClipId);
   rpc SplitClip       (SplitClipRequest)       returns (ClipId);    // -> new (right) clip

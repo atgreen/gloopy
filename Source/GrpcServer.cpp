@@ -961,6 +961,14 @@ namespace
             return Status::OK;
         }
 
+        Status StartKernelRepl (ServerContext*, const gpb::Empty*, gpb::KernelReplInfo* r) override
+        {
+            int port = 0; juce::String err;
+            if (main.apiStartKernelRepl (port, err)) r->set_swank_port (port);
+            else return Status (grpc::StatusCode::INTERNAL, err.toStdString());
+            return Status::OK;
+        }
+
         Status MoveClip (ServerContext*, const gpb::MoveClipRequest* q, gpb::Ack* r) override
         {
             const bool ok = main.apiMoveClip (q->track_id(), q->index(), q->start_beat(),

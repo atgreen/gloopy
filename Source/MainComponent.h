@@ -514,6 +514,7 @@ public:
     bool apiRegenerateClip (int trackId, int index, const juce::String& source,
                             const juce::String& lang, juce::int64 seed, juce::String& error);
     void submitKernelResult (const juce::String& job, bool ok, std::vector<Note> notes, const juce::String& error);
+    bool apiStartKernelRepl (int& swankPort, juce::String& error);   // persistent SWANK kernel (cave #15)
     // Script-clip desktop actions (cave #10): clip context menu → edit source / regenerate.
     juce::File   scriptsDir() const;
     juce::String defaultScriptTemplate() const;
@@ -905,6 +906,8 @@ private:
                        std::vector<Note> notes; juce::String error; };
     std::mutex kernelJobsMutex;
     std::map<juce::String, std::shared_ptr<KernelJob>> kernelJobs;
+    std::unique_ptr<juce::ChildProcess> replKernel;    // persistent SWANK kernel (cave #15)
+    int replSwankPort { 0 };
     juce::ThreadPool bgPool { 1 };
     void runBackground (const juce::String& label,
                         std::function<void()> heavy, std::function<void()> done);

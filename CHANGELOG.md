@@ -19,6 +19,9 @@ tagged release.
   from script* runs it through a bundled SBCL kernel and materialises the returned notes.
   Also drivable over the control API (`RegenerateClip`). Deterministic via a per-clip seed;
   the generated notes are cached in the project so the clip plays without the runtime.
+  Generators can be written in Common Lisp (bundled SBCL kernel) or Python, and *File →
+  Start Lisp REPL (SWANK)* opens a warm image you can attach SLIME to for interactive
+  generator development.
 - **Linux desktop integration.** The RPM/DEB packages now ship a `.desktop` entry, an
   application icon, and AppStream metadata, so Gloopy appears in the application
   menu/launcher and in software centres after install — not just on the `PATH`.
