@@ -943,6 +943,24 @@ namespace
             return Status::OK;
         }
 
+        Status KernelSubmit (ServerContext*, const gpb::KernelSubmitRequest* q, gpb::Ack* r) override
+        {
+            std::vector<Note> notes;
+            for (const auto& n : q->notes())
+            {
+                Note note;
+                note.pitch       = n.pitch();
+                note.startBeat   = n.start_beat();
+                note.lengthBeats = n.length_beats();
+                note.velocity    = n.velocity();
+                if (n.probability() > 0.0f) note.probability = n.probability();
+                notes.push_back (note);
+            }
+            main.submitKernelResult (js (q->job()), q->ok(), std::move (notes), js (q->error()));
+            r->set_ok (true);
+            return Status::OK;
+        }
+
         Status MoveClip (ServerContext*, const gpb::MoveClipRequest* q, gpb::Ack* r) override
         {
             const bool ok = main.apiMoveClip (q->track_id(), q->index(), q->start_beat(),

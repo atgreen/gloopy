@@ -4,20 +4,16 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include <memory>
-#include <vector>
-#include "Note.h"
 
-/** Launches and drives a language kernel over the gloopy.v1.Kernel gRPC service
-    (the SBCL reference kernel is common-lisp/kernel.lisp). Gloopy is the client:
-    it lazily starts the kernel process, keeps it warm, and calls Generate to turn
-    a clip's context into notes. grpc/proto types are kept out of this header. */
+/** Launches a language kernel (the SBCL reference kernel, common-lisp/kernel.lisp) to
+    generate a clip's notes. The kernel runs as an ag-grpc CLIENT of Gloopy's own gRPC
+    service — it generates and posts the notes back via the KernelSubmit RPC (the proven
+    direction; a grpc-c++ client into the ag-grpc server does not interop). This class only
+    starts the process, wired up via the environment; results arrive on the KernelSubmit
+    handler, correlated by the job id. */
 class KernelHost
 {
 public:
-    KernelHost();
-    ~KernelHost();
-
     struct GenParams
     {
         double      tempoBpm     { 120.0 };
@@ -26,21 +22,14 @@ public:
         juce::int64 seed         { 0 };
         int         trackId      { 0 };
         int         clipIndex    { 0 };
-        juce::String entry;                  // generator symbol (optional)
-        juce::String source;                 // source file to LoadSource first (optional)
+        juce::String source;                 // source file to load before generating (optional)
     };
 
-    /** Start the kernel if it isn't running (compiles the proto on first launch —
-        can take tens of seconds). Returns false and sets `error` on failure. */
-    bool ensureStarted (juce::String& error);
+    /** Start the kernel for `job`, generating with `p` and posting results back to
+        Gloopy on 127.0.0.1:hostPort. The returned process must be kept alive until the
+        job completes (the caller waits for KernelSubmit). Null on launch failure. */
+    static std::unique_ptr<juce::ChildProcess>
+        launchGenerate (const juce::String& job, const GenParams& p, int hostPort, juce::String& error);
 
-    /** Generate notes for a clip context. Starts the kernel if needed. */
-    bool generate (const GenParams& p, std::vector<Note>& out, juce::String& error);
-
-    void shutdown();
-
-private:
-    struct Impl;
-    std::unique_ptr<Impl> impl;
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (KernelHost)
+    static juce::File findKernel();
 };

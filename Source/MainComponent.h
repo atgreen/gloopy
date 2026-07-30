@@ -36,6 +36,7 @@
 #include <unordered_map>
 #include <map>
 #include <mutex>
+#include <condition_variable>
 #include <future>
 
 /** Linear-arranger workspace: an arrangement of instrument tracks (each owning
@@ -512,6 +513,7 @@ public:
     // Mark a clip as a script clip and generate its notes from the language kernel (cave #9).
     bool apiRegenerateClip (int trackId, int index, const juce::String& source,
                             const juce::String& lang, juce::int64 seed, juce::String& error);
+    void submitKernelResult (const juce::String& job, bool ok, std::vector<Note> notes, const juce::String& error);
     bool apiMoveClip (int trackId, int index, double startBeat, bool hasToTrack, int toTrackId);
     int  apiAddAudioClip (int trackId, double startBeat, const juce::String& path, float gain);  // clip index, or -1
 
@@ -890,7 +892,13 @@ private:
     // `done` runs back on the message thread (safe to touch the engine) before the
     // overlay hides.
     BusyOverlay busyOverlay;
-    KernelHost  kernelHost;                          // language kernel for script clips (cave #9)
+
+    // Script-clip kernel jobs (cave #9): a kernel generates and posts notes back via the
+    // KernelSubmit RPC; apiRegenerateClip waits on the matching job id.
+    struct KernelJob { std::mutex m; std::condition_variable cv; bool done { false }, ok { false };
+                       std::vector<Note> notes; juce::String error; };
+    std::mutex kernelJobsMutex;
+    std::map<juce::String, std::shared_ptr<KernelJob>> kernelJobs;
     juce::ThreadPool bgPool { 1 };
     void runBackground (const juce::String& label,
                         std::function<void()> heavy, std::function<void()> done);

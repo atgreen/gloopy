@@ -148,9 +148,40 @@
     (finish-output)
     (sb-ext:exit :code (if ok 0 1))))
 
+;;; Submit mode: Gloopy launches us as an ag-grpc CLIENT of its own service (the
+;;; interop-proven direction). We read the clip context from the environment, generate,
+;;; and POST the notes back via the Gloopy KernelSubmit RPC, keyed by GLOOPY_JOB.
+(defun env-num (name default)
+  (let ((v (sb-ext:posix-getenv name)))
+    (or (and v (plusp (length v)) (ignore-errors (read-from-string v))) default)))
+
+(defun submit-job ()
+  (let ((job    (sb-ext:posix-getenv "GLOOPY_JOB"))
+        (port   (env-num "GLOOPY_HOST_PORT" 50051))
+        (source (sb-ext:posix-getenv "GLOOPY_SOURCE"))
+        (ok t) (err "") (notes '()))
+    (handler-case
+        (let ((ctx (make-instance 'gloopy.pb::gen-context
+                                  :tempo-bpm (coerce (env-num "GLOOPY_CTX_TEMPO" 120) 'double-float)
+                                  :clip-len-beats (coerce (env-num "GLOOPY_CTX_LEN" 4) 'double-float)
+                                  :seed (env-num "GLOOPY_CTX_SEED" 0)
+                                  :key-root (env-num "GLOOPY_CTX_KEY" -1))))
+          (when (and source (plusp (length source)))
+            (let ((*package* (find-package :gloopy-kernel))) (load (truename source))))
+          (setf notes (funcall (or *generator* #'default-generate) ctx)))
+      (error (e) (setf ok nil err (format nil "~a" e))))
+    (let ((channel (ag-grpc:make-channel "127.0.0.1" port)))
+      (unwind-protect
+          (ag-grpc:call-unary channel "/gloopy.v1.Gloopy/KernelSubmit"
+                              (make-instance 'gloopy.pb::kernel-submit-request
+                                             :job job :ok ok :notes notes :error err)
+                              :response-type 'gloopy.pb::ack)
+        (ag-grpc:channel-close channel)))
+    (sb-ext:exit :code (if ok 0 1))))
+
 ;;; Entry point. Launch with:  sbcl --non-interactive --load common-lisp/kernel.lisp
 ;;; (--script is NOT usable — it skips ~/.sbclrc, where ocicl registers ag-grpc.)
-;;; KERNEL_SELFTEST=1 runs the offline self-test; KERNEL_PORT pins the port.
-(if (sb-ext:posix-getenv "KERNEL_SELFTEST")
-    (selftest)
-    (main (let ((p (sb-ext:posix-getenv "KERNEL_PORT"))) (and p (parse-integer p :junk-allowed t)))))
+;;; GLOOPY_JOB runs submit mode; KERNEL_SELFTEST=1 runs the offline self-test; else serve.
+(cond ((sb-ext:posix-getenv "KERNEL_SELFTEST") (selftest))
+      ((sb-ext:posix-getenv "GLOOPY_JOB")      (submit-job))
+      (t (main (let ((p (sb-ext:posix-getenv "KERNEL_PORT"))) (and p (parse-integer p :junk-allowed t))))))

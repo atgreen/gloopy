@@ -2476,16 +2476,29 @@ bool MainComponent::apiRemoveClip (int trackId, int index)
     });
 }
 
+// A kernel (an ag-grpc client) posts generated notes back here; wake the waiting job.
+void MainComponent::submitKernelResult (const juce::String& job, bool ok,
+                                        std::vector<Note> notes, const juce::String& error)
+{
+    std::shared_ptr<KernelJob> j;
+    { const std::lock_guard<std::mutex> lk (kernelJobsMutex); auto it = kernelJobs.find (job); if (it != kernelJobs.end()) j = it->second; }
+    if (j == nullptr) return;
+    { const std::lock_guard<std::mutex> lk (j->m); j->ok = ok; j->notes = std::move (notes); j->error = error; j->done = true; }
+    j->cv.notify_all();
+}
+
 // Mark a clip as a script clip and (re)generate its notes from the language kernel.
-// The kernel call runs on the CALLING thread (it can block on first launch while the
-// image compiles); only the note materialisation touches the model, on the message thread.
+// The kernel runs as an ag-grpc client of THIS server: we register a job, launch it with
+// the clip context, and wait for it to post the notes back via KernelSubmit. This call
+// runs on a gRPC worker thread (not the message thread) so blocking here is fine; only the
+// note materialisation touches the model, on the message thread.
 bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::String& source,
                                        const juce::String& lang, juce::int64 seed, juce::String& error)
 {
     KernelHost::GenParams p;
     p.source = source; p.trackId = trackId; p.clipIndex = index; p.seed = seed;
     p.tempoBpm = transport.getBpm();
-    bool found = callOnMessageThread ([&] () -> bool
+    const bool found = callOnMessageThread ([&] () -> bool
     {
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
@@ -2496,8 +2509,23 @@ bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::Strin
     });
     if (! found) { error = "regenerate: no such clip"; return false; }
 
+    const auto job = juce::Uuid().toDashedString();
+    auto j = std::make_shared<KernelJob>();
+    { const std::lock_guard<std::mutex> lk (kernelJobsMutex); kernelJobs[job] = j; }
+    struct Scope { MainComponent* m; juce::String job; ~Scope() { const std::lock_guard<std::mutex> lk (m->kernelJobsMutex); m->kernelJobs.erase (job); } } scope { this, job };
+
+    auto proc = KernelHost::launchGenerate (job, p, 50051, error);   // the kernel posts back to our own gRPC server
+    if (proc == nullptr) return false;
+
+    {   // wait for KernelSubmit (first launch compiles the proto — allow ~3 min)
+        std::unique_lock<std::mutex> lk (j->m);
+        if (! j->cv.wait_for (lk, std::chrono::seconds (200), [&] { return j->done; }))
+        { error = "kernel: timed out waiting for the kernel to generate"; return false; }
+        if (! j->ok) { error = j->error.isNotEmpty() ? j->error : juce::String ("kernel: generate failed"); return false; }
+    }
+
     std::vector<Note> notes;
-    if (! kernelHost.generate (p, notes, error)) return false;   // off the message thread
+    { const std::lock_guard<std::mutex> lk (j->m); notes = std::move (j->notes); }
 
     return callOnMessageThread ([&] () -> bool
     {
