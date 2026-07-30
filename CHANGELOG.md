@@ -29,9 +29,10 @@ release notes and Windows startup diagnostics are improved.
   plus the release's entry — instead of being empty.
 
 ### Fixed
-- The `dnf` package repository now publishes to GitHub Pages (in 0.1.0 the repository
-  failed to deploy, so `dnf install gloopy` did not work). Publishing the versioned
-  manual no longer wipes the repository or previously published doc versions.
+- The `dnf` package repository now publishes to GitHub Pages. In 0.1.0 the repository
+  jobs deployed as one atomic push that included the oversized `.deb`, which GitHub
+  rejected; dropping the apt repository removes that blocker so the `dnf` repo publishes
+  on its own.
 
 ## [0.1.0] - 2026-07-30
 
