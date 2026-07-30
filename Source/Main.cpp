@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include <JuceHeader.h>
+#include <cstdlib>
 #include <iostream>
 #include <sstream>
 #include "MainComponent.h"
@@ -36,6 +37,15 @@ public:
                     : juce::File::getCurrentWorkingDirectory().getChildFile (path);
     }
 
+    static void setEnvVar (const char* name, const char* value)
+    {
+       #if JUCE_WINDOWS
+        _putenv_s (name, value);
+       #else
+        setenv (name, value, 1);
+       #endif
+    }
+
     void initialise (const juce::String& commandLine) override
     {
         auto args = getCommandLineParameterArray();
@@ -60,6 +70,8 @@ public:
                 "Usage:\n"
                 "  gloopy                          Launch the GUI\n"
                 "  gloopy <project.gloopy | dir>   Launch the GUI, opening a project\n"
+                "  gloopy --safe-mode              Launch without audio/MIDI/control ports\n"
+                "  gloopy --force-gdi              Force the Windows GDI/software renderer\n"
                 "  gloopy --version                Print the version\n"
                 "  gloopy --help                   Show this help\n"
                 "\n"
@@ -431,12 +443,22 @@ public:
             return;   // no window
         }
 
+        const bool safeMode = args.contains ("--safe-mode");
+        const bool forceGdi = args.contains ("--force-gdi");
+        if (safeMode)
+            setEnvVar ("GLOOPY_SAFE_MODE", "1");
+        if (forceGdi)
+            setEnvVar ("GLOOPY_FORCE_GDI", "1");
+
         auto* comp = new MainComponent();
         mainWindow.reset (new MainWindow ("Gloopy", comp));
 
-        const auto arg = commandLine.trim().unquoted();
-        if (arg.isNotEmpty())
-            comp->openProjectFile (resolve (arg));
+        for (const auto& arg : args)
+            if (! arg.startsWith ("-"))
+            {
+                comp->openProjectFile (resolve (arg));
+                break;
+            }
     }
 
     void shutdown() override { mainWindow = nullptr; renderComp = nullptr; }
@@ -464,6 +486,21 @@ public:
             else
                 centreWithSize (getWidth(), getHeight());
             setVisible (true);
+           #if JUCE_WINDOWS
+            if (auto* peer = getPeer())
+            {
+                const auto engines = peer->getAvailableRenderingEngines();
+                std::cout << "[gui] renderers=" << engines.joinIntoString (", ")
+                          << " current=" << peer->getCurrentRenderingEngine() << std::endl;
+                if (juce::SystemStats::getEnvironmentVariable ("GLOOPY_FORCE_GDI", "0") == "1")
+                {
+                    peer->setCurrentRenderingEngine (0);
+                    std::cout << "[gui] forced renderer=0";
+                    if (! engines.isEmpty()) std::cout << " (" << engines[0] << ")";
+                    std::cout << std::endl;
+                }
+            }
+           #endif
         }
 
         void closeButtonPressed() override

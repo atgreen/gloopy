@@ -1105,7 +1105,10 @@ MainComponent::MainComponent (bool headless)
         return;
     }
 
+    const bool safeMode = juce::SystemStats::getEnvironmentVariable ("GLOOPY_SAFE_MODE", "0") == "1";
+
     // ---- control API: OSC real-time lane ----
+    if (! safeMode)
     {
         OscControl::Hooks h;
         h.resolveTrack = [this] (int id) { return resolveTrack (id); };
@@ -1135,8 +1138,11 @@ MainComponent::MainComponent (bool headless)
         else
             std::cout << "[osc] FAILED to bind udp:" << oscPort << std::endl;
     }
+    else
+        std::cout << "[safe-mode] skipping OSC" << std::endl;
 
     // ---- control API: gRPC command surface ----
+    if (! safeMode)
     {
         grpc = std::make_unique<GrpcServer> (*this);
         const int grpcPort = 50051;
@@ -1145,20 +1151,30 @@ MainComponent::MainComponent (bool headless)
         else
             std::cout << "[grpc] FAILED to start on 127.0.0.1:" << grpcPort << std::endl;
     }
+    else
+        std::cout << "[safe-mode] skipping gRPC" << std::endl;
 
     setWantsKeyboardFocus (true);   // catch Ctrl+Z / Ctrl+Shift+Z (bubbles up from children)
     setSize (1180, 820);
-    setAudioChannels (2, 2);
-    if (auto* dev = deviceManager.getCurrentAudioDevice())
-        std::cout << "[audio] device='" << dev->getName() << "' inputs="
-                  << dev->getActiveInputChannels().countNumberOfSetBits() << " outputs="
-                  << dev->getActiveOutputChannels().countNumberOfSetBits()
-                  << " rate=" << dev->getCurrentSampleRate() << std::endl;
+    if (! safeMode)
+    {
+        setAudioChannels (2, 2);
+        if (auto* dev = deviceManager.getCurrentAudioDevice())
+            std::cout << "[audio] device='" << dev->getName() << "' inputs="
+                      << dev->getActiveInputChannels().countNumberOfSetBits() << " outputs="
+                      << dev->getActiveOutputChannels().countNumberOfSetBits()
+                      << " rate=" << dev->getCurrentSampleRate() << std::endl;
+        else
+            std::cout << "[audio] NO audio device open (headless?)" << std::endl;
+    }
     else
-        std::cout << "[audio] NO audio device open (headless?)" << std::endl;
+        std::cout << "[safe-mode] skipping audio device open" << std::endl;
     // Self-test seam: GLOOPY_REC_TEST_TONE_HZ injects a tone in place of the mic.
     recordTestToneHz.store (juce::SystemStats::getEnvironmentVariable ("GLOOPY_REC_TEST_TONE_HZ", "0").getDoubleValue());
-    setupMidiInputs();
+    if (! safeMode)
+        setupMidiInputs();
+    else
+        std::cout << "[safe-mode] skipping MIDI inputs" << std::endl;
     startTimerHz (30);
 }
 
