@@ -353,17 +353,38 @@ jobs:
           GLOOPY_BIN: staging/gloopy-windows-x64/gloopy.exe
         run: bash scripts/check-render-determinism.sh
 
+      # Installer: package the same staged folder into gloopy-setup-x64.exe (per-user,
+      # Start-Menu shortcut, optional "add to PATH", uninstaller). Inno Setup 6 (ISCC.exe)
+      # ships on the GitHub Windows runner image; install it via choco if it's ever absent.
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}" -replace '^v',''
+          if ($ver -notmatch '^\d') { $ver = "0.1.0" }   # dispatch runs (ref=main) -> default
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+          & $iscc "/DAppVersion=$ver" "/DStageDir=$PWD\staging\gloopy-windows-x64" "/DSrcRoot=$PWD" packaging\gloopy.iss
+          if (-not (Test-Path "gloopy-setup-x64.exe")) { throw "installer not produced" }
+          Get-Item gloopy-setup-x64.exe | Format-Table Name,Length
+
       - name: Upload to release
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
         uses: softprops/action-gh-release@v2
         with:
-          files: gloopy-windows-x64.zip
+          files: |
+            gloopy-windows-x64.zip
+            gloopy-setup-x64.exe
 
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-zip
-          path: gloopy-windows-x64.zip
+          name: windows-package
+          path: |
+            gloopy-windows-x64.zip
+            gloopy-setup-x64.exe
 
   # =====================================================================
   # Package repositories, hosted on GitHub Pages (like the icl repos).

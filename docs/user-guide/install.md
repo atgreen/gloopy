@@ -50,16 +50,38 @@ Prefer a one-off download? Grab the `.deb` from the
 [Releases page](https://github.com/atgreen/gloopy/releases) and
 `sudo apt install ./gloopy_*.deb` instead.
 
-## Windows (portable zip)
+## Windows
+
+Two downloads on the [Releases page](https://github.com/atgreen/gloopy/releases),
+both x64:
+
+| Download | Use it when |
+|----------|-------------|
+| **`gloopy-setup-x64.exe`** (installer) | The usual choice — installs Gloopy, adds a Start-menu shortcut and an uninstaller, and can put `gloopy` on your `PATH`. |
+| **`gloopy-windows-x64.zip`** (portable) | You want no install — unzip and run, e.g. from a USB stick. |
+
+### Installer
+
+1. Download and run **`gloopy-setup-x64.exe`**.
+2. On the setup screen, tick **"Add Gloopy to my PATH"** if you want the `gloopy`
+   command line and the [MCP server](../control-scripting/how-to/mcp-server.md) to
+   work by name (recommended).
+3. Finish, and launch Gloopy from the Start menu.
+
+It's a per-user install (no administrator prompt) and uninstalls cleanly from
+**Settings → Apps**. Because it isn't code-signed yet, Windows SmartScreen may warn
+about an unknown publisher — choose **More info → Run anyway**.
+
+### Portable zip
 
 1. Download `gloopy-windows-x64.zip` and unzip it anywhere.
-2. Run **`gloopy.exe`** from the unzipped folder.
+2. Run **`gloopy.exe`** from the unzipped folder. (For the `gloopy` command line /
+   MCP server, add that folder to your `PATH` yourself, or use the installer.)
 
-The zip is self-contained — the app, its runtime libraries, and its assets. Two
-things to know:
+Both include everything Gloopy needs:
 
-- It needs the **[Microsoft Visual C++ 2015–2022 Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe)**,
-  which most machines already have.
+- The **[Microsoft Visual C++ 2015–2022 Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe)**
+  is the one external requirement, and most machines already have it.
 - The featured **Surge XT** synth is bundled as a VST3 (in `plugins\`), so
   **+ Synth → Surge XT** works out of the box — alongside the built-in Basic
   synth, the sampler, SFZ instruments, and hosted VST3 plugins.
