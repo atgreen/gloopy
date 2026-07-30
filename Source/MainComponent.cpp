@@ -564,6 +564,8 @@ MainComponent::MainComponent (bool headless)
         else if (cmd.startsWith ("repeat:")) apiRepeatClip (id, clip, cmd.substring (7).getIntValue());
         else if (cmd == "loopclip")  apiSetLoopToClip (id, clip);
         else if (cmd == "copynotes") juce::SystemClipboard::copyTextToClipboard (apiExportClipNotesJson (id, clip));
+        else if (cmd == "regenerate") regenerateClipScript (trackIdx, clip);
+        else if (cmd == "editcode")   editClipScript (trackIdx, clip);
         else if (cmd.startsWith ("transpose:")) apiSetClipTranspose (id, clip, cmd.substring (10).getIntValue());
         else if (cmd.startsWith ("velscale:")) apiSetClipVelocity (id, clip, cmd.substring (9).getIntValue() / 100.0f);
         else if (cmd.startsWith ("prob:")) apiSetClipProbability (id, clip, cmd.substring (5).getIntValue() / 100.0f);
@@ -2546,6 +2548,96 @@ bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::Strin
         if (arrangeView) arrangeView->rebuild();
         loadSelectedClipIntoEditor();
         return true;
+    });
+}
+
+juce::File MainComponent::scriptsDir() const
+{
+    auto d = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+               .getChildFile ("Gloopy").getChildFile ("scripts");
+    d.createDirectory();
+    return d;
+}
+
+juce::String MainComponent::defaultScriptTemplate() const
+{
+    return
+        ";;;; Gloopy script clip (Common Lisp).\n"
+        ";;;; Define the note generator; it runs in the kernel when you \"Generate from script\".\n"
+        ";;;;   (note PITCH START LENGTH &optional VELOCITY) - start/length in beats in the clip.\n"
+        ";;;;   ctx: (gloopy.pb::clip-len-beats ctx) (gloopy.pb::seed ctx) (gloopy.pb::key-root ctx)\n"
+        "(in-package :gloopy-kernel)\n"
+        "(set-generator\n"
+        " (lambda (ctx)\n"
+        "   (let ((beats (max 1 (floor (gloopy.pb::clip-len-beats ctx)))))\n"
+        "     (loop for b below beats collect (note (+ 60 (mod (* b 2) 12)) b 0.9)))))\n";
+}
+
+void MainComponent::launchEditor (const juce::File& f)
+{
+    auto ed = juce::SystemStats::getEnvironmentVariable ("VISUAL", {});
+    if (ed.isEmpty()) ed = juce::SystemStats::getEnvironmentVariable ("EDITOR", {});
+    if (ed.isNotEmpty())
+    {
+        juce::ChildProcess p;                          // detached — the editor outlives this call
+        p.start (ed + " " + f.getFullPathName().quoted());
+    }
+    else f.startAsProcess();                            // OS default handler (xdg-open, ...)
+}
+
+// "Edit script code" — ensure the clip has a source file (seeded from a template), record it
+// on the clip, and open it in the user's editor.
+void MainComponent::editClipScript (int trackIdx, int clip)
+{
+    juce::String existing;
+    { const juce::ScopedLock sl (engineLock);
+      if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+      auto& cl = tracks[(size_t) trackIdx]->clips;
+      if (! juce::isPositiveAndBelow (clip, (int) cl.size())) return;
+      existing = cl[(size_t) clip].scriptSource; }
+
+    juce::File src;
+    if (existing.isNotEmpty() && juce::File (existing).existsAsFile())
+        src = juce::File (existing);
+    else
+    {
+        src = scriptsDir().getChildFile ("clip-" + juce::Uuid().toDashedString() + ".lisp");
+        src.replaceWithText (defaultScriptTemplate());
+        { const juce::ScopedLock sl (engineLock);
+          if (juce::isPositiveAndBelow (trackIdx, (int) tracks.size()))
+          { auto& cl = tracks[(size_t) trackIdx]->clips;
+            if (juce::isPositiveAndBelow (clip, (int) cl.size()))
+            { cl[(size_t) clip].scriptSource = src.getFullPathName();
+              cl[(size_t) clip].scriptLang   = "common-lisp"; } } }
+        projectModified = true;
+        if (arrangeView) arrangeView->rebuild();
+    }
+    launchEditor (src);
+}
+
+// "Generate from script" — run the clip's script through the kernel (off the message thread,
+// with the busy overlay) and surface any error.
+void MainComponent::regenerateClipScript (int trackIdx, int clip)
+{
+    juce::String source, lang; juce::int64 seed = 0; int id = -1;
+    { const juce::ScopedLock sl (engineLock);
+      if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+      id = tracks[(size_t) trackIdx]->id;
+      auto& cl = tracks[(size_t) trackIdx]->clips;
+      if (! juce::isPositiveAndBelow (clip, (int) cl.size())) return;
+      source = cl[(size_t) clip].scriptSource; lang = cl[(size_t) clip].scriptLang; seed = cl[(size_t) clip].scriptSeed; }
+
+    busyOverlay.show ("Generating...");
+    juce::Thread::launch ([this, id, clip, source, lang, seed]
+    {
+        juce::String err;
+        const bool ok = apiRegenerateClip (id, clip, source,
+                                           lang.isNotEmpty() ? lang : juce::String ("common-lisp"), seed, err);
+        juce::MessageManager::callAsync ([this, ok, err]
+        {
+            busyOverlay.hide();
+            if (! ok) juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Script", err);
+        });
     });
 }
 

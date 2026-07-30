@@ -514,6 +514,12 @@ public:
     bool apiRegenerateClip (int trackId, int index, const juce::String& source,
                             const juce::String& lang, juce::int64 seed, juce::String& error);
     void submitKernelResult (const juce::String& job, bool ok, std::vector<Note> notes, const juce::String& error);
+    // Script-clip desktop actions (cave #10): clip context menu → edit source / regenerate.
+    juce::File   scriptsDir() const;
+    juce::String defaultScriptTemplate() const;
+    void         launchEditor (const juce::File& f);
+    void         editClipScript (int trackIdx, int clip);
+    void         regenerateClipScript (int trackIdx, int clip);
     bool apiMoveClip (int trackId, int index, double startBeat, bool hasToTrack, int toTrackId);
     int  apiAddAudioClip (int trackId, double startBeat, const juce::String& path, float gain);  // clip index, or -1
 

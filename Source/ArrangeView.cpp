@@ -672,6 +672,8 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addItem (17, "Mute clip", ! isTake, isMuted);      // disable/enable in the arrangement (takes use Use/Promote)
         m.addItem (18, "Loop this clip");                    // set the transport loop to this clip's span
         m.addItem (19, "Copy notes (JSON)", isMidi);         // notes -> system clipboard as JSON
+        m.addItem (21, "Generate from script", isMidi);      // run the clip's script (kernel) -> notes
+        m.addItem (22, "Edit script code...", isMidi);       // open the clip's source in $EDITOR
         m.addItem (20, "Rename clip...");                    // set the clip's label
         {
             juce::PopupMenu ccm;                             // per-clip colour override (else inherit the track)
@@ -796,6 +798,8 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             if (r == 11) { promptClipGain (t, c); return; }        // "Gain..." -> dB prompt
             if (r == 12) { promptClipFades (t, c); return; }       // "Fades..." -> in/out prompt
             if (r == 19) { if (onClipCommand) onClipCommand (t, c, "copynotes"); return; }   // notes -> clipboard
+            if (r == 21) { if (onClipCommand) onClipCommand (t, c, "regenerate"); return; }   // run the clip's script
+            if (r == 22) { if (onClipCommand) onClipCommand (t, c, "editcode"); return; }     // edit the clip's source
             if (r == 20)   // Rename clip: prompt (prefilled with the clip's current name)
             {
                 juce::String cur;
