@@ -71,11 +71,25 @@ bounce it to a WAV.
   `render` / `export-stems` — both with an optional `--range <startBeat> <endBeat>`) and
   loudness analysis (peak / true-peak / RMS / LUFS) for automation and CI.
 
+## Install
+
+Pre-built packages are attached to each [release](https://github.com/atgreen/gloopy/releases),
+and Linux has package repositories. See the [install guide](docs/user-guide/install.md)
+for the details; in short:
+
+- **Fedora / RHEL** — add the repo, then `sudo dnf install gloopy`.
+- **Debian / Ubuntu** — add the repo, then `sudo apt install gloopy`.
+- **Windows (x64)** — run `gloopy-setup-x64.exe` (installer) or unzip the portable
+  `gloopy-windows-x64.zip`.
+- **macOS** — build from source (below).
+
+Both Linux packages and the Windows build bundle the featured Surge XT synth.
+
 ## Building
 
-Requires a C++17 compiler and CMake ≥ 3.22. The build also links gRPC and
-Protocol Buffers (for the control API) and, on Linux, the JUCE dev
-dependencies: ALSA, FreeType and X11.
+Prefer to build it yourself (or on macOS)? Requires a C++17 compiler and CMake ≥ 3.22.
+The build also links gRPC and Protocol Buffers (for the control API) and, on Linux, the
+JUCE dev dependencies: ALSA, FreeType and X11.
 
 ```sh
 # Linux system deps (Fedora):
@@ -101,7 +115,7 @@ Complete demo songs live in [`examples/`](examples/): `demo-song` (fully
 portable) and `demo-song-surge` (uses a baked Surge XT pad — install the
 Surge XT VST3 to `~/.vst3` first).
 
-JUCE is fetched automatically by CMake (`FetchContent`), pinned to `8.0.15`.
+JUCE is fetched automatically by CMake (`FetchContent`), pinned to `9.0.0`.
 The gRPC C++ is generated from [`proto/gloopy.proto`](proto/gloopy.proto) at
 build time using the system `protoc` / `grpc_cpp_plugin`.
 

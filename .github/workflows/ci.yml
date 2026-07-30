@@ -45,7 +45,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/_deps
-          key: juce-8.0.15-${{ runner.os }}
+          key: juce-9.0.0-${{ runner.os }}
 
       # Lean build: fast, pure-AGPL, no Surge submodule. The Surge-enabled build is
       # validated by the release workflow.

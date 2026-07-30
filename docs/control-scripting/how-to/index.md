@@ -24,12 +24,9 @@ Task recipes for driving Gloopy from code or hardware. Each assumes you've read
   named, repeatable bounces (mix / range / track / stems).
 
 !!! note "Being written"
-    Still planned: syncing the transport to an external clock (Gloopy can be
-    *driven* over OSC today — see the live-OSC guide — but following an incoming
-    MIDI clock isn't implemented yet).
-    - Bulk-import a generated MIDI sequence (`ImportNotesJSON`)
-    - Bind a hardware knob to any parameter (MIDI-learn)
-    - Render named export profiles from a script or CI
+    Still planned: syncing the transport to an external clock — Gloopy can be
+    *driven* over OSC today (see the live-OSC guide), but following an incoming
+    MIDI clock isn't implemented yet.
 
-    Until these land, the [gRPC](../reference/grpc/index.md) and
+    Until it lands, the [gRPC](../reference/grpc/index.md) and
     [OSC](../reference/osc/index.md) references list every available operation.

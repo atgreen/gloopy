@@ -7,12 +7,17 @@ All notable changes to Gloopy are recorded here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once it reaches its first
 tagged release.
 
-> **Pre-release.** Gloopy is experimental and has not had a tagged release yet.
-> Until `0.1.0`, interfaces, the project format, and behaviour may change without a
-> deprecation window; the entries below are the running tally of what the first
-> release will contain.
+> **Experimental.** `0.1.0` is Gloopy's first release; it remains under active
+> development. Interfaces, the project format, and behaviour may still change without a
+> deprecation window until the API stabilises.
 
 ## [Unreleased]
+
+_Nothing yet._
+
+## [0.1.0] - 2026-07-30
+
+First release.
 
 ### Added
 - **Windows support.** A native Windows x64 build, distributed as both a portable
@@ -38,4 +43,5 @@ tagged release.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/commits/main
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/atgreen/gloopy/releases/tag/v0.1.0

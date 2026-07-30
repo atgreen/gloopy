@@ -6,15 +6,17 @@ them, see [The Gloopy model](../concepts/model.md); for worked lessons, the
 
 | Interface | What it is | Source of truth | How it's documented |
 |-----------|------------|-----------------|---------------------|
-| **[gRPC API](grpc/index.md)** | The structural/scheduled service (~140 RPCs) | `proto/gloopy.proto` | Generated from proto comments (`buf` + `protoc-gen-doc`) |
-| **[OSC address space](osc/index.md)** | The live/performance lane | `Source/OscControl.h` → an `osc.yaml` schema | Generated from the schema |
+| **[gRPC API](grpc/index.md)** | The structural/scheduled service (~140 RPCs) | `proto/gloopy.proto` | Hand-maintained summary; the proto is authoritative (`buf` generation planned) |
+| **[OSC address space](osc/index.md)** | The live/performance lane | `Source/OscControl.h` | Hand-maintained summary; the source is authoritative (schema generation planned) |
 | **[Python client](python/index.md)** | The `gloopy` package | `python/gloopy/client.py` docstrings | Pulled live at build (mkdocstrings) |
 | **[Common Lisp client](lisp/index.md)** | The `gloopy` + `gloopy.osc` systems | `common-lisp/src/packages.lisp` exports | **Hand-maintained** (generator planned) |
 
-!!! info "Generated pages"
-    The gRPC, OSC, and Python reference bodies are **generated from the source of
-    truth**, not written by hand. Never edit a generated page — change the proto
-    comment, the schema, or the docstring it came from. Generated Markdown is
-    git-ignored and rebuilt in CI on every deploy. The **Common Lisp** page is
-    the current exception: it's written by hand from the package exports until the
-    40ants-doc generator is wired up.
+!!! info "How these pages are produced"
+    Only the **Python** reference is generated — pulled live from the client's
+    docstrings by `mkdocstrings` at build time (don't edit it; change the
+    docstring). The **gRPC**, **OSC**, and **Common Lisp** pages are
+    **hand-maintained summaries** for now: the [proto](../../../proto/gloopy.proto),
+    `Source/OscControl.h`, and the CL package exports remain the authoritative
+    source. The `buf`, OSC-schema, and 40ants-doc generators are planned (their
+    steps are stubbed in `.github/workflows/docs.yml`) and will replace the
+    summaries when wired.

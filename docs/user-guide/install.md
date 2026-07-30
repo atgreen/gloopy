@@ -11,6 +11,14 @@ the bundled Surge XT synth.
 | **Debian / Ubuntu** | `gloopy_<version>_amd64.deb` | Full build, with the bundled Surge XT synth |
 | **Windows (x64)** | `gloopy-windows-x64.zip` | Portable build, with the bundled Surge XT synth (VST3) |
 
+!!! note "Signed repositories"
+    The `dnf`/`apt` repositories work when the release was built with a GPG signing
+    key (the committed repo config verifies signatures). If a release is published
+    **unsigned**, the repo steps below fail their signature check and the apt keyring
+    download 404s — in that case use the one-off `.rpm`/`.deb` download from the
+    [Releases page](https://github.com/atgreen/gloopy/releases) instead, which needs no
+    signature.
+
 ## Fedora / RHEL (RPM)
 
 Add the Gloopy repository and install — future releases then update with

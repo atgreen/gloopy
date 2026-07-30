@@ -1,6 +1,6 @@
 # AGENTS.md — working notes for AI agents
 
-Gloopy is a linear-arranger DAW in C++17 / JUCE 8 (see `README.md`).
+Gloopy is a linear-arranger DAW in C++17 / JUCE 9 (see `README.md`).
 This file captures the non-obvious things that are easy to get wrong.
 
 ## Remotes — cave is UPSTREAM, GitHub is a mirror
@@ -22,7 +22,7 @@ cmake --build build --target Gloopy                  # incremental; LTO is off f
 ```
 Needs the gRPC/protobuf and JUCE dev deps in `README.md`. The C++ is generated from
 `proto/gloopy.proto` at build time. This is a GUI app but runs on the current X display.
-JUCE is **pinned at `8.0.15`** in `CMakeLists.txt` (FetchContent). The embedded **surge**
+JUCE is **pinned at `9.0.0`** in `CMakeLists.txt` (FetchContent). The embedded **surge**
 vendors its *own* JUCE under `third_party/surge/libs/JUCE`, separate from Gloopy's — a
 JUCE bump moves only the FetchContent pin, not surge's copy.
 

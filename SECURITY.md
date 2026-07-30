@@ -4,14 +4,13 @@
 
 ## Supported versions
 
-Gloopy is **experimental and pre-release** — there is not yet a tagged release. Until
-`0.1.0` ships, only the current `main` (and, once they exist, the most recent tagged
-release) receives fixes. Older builds are not supported.
+Gloopy is **experimental**. Only the latest tagged release and the current `main`
+receive fixes; older versions are not supported.
 
 | Version | Supported |
 |---------|-----------|
+| latest `0.1.x` release | ✅ |
 | `main` (development) | ✅ |
-| tagged releases | the latest one, once releases exist |
 | anything older | ❌ |
 
 ## Reporting a vulnerability

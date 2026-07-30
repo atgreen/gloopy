@@ -2,7 +2,7 @@
 name: gloop-grind
 version: 1.0.0
 description: |
-  The long-march roadmap for GLOOPY — the compact JUCE 8 / C++17 linear-arranger
+  The long-march roadmap for GLOOPY — the compact JUCE 9 / C++17 linear-arranger
   DAW at ~/git/gloopy (plugin hosting, composition-as-repo projects, OSC + gRPC
   control, automation, embedded sfizz, scriptable/headless workflows). Invoke when
   the user says "grind", "keep going on Gloopy", "what's next", "pick the next
@@ -25,7 +25,7 @@ allowed-tools:
 # grind — the march to make Gloopy the scriptable, composition-as-repo DAW
 
 This skill is the durable map and process for **Gloopy** (`~/git/gloopy`): a compact
-JUCE 8 / C++17 linear-arranger DAW that hosts VST3/LV2 plugins and an embedded sfizz
+JUCE 9 / C++17 linear-arranger DAW that hosts VST3/LV2 plugins and an embedded sfizz
 SFZ engine, and that is driven end-to-end by a **control API** (OSC UDP 9000 + gRPC
 `127.0.0.1:50051`) over projects stored as a **diff-friendly composition-as-repo**
 text format.
