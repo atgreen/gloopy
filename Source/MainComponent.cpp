@@ -2519,10 +2519,19 @@ bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::Strin
     auto proc = KernelHost::launchGenerate (job, p, 50051, error);   // the kernel posts back to our own gRPC server
     if (proc == nullptr) return false;
 
-    {   // wait for KernelSubmit (first launch compiles the proto — allow ~3 min)
+    {   // Wait for KernelSubmit, the kernel dying, or a timeout. First launch compiles the
+        // proto (~tens of seconds), so allow a generous deadline; poll so a crashed kernel
+        // fails fast instead of hanging, and kill a hung kernel so it isn't orphaned.
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds (200);
         std::unique_lock<std::mutex> lk (j->m);
-        if (! j->cv.wait_for (lk, std::chrono::seconds (200), [&] { return j->done; }))
-        { error = "kernel: timed out waiting for the kernel to generate"; return false; }
+        while (! j->done)
+        {
+            if (j->cv.wait_for (lk, std::chrono::milliseconds (500), [&] { return j->done; })) break;
+            if (! proc->isRunning())      // crashed / exited before submitting a result
+            { lk.unlock(); error = "kernel: process exited before returning a result"; return false; }
+            if (std::chrono::steady_clock::now() > deadline)
+            { lk.unlock(); proc->kill(); error = "kernel: timed out waiting for the kernel to generate"; return false; }
+        }
         if (! j->ok) { error = j->error.isNotEmpty() ? j->error : juce::String ("kernel: generate failed"); return false; }
     }
 
