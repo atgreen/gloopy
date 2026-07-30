@@ -157,6 +157,58 @@ Two notes on the ag-proto codegen, both handled by the client:
 - `Meters` uses `[packed = false]` so ag-proto's unpacked repeated-scalar reader
   decodes the meter arrays (standard decoders accept unpacked too).
 
+## Script kernels
+
+A third gRPC service, `gloopy.v1.Kernel`, lets a clip's notes — or an automation
+lane — be produced by **code**. Gloopy launches and supervises a long-lived
+language runtime (an SBCL image, a Python interpreter) and drives it: the runtime
+is the **server**, Gloopy is the **client** — the inverse of the `Gloopy` service.
+It's the Jupyter-kernel / nREPL pattern: one warm image per language, so redefining
+a generator and re-running is instant.
+
+The reverse direction — a kernel reading project state or writing results itself —
+needs no new API: the kernel is *also a client of the `Gloopy` service on :50051*
+(the Common Lisp client above already speaks it). So `Kernel` defines only the
+Gloopy → kernel calls.
+
+```proto
+service Kernel {                                   // implemented BY the kernel; Gloopy is the client
+  rpc Describe   (Empty)         returns (KernelInfo);          // language / runtime / capabilities
+  rpc LoadSource (LoadRequest)   returns (LoadResult);          // load or redefine a file in the image
+  rpc Generate   (GenRequest)    returns (GenResult);           // pure: (context, seed) -> notes / automation
+  rpc StartDriver(DriverRequest) returns (stream DriverEvent);  // live: stream events as the clip plays
+  rpc Eval       (EvalRequest)   returns (EvalResult);          // one REPL expression (console panel)
+  rpc Reset      (Empty)         returns (Ack);                 // drop accumulated state (fresh image)
+}
+```
+
+Two execution models, matching the two lanes at the top:
+
+- **Generative** — `Generate` is a pure function of a `GenContext` (tempo, clip
+  length, key/scale, a `seed`, referenced input clips) plus per-clip `params`. It
+  **returns** notes (and optionally automation lanes), which Gloopy materialises
+  into the clip's `.notes`/`.points`. Deterministic, cacheable, diff-friendly,
+  renders headless. `GenResult` reuses `Note` / `AutoPoint`, so it maps straight
+  onto the model with no translation — automation is addressed by the id-based
+  `param_id`, the same unified path `AddAutomationPoint` / `SetAutomationCurve` use.
+- **Live-driving** — `StartDriver` streams timestamped `DriverEvent`s (a note, a
+  parameter change, or a log line) while the clip plays. Gloopy schedules them
+  **look-ahead** into a lock-free queue the audio thread drains, so a slow or hung
+  kernel drops events but **never stalls playback** — the same discipline as the
+  live-MIDI lane. A reactive kernel pulls current transport/state via the `Gloopy`
+  service rather than being pushed ticks.
+
+**Determinism.** A warm image is great for iteration but bad for reproducible
+renders, so `Generate` takes a `clean` flag: set it (fresh state, fixed `seed`) for
+offline render and CI; leave it off for fast interactive regeneration. The
+materialised notes are cached in the composition, so a project opens and plays even
+with **no runtime installed** — only *regenerating* needs the kernel.
+
+> **Status:** the `Kernel` service is **defined in the proto but not yet
+> implemented** — it is the contract for the *script clips* work (the reference
+> SBCL/Python kernels, the script-clip model, and the clip UI land incrementally on
+> top of it), not a shipped feature.
+
 ## Security
 
 - **OSC** is unauthenticated/unencrypted (it's just UDP) — it is a **local
@@ -177,6 +229,9 @@ Two notes on the ag-proto codegen, both handled by the client:
    create sampler/audio/plugin tracks, import audio clips, add plugin effects,
    remove/move tracks & clips, open plugin editors.
 4. Full UI parity and a documented Common Lisp client library.
+5. **Script kernels** *(designed)* — a `Kernel` gRPC service so clips generate and
+   drive notes & automation from code (SBCL, then Python): warm per-language images,
+   deterministic `Generate`, live `StartDriver`.
 
 ## Build / deps
 
