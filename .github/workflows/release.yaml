@@ -467,29 +467,75 @@ jobs:
           name: sbom
           path: gloopy.spdx.json
 
-      - name: Attach SBOM to the release
+      # Build the Release body straight from CHANGELOG.md (single source of truth):
+      # an announcement line whose one-sentence summary is the lead prose under the
+      # version's "## [X.Y.Z]" heading, then that version's "### …" detail sections,
+      # then an install/links footer. This job runs last (needs rpm/deb/windows), so
+      # setting the body here is authoritative — the earlier per-package "Upload to
+      # release" steps create the release without a body and don't clobber it.
+      - name: Generate release notes from CHANGELOG
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Summary: the lead prose paragraph under "## [VERSION]" (before any "### "),
+          # its wrapped lines joined into one line.
+          SUMMARY="$(awk -v ver="$VERSION" '
+            $0 ~ ("^## \\[" ver "\\]") { grab=1; next }
+            grab && (/^## \[/ || /^### /) { exit }
+            grab && NF==0 { if (out != "") exit; else next }
+            grab { out = out (out == "" ? "" : " ") $0 }
+            END { print out }
+          ' CHANGELOG.md)"
+          # Details: this version'\''s "### …" sections, minus trailing "[x]: url" link-refs.
+          {
+            printf "We'\''re happy to announce the availability of **Gloopy %s**. %s\n\n" "$VERSION" "$SUMMARY"
+            awk -v ver="$VERSION" '
+              $0 ~ ("^## \\[" ver "\\]") { grab=1; next }
+              grab && /^## \[/           { exit }
+              grab && /^### /            { det=1 }
+              det && /^\[[^]]+\]:[ \t]/  { next }
+              det                        { print }
+            ' CHANGELOG.md
+            printf '\n---\n\n'
+            printf '**Install** — Fedora/RHEL: add the [dnf repo](https://atgreen.github.io/gloopy/latest/user-guide/install/) then `sudo dnf install gloopy`. '
+            printf 'Debian/Ubuntu: download `gloopy_%s-1_amd64.deb` below then `sudo apt install ./gloopy_%s-1_amd64.deb`. ' "$VERSION" "$VERSION"
+            printf 'Windows: `gloopy-setup-x64.exe` or `gloopy-windows-x64.zip` below.\n\n'
+            printf '📖 [Documentation](https://atgreen.github.io/gloopy/latest/) · 🔗 [Source](https://github.com/%s) · 📝 [Full changelog](https://github.com/%s/blob/%s/CHANGELOG.md)\n' \
+              "$GITHUB_REPOSITORY" "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME"
+          } > RELEASE_NOTES.md
+          echo "----- RELEASE_NOTES.md -----"; cat RELEASE_NOTES.md
+
+      - name: Attach SBOM + release notes to the release
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
         uses: softprops/action-gh-release@v2
         with:
+          body_path: RELEASE_NOTES.md
           files: gloopy.spdx.json
 
   # =====================================================================
-  # Package repositories, hosted on GitHub Pages (like the icl repos).
+  # Package repository, hosted on GitHub Pages (like the icl repos).
   #
-  # These run on a TAG push only — they turn the RPM/DEB attached to the
-  # GitHub Release into installable dnf/apt repositories:
+  # Runs on a TAG push only — it turns the RPM attached to the GitHub
+  # Release into an installable dnf repository:
   #   * RPM: createrepo_c metadata whose <location> hrefs point back at the
   #          Release download URLs, so Pages serves only the small metadata
   #          and the .rpm bytes come from the Release.
-  #   * DEB: a pool/ + dists/ tree that carries the .deb itself.
-  # deploy-pages pushes both into the gh-pages branch (under rpm-repo/ and
-  # deb-repo/), alongside the mike-published manual — a plain branch push,
-  # so it works even before the repo is public / Pages is enabled.
+  #
+  # There is deliberately NO apt repository: the .deb carries the ~90 MB
+  # Surge plugin, so it exceeds GitHub's 100 MB file limit, and apt's
+  # Packages `Filename` is resolved relative to the base URI (it will not
+  # follow an absolute URL), so we cannot point apt at the Release asset the
+  # way the RPM metadata does. Debian/Ubuntu users download the .deb from the
+  # Release and `apt install ./gloopy_*.deb` (see docs/user-guide/install.md).
+  #
+  # deploy-pages pushes the rpm-repo into the gh-pages branch (under rpm-repo/),
+  # alongside the mike-published manual — a plain branch push, so it works even
+  # before the repo is public / Pages is enabled.
   #
   # GPG signing is optional: set the RPM_GPG_PRIVATE_KEY secret (base64 of an
   # ASCII-armored private key — the same one icl uses) to sign the repo
-  # metadata; without it the repos publish unsigned and clients need
-  # gpgcheck=0 / an unsigned apt source.
+  # metadata; without it the repo publishes unsigned and clients need
+  # gpgcheck=0.
   # =====================================================================
   build-rpm-repo:
     needs: rpm
@@ -578,89 +624,12 @@ jobs:
           name: rpm-repo
           path: rpm-repo
 
-  build-deb-repo:
-    needs: deb
-    if: ${{ startsWith(github.ref, 'refs/tags/') }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Install APT repo tools
-        run: sudo apt-get update && sudo apt-get install -y dpkg-dev gpg
-
-      - name: Download DEB built earlier in this run
-        uses: actions/download-artifact@v4
-        with:
-          name: deb-package
-          path: /tmp/debs
-
-      - name: Import GPG key
-        env:
-          RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
-        if: ${{ env.RPM_GPG_PRIVATE_KEY != '' }}
-        run: |
-          echo "${RPM_GPG_PRIVATE_KEY}" | base64 -d | gpg --batch --import
-          # apt's signed-by expects the ASCII-armored key; name matches the URL in install docs.
-          gpg --batch --export --armor > /tmp/debs/gloopy-archive-keyring.gpg
-
-      - name: Build APT repository
-        run: |
-          REPO_DIR=/tmp/apt-repo
-          mkdir -p "${REPO_DIR}/pool/main" "${REPO_DIR}/dists/stable/main/binary-amd64"
-          cp /tmp/debs/*.deb "${REPO_DIR}/pool/main/"
-
-          cd "${REPO_DIR}"
-          dpkg-scanpackages pool/main > dists/stable/main/binary-amd64/Packages
-          gzip -9c dists/stable/main/binary-amd64/Packages > dists/stable/main/binary-amd64/Packages.gz
-
-          cd dists/stable
-          cat > Release <<EOF
-          Origin: gloopy
-          Label: gloopy
-          Suite: stable
-          Codename: stable
-          Date: $(date -Ru)
-          Architectures: amd64
-          Components: main
-          Description: Gloopy APT repository
-          EOF
-          sed -i 's/^          //' Release
-          {
-            echo "MD5Sum:"
-            for f in main/binary-amd64/Packages main/binary-amd64/Packages.gz; do
-              printf " %s %16d %s\n" "$(md5sum "$f" | awk '{print $1}')" "$(stat -c%s "$f")" "$f"
-            done
-            echo "SHA256:"
-            for f in main/binary-amd64/Packages main/binary-amd64/Packages.gz; do
-              printf " %s %16d %s\n" "$(sha256sum "$f" | awk '{print $1}')" "$(stat -c%s "$f")" "$f"
-            done
-          } >> Release
-
-      - name: Sign Release file
-        env:
-          RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
-        if: ${{ env.RPM_GPG_PRIVATE_KEY != '' }}
-        run: |
-          echo "${RPM_GPG_PRIVATE_KEY}" | base64 -d | gpg --batch --import
-          cd /tmp/apt-repo/dists/stable
-          gpg --batch --yes --armor --detach-sign -o Release.gpg Release
-          gpg --batch --yes --armor --clearsign -o InRelease Release
-
-      - name: Copy keyring into repo
-        run: |
-          [ -f /tmp/debs/gloopy-archive-keyring.gpg ] && cp /tmp/debs/gloopy-archive-keyring.gpg /tmp/apt-repo/ || true
-          find /tmp/apt-repo -type f | sort
-
-      - name: Upload deb-repo artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: deb-repo
-          path: /tmp/apt-repo
-
-  # Push both repos into the gh-pages branch (under rpm-repo/ and deb-repo/),
-  # keeping the mike-published manual that already lives there. A plain branch
-  # push via peaceiris — no Pages-enabled dependency, so it works while the repo
-  # is still private; it starts serving once the repo is public + Pages is on.
+  # Push the rpm-repo into the gh-pages branch (under rpm-repo/), keeping the
+  # mike-published manual that already lives there. A plain branch push via
+  # peaceiris — no Pages-enabled dependency, so it works while the repo is
+  # still private; it starts serving once the repo is public + Pages is on.
   deploy-pages:
-    needs: [build-rpm-repo, build-deb-repo]
+    needs: [build-rpm-repo]
     if: ${{ startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     # Serialize against docs.yml (mike), which also pushes gh-pages on tags.
@@ -674,12 +643,6 @@ jobs:
           name: rpm-repo
           path: public/rpm-repo
 
-      - name: Download deb-repo
-        uses: actions/download-artifact@v4
-        with:
-          name: deb-repo
-          path: public/deb-repo
-
       - name: Publish to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -687,4 +650,4 @@ jobs:
           publish_branch: gh-pages
           publish_dir: ./public
           keep_files: true   # preserve the mike-published manual (and each other)
-          commit_message: "repo: publish rpm/deb repositories for ${{ github.ref_name }}"
+          commit_message: "repo: publish rpm repository for ${{ github.ref_name }}"

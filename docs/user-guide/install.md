@@ -44,19 +44,22 @@ Prefer a one-off download? Grab the `.rpm` from the
 
 ## Debian / Ubuntu (DEB)
 
-Add the Gloopy repository and install — future releases then update with
-`apt upgrade`:
+There is no apt repository — download the `.deb` from the
+[Releases page](https://github.com/atgreen/gloopy/releases) and install it directly
+(`apt` pulls in the dependencies):
 
 ```sh
-curl -fsSL https://atgreen.github.io/gloopy/deb-repo/gloopy-archive-keyring.gpg | sudo tee /usr/share/keyrings/gloopy-archive-keyring.asc > /dev/null
-echo "deb [signed-by=/usr/share/keyrings/gloopy-archive-keyring.asc] https://atgreen.github.io/gloopy/deb-repo stable main" | sudo tee /etc/apt/sources.list.d/gloopy.list
-sudo apt update
-sudo apt install gloopy
+sudo apt install ./gloopy_*.deb
 ```
 
-Prefer a one-off download? Grab the `.deb` from the
-[Releases page](https://github.com/atgreen/gloopy/releases) and
-`sudo apt install ./gloopy_*.deb` instead.
+It installs to `/usr/bin/gloopy`; launch it from a terminal with `gloopy`. To update,
+download the newer `.deb` from a later release and `apt install ./…` it again.
+
+!!! note "Why no apt repo?"
+    The package bundles the ~90 MB Surge XT plugin, so the `.deb` exceeds GitHub's
+    100 MB per-file limit for the Pages-hosted pool, and apt (unlike `dnf`) resolves a
+    package's `Filename` relative to the repository — it can't be pointed at the
+    GitHub Release asset. So Debian/Ubuntu uses a direct download rather than a repo.
 
 ## Windows
 

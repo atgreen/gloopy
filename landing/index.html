@@ -271,8 +271,9 @@ gloopy mcp <span class="c">[project]</span>
     <section id="install">
       <p class="kicker">Install</p>
       <h2>Grab it for your system.</h2>
-      <p class="sub">On Linux, add the package repository once and future releases arrive with your normal
-        system updates. Packages are the full build, with the bundled Surge&nbsp;XT synth.</p>
+      <p class="sub">On Fedora / RHEL, add the <code>dnf</code> repository once and future releases arrive with
+        your normal system updates. Debian / Ubuntu and Windows install from the release downloads.
+        Packages are the full build, with the bundled Surge&nbsp;XT synth.</p>
 
       <div class="installs">
         <div class="card">
@@ -286,18 +287,13 @@ sudo dnf install gloopy</div>
         </div>
 
         <div class="card">
-          <div class="os"><b>Debian / Ubuntu</b><span class="tag">deb · apt</span></div>
-          <div class="code" data-copy='curl -fsSL https://atgreen.github.io/gloopy/deb-repo/gloopy-archive-keyring.gpg | sudo tee /usr/share/keyrings/gloopy-archive-keyring.asc > /dev/null
-echo "deb [signed-by=/usr/share/keyrings/gloopy-archive-keyring.asc] https://atgreen.github.io/gloopy/deb-repo stable main" | sudo tee /etc/apt/sources.list.d/gloopy.list
-sudo apt update
-sudo apt install gloopy'><button class="copy">Copy</button><span class="c"># add key + source, then install</span>
-curl -fsSL …/deb-repo/gloopy-archive-keyring.gpg \
-  | sudo tee /usr/share/keyrings/gloopy-archive-keyring.asc >/dev/null
-echo "deb [signed-by=…/gloopy-archive-keyring.asc] \
-  https://atgreen.github.io/gloopy/deb-repo stable main" \
-  | sudo tee /etc/apt/sources.list.d/gloopy.list
-sudo apt update && sudo apt install gloopy</div>
-          <small>Full commands are copied in full — the display is abbreviated to fit.</small>
+          <div class="os"><b>Debian / Ubuntu</b><span class="tag">deb · direct</span></div>
+          <div class="code" data-copy='# Download gloopy_*.deb from https://github.com/atgreen/gloopy/releases then:
+sudo apt install ./gloopy_*.deb'><button class="copy">Copy</button><span class="c"># download the .deb from Releases, then install</span>
+# grab gloopy_*.deb from the
+# <span class="p">Releases</span> page, then:
+sudo apt install ./gloopy_*.deb</div>
+          <small>No apt repo — the package bundles Surge and exceeds GitHub's file-size limit. <span style="font-family:var(--mono)">apt</span> pulls in the deps.</small>
         </div>
 
         <div class="card">

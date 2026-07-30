@@ -74,11 +74,11 @@ bounce it to a WAV.
 ## Install
 
 Pre-built packages are attached to each [release](https://github.com/atgreen/gloopy/releases),
-and Linux has package repositories. See the [install guide](docs/user-guide/install.md)
+and Fedora/RHEL has a `dnf` package repository. See the [install guide](docs/user-guide/install.md)
 for the details; in short:
 
 - **Fedora / RHEL** — add the repo, then `sudo dnf install gloopy`.
-- **Debian / Ubuntu** — add the repo, then `sudo apt install gloopy`.
+- **Debian / Ubuntu** — download the `.deb` from the release, then `sudo apt install ./gloopy_*.deb`.
 - **Windows (x64)** — run `gloopy-setup-x64.exe` (installer) or unzip the portable
   `gloopy-windows-x64.zip`.
 - **macOS** — build from source (below).

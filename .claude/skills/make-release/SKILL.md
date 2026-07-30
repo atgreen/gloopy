@@ -7,7 +7,8 @@ description: |
   X.Y.Z", or runs /make-release. Drives the whole flow: pick the SemVer version,
   roll the CHANGELOG + package versions, commit and tag on cave (upstream), let the
   mirror carry the tag to GitHub where release.yaml builds and attaches the RPM/DEB/
-  Windows zip+installer and publishes the dnf/apt repos, then verifies everything
+  Windows zip+installer and publishes the dnf repo (Debian/Ubuntu installs the .deb
+  directly — there is no apt repo), then verifies everything
   landed. Encodes the repo's release landmines (cave-is-upstream, GPG signing,
   version flow, Pages, cave-down retries) so a release goes out correctly.
 ---
@@ -16,8 +17,9 @@ description: |
 
 Gloopy releases are **tag-driven**: pushing a `v*` tag to cave (upstream) mirrors it
 to GitHub, where `.github/workflows/release.yaml` builds every package, attaches them
-to the GitHub Release, and publishes the `dnf`/`apt` repos to GitHub Pages. This skill
-is the process for doing that safely.
+to the GitHub Release, and publishes the `dnf` repo to GitHub Pages (there is no apt
+repo — Debian/Ubuntu installs the `.deb` directly). This skill is the process for doing
+that safely.
 
 **Read `AGENTS.md` first** — the operational landmines there are authoritative.
 
@@ -32,11 +34,10 @@ is the process for doing that safely.
   an `until timeout 90 git push … ; do sleep 30; done` loop, not a one-shot.
 - **Check CI with the token cleared:** `env -u GITHUB_TOKEN gh … -R atgreen/gloopy`
   (the ambient `GITHUB_TOKEN` is invalid).
-- **GPG signing.** The committed `packaging/gloopy.repo` sets `gpgcheck=1`/`repo_gpgcheck=1`
-  and the apt line is `signed-by=…`. If the **`RPM_GPG_PRIVATE_KEY`** secret is NOT set,
-  the repos publish **unsigned** and users' `dnf`/`apt` will reject them. Before tagging,
-  confirm the secret is set — or agree with the user to flip the repo config to unsigned
-  for this release.
+- **GPG signing.** The committed `packaging/gloopy.repo` sets `gpgcheck=1`/`repo_gpgcheck=1`.
+  If the **`RPM_GPG_PRIVATE_KEY`** secret is NOT set, the repo publishes **unsigned** and
+  users' `dnf` will reject it. Before tagging, confirm the secret is set — or agree with the
+  user to flip the repo config to unsigned for this release.
 - **Version flow.** The tag drives the version everywhere — `release.yaml` derives it
   from `github.ref_name` for the RPM (`_gloopy_version`), the DEB (stamps
   `debian/changelog`), and the Windows installer. So just tag `vX.Y.Z` correctly; you do
@@ -86,12 +87,16 @@ didn't mirror, push a trivial commit to cave to re-trigger the mirror, or invest
 `release.yaml` on the tag runs, in this dependency order:
 - `rpm`, `deb`, `windows` → build the packages and **attach them to the GitHub Release**
   (the `if: startsWith(github.ref,'refs/tags/')` "Upload to release" steps).
+- `provenance` (needs `rpm`, `deb`, `windows`) → SBOM + Sigstore attestations, and
+  **sets the Release body** from CHANGELOG.md (announcement line + the version's `###`
+  sections + install footer). It runs last, so its body is authoritative.
 - `build-rpm-repo` (needs `rpm`) → `createrepo_c` + rewrite hrefs to the Release assets.
-- `build-deb-repo` (needs `deb`) → `pool/` + `dists/` via `dpkg-scanpackages`.
-- `deploy-pages` (needs both repo jobs) → publishes `/rpm-repo` + `/deb-repo` onto
-  `gh-pages` (beside the landing page + manual). Note `deploy-pages` depends only on the
-  rpm/deb jobs, **not** windows — a Windows failure won't block the repos, but you still
-  want it green for the zip/installer assets.
+- `deploy-pages` (needs `build-rpm-repo`) → publishes `/rpm-repo` onto `gh-pages` (beside
+  the landing page + manual). **There is no apt repo** — the `.deb` embeds the ~90 MB Surge
+  plugin (over GitHub's 100 MB file limit) and apt can't redirect fetches to a Release asset
+  the way the dnf metadata does, so Debian/Ubuntu installs the `.deb` directly. `deploy-pages`
+  does **not** depend on windows — a Windows failure won't block the repo, but you still want
+  it green for the zip/installer assets.
 
 Watch it: `env -u GITHUB_TOKEN gh run watch <run-id> -R atgreen/gloopy` (or poll
 `gh run view`). The `docs` workflow also fires on the tag and `mike deploy`s the version
@@ -102,12 +107,12 @@ as `latest`.
 1. **GitHub Release** exists for `vX.Y.Z` with the assets: `gloopy-*.rpm`, `gloopy_*.deb`,
    `gloopy-windows-x64.zip`, `gloopy-setup-x64.exe` (+ `.dsc/.changes` if produced).
    `env -u GITHUB_TOKEN gh release view vX.Y.Z -R atgreen/gloopy`.
-2. **Repos serve** — `curl -sI https://atgreen.github.io/gloopy/rpm-repo/repodata/repomd.xml`
-   and `…/deb-repo/dists/stable/Release` return 200. Re-enable Pages if it dropped.
+2. **Repo serves** — `curl -sI https://atgreen.github.io/gloopy/rpm-repo/repodata/repomd.xml`
+   returns 200. Re-enable Pages if it dropped (`gh api -X POST repos/atgreen/gloopy/pages …`).
 3. **Package versions match the tag** — `rpm -qip` the asset / check the `.deb` name; catch
    the version-flow landmine here.
-4. **A real install works** if you can: add the repo and `dnf install gloopy` / `apt
-   install gloopy` (or at least `dnf install ./gloopy-*.rpm` locally on this Fedora box).
+4. **A real install works** if you can: add the repo and `dnf install gloopy` (or at least
+   `dnf install ./gloopy-*.rpm` / `apt install ./gloopy_*.deb` locally from the assets).
 5. **Docs** — `https://atgreen.github.io/gloopy/latest/` serves the tagged manual.
 
 ## Announce / finish
@@ -119,9 +124,10 @@ fixing — but only if no one has pulled it yet.
 
 ## If it goes wrong
 
-- **release.yaml red on rpm/deb** → the repos won't publish. Fix on `main`, and either
+- **release.yaml red on rpm** → the dnf repo won't publish. Fix on `main`, and either
   re-run the failed jobs (`gh run rerun`) or delete+re-cut the tag.
 - **cave down** → keep retrying the push loop; the tag is safe locally until it lands.
-- **repos 404 after a green run** → Pages disabled itself; re-enable via the API.
+- **repo 404 after a green run** → Pages disabled itself; re-enable via the API
+  (`gh api -X POST repos/atgreen/gloopy/pages -f 'source[branch]=gh-pages' -f 'source[path]=/'`).
 - **users can't install (GPG)** → the `RPM_GPG_PRIVATE_KEY` secret wasn't set; either add
-  it and re-run the repo jobs, or ship an unsigned `.repo`/apt line.
+  it and re-run the repo job, or ship an unsigned `.repo`.

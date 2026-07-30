@@ -69,6 +69,17 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      # mike appends to the EXISTING gh-pages history (versions.json + the version dirs,
+      # plus the landing page and the rpm repo that live on that branch). actions/checkout
+      # fetches origin/gh-pages only as a remote-tracking ref — it creates NO local gh-pages
+      # branch — and mike operates on the local branch. Without a local gh-pages, mike starts
+      # a fresh ORPHAN and force-replaces the remote, wiping every previously-published
+      # version and the rpm repo. Materialise a local gh-pages from the remote first; on the
+      # first-ever run there is nothing to fetch and mike creates the branch as before.
+      - name: Make existing gh-pages available to mike (so it appends, not orphans)
+        if: github.event_name == 'push'
+        run: git fetch origin gh-pages:gh-pages || echo "no gh-pages branch yet — mike will create it"
+
       # Doc versions track the PROTOCOL version, not the app version. mike deploys the
       # manual into versioned subdirs (/dev/, /latest/, ...). It does NOT own the site
       # root: no `mike set-default` / redirect — the root is the hand-built landing page
