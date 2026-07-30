@@ -5428,6 +5428,8 @@ void MainComponent::showFileMenu()
                                                                         : juce::String ("(select an instrument track)")), false);
     menu.addSubMenu ("MIDI Inputs", midiMenu);
     menu.addItem (5, "Rescan Plugins");
+    menu.addSeparator();
+    menu.addItem (41, "About Gloopy...");
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
         [this, isComposition] (int result)
         {
@@ -5445,6 +5447,21 @@ void MainComponent::showFileMenu()
             if (result == 31) { showGitSettings(); return; }      // identity + auto-commit
             if (result == 20) { undo(); return; }
             if (result == 21) { redo(); return; }
+            if (result == 41)   // About — version, licensing, and the source offer (AGPL §13)
+            {
+                const juce::String about =
+                    "Gloopy " + juce::String (JUCE_APPLICATION_VERSION_STRING) + "\n"
+                    "A scriptable, composition-as-repo DAW.\n"
+                    "Copyright \xc2\xa9 2026 Anthony Green.\n\n"
+                    "Licensed under the GNU Affero General Public License v3 (AGPL-3.0).\n"
+                    "Bundles Surge XT (GPL-3.0), JUCE, sfizz, and the Salamander Grand Piano "
+                    "(CC BY 3.0), among others \xe2\x80\x94 full license notices ship with the packages.\n\n"
+                    "Source code: https://github.com/atgreen/gloopy\n"
+                    "Upstream: cave.moxielogic.com (GitHub is a read-only mirror).";
+                juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+                    "About Gloopy", about);
+                return;
+            }
             if (result >= 100)                                  // New from Template
             {
                 const auto templates = apiListTemplates();

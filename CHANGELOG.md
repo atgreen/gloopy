@@ -32,6 +32,8 @@ First release.
   model the app and scripting API use.
 - **The manual.** A documentation site (user guide + control-and-scripting guide)
   published to GitHub Pages, and a project landing page.
+- **About dialog.** File → About Gloopy shows the version, copyright, license, bundled
+  third-party components, and the written offer of source (AGPL §13).
 - Third-party license texts are bundled into every package and the Windows build.
 - Supply chain: RPM/DEB packages and the repo metadata are GPG-signed, and release
   artifacts ship with an SPDX **SBOM** and **Sigstore** build-provenance attestations
