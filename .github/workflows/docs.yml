@@ -69,23 +69,28 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      # Doc versions track the PROTOCOL version, not the app version.
-      # Tag pushes deploy a named version and move the `latest` alias, and point the
-      # site root at it (so https://<pages>/ redirects to the newest release docs).
+      # Doc versions track the PROTOCOL version, not the app version. mike deploys the
+      # manual into versioned subdirs (/dev/, /latest/, ...). It does NOT own the site
+      # root: no `mike set-default` / redirect — the root is the hand-built landing page
+      # (landing/index.html), published over the top in the next step.
       - name: Deploy versioned docs
         if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          mike deploy --push --update-aliases "${GITHUB_REF_NAME#v}" latest
-          mike set-default --push latest
+        run: mike deploy --push --update-aliases "${GITHUB_REF_NAME#v}" latest
 
-      # Pushes to main publish a rolling "dev" build. Also set the site's default version
-      # so the root isn't a 404: prefer `latest` (a real release) if one exists, else `dev`.
+      # Pushes to main publish a rolling "dev" build.
       - name: Deploy dev docs
         if: github.ref == 'refs/heads/main'
-        run: |
-          mike deploy --push dev
-          if mike list 2>/dev/null | grep -q 'latest'; then
-            mike set-default --push latest
-          else
-            mike set-default --push dev
-          fi
+        run: mike deploy --push dev
+
+      # The site ROOT (https://atgreen.github.io/gloopy/) is the landing page, published
+      # onto the gh-pages root with keep_files so mike's versioned docs + the rpm/deb repos
+      # published by release.yaml are all preserved side by side.
+      - name: Publish landing page to the Pages root
+        if: github.event_name == 'push'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./landing
+          keep_files: true
+          commit_message: "site: publish landing page"
