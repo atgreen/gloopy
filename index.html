@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gloopy — the scriptable, git-native DAW</title>
+<meta name="description" content="Gloopy is a linear-arranger DAW driven by a diff-friendly, plain-text project format and an OSC + gRPC + MCP control API. Script your studio. Commit your music.">
+<meta property="og:title" content="Gloopy — the scriptable, git-native DAW">
+<meta property="og:description" content="Script your studio. Commit your music.">
+<meta name="theme-color" content="#0d1012">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='86'>🎛️</text></svg>">
+<script>
+window.HAPPENING_SITE_ID='3il9X2SBOcDI';
+</script>
+<script src="https://happening.labdroid.net/js/tracker.js" defer></script>
+</head>
+<body>
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#0d1012;
+    --bg-2:#0f1416;
+    --surface:#161b1f;
+    --surface-2:#1b2226;
+    --line:rgba(255,255,255,.08);
+    --line-strong:rgba(255,255,255,.14);
+    --text:#e9eef1;
+    --dim:#93a0a8;
+    --faint:#697680;
+    --accent:#33d1c0;
+    --accent-dim:#1c8a80;
+    --play:#5bd07a;
+    --mono: ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Menlo,Consolas,monospace;
+    --sans: system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --spectrum: linear-gradient(90deg,#e8763c,#e0a93c,#6fb05c,#3cc7c7,#5c9ae0,#b05cd0,#e85c86);
+    --maxw:1160px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0}
+  .page{
+    background:
+      radial-gradient(1200px 600px at 50% -280px, rgba(51,209,192,.10), transparent 70%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:17px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  a{color:inherit}
+
+  /* ---- top bar ---- */
+  .top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px 0}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-weight:700;
+    letter-spacing:.22em;font-size:15px}
+  .brand .tick{width:4px;height:20px;border-radius:2px;background:var(--accent);
+    box-shadow:0 0 12px rgba(51,209,192,.6)}
+  .top nav{display:flex;gap:22px;font-family:var(--mono);font-size:12.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--dim)}
+  .top nav a{text-decoration:none;transition:color .15s}
+  .top nav a:hover{color:var(--text)}
+
+  /* ---- hero ---- */
+  .hero{padding:56px 0 30px;text-align:center}
+  .eyebrow{font-family:var(--mono);font-size:12.5px;letter-spacing:.28em;text-transform:uppercase;
+    color:var(--accent);margin:0 0 22px}
+  .hero h1{font-size:clamp(38px,7vw,74px);line-height:1.02;letter-spacing:-.025em;font-weight:800;
+    margin:0 auto;max-width:15ch;text-wrap:balance}
+  .hero h1 em{font-style:normal;color:var(--accent)}
+  .lede{color:var(--dim);font-size:clamp(17px,2.3vw,21px);max-width:60ch;margin:22px auto 0;text-wrap:balance}
+  .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px}
+  .btn{font-family:var(--mono);font-size:14px;letter-spacing:.03em;text-decoration:none;
+    padding:13px 22px;border-radius:10px;transition:transform .15s,background .15s,border-color .15s;
+    display:inline-flex;align-items:center;gap:9px;border:1px solid transparent}
+  .btn-primary{background:var(--accent);color:#06201d;font-weight:700}
+  .btn-primary:hover{transform:translateY(-2px);background:#45ded0}
+  .btn-ghost{background:transparent;border-color:var(--line-strong);color:var(--text)}
+  .btn-ghost:hover{transform:translateY(-2px);border-color:var(--accent);color:var(--accent)}
+  .pill{display:inline-flex;align-items:center;gap:8px;margin-top:30px;font-family:var(--mono);
+    font-size:12px;letter-spacing:.1em;color:var(--dim);
+    border:1px solid var(--line);border-radius:999px;padding:7px 14px}
+  .pill .dot{width:7px;height:7px;border-radius:50%;background:#e0a93c;box-shadow:0 0 8px #e0a93c}
+
+  /* ---- screenshot frame ---- */
+  .shot{margin:52px auto 0;max-width:1120px;position:relative}
+  .shot .frame{border-radius:14px;overflow:hidden;border:1px solid var(--line-strong);
+    background:var(--surface);
+    box-shadow:0 40px 120px -30px rgba(0,0,0,.85), 0 0 0 1px rgba(0,0,0,.4);}
+  .shot .spectrum{height:3px;background:var(--spectrum)}
+  .shot img{display:block;width:100%;height:auto}
+  .shot figcaption{margin-top:14px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;
+    color:var(--faint);text-align:center}
+
+  /* ---- section chrome ---- */
+  section{padding:76px 0}
+  .rule{height:2px;background:var(--spectrum);opacity:.7;border:0;margin:0;max-width:var(--maxw)}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.24em;text-transform:uppercase;
+    color:var(--accent);margin:0 0 14px}
+  h2{font-size:clamp(26px,4vw,38px);letter-spacing:-.02em;font-weight:800;margin:0;text-wrap:balance}
+  .sub{color:var(--dim);max-width:62ch;margin:14px 0 0}
+
+  /* ---- facts ---- */
+  .facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);
+    border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:40px}
+  .fact{background:var(--bg-2);padding:26px 26px 30px}
+  .fact .lbl{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--faint);margin:0 0 12px;display:flex;align-items:center;gap:9px}
+  .fact .lbl::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--barc,#3cc7c7)}
+  .fact h3{margin:0 0 8px;font-size:19px;letter-spacing:-.01em}
+  .fact p{margin:0;color:var(--dim);font-size:15.5px;line-height:1.55}
+
+  /* ---- mcp callout ---- */
+  .mcp{display:grid;grid-template-columns:1.15fr .85fr;gap:28px;align-items:center;margin-top:18px;
+    padding:30px;border-radius:16px;border:1px solid var(--line-strong);
+    background:linear-gradient(120deg,rgba(51,209,192,.11),rgba(51,209,192,.015) 62%),var(--surface)}
+  .mcp .lbl{font-family:var(--mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--accent);margin:0}
+  .mcp h3{margin:11px 0 10px;font-size:22px;letter-spacing:-.015em}
+  .mcp p{margin:0;color:var(--dim);font-size:15.5px;line-height:1.55}
+  @media (max-width:820px){ .mcp{grid-template-columns:1fr} }
+
+  /* ---- install ---- */
+  .installs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:40px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;
+    display:flex;flex-direction:column;gap:16px}
+  .card .os{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .card .os b{font-size:17px;letter-spacing:-.01em}
+  .card .os .tag{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  .code{position:relative;background:#0a0d0f;border:1px solid var(--line);border-radius:10px;
+    font-family:var(--mono);font-size:12.5px;line-height:1.7;color:#cdd7dd;
+    padding:14px 44px 14px 14px;overflow-x:auto;white-space:pre}
+  .code .c{color:var(--faint)}
+  .code .p{color:var(--accent)}
+  .copy{position:absolute;top:8px;right:8px;background:var(--surface-2);border:1px solid var(--line);
+    color:var(--dim);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+    border-radius:7px;padding:5px 8px;cursor:pointer;transition:color .15s,border-color .15s}
+  .copy:hover{color:var(--accent);border-color:var(--accent)}
+  .card small{color:var(--faint);font-size:13px;line-height:1.5;margin-top:auto}
+  .card small a{color:var(--dim);text-underline-offset:3px}
+
+  /* ---- docs band ---- */
+  .band{background:linear-gradient(180deg,var(--surface),var(--bg-2));
+    border:1px solid var(--line);border-radius:18px;padding:44px;text-align:center;margin-top:8px}
+  .band .two{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+
+  /* ---- footer ---- */
+  footer{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--faint);font-size:13.5px}
+  footer .frow{display:flex;gap:18px;justify-content:space-between;flex-wrap:wrap;align-items:center}
+  footer .mono{font-family:var(--mono);font-size:12px;letter-spacing:.06em}
+  footer a{color:var(--dim);text-decoration:none}
+  footer a:hover{color:var(--accent)}
+
+  /* ---- entrance motion ---- */
+  .reveal{opacity:0;transform:translateY(14px);animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
+  .d1{animation-delay:.05s}.d2{animation-delay:.13s}.d3{animation-delay:.21s}
+  .d4{animation-delay:.29s}.d5{animation-delay:.4s}
+  @keyframes rise{to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){
+    .reveal{animation:none;opacity:1;transform:none}
+    .btn:hover,.btn-primary:hover,.btn-ghost:hover{transform:none}
+  }
+
+  @media (max-width:820px){
+    .installs{grid-template-columns:1fr}
+    .facts{grid-template-columns:1fr}
+    .top nav{display:none}
+    section{padding:56px 0}
+  }
+</style>
+
+<div class="page">
+  <div class="wrap">
+    <header class="top">
+      <div class="brand"><span class="tick"></span>GLOOPY</div>
+      <nav>
+        <a href="#install">Install</a>
+        <a href="#what">What it is</a>
+        <a href="https://atgreen.github.io/gloopy/dev/">Docs</a>
+        <a href="https://github.com/atgreen/gloopy">GitHub</a>
+      </nav>
+    </header>
+  </div>
+
+  <div class="wrap">
+    <section class="hero" style="padding-top:40px">
+      <p class="eyebrow reveal d1">Composition as Code</p>
+      <h1 class="reveal d2"><em>Script</em> your studio. <em>Commit</em> your music.</h1>
+      <p class="lede reveal d3">Gloopy is a linear-arranger DAW whose primary surface is a diff-friendly,
+        plain-text project format and an OSC&nbsp;+&nbsp;gRPC control API — so a script, an AI agent, or your CI
+        can drive it as readily as the desktop app.</p>
+      <div class="cta reveal d4">
+        <a class="btn btn-primary" href="#install">Install Gloopy ↓</a>
+        <a class="btn btn-ghost" href="https://atgreen.github.io/gloopy/dev/">Read the docs →</a>
+      </div>
+      <div class="pill reveal d4"><span class="dot"></span>v0.1 · early &amp; experimental — expect breakage</div>
+
+      <figure class="shot reveal d5">
+        <div class="frame">
+          <div class="spectrum"></div>
+          <img src="gloopy-piano.png"
+               alt="The Gloopy desktop app editing the &quot;Ascension&quot; demo: the busy Low Ostinato track is selected and open in the piano-roll editor — a dense field of notes over a piano keyboard, with a velocity lane below and the full colour-coded arrangement of eleven orchestral tracks above." />
+        </div>
+        <figcaption>Piano-roll editing the busy Low Ostinato track — 396 notes — with the full 11-track “Ascension” arrangement above.</figcaption>
+      </figure>
+    </section>
+  </div>
+
+  <hr class="rule" style="margin:0 auto"/>
+
+  <div class="wrap">
+    <section id="what">
+      <p class="kicker">What makes it Gloopy</p>
+      <h2>Small, scriptable, and version-controllable by design.</h2>
+      <p class="sub">Everything the app can do is reachable — and verifiable — without the window. The GUI is
+        built on the same control surface your scripts use.</p>
+
+      <div class="facts">
+        <div class="fact" style="--barc:#3cc7c7">
+          <p class="lbl">Control API</p>
+          <h3>Drive it over OSC + gRPC</h3>
+          <p>Build a track, arm a clip, set automation, bounce a mix — from Python, Common Lisp, a shell,
+            or an AI agent. Stable ids, live knobs over OSC.</p>
+        </div>
+        <div class="fact" style="--barc:#6fb05c">
+          <p class="lbl">Composition-as-repo</p>
+          <h3>Projects are plain text in git</h3>
+          <p>Tracks, clips, notes and automation serialise to readable TOML and <span style="font-family:var(--mono);font-size:.9em">.notes</span>/<span style="font-family:var(--mono);font-size:.9em">.points</span> files.
+            Diff a change, branch a mix, review a pull request.</p>
+        </div>
+        <div class="fact" style="--barc:#e0a93c">
+          <p class="lbl">Instruments</p>
+          <h3>Hosts VST3 / LV2 + Surge XT</h3>
+          <p>A built-in synth and sampler, native SFZ playback, hosted VST3/LV2 plugins, and the featured
+            Surge&nbsp;XT synth bundled in.</p>
+        </div>
+        <div class="fact" style="--barc:#b05cd0">
+          <p class="lbl">Headless</p>
+          <h3>Render without a display</h3>
+          <p><span style="font-family:var(--mono);font-size:.9em">gloopy render song/ out.wav</span> bounces the mix in CI;
+            <span style="font-family:var(--mono);font-size:.9em">export-stems</span> writes one WAV per track. Bit-reproducible.</p>
+        </div>
+      </div>
+
+      <div class="mcp">
+        <div>
+          <p class="lbl">◇ AI agents · Model Context Protocol</p>
+          <h3>Let an assistant drive Gloopy</h3>
+          <p>A built-in <b style="color:var(--text)">MCP</b> server ships inside the binary, so an AI agent —
+            Claude, or any MCP client — can inspect and control your song through the same shared model the
+            desktop app and your scripts use. No glue code, no separate package, no Python.</p>
+        </div>
+        <div class="code" data-copy='gloopy mcp [project]
+
+# Claude / MCP client config:
+{ "mcpServers": { "gloopy": { "command": "gloopy", "args": ["mcp"] } } }'><button class="copy">Copy</button><span class="c"># point an MCP client at:</span>
+gloopy mcp <span class="c">[project]</span>
+
+<span class="c"># e.g. a Claude MCP config entry:</span>
+"gloopy": { "command": <span class="p">"gloopy"</span>,
+            "args": [<span class="p">"mcp"</span>] }</div>
+      </div>
+    </section>
+  </div>
+
+  <hr class="rule" style="margin:0 auto"/>
+
+  <div class="wrap">
+    <section id="install">
+      <p class="kicker">Install</p>
+      <h2>Grab it for your system.</h2>
+      <p class="sub">On Fedora / RHEL, add the <code>dnf</code> repository once and future releases arrive with
+        your normal system updates. Debian / Ubuntu and Windows install from the release downloads.
+        Packages are the full build, with the bundled Surge&nbsp;XT synth.</p>
+
+      <div class="installs">
+        <div class="card">
+          <div class="os"><b>Fedora / RHEL</b><span class="tag">rpm · dnf</span></div>
+          <div class="code" data-copy="sudo dnf config-manager addrepo --from-repofile=https://atgreen.github.io/gloopy/rpm-repo/gloopy.repo
+sudo dnf install gloopy"><button class="copy">Copy</button><span class="c"># add the repo, then install</span>
+sudo dnf config-manager addrepo \
+  --from-repofile=https://atgreen.github.io/gloopy/rpm-repo/gloopy.repo
+sudo dnf install gloopy</div>
+          <small>Installs <span style="font-family:var(--mono)">/usr/bin/gloopy</span>; deps resolve from your repos.</small>
+        </div>
+
+        <div class="card">
+          <div class="os"><b>Debian / Ubuntu</b><span class="tag">deb · direct</span></div>
+          <div class="code" data-copy='# Download gloopy_*.deb from https://github.com/atgreen/gloopy/releases then:
+sudo apt install ./gloopy_*.deb'><button class="copy">Copy</button><span class="c"># download the .deb from Releases, then install</span>
+# grab gloopy_*.deb from the
+# <span class="p">Releases</span> page, then:
+sudo apt install ./gloopy_*.deb</div>
+          <small>No apt repo — the package bundles Surge and exceeds GitHub's file-size limit. <span style="font-family:var(--mono)">apt</span> pulls in the deps.</small>
+        </div>
+
+        <div class="card">
+          <div class="os"><b>Windows</b><span class="tag">x64 · installer</span></div>
+          <div class="code" data-copy="Download gloopy-setup-x64.exe from the Releases page and run it (tick Add to PATH for the CLI + MCP server). Or grab gloopy-windows-x64.zip for a portable, no-install build."><button class="copy">Copy</button><span class="c"># installer — recommended</span>
+1. Download <span class="p">gloopy-setup-x64.exe</span>
+2. Run it; tick <span class="p">Add to PATH</span>
+   for the CLI + MCP server.
+
+<span class="c"># or portable, no install</span>
+<span class="p">gloopy-windows-x64.zip</span> — unzip &amp; run.</div>
+          <small>Self-contained: app, runtime DLLs, assets, and the Surge&nbsp;XT VST3.
+            <a href="https://github.com/atgreen/gloopy/releases">Releases →</a></small>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="wrap">
+    <section style="padding-top:0">
+      <div class="band">
+        <p class="kicker" style="margin-bottom:10px">The manual</p>
+        <h2>Two front doors: play it, or script it.</h2>
+        <p class="sub" style="margin-left:auto;margin-right:auto">A user guide for making music at the desktop,
+          and a control-and-scripting guide for driving Gloopy from Python, Common Lisp, and the wire.</p>
+        <div class="two">
+          <a class="btn btn-primary" href="https://atgreen.github.io/gloopy/dev/">Open the docs →</a>
+          <a class="btn btn-ghost" href="https://atgreen.github.io/gloopy/dev/user-guide/install/">Install guide</a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="wrap">
+    <footer>
+      <div class="frow">
+        <div class="brand" style="font-size:13px;letter-spacing:.2em"><span class="tick" style="height:16px"></span>GLOOPY</div>
+        <div class="mono">AGPL-3.0 · bundles Surge XT (GPL-3.0)</div>
+        <div class="mono">Upstream: cave.moxielogic.com · <a href="https://github.com/atgreen/gloopy">GitHub is a mirror</a></div>
+      </div>
+      <p class="mono" style="margin:22px 0 0;color:var(--faint)">Experimental software under active development —
+        interfaces, formats and behaviour will change without notice.</p>
+    </footer>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.code').forEach(function(block){
+    var btn = block.querySelector('.copy');
+    if(!btn) return;
+    btn.addEventListener('click', function(){
+      var text = block.getAttribute('data-copy') || '';
+      navigator.clipboard.writeText(text).then(function(){
+        var prev = btn.textContent; btn.textContent = 'Copied';
+        setTimeout(function(){ btn.textContent = prev; }, 1400);
+      }).catch(function(){ btn.textContent = 'Copy failed'; });
+    });
+  });
+</script>
+
+</body>
+</html>
