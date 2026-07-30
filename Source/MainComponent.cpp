@@ -4830,8 +4830,8 @@ void MainComponent::showCommitDialog()
     addAndMakeVisible (d);
     d->setBounds (getLocalBounds());
     d->enterModalState (false);
-    juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<CommitDialog> (d)]
-                                     { if (sp != nullptr) sp->focusMessage(); });
+    juce::Component::SafePointer<CommitDialog> sp { d };
+    juce::MessageManager::callAsync ([sp] { if (sp != nullptr) sp->focusMessage(); });
 }
 
 void MainComponent::beginRenderMode (const juce::File& out)
