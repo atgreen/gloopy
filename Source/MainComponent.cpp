@@ -538,12 +538,12 @@ MainComponent::MainComponent (bool headless)
             bool nen = en, nhold = hold; double nrate = rate; int noct = oct, nmode = mode; float nswing = swing, nprob = prob, ngate = gate;
             if      (r == 1)                nen = ! en;
             else if (r == 2)                { nhold = ! hold; nen = true; }
-            else if (r >= 10 && r <= 13)    { nrate = (const double[]){1.0,0.5,0.25,0.125}[r-10]; nen = true; }
+            else if (r >= 10 && r <= 13)    { static constexpr double rates[] {1.0,0.5,0.25,0.125}; nrate = rates[r-10]; nen = true; }
             else if (r >= 21 && r <= 24)    { noct = r - 20; nen = true; }
             else if (r >= 30 && r <= 33)    { nmode = r - 30; nen = true; }
-            else if (r >= 40 && r <= 43)    { nswing = (const float[]){0.0f,0.2f,0.4f,0.6f}[r-40]; nen = true; }
-            else if (r >= 50 && r <= 53)    { nprob = (const float[]){1.0f,0.75f,0.5f,0.25f}[r-50]; nen = true; }
-            else if (r >= 60 && r <= 63)    { ngate = (const float[]){0.25f,0.5f,0.75f,1.0f}[r-60]; nen = true; }
+            else if (r >= 40 && r <= 43)    { static constexpr float sw[]   {0.0f,0.2f,0.4f,0.6f};    nswing = sw[r-40]; nen = true; }
+            else if (r >= 50 && r <= 53)    { static constexpr float pr[]   {1.0f,0.75f,0.5f,0.25f};  nprob  = pr[r-50]; nen = true; }
+            else if (r >= 60 && r <= 63)    { static constexpr float gt[]   {0.25f,0.5f,0.75f,1.0f};  ngate  = gt[r-60]; nen = true; }
             apiSetTrackArp (id, nen, nrate, noct, ngate, nmode, nswing, nhold, nprob);
             if (arrangeView) arrangeView->rebuild();                   // refresh the ARP button lit-state
         });
