@@ -257,8 +257,11 @@ jobs:
           # ~14 GB free and grpc's from-source buildtree overflowed it. `installed` stays on C:.
           $bt = "D:\vcpkg-bt"; $dl = "D:\vcpkg-dl"
           New-Item -ItemType Directory -Force -Path $bt,$dl | Out-Null
+          # --host-triplet: host codegen tools (protoc/grpc_cpp_plugin) release-only too, not the
+          # default x64-windows debug+release. host arch == target arch, so it's one release build.
           & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install grpc:x64-windows-release `
             --overlay-triplets="$env:GITHUB_WORKSPACE/ci/triplets" `
+            --host-triplet=x64-windows-release `
             --x-buildtrees-root=$bt --downloads-root=$dl `
             --clean-buildtrees-after-build --clean-downloads-after-build
           Get-PSDrive C,D | Format-Table Name,@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}

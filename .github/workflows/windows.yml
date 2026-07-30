@@ -109,8 +109,12 @@ jobs:
           New-Item -ItemType Directory -Force -Path $bt,$dl | Out-Null
           # x64-windows-release (ci/triplets) is release-only — the default x64-windows builds
           # every dep twice (debug + release). --clean-*-after-build frees each dep's buildtree.
+          # --host-triplet: build the HOST codegen tools (protoc, grpc_cpp_plugin) release-only
+          # too. Without it vcpkg builds the host copy with the default x64-windows triplet =
+          # debug AND release; here host arch == target arch, so this makes it one release build.
           & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install grpc:x64-windows-release `
             --overlay-triplets="$env:GITHUB_WORKSPACE/ci/triplets" `
+            --host-triplet=x64-windows-release `
             --x-buildtrees-root=$bt --downloads-root=$dl `
             --clean-buildtrees-after-build --clean-downloads-after-build
           Get-PSDrive C,D | Format-Table Name,@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
