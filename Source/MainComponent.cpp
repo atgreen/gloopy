@@ -227,7 +227,7 @@ MainComponent::MainComponent (bool headless)
     mixerButton.onClick = [this] { setViewMode (viewMode == ViewMode::Mixer ? ViewMode::Arrange : ViewMode::Mixer); };
     setWantsKeyboardFocus (true);   // so Tab (view switch) reliably reaches keyPressed
     // Grab focus once shown so the very first Tab works without clicking into the app first.
-    juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> (this)] { if (sp) sp->grabKeyboardFocus(); });
+    juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> { this }] { if (sp) sp->grabKeyboardFocus(); });
 
     // Collapsible left browser: tabbed categories that seed / open projects on click.
     browser = std::make_unique<BrowserSidebar>();
@@ -4062,7 +4062,7 @@ public:
         addAndMakeVisible (cancelBtn);
 
         setWantsKeyboardFocus (true);
-        juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<FormDialog> (this)]
+        juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<FormDialog> { this }]
                                          { if (sp != nullptr) sp->focusFirst(); });
     }
 
@@ -4242,7 +4242,7 @@ void MainComponent::showRemoteMenu()
         {
             if (r == 1)
             {
-                auto dismiss = [this] { juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> (this)] { if (sp != nullptr) sp->formDialog.reset(); }); };
+                auto dismiss = [this] { juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> { this }] { if (sp != nullptr) sp->formDialog.reset(); }); };
                 std::vector<FormDialog::FieldSpec> fields {
                     { "name", "REMOTE NAME", "origin", "e.g. origin" },
                     { "url",  "URL",         "",       "git@host:user/repo.git" },
@@ -4284,7 +4284,7 @@ void MainComponent::showGitSettings()
     const auto id = apiGitGetIdentity (dir);
     const bool autoOn = apiGitGetAutoCommit (dir);
 
-    auto dismiss = [this] { juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> (this)] { if (sp != nullptr) sp->formDialog.reset(); }); };
+    auto dismiss = [this] { juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> { this }] { if (sp != nullptr) sp->formDialog.reset(); }); };
     std::vector<FormDialog::FieldSpec> fields {
         { "name",  "NAME",  id.name,  "Your name" },
         { "email", "EMAIL", id.email, "you@example.com" },
@@ -4444,7 +4444,7 @@ void MainComponent::showBranchMenu()
             }
             else if (r == 1)                    // new branch from the current commit, then switch to it
             {
-                auto dismiss = [this] { juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> (this)] { if (sp != nullptr) sp->formDialog.reset(); }); };
+                auto dismiss = [this] { juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> { this }] { if (sp != nullptr) sp->formDialog.reset(); }); };
                 std::vector<FormDialog::FieldSpec> fields { { "name", "BRANCH NAME", "", "e.g. alt-arrangement" } };
                 presentModal (formDialog, new FormDialog ("New branch",
                     "Created from the current commit, then switched to.", std::move (fields), "Create + switch",
@@ -4464,7 +4464,7 @@ void MainComponent::showBranchMenu()
             else if (r == 2)                    // rename the current branch
             {
                 const auto cur = apiGitBranches (dir).current;
-                auto dismiss = [this] { juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> (this)] { if (sp != nullptr) sp->formDialog.reset(); }); };
+                auto dismiss = [this] { juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> { this }] { if (sp != nullptr) sp->formDialog.reset(); }); };
                 std::vector<FormDialog::FieldSpec> fields { { "name", "NEW NAME", cur, "" } };
                 presentModal (formDialog, new FormDialog ("Rename branch",
                     "Rename '" + cur + "'.", std::move (fields), "Rename",
@@ -4539,7 +4539,7 @@ void MainComponent::showTagMenu()
             }
             else if (r == 1)                    // tag this version...
             {
-                auto dismiss = [this] { juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> (this)] { if (sp != nullptr) sp->formDialog.reset(); }); };
+                auto dismiss = [this] { juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> { this }] { if (sp != nullptr) sp->formDialog.reset(); }); };
                 std::vector<FormDialog::FieldSpec> fields { { "name", "TAG NAME", "", "e.g. demo, master, album-cut" } };
                 FormDialog::FieldSpec msgField; msgField.key = "msg"; msgField.label = "DESCRIPTION (OPTIONAL)";
                 msgField.multiline = true; msgField.placeholder = "What is this milestone?";
@@ -4812,7 +4812,7 @@ void MainComponent::showCommitDialog()
 
     // Defer teardown: dismiss() fires from a button's own onClick, so deleting the dialog
     // (and that button) synchronously would pull the rug out mid-callback.
-    auto dismiss = [this] { juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> (this)] { if (sp != nullptr) sp->commitDialog.reset(); }); };
+    auto dismiss = [this] { juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> { this }] { if (sp != nullptr) sp->commitDialog.reset(); }); };
     auto onCommit = [this, dir, dismiss] (const juce::String& msg, bool amend)
     {
         auto add = apiGitAdd (dir, {});
