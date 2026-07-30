@@ -649,6 +649,74 @@ private:
         StepEditor  steps;
     };
 
+    // Keyboard-shortcut help overlay, toggled with '?'. A dimmed scrim over the whole
+    // window listing the bindings; dismiss with '?', Esc, or a click. The rows are the
+    // single visible source of truth for what keyPressed() handles — keep them in sync.
+    struct HelpOverlay : public juce::Component
+    {
+        struct Row   { juce::String keys, desc; };
+        struct Group { juce::String title; std::vector<Row> rows; };
+        std::vector<Group> groups;
+        std::function<void()> onClose;
+
+        HelpOverlay()
+        {
+            setWantsKeyboardFocus (true);
+            groups = {
+                { "Transport", { { "Space", "Play / Stop" } } },
+                { "Views",     { { "Tab", "Cycle Arrange / Session / Mixer" } } },
+                { "Editing",   { { "Del / Backspace", "Delete selected clip / clear session slot" },
+                                 { "Cmd/Ctrl+Z", "Undo" },
+                                 { "Cmd/Ctrl+Shift+Z, Cmd/Ctrl+Y", "Redo" } } },
+                { "Mixer",     { { "Cmd/Ctrl+G", "Group selected strips" },
+                                 { "Cmd/Ctrl+Shift+G", "Ungroup" } } },
+                { "Session",   { { "Cmd/Ctrl+G", "Group selected track columns" },
+                                 { "Cmd/Ctrl+Shift+G", "Ungroup" } } },
+                { "Groups",    { { "Cmd/Ctrl+Shift+F", "Fold / unfold all groups" } } },
+                { "Project",   { { "Cmd/Ctrl+S", "Save project" } } },
+                { "MIDI",      { { "Cmd/Ctrl+.", "Panic - all notes off" } } },
+                { "Help",      { { "?", "Toggle this overlay" }, { "Esc", "Close" } } },
+            };
+        }
+        void mouseDown (const juce::MouseEvent&) override { if (onClose) onClose(); }
+        bool keyPressed (const juce::KeyPress& k) override
+        {
+            if (k == juce::KeyPress::escapeKey || k.getTextCharacter() == '?') { if (onClose) onClose(); return true; }
+            return false;
+        }
+        void paint (juce::Graphics& g) override
+        {
+            g.fillAll (juce::Colour (0xe0121316));   // dim scrim
+            auto area = getLocalBounds().withSizeKeepingCentre (
+                            juce::jmin (640, getWidth() - 40), juce::jmin (600, getHeight() - 40));
+            g.setColour (Palette::panel);   g.fillRoundedRectangle (area.toFloat(), Palette::radius);
+            g.setColour (Palette::line);    g.drawRoundedRectangle (area.toFloat(), Palette::radius, 1.0f);
+
+            auto body = area.reduced (24, 20);
+            g.setColour (Palette::textBright);
+            g.setFont (Palette::valueFont (18.0f));
+            g.drawText ("Keyboard shortcuts", body.removeFromTop (26), juce::Justification::centredLeft);
+            body.removeFromTop (10);
+            for (auto& grp : groups)
+            {
+                g.setColour (Palette::accent);  g.setFont (Palette::sectionFont());
+                g.drawText (grp.title.toUpperCase(), body.removeFromTop (18), juce::Justification::centredLeft);
+                for (auto& r : grp.rows)
+                {
+                    auto row = body.removeFromTop (20);
+                    g.setColour (Palette::textDim);   g.setFont (Palette::valueFont (12.5f));
+                    g.drawText (r.keys, row.removeFromLeft (230), juce::Justification::centredLeft);
+                    g.setColour (Palette::text);
+                    g.drawText (r.desc, row, juce::Justification::centredLeft);
+                }
+                body.removeFromTop (8);
+            }
+            g.setColour (Palette::textDim);   g.setFont (Palette::sectionFont());
+            g.drawText ("Press ? or Esc to close", area.reduced (24, 14).removeFromBottom (16),
+                        juce::Justification::centredRight);
+        }
+    };
+
     void timerCallback() override;
 
     void addTrack (std::unique_ptr<Track> track);
@@ -1021,6 +1089,8 @@ private:
     juce::Component::SafePointer<juce::Component> keyListenerHost;   // top-level we listen to for Tab
     EditorPanel      editorPanel { transport };
     DevicePanel      devicePanel;                    // bottom-area effect chain for the selected track
+    HelpOverlay      helpOverlay;                    // '?' keyboard-shortcut overlay (covers the window)
+    void             toggleHelpOverlay();
     enum class BottomMode { Clip, Devices };
     BottomMode       bottomMode { BottomMode::Clip };
     int              deviceTrack { -1 };             // track whose device chain the panel shows

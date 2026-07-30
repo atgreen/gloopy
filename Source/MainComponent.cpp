@@ -225,6 +225,8 @@ MainComponent::MainComponent (bool headless)
 
     addAndMakeVisible (mixerButton);
     mixerButton.onClick = [this] { setViewMode (viewMode == ViewMode::Mixer ? ViewMode::Arrange : ViewMode::Mixer); };
+    addChildComponent (helpOverlay);   // '?' shortcut overlay — hidden until toggled, painted over everything
+    helpOverlay.onClose = [this] { helpOverlay.setVisible (false); grabKeyboardFocus(); };
     setWantsKeyboardFocus (true);   // so Tab (view switch) reliably reaches keyPressed
     // Grab focus once shown so the very first Tab works without clicking into the app first.
     { juce::Component::SafePointer<MainComponent> sp { this }; juce::MessageManager::callAsync ([sp] { if (sp) sp->grabKeyboardFocus(); }); }
@@ -5269,6 +5271,7 @@ void MainComponent::paintStatusBar (juce::Graphics& g)
 
 void MainComponent::resized()
 {
+    if (helpOverlay.isVisible()) helpOverlay.setBounds (getLocalBounds());   // keep the '?' overlay full-window
     auto area = getLocalBounds();
     toolbarBounds = area.removeFromTop (56);
     statusBarBounds = area.removeFromBottom (22);   // bottom status strip: project · unsaved · git · version
@@ -5799,6 +5802,7 @@ void MainComponent::apiRedo() { callOnMessageThread ([&] { redo(); return true; 
 bool MainComponent::keyPressed (const juce::KeyPress& key)
 {
     using MK = juce::ModifierKeys;
+    if (key.getTextCharacter() == '?')                                           { toggleHelpOverlay(); return true; }   // shortcut help
     if (key.getKeyCode() == juce::KeyPress::tabKey)                               { cycleView(); return true; }   // Arrange/Session/Mixer
     if (key == juce::KeyPress (juce::KeyPress::spaceKey, 0, 0))                   { toggleTransport(); return true; }   // play/stop
     if (key == juce::KeyPress ('s', MK::commandModifier, 0))                      { saveCurrentProject(); return true; }
@@ -5815,7 +5819,28 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     if (key == juce::KeyPress ('z', MK::commandModifier | MK::shiftModifier, 0))  { redo(); return true; }
     if (key == juce::KeyPress ('y', MK::commandModifier, 0))                      { redo(); return true; }
     if (key == juce::KeyPress ('.', MK::commandModifier, 0))                      { apiPanic(); return true; }   // MIDI panic
+    // Delete/Backspace: remove the selected arrangement clip, or clear the selected session slot.
+    // (The piano roll handles Delete on selected notes itself when it has focus.)
+    if (key.getKeyCode() == juce::KeyPress::deleteKey || key.getKeyCode() == juce::KeyPress::backspaceKey)
+    {
+        if (selTrack >= 0 && selClip >= 0)
+            if (auto* t = trackByIndex (selTrack)) { apiRemoveClip (t->id, selClip); return true; }
+        if (selSessionTrack >= 0 && selSessionScene >= 0)
+            if (auto* t = trackByIndex (selSessionTrack))
+            { apiClearSessionSlot (t->id, selSessionScene); if (sessionPane) sessionPane->rebuild(); return true; }
+    }
     return false;
+}
+
+// '?' toggles the keyboard-shortcut overlay: size it to the window, bring it to the
+// front, and give it focus so Esc/? close it; restore focus to the app when hidden.
+void MainComponent::toggleHelpOverlay()
+{
+    const bool show = ! helpOverlay.isVisible();
+    helpOverlay.setBounds (getLocalBounds());
+    helpOverlay.setVisible (show);
+    if (show) { helpOverlay.toFront (true); helpOverlay.grabKeyboardFocus(); }
+    else        grabKeyboardFocus();
 }
 
 // Space: toggle playback in place (keeps the playhead), mirroring the play/pause button.
