@@ -37,9 +37,10 @@ is the process for doing that safely.
   the repos publish **unsigned** and users' `dnf`/`apt` will reject them. Before tagging,
   confirm the secret is set — or agree with the user to flip the repo config to unsigned
   for this release.
-- **Version flow.** The tag drives the version, but as of this writing only the Windows
-  installer reads `github.ref_name`. Ensure the RPM and DEB get the same version (see
-  "Roll the version" below) — otherwise `v0.2.0` still ships `gloopy-0.1.0.rpm`.
+- **Version flow.** The tag drives the version everywhere — `release.yaml` derives it
+  from `github.ref_name` for the RPM (`_gloopy_version`), the DEB (stamps
+  `debian/changelog`), and the Windows installer. So just tag `vX.Y.Z` correctly; you do
+  NOT hand-edit package versions.
 - **GitHub Pages self-disables.** It has toggled off unprompted before; after the repos
   publish, verify the Pages site serves and re-enable via
   `gh api -X POST repos/atgreen/gloopy/pages …` if needed.
@@ -59,16 +60,14 @@ is the process for doing that safely.
 ## Roll the version + CHANGELOG (one commit)
 
 1. **CHANGELOG.md** — move the `[Unreleased]` block to a new `## [X.Y.Z] - YYYY-MM-DD`
-   section (use the real date; you can't call `date` inside a workflow but you can in the
-   shell here), leave a fresh empty `[Unreleased]`, and add/refresh the link refs at the
-   bottom.
-2. **DEB version** — add a `debian/changelog` entry for `X.Y.Z` (top entry is what
-   `dpkg-buildpackage` stamps). `dch -v X.Y.Z-1 "release"` if `devscripts` is available,
-   else edit by hand in the existing format.
-3. **RPM version** — the spec defaults to `0.1.0`; make sure `release.yaml`'s `rpm` job
-   passes `--define "_gloopy_version <X.Y.Z>"` from `github.ref_name` (add it if it
-   doesn't yet). Same idea for the DEB job if it doesn't derive from `debian/changelog`.
-4. Commit: `release: X.Y.Z` (changelog + version bumps), then push to cave (retry loop).
+   section (use today's real date — check it in the shell), leave a fresh empty
+   `[Unreleased]`, and add/refresh the link refs at the bottom. This is the ONE file you
+   roll by hand.
+2. **Package versions are automatic** — `release.yaml` derives the RPM/DEB/installer
+   version from the tag, so nothing to edit in `packaging/gloopy.spec` or
+   `debian/changelog`. (Optionally add a real `debian/changelog` prose entry for a proper
+   Debian changelog, but the *version* is stamped from the tag either way.)
+3. Commit: `release: X.Y.Z` (the CHANGELOG roll), then push to cave (retry loop).
 
 ## Tag and push
 
