@@ -13,7 +13,16 @@ tagged release.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+- **Linux desktop integration.** The RPM/DEB packages now ship a `.desktop` entry, an
+  application icon, and AppStream metadata, so Gloopy appears in the application
+  menu/launcher and in software centres after install — not just on the `PATH`.
+- **Keyboard shortcuts.** `Delete`/`Backspace` removes the selected arrangement clip (or
+  clears the selected session slot), and `?` opens a keyboard-shortcut help overlay.
+
+### Fixed
+- The About dialog and status bar now show the actual release version instead of a
+  hardcoded `0.1.0`.
 
 ## [0.1.1] - 2026-07-30
 

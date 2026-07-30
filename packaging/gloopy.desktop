@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Gloopy
+GenericName=Digital Audio Workstation
+Comment=A scriptable, composition-as-repo DAW
+Exec=gloopy %f
+Icon=gloopy
+Terminal=false
+Categories=AudioVideo;Audio;Sequencer;
+Keywords=DAW;music;audio;MIDI;sequencer;synth;composition;
+StartupNotify=true

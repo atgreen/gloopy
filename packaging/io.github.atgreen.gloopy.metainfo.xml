@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2026 Anthony Green <green@moxielogic.com> -->
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<component type="desktop-application">
+  <id>io.github.atgreen.gloopy</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-only</project_license>
+  <name>Gloopy</name>
+  <summary>A scriptable, composition-as-repo DAW</summary>
+  <description>
+    <p>
+      Gloopy is a linear-arranger digital audio workstation driven end to end by an
+      OSC + gRPC control API over a diff-friendly, version-controllable project format.
+      It hosts VST3/LV2 plugins, features a bundled Surge XT synth, and runs headless
+      for offline rendering and automation.
+    </p>
+  </description>
+  <launchable type="desktop-id">gloopy.desktop</launchable>
+  <url type="homepage">https://github.com/atgreen/gloopy</url>
+  <url type="bugtracker">https://github.com/atgreen/gloopy/issues</url>
+  <url type="help">https://atgreen.github.io/gloopy/latest/</url>
+  <developer id="io.github.atgreen">
+    <name>Anthony Green</name>
+  </developer>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.1" date="2026-07-30"/>
+    <release version="0.1.0" date="2026-07-30"/>
+  </releases>
+</component>

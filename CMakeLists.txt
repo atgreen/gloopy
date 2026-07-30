@@ -309,6 +309,21 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/licenses")
         COMPONENT gloopy)
 endif()
 
+# Linux desktop integration — so `dnf/apt install gloopy` puts Gloopy in the application
+# menu and software centres, not just on the PATH. The rpm/deb both stage the `gloopy`
+# component, so these ride along automatically; Windows/macOS package differently and skip them.
+if(UNIX AND NOT APPLE)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/packaging/gloopy.desktop
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+        COMPONENT gloopy)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/packaging/gloopy.svg
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+        COMPONENT gloopy)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/packaging/io.github.atgreen.gloopy.metainfo.xml
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo
+        COMPONENT gloopy)
+endif()
+
 option(GLOOPY_TESTS "Build the Gloopy unit-test target" OFF)
 if(GLOOPY_TESTS)
     enable_testing()

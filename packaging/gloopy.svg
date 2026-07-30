@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2026 Anthony Green <green@moxielogic.com> -->
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect x="8" y="8" width="240" height="240" rx="48" fill="#17181b"/>
+  <rect x="8.5" y="8.5" width="239" height="239" rx="47.5" fill="none" stroke="#343842" stroke-width="1"/>
+  <!-- teal waveform: a symmetric row of rounded bars -->
+  <g fill="#37c0d4">
+    <rect x="54"  y="104" width="20" height="48"  rx="10"/>
+    <rect x="86"  y="80"  width="20" height="96"  rx="10"/>
+    <rect x="118" y="52"  width="20" height="152" rx="10"/>
+    <rect x="150" y="80"  width="20" height="96"  rx="10"/>
+    <rect x="182" y="104" width="20" height="48"  rx="10"/>
+  </g>
+</svg>

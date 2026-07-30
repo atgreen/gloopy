@@ -40,6 +40,9 @@ install -Dm0644 "%{gloopy_srcdir}/LICENSE" "%{buildroot}%{_defaultlicensedir}/%{
 %{_datadir}/gloopy/
 %doc %{_datadir}/doc/gloopy/
 %{_libdir}/gloopy/
+%{_datadir}/applications/gloopy.desktop
+%{_datadir}/icons/hicolor/scalable/apps/gloopy.svg
+%{_datadir}/metainfo/io.github.atgreen.gloopy.metainfo.xml
 
 %changelog
 * Wed Jul 29 2026 Anthony Green <green@moxielogic.com> - 0.1.0-1
