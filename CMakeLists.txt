@@ -90,6 +90,14 @@ target_compile_definitions(Gloopy PUBLIC
     JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:Gloopy,JUCE_VERSION>"
     GLOOPY_ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/third_party")   # vendored assets (bundled piano)
 
+# On Windows, vcpkg's gRPC brings in vcpkg's zlib (z.lib), and JUCE's own bundled zlib then
+# multiply-defines deflate/inflate/... at link time (LNK2005). Tell juce_core to use the
+# external zlib so there's a single copy. Linux links system libz shared and doesn't clash,
+# so it keeps JUCE's bundled zlib there.
+if(WIN32)
+    target_compile_definitions(Gloopy PUBLIC JUCE_INCLUDE_ZLIB_CODE=0)
+endif()
+
 target_link_libraries(Gloopy PRIVATE
     juce::juce_audio_utils
     juce::juce_audio_processors
