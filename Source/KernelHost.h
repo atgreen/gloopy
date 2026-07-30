@@ -22,6 +22,7 @@ public:
         juce::int64 seed         { 0 };
         int         trackId      { 0 };
         int         clipIndex    { 0 };
+        juce::String lang;                   // "common-lisp" (default) or "python"
         juce::String source;                 // source file to load before generating (optional)
     };
 
@@ -31,5 +32,5 @@ public:
     static std::unique_ptr<juce::ChildProcess>
         launchGenerate (const juce::String& job, const GenParams& p, int hostPort, juce::String& error);
 
-    static juce::File findKernel();
+    static juce::File findFile (const juce::String& relPath);   // locate a repo file (dev tree)
 };

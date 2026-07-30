@@ -2499,6 +2499,7 @@ bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::Strin
 {
     KernelHost::GenParams p;
     p.source = source; p.trackId = trackId; p.clipIndex = index; p.seed = seed;
+    p.lang = lang.isNotEmpty() ? lang : juce::String ("common-lisp");
     p.tempoBpm = transport.getBpm();
     const bool found = callOnMessageThread ([&] () -> bool
     {
