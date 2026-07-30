@@ -17,13 +17,13 @@ using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::ServerWriter;
 using grpc::Status;
-namespace pb = gloopy::v1;
+namespace gpb = gloopy::v1;
 
 namespace
 {
     juce::String js (const std::string& s) { return juce::String::fromUTF8 (s.c_str(), (int) s.size()); }
 
-    void fillInsert (pb::MixerInsert* mi, const MainComponent::InsertSnap& s)
+    void fillInsert (gpb::MixerInsert* mi, const MainComponent::InsertSnap& s)
     {
         mi->set_index (s.index); mi->set_name (s.name.toStdString());
         mi->set_volume (s.volume); mi->set_pan (s.pan); mi->set_mute (s.mute); mi->set_solo (s.solo);
@@ -40,7 +40,7 @@ namespace
         }
     }
 
-    void fillPlugin (pb::PluginInfo* pi, const MainComponent::PluginSnap& s)
+    void fillPlugin (gpb::PluginInfo* pi, const MainComponent::PluginSnap& s)
     {
         pi->set_name (s.name.toStdString());
         pi->set_format (s.format.toStdString());
@@ -53,67 +53,67 @@ namespace
         pi->set_num_outputs (s.numOutputs);
     }
 
-    class ServiceImpl final : public pb::Gloopy::Service
+    class ServiceImpl final : public gpb::Gloopy::Service
     {
     public:
         explicit ServiceImpl (MainComponent& mc) : main (mc) {}
 
         // ---- transport ----
-        Status Play (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        Status Play (ServerContext*, const gpb::Empty*, gpb::Ack* r) override
         { main.apiPlay(); r->set_ok (true); return Status::OK; }
 
-        Status Stop (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        Status Stop (ServerContext*, const gpb::Empty*, gpb::Ack* r) override
         { main.apiStop(); r->set_ok (true); return Status::OK; }
 
-        Status Panic (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        Status Panic (ServerContext*, const gpb::Empty*, gpb::Ack* r) override
         { main.apiPanic(); r->set_ok (true); return Status::OK; }
 
-        Status SetTempo (ServerContext*, const pb::Tempo* q, pb::Ack* r) override
+        Status SetTempo (ServerContext*, const gpb::Tempo* q, gpb::Ack* r) override
         { main.apiSetTempo (q->bpm()); r->set_ok (true); return Status::OK; }
 
-        Status SetSwing (ServerContext*, const pb::Swing* q, pb::Ack* r) override
+        Status SetSwing (ServerContext*, const gpb::Swing* q, gpb::Ack* r) override
         { main.apiSetSwing (q->amount()); r->set_ok (true); return Status::OK; }
 
-        Status Seek (ServerContext*, const pb::Position* q, pb::Ack* r) override
+        Status Seek (ServerContext*, const gpb::Position* q, gpb::Ack* r) override
         { main.apiSeek (q->beats()); r->set_ok (true); return Status::OK; }
 
-        Status StartRecording (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        Status StartRecording (ServerContext*, const gpb::Empty*, gpb::Ack* r) override
         { main.apiStartRecording(); r->set_ok (true); return Status::OK; }
 
-        Status StopRecording (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        Status StopRecording (ServerContext*, const gpb::Empty*, gpb::Ack* r) override
         { main.apiStopRecording(); r->set_ok (true); return Status::OK; }
 
-        Status ListAudioInputs (ServerContext*, const pb::Empty*, pb::AudioInputs* r) override
+        Status ListAudioInputs (ServerContext*, const gpb::Empty*, gpb::AudioInputs* r) override
         { for (auto& n : main.apiListAudioInputs()) r->add_names (n.toStdString()); return Status::OK; }
 
-        Status ListMidiInputs (ServerContext*, const pb::Empty*, pb::MidiInputs* r) override
+        Status ListMidiInputs (ServerContext*, const gpb::Empty*, gpb::MidiInputs* r) override
         { for (auto& n : main.apiListMidiInputs()) r->add_names (n.toStdString()); return Status::OK; }
 
-        Status ArmTrack (ServerContext*, const pb::ArmRequest* q, pb::Ack* r) override
+        Status ArmTrack (ServerContext*, const gpb::ArmRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiArmTrack (q->track_id(), q->armed(), q->input(), q->channels(), q->monitor());
           r->set_ok (ok); if (! ok) r->set_error ("track not found"); return Status::OK; }
 
-        Status SetPunchRange (ServerContext*, const pb::PunchRange* q, pb::Ack* r) override
+        Status SetPunchRange (ServerContext*, const gpb::PunchRange* q, gpb::Ack* r) override
         { r->set_ok (main.apiSetPunchRange (q->enabled(), q->in_beat(), q->out_beat(), q->count_in_beats()));
           return Status::OK; }
 
-        Status SetLoop (ServerContext*, const pb::Loop* q, pb::Ack* r) override
+        Status SetLoop (ServerContext*, const gpb::Loop* q, gpb::Ack* r) override
         { main.apiSetLoop (q->enabled(), q->start_beat(), q->end_beat()); r->set_ok (true); return Status::OK; }
 
-        Status SetRecordSettings (ServerContext*, const pb::RecordSettings* q, pb::Ack* r) override
+        Status SetRecordSettings (ServerContext*, const gpb::RecordSettings* q, gpb::Ack* r) override
         { r->set_ok (main.apiSetRecordSettings (q->format(), q->latency_offset_seconds())); return Status::OK; }
 
-        Status PromoteTake (ServerContext*, const pb::TakeRef* q, pb::Ack* r) override
+        Status PromoteTake (ServerContext*, const gpb::TakeRef* q, gpb::Ack* r) override
         { const bool ok = main.apiPromoteTake (js (q->take_id()));
           r->set_ok (ok); if (! ok) r->set_error ("take not found in raw/"); return Status::OK; }
 
-        Status CleanupTakes (ServerContext*, const pb::Empty*, pb::TakeCount* r) override
+        Status CleanupTakes (ServerContext*, const gpb::Empty*, gpb::TakeCount* r) override
         { r->set_count (main.apiCleanupTakes()); return Status::OK; }
 
-        Status RecoverTakes (ServerContext*, const pb::Empty*, pb::TakeCount* r) override
+        Status RecoverTakes (ServerContext*, const gpb::Empty*, gpb::TakeCount* r) override
         { r->set_count (main.apiRecoverTakes()); return Status::OK; }
 
-        Status GetTransport (ServerContext*, const pb::Empty*, pb::TransportState* r) override
+        Status GetTransport (ServerContext*, const gpb::Empty*, gpb::TransportState* r) override
         {
             auto s = main.apiGetTransport();
             r->set_playing (s.playing);
@@ -128,7 +128,7 @@ namespace
         }
 
         // ---- tracks ----
-        Status AddSynthTrack (ServerContext*, const pb::AddSynthTrackRequest* q, pb::TrackId* r) override
+        Status AddSynthTrack (ServerContext*, const gpb::AddSynthTrackRequest* q, gpb::TrackId* r) override
         {
             const int id = main.apiAddSynthTrack (js (q->name()), (int) q->wave(),
                                                   q->attack(), q->decay(), q->sustain(), q->release(), q->gain());
@@ -136,7 +136,7 @@ namespace
             return Status::OK;
         }
 
-        Status SetTrackParams (ServerContext*, const pb::TrackParams* q, pb::Ack* r) override
+        Status SetTrackParams (ServerContext*, const gpb::TrackParams* q, gpb::Ack* r) override
         {
             const bool ok = main.apiSetTrackParams (q->id(),
                                 q->has_volume(), q->volume(), q->has_pan(), q->pan(),
@@ -147,7 +147,7 @@ namespace
             return Status::OK;
         }
 
-        Status SetSynthParam (ServerContext*, const pb::SynthParamSet* q, pb::Ack* r) override
+        Status SetSynthParam (ServerContext*, const gpb::SynthParamSet* q, gpb::Ack* r) override
         {
             const bool ok = main.apiSetSynthParam (q->track_id(), js (q->name()), q->value());
             r->set_ok (ok);
@@ -155,34 +155,34 @@ namespace
             return Status::OK;
         }
 
-        Status ListPresets (ServerContext*, const pb::PresetCategory* q, pb::PresetList* r) override
+        Status ListPresets (ServerContext*, const gpb::PresetCategory* q, gpb::PresetList* r) override
         { for (auto& n : main.apiListPresets (js (q->category()))) r->add_names (n.toStdString()); return Status::OK; }
 
-        Status SaveSynthPreset (ServerContext*, const pb::PresetRef* q, pb::Ack* r) override
+        Status SaveSynthPreset (ServerContext*, const gpb::PresetRef* q, gpb::Ack* r) override
         { const bool ok = main.apiSaveSynthPreset (q->target(), js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("not a synth track"); return Status::OK; }
 
-        Status LoadSynthPreset (ServerContext*, const pb::PresetRef* q, pb::Ack* r) override
+        Status LoadSynthPreset (ServerContext*, const gpb::PresetRef* q, gpb::Ack* r) override
         { const bool ok = main.apiLoadSynthPreset (q->target(), js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("preset or synth track not found"); return Status::OK; }
 
-        Status SaveInstrumentPreset (ServerContext*, const pb::PresetRef* q, pb::Ack* r) override
+        Status SaveInstrumentPreset (ServerContext*, const gpb::PresetRef* q, gpb::Ack* r) override
         { const bool ok = main.apiSaveInstrumentPreset (q->target(), js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("unsupported instrument"); return Status::OK; }
 
-        Status LoadInstrumentPreset (ServerContext*, const pb::PresetRef* q, pb::Ack* r) override
+        Status LoadInstrumentPreset (ServerContext*, const gpb::PresetRef* q, gpb::Ack* r) override
         { const bool ok = main.apiLoadInstrumentPreset (q->target(), js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("preset or track not found"); return Status::OK; }
 
-        Status SaveEffectPreset (ServerContext*, const pb::PresetRef* q, pb::Ack* r) override
+        Status SaveEffectPreset (ServerContext*, const gpb::PresetRef* q, gpb::Ack* r) override
         { const bool ok = main.apiSaveEffectPreset (q->target(), js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("bad insert"); return Status::OK; }
 
-        Status LoadEffectPreset (ServerContext*, const pb::PresetRef* q, pb::Ack* r) override
+        Status LoadEffectPreset (ServerContext*, const gpb::PresetRef* q, gpb::Ack* r) override
         { const bool ok = main.apiLoadEffectPreset (q->target(), js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("preset or insert not found"); return Status::OK; }
 
-        Status ListTracks (ServerContext*, const pb::Empty*, pb::TrackList* r) override
+        Status ListTracks (ServerContext*, const gpb::Empty*, gpb::TrackList* r) override
         {
             for (auto& t : main.apiListTracks())
             {
@@ -201,7 +201,7 @@ namespace
         }
 
         // ---- clips ----
-        Status AddClip (ServerContext*, const pb::AddClipRequest* q, pb::ClipId* r) override
+        Status AddClip (ServerContext*, const gpb::AddClipRequest* q, gpb::ClipId* r) override
         {
             std::vector<Note> notes;
             notes.reserve ((size_t) q->notes_size());
@@ -219,13 +219,13 @@ namespace
         }
 
         // ---- mixer / effects ----
-        Status ListInserts (ServerContext*, const pb::Empty*, pb::InsertList* r) override
+        Status ListInserts (ServerContext*, const gpb::Empty*, gpb::InsertList* r) override
         {
             for (auto& ins : main.apiListInserts()) fillInsert (r->add_inserts(), ins);
             return Status::OK;
         }
 
-        Status SetInsertParams (ServerContext*, const pb::InsertParams* q, pb::Ack* r) override
+        Status SetInsertParams (ServerContext*, const gpb::InsertParams* q, gpb::Ack* r) override
         {
             const bool ok = main.apiSetInsertParams (q->index(),
                                 q->has_volume(), q->volume(), q->has_pan(), q->pan(),
@@ -234,39 +234,39 @@ namespace
             return Status::OK;
         }
 
-        Status SetInsertName (ServerContext*, const pb::InsertName* q, pb::Ack* r) override
+        Status SetInsertName (ServerContext*, const gpb::InsertName* q, gpb::Ack* r) override
         { const bool ok = main.apiSetInsertName (q->index(), js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("rename failed (insert not found or empty name)"); return Status::OK; }
 
-        Status AddEffect (ServerContext*, const pb::AddEffectRequest* q, pb::EffectRef* r) override
+        Status AddEffect (ServerContext*, const gpb::AddEffectRequest* q, gpb::EffectRef* r) override
         {
             const int slot = main.apiAddEffect (q->insert(), (int) q->type());
             r->set_insert (q->insert()); r->set_slot (slot);
             return Status::OK;
         }
 
-        Status RemoveEffect (ServerContext*, const pb::EffectRef* q, pb::Ack* r) override
+        Status RemoveEffect (ServerContext*, const gpb::EffectRef* q, gpb::Ack* r) override
         {
             const bool ok = main.apiRemoveEffect (q->insert(), q->slot());
             r->set_ok (ok); if (! ok) r->set_error ("effect not found");
             return Status::OK;
         }
 
-        Status SetEffectParam (ServerContext*, const pb::EffectParamSet* q, pb::Ack* r) override
+        Status SetEffectParam (ServerContext*, const gpb::EffectParamSet* q, gpb::Ack* r) override
         {
             const bool ok = main.apiSetEffectParam (q->insert(), q->slot(), js (q->name()), q->value());
             r->set_ok (ok); if (! ok) r->set_error ("effect/param not found");
             return Status::OK;
         }
 
-        Status SetEffectBypass (ServerContext*, const pb::EffectBypassSet* q, pb::Ack* r) override
+        Status SetEffectBypass (ServerContext*, const gpb::EffectBypassSet* q, gpb::Ack* r) override
         {
             const bool ok = main.apiSetEffectBypass (q->insert(), q->slot(), q->bypassed());
             r->set_ok (ok); if (! ok) r->set_error ("effect not found");
             return Status::OK;
         }
 
-        Status GetEffectParams (ServerContext*, const pb::EffectRef* q, pb::ParamList* r) override
+        Status GetEffectParams (ServerContext*, const gpb::EffectRef* q, gpb::ParamList* r) override
         {
             for (auto& p : main.apiGetEffectParams (q->insert(), q->slot()))
             {
@@ -277,7 +277,7 @@ namespace
             return Status::OK;
         }
 
-        Status GetAnalyzerData (ServerContext*, const pb::EffectRef* q, pb::AnalyzerData* r) override
+        Status GetAnalyzerData (ServerContext*, const gpb::EffectRef* q, gpb::AnalyzerData* r) override
         {
             for (float s : main.apiGetAnalyzerData (q->insert(), q->slot()))
                 r->add_samples (s);
@@ -285,14 +285,14 @@ namespace
         }
 
         // ---- scales ----
-        Status SetScale (ServerContext*, const pb::Scale* q, pb::Ack* r) override
+        Status SetScale (ServerContext*, const gpb::Scale* q, gpb::Ack* r) override
         {
             std::vector<int> iv; for (int i = 0; i < q->intervals_size(); ++i) iv.push_back (q->intervals (i));
             const bool ok = main.apiSetScale (q->root(), js (q->name()), iv);
             r->set_ok (ok); if (! ok) r->set_error ("unknown scale name and no intervals given");
             return Status::OK;
         }
-        Status GetScale (ServerContext*, const pb::Empty*, pb::Scale* r) override
+        Status GetScale (ServerContext*, const gpb::Empty*, gpb::Scale* r) override
         {
             int root; juce::String name; std::vector<int> iv;
             main.apiGetScale (root, name, iv);
@@ -300,51 +300,51 @@ namespace
             for (int i : iv) r->add_intervals (i);
             return Status::OK;
         }
-        Status SnapClipToScale (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
+        Status SnapClipToScale (ServerContext*, const gpb::ClipRef* q, gpb::Ack* r) override
         { const int n = main.apiSnapClipToScale (q->track_id(), q->index());
           r->set_ok (n >= 0); if (n < 0) r->set_error ("clip not found"); return Status::OK; }
-        Status SetTuning (ServerContext*, const pb::Tuning* q, pb::Ack* r) override
+        Status SetTuning (ServerContext*, const gpb::Tuning* q, gpb::Ack* r) override
         {
             std::vector<double> c; for (int i = 0; i < q->cents_size(); ++i) c.push_back (q->cents (i));
             const bool ok = main.apiSetTuning (c);
             r->set_ok (ok); if (! ok) r->set_error ("tuning needs exactly 12 cents values"); return Status::OK;
         }
-        Status GetTuning (ServerContext*, const pb::Empty*, pb::Tuning* r) override
+        Status GetTuning (ServerContext*, const gpb::Empty*, gpb::Tuning* r) override
         { for (double c : main.apiGetTuning()) r->add_cents (c); return Status::OK; }
-        Status ImportScl (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        Status ImportScl (ServerContext*, const gpb::FilePath* q, gpb::Ack* r) override
         { const bool ok = main.apiImportScl (js (q->path()));
           r->set_ok (ok); if (! ok) r->set_error ("could not parse a 12-note .scl"); return Status::OK; }
 
         // ---- buses & sends ----
-        Status AddBus (ServerContext*, const pb::AddBusRequest* q, pb::TrackId* r) override
+        Status AddBus (ServerContext*, const gpb::AddBusRequest* q, gpb::TrackId* r) override
         { r->set_id (main.apiAddBus (js (q->name()))); return Status::OK; }
-        Status RemoveBus (ServerContext*, const pb::TrackId* q, pb::Ack* r) override
+        Status RemoveBus (ServerContext*, const gpb::TrackId* q, gpb::Ack* r) override
         { const bool ok = main.apiRemoveBus (q->id());
           r->set_ok (ok); if (! ok) r->set_error ("remove bus failed (index is not a bus)"); return Status::OK; }
-        Status SetSend (ServerContext*, const pb::SetSendRequest* q, pb::Ack* r) override
+        Status SetSend (ServerContext*, const gpb::SetSendRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiSetSend (q->insert(), q->bus(), q->level(), q->post_fader());
           r->set_ok (ok); if (! ok) r->set_error ("invalid send (bad insert/bus, or nothing to remove)"); return Status::OK; }
 
         // ---- control groups (VCA-lite) ----
-        Status DefineControlGroup (ServerContext*, const pb::ControlGroupGain* q, pb::Ack* r) override
+        Status DefineControlGroup (ServerContext*, const gpb::ControlGroupGain* q, gpb::Ack* r) override
         { const bool ok = main.apiDefineControlGroup (js (q->name()), q->gain());
           r->set_ok (ok); if (! ok) r->set_error ("invalid group name"); return Status::OK; }
-        Status SetControlGroupGain (ServerContext*, const pb::ControlGroupGain* q, pb::Ack* r) override
+        Status SetControlGroupGain (ServerContext*, const gpb::ControlGroupGain* q, gpb::Ack* r) override
         { const bool ok = main.apiSetControlGroupGain (js (q->name()), q->gain());
           r->set_ok (ok); if (! ok) r->set_error ("no such control group"); return Status::OK; }
-        Status SetControlGroupMute (ServerContext*, const pb::ControlGroupMute* q, pb::Ack* r) override
+        Status SetControlGroupMute (ServerContext*, const gpb::ControlGroupMute* q, gpb::Ack* r) override
         { const bool ok = main.apiSetControlGroupMute (js (q->name()), q->mute());
           r->set_ok (ok); if (! ok) r->set_error ("no such control group"); return Status::OK; }
-        Status SetControlGroupSolo (ServerContext*, const pb::ControlGroupSolo* q, pb::Ack* r) override
+        Status SetControlGroupSolo (ServerContext*, const gpb::ControlGroupSolo* q, gpb::Ack* r) override
         { const bool ok = main.apiSetControlGroupSolo (js (q->name()), q->solo());
           r->set_ok (ok); if (! ok) r->set_error ("no such control group"); return Status::OK; }
-        Status AssignInsertToGroup (ServerContext*, const pb::GroupAssign* q, pb::Ack* r) override
+        Status AssignInsertToGroup (ServerContext*, const gpb::GroupAssign* q, gpb::Ack* r) override
         { const bool ok = main.apiAssignInsertToGroup (q->insert(), js (q->group()));
           r->set_ok (ok); if (! ok) r->set_error ("invalid insert index"); return Status::OK; }
-        Status RemoveControlGroup (ServerContext*, const pb::GroupName* q, pb::Ack* r) override
+        Status RemoveControlGroup (ServerContext*, const gpb::GroupName* q, gpb::Ack* r) override
         { const bool ok = main.apiRemoveControlGroup (js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("no such control group"); return Status::OK; }
-        Status ListControlGroups (ServerContext*, const pb::Empty*, pb::ControlGroupList* r) override
+        Status ListControlGroups (ServerContext*, const gpb::Empty*, gpb::ControlGroupList* r) override
         {
             for (auto& g : main.apiListControlGroups())
             { auto* o = r->add_groups(); o->set_name (g.name.toStdString());
@@ -353,49 +353,49 @@ namespace
         }
 
         // ---- tempo map ----
-        Status AddTempoMarker (ServerContext*, const pb::TempoMarker* q, pb::Ack* r) override
+        Status AddTempoMarker (ServerContext*, const gpb::TempoMarker* q, gpb::Ack* r) override
         { const bool ok = main.apiAddTempoMarker (q->beat(), q->bpm());
           r->set_ok (ok); if (! ok) r->set_error ("invalid tempo marker (beat>=0, bpm 20..400)"); return Status::OK; }
-        Status RemoveTempoMarker (ServerContext*, const pb::TempoMarker* q, pb::Ack* r) override
+        Status RemoveTempoMarker (ServerContext*, const gpb::TempoMarker* q, gpb::Ack* r) override
         { const bool ok = main.apiRemoveTempoMarker (q->beat());
           r->set_ok (ok); if (! ok) r->set_error ("no marker at that beat"); return Status::OK; }
-        Status ListTempoMarkers (ServerContext*, const pb::Empty*, pb::TempoMap* r) override
+        Status ListTempoMarkers (ServerContext*, const gpb::Empty*, gpb::TempoMap* r) override
         {
             for (auto& mk : main.apiListTempoMarkers())
             { auto* o = r->add_markers(); o->set_beat (mk.beat.inBeats()); o->set_bpm (mk.bpm); }
             return Status::OK;
         }
-        Status BeatsToSeconds (ServerContext*, const pb::Position* q, pb::SecondsValue* r) override
+        Status BeatsToSeconds (ServerContext*, const gpb::Position* q, gpb::SecondsValue* r) override
         { r->set_seconds (main.apiBeatsToSeconds (q->beats())); return Status::OK; }
-        Status SecondsToBeats (ServerContext*, const pb::SecondsValue* q, pb::Position* r) override
+        Status SecondsToBeats (ServerContext*, const gpb::SecondsValue* q, gpb::Position* r) override
         { r->set_beats (main.apiSecondsToBeats (q->seconds())); return Status::OK; }
-        Status SetTimeSignature (ServerContext*, const pb::TimeSignature* q, pb::Ack* r) override
+        Status SetTimeSignature (ServerContext*, const gpb::TimeSignature* q, gpb::Ack* r) override
         { const bool ok = main.apiSetTimeSignature (q->numerator(), q->denominator());
           r->set_ok (ok); if (! ok) r->set_error ("invalid time signature (1..32 / 1..32)"); return Status::OK; }
-        Status GetTimeSignature (ServerContext*, const pb::Empty*, pb::TimeSignature* r) override
+        Status GetTimeSignature (ServerContext*, const gpb::Empty*, gpb::TimeSignature* r) override
         { int n = 4, d = 4; main.apiGetTimeSignature (n, d);
           r->set_numerator (n); r->set_denominator (d); r->set_beats_per_bar ((double) n * 4.0 / (double) d); return Status::OK; }
-        Status BeatsToBarBeat (ServerContext*, const pb::BeatPos* q, pb::BarBeat* r) override
+        Status BeatsToBarBeat (ServerContext*, const gpb::BeatPos* q, gpb::BarBeat* r) override
         { int bar = 1; double bib = 1.0; main.apiBeatsToBarBeat (q->beat(), bar, bib);
           r->set_bar (bar); r->set_beat_in_bar (bib); return Status::OK; }
-        Status BarBeatToBeats (ServerContext*, const pb::BarBeat* q, pb::BeatPos* r) override
+        Status BarBeatToBeats (ServerContext*, const gpb::BarBeat* q, gpb::BeatPos* r) override
         { r->set_beat (main.apiBarBeatToBeats (q->bar(), q->beat_in_bar())); return Status::OK; }
 
         // ---- mixer scenes ----
-        Status DefineMixerScene (ServerContext*, const pb::SceneName* q, pb::Ack* r) override
+        Status DefineMixerScene (ServerContext*, const gpb::SceneName* q, gpb::Ack* r) override
         { const bool ok = main.apiDefineMixerScene (js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("invalid scene name"); return Status::OK; }
-        Status ListMixerScenes (ServerContext*, const pb::Empty*, pb::SceneList* r) override
+        Status ListMixerScenes (ServerContext*, const gpb::Empty*, gpb::SceneList* r) override
         { for (auto& n : main.apiListMixerScenes()) r->add_names (n.toStdString()); return Status::OK; }
-        Status RecallMixerScene (ServerContext*, const pb::SceneName* q, pb::Ack* r) override
+        Status RecallMixerScene (ServerContext*, const gpb::SceneName* q, gpb::Ack* r) override
         { const bool ok = main.apiRecallMixerScene (js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("scene not found"); return Status::OK; }
-        Status RemoveMixerScene (ServerContext*, const pb::SceneName* q, pb::Ack* r) override
+        Status RemoveMixerScene (ServerContext*, const gpb::SceneName* q, gpb::Ack* r) override
         { const bool ok = main.apiRemoveMixerScene (js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("scene not found"); return Status::OK; }
 
         // ---- automation ----
-        Status SetAutomation (ServerContext*, const pb::Automation* q, pb::Ack* r) override
+        Status SetAutomation (ServerContext*, const gpb::Automation* q, gpb::Ack* r) override
         {
             std::vector<MainComponent::AutoPointSnap> pts;
             for (int i = 0; i < q->points_size(); ++i)
@@ -408,22 +408,22 @@ namespace
             return Status::OK;
         }
 
-        Status AddAutomationPoint (ServerContext*, const pb::AddAutoPointRequest* q, pb::Ack* r) override
+        Status AddAutomationPoint (ServerContext*, const gpb::AddAutoPointRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiAddAutomationPointById (js (q->param_id()), q->beat(), q->value());
           r->set_ok (ok); if (! ok) r->set_error ("invalid param id"); return Status::OK; }
-        Status SetAutomationStep (ServerContext*, const pb::AutoStepRequest* q, pb::Ack* r) override
+        Status SetAutomationStep (ServerContext*, const gpb::AutoStepRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiSetAutomationStep (js (q->param_id()), q->step());
           r->set_ok (ok); if (! ok) r->set_error ("no automation lane on that param"); return Status::OK; }
-        Status SetAutomationCurve (ServerContext*, const pb::AutoCurveRequest* q, pb::Ack* r) override
+        Status SetAutomationCurve (ServerContext*, const gpb::AutoCurveRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiSetAutomationCurve (js (q->param_id()), q->curve());
           r->set_ok (ok); if (! ok) r->set_error ("no automation lane on that param"); return Status::OK; }
 
-        Status GetAutomation (ServerContext*, const pb::Empty*, pb::AutomationList* r) override
+        Status GetAutomation (ServerContext*, const gpb::Empty*, gpb::AutomationList* r) override
         {
             for (auto& lane : main.apiGetAutomation())
             {
                 auto* a = r->add_lanes();
-                a->set_target ((pb::AutoTarget) lane.type); a->set_id (lane.id);
+                a->set_target ((gpb::AutoTarget) lane.type); a->set_id (lane.id);
                 a->set_slot (lane.slot); a->set_param (lane.param.toStdString());
                 a->set_param_id (lane.target.toStdString());
                 for (auto& p : lane.points) { auto* pt = a->add_points(); pt->set_beat (p.beat); pt->set_value (p.value); }
@@ -432,18 +432,18 @@ namespace
         }
 
         // ---- modulation matrix ----
-        Status SetModulation (ServerContext*, const pb::ModRoute* q, pb::Ack* r) override
+        Status SetModulation (ServerContext*, const gpb::ModRoute* q, gpb::Ack* r) override
         { const bool ok = main.apiSetModulation (js (q->target()), q->rate(), q->depth(), q->shape(), q->center(),
                                                  q->sync_beats(), q->phase(), q->unipolar(), q->slew_ms());
           r->set_ok (ok); if (! ok) r->set_error ("invalid modulation target"); return Status::OK; }
-        Status AddModulation (ServerContext*, const pb::ModRoute* q, pb::Ack* r) override
+        Status AddModulation (ServerContext*, const gpb::ModRoute* q, gpb::Ack* r) override
         { const bool ok = main.apiAddModulation (js (q->target()), q->rate(), q->depth(), q->shape(), q->center(),
                                                  q->sync_beats(), q->phase(), q->unipolar(), q->slew_ms());
           r->set_ok (ok); if (! ok) r->set_error ("invalid modulation target"); return Status::OK; }
-        Status RemoveModulation (ServerContext*, const pb::ModTarget* q, pb::Ack* r) override
+        Status RemoveModulation (ServerContext*, const gpb::ModTarget* q, gpb::Ack* r) override
         { const bool ok = main.apiRemoveModulation (js (q->target()));
           r->set_ok (ok); if (! ok) r->set_error ("modulation not found"); return Status::OK; }
-        Status ListModulations (ServerContext*, const pb::Empty*, pb::ModList* r) override
+        Status ListModulations (ServerContext*, const gpb::Empty*, gpb::ModList* r) override
         {
             for (auto& m : main.apiListModulations())
             {
@@ -456,40 +456,40 @@ namespace
         }
 
         // ---- controller mapping / MIDI-learn ----
-        Status AddControllerMap (ServerContext*, const pb::ControllerMap* q, pb::Ack* r) override
+        Status AddControllerMap (ServerContext*, const gpb::ControllerMap* q, gpb::Ack* r) override
         { const bool ok = main.apiAddControllerMap (js (q->source()), js (q->target()), q->lo(), q->hi());
           r->set_ok (ok); if (! ok) r->set_error ("invalid controller map"); return Status::OK; }
-        Status RemoveControllerMap (ServerContext*, const pb::ControllerSource* q, pb::Ack* r) override
+        Status RemoveControllerMap (ServerContext*, const gpb::ControllerSource* q, gpb::Ack* r) override
         { const bool ok = main.apiRemoveControllerMap (js (q->source()));
           r->set_ok (ok); if (! ok) r->set_error ("no map for that source"); return Status::OK; }
-        Status ListControllerMaps (ServerContext*, const pb::Empty*, pb::ControllerList* r) override
+        Status ListControllerMaps (ServerContext*, const gpb::Empty*, gpb::ControllerList* r) override
         {
             for (auto& m : main.apiListControllerMaps())
             { auto* o = r->add_maps(); o->set_source (m.source.toStdString()); o->set_target (m.target.toStdString());
               o->set_lo (m.lo); o->set_hi (m.hi); o->set_bypass (m.bypass); }
             return Status::OK;
         }
-        Status SetController (ServerContext*, const pb::ControllerValue* q, pb::Ack* r) override
+        Status SetController (ServerContext*, const gpb::ControllerValue* q, gpb::Ack* r) override
         { main.apiSetController (js (q->source()), q->value()); r->set_ok (true); return Status::OK; }
-        Status SetControllerBypass (ServerContext*, const pb::ControllerBypass* q, pb::Ack* r) override
+        Status SetControllerBypass (ServerContext*, const gpb::ControllerBypass* q, gpb::Ack* r) override
         { const bool ok = main.apiSetControllerBypass (js (q->source()), js (q->target()), q->bypass());
           r->set_ok (ok); if (! ok) r->set_error ("controller map not found"); return Status::OK; }
-        Status MidiLearn (ServerContext*, const pb::LearnRequest* q, pb::Ack* r) override
+        Status MidiLearn (ServerContext*, const gpb::LearnRequest* q, gpb::Ack* r) override
         { main.apiMidiLearn (js (q->target())); r->set_ok (true); return Status::OK; }
 
         // ---- universal parameter model ----
-        static void fillParam (pb::ParameterInfo* pi, const MainComponent::ParamDesc& d)
+        static void fillParam (gpb::ParameterInfo* pi, const MainComponent::ParamDesc& d)
         {
             pi->set_id (d.id.toStdString());   pi->set_name (d.name.toStdString());
             pi->set_value (d.value);           pi->set_min (d.min);   pi->set_max (d.max);   pi->set_default_value (d.def);
             pi->set_unit (d.unit.toStdString()); pi->set_scaling (d.scaling.toStdString());
         }
-        Status ListParameters (ServerContext*, const pb::Empty*, pb::ParameterList* r) override
+        Status ListParameters (ServerContext*, const gpb::Empty*, gpb::ParameterList* r) override
         {
             for (auto& d : main.apiListParameters()) fillParam (r->add_params(), d);
             return Status::OK;
         }
-        Status GetParameter (ServerContext*, const pb::ParameterId* q, pb::ParameterInfo* r) override
+        Status GetParameter (ServerContext*, const gpb::ParameterId* q, gpb::ParameterInfo* r) override
         {
             MainComponent::ParamDesc d;
             if (! main.apiGetParameter (js (q->id()), d))
@@ -497,10 +497,10 @@ namespace
             fillParam (r, d);
             return Status::OK;
         }
-        Status SetParameterNormalized (ServerContext*, const pb::ParameterSet* q, pb::Ack* r) override
+        Status SetParameterNormalized (ServerContext*, const gpb::ParameterSet* q, gpb::Ack* r) override
         { const bool ok = main.apiSetParameterNormalized (js (q->id()), q->value());
           r->set_ok (ok); if (! ok) r->set_error ("unknown parameter id"); return Status::OK; }
-        Status SetParameter (ServerContext*, const pb::ParameterSet* q, pb::Ack* r) override
+        Status SetParameter (ServerContext*, const gpb::ParameterSet* q, gpb::Ack* r) override
         {
             const bool ok = main.apiSetParameter (js (q->id()), q->value());
             r->set_ok (ok); if (! ok) r->set_error ("unknown or rejected parameter id");
@@ -508,7 +508,7 @@ namespace
         }
 
         // ---- diagnostics ----
-        Status GetDiagnostics (ServerContext*, const pb::Empty*, pb::Diagnostics* r) override
+        Status GetDiagnostics (ServerContext*, const gpb::Empty*, gpb::Diagnostics* r) override
         {
             auto d = main.apiGetDiagnostics();
             r->set_sample_rate (d.sampleRate); r->set_block_size (d.blockSize);
@@ -519,7 +519,7 @@ namespace
             return Status::OK;
         }
 
-        Status GetProjectStatus (ServerContext*, const pb::Empty*, pb::ProjectStatus* r) override
+        Status GetProjectStatus (ServerContext*, const gpb::Empty*, gpb::ProjectStatus* r) override
         {
             auto s = main.apiProjectStatus();
             r->set_version (s.version.toStdString());
@@ -538,19 +538,19 @@ namespace
             return Status::OK;
         }
 
-        Status SetProjectNotes (ServerContext*, const pb::TextValue* q, pb::Ack* r) override
+        Status SetProjectNotes (ServerContext*, const gpb::TextValue* q, gpb::Ack* r) override
         { main.apiSetProjectNotes (js (q->text())); r->set_ok (true); return Status::OK; }
-        Status GetProjectNotes (ServerContext*, const pb::Empty*, pb::TextValue* r) override
+        Status GetProjectNotes (ServerContext*, const gpb::Empty*, gpb::TextValue* r) override
         { r->set_text (main.apiGetProjectNotes().toStdString()); return Status::OK; }
 
-        Status GitAvailable (ServerContext*, const pb::Empty*, pb::GitVersion* r) override
+        Status GitAvailable (ServerContext*, const gpb::Empty*, gpb::GitVersion* r) override
         {
             juce::String v;
             r->set_available (main.apiGitAvailable (v));
             r->set_version (v.toStdString());
             return Status::OK;
         }
-        Status GitStatus (ServerContext*, const pb::GitDir* q, pb::GitState* r) override
+        Status GitStatus (ServerContext*, const gpb::GitDir* q, gpb::GitState* r) override
         {
             auto s = main.apiGitStatus (js (q->dir()));
             r->set_available (s.available); r->set_is_repo (s.isRepo); r->set_detached (s.detached);
@@ -565,14 +565,14 @@ namespace
             }
             return Status::OK;
         }
-        Status GitInit (ServerContext*, const pb::GitDir* q, pb::Ack* r) override
+        Status GitInit (ServerContext*, const gpb::GitDir* q, gpb::Ack* r) override
         {
             auto res = main.apiGitInit (js (q->dir()));
             r->set_ok (res.ok);
             if (! res.ok) r->set_error (res.error.toStdString());
             return Status::OK;
         }
-        Status GitAdd (ServerContext*, const pb::GitAddRequest* q, pb::Ack* r) override
+        Status GitAdd (ServerContext*, const gpb::GitAddRequest* q, gpb::Ack* r) override
         {
             juce::StringArray paths;
             for (const auto& p : q->paths()) paths.add (js (p));
@@ -581,14 +581,14 @@ namespace
             if (! res.ok) r->set_error (res.error.toStdString());
             return Status::OK;
         }
-        Status GitCommit (ServerContext*, const pb::GitCommitRequest* q, pb::Ack* r) override
+        Status GitCommit (ServerContext*, const gpb::GitCommitRequest* q, gpb::Ack* r) override
         {
             auto res = main.apiGitCommit (js (q->dir()), js (q->message()), q->amend());
             r->set_ok (res.ok);
             if (! res.ok) r->set_error (res.error.toStdString());
             return Status::OK;
         }
-        Status GitLog (ServerContext*, const pb::GitLogRequest* q, pb::GitLogResult* r) override
+        Status GitLog (ServerContext*, const gpb::GitLogRequest* q, gpb::GitLogResult* r) override
         {
             for (auto& c : main.apiGitLog (js (q->dir()), q->max()))
             {
@@ -602,82 +602,82 @@ namespace
             }
             return Status::OK;
         }
-        static void setAck (pb::Ack* r, const MainComponent::GitResult& res)
+        static void setAck (gpb::Ack* r, const MainComponent::GitResult& res)
         { r->set_ok (res.ok); if (! res.ok) r->set_error (res.error.toStdString()); }
-        Status GitBranches (ServerContext*, const pb::GitDir* q, pb::GitBranchList* r) override
+        Status GitBranches (ServerContext*, const gpb::GitDir* q, gpb::GitBranchList* r) override
         {
             auto b = main.apiGitBranches (js (q->dir()));
             r->set_current (b.current.toStdString());
             for (auto& n : b.branches) r->add_branches (n.toStdString());
             return Status::OK;
         }
-        Status GitBranchCreate (ServerContext*, const pb::GitBranchRequest* q, pb::Ack* r) override
+        Status GitBranchCreate (ServerContext*, const gpb::GitBranchRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitBranchCreate (js (q->dir()), js (q->name()), js (q->start_point()))); return Status::OK; }
-        Status GitCheckout (ServerContext*, const pb::GitRefRequest* q, pb::Ack* r) override
+        Status GitCheckout (ServerContext*, const gpb::GitRefRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitCheckout (js (q->dir()), js (q->ref()))); return Status::OK; }
-        Status GitMerge (ServerContext*, const pb::GitRefRequest* q, pb::Ack* r) override
+        Status GitMerge (ServerContext*, const gpb::GitRefRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitMerge (js (q->dir()), js (q->ref()))); return Status::OK; }
-        Status GitBranchDelete (ServerContext*, const pb::GitBranchRequest* q, pb::Ack* r) override
+        Status GitBranchDelete (ServerContext*, const gpb::GitBranchRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitBranchDelete (js (q->dir()), js (q->name()), q->force())); return Status::OK; }
-        Status GitBranchRename (ServerContext*, const pb::GitBranchRequest* q, pb::Ack* r) override
+        Status GitBranchRename (ServerContext*, const gpb::GitBranchRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitBranchRename (js (q->dir()), js (q->name()), js (q->new_name()))); return Status::OK; }
-        Status GitTags (ServerContext*, const pb::GitDir* q, pb::GitTagList* r) override
+        Status GitTags (ServerContext*, const gpb::GitDir* q, gpb::GitTagList* r) override
         { for (auto& t : main.apiGitTags (js (q->dir()))) r->add_tags (t.toStdString()); return Status::OK; }
-        Status GitTagCreate (ServerContext*, const pb::GitTagRequest* q, pb::Ack* r) override
+        Status GitTagCreate (ServerContext*, const gpb::GitTagRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitTagCreate (js (q->dir()), js (q->name()), js (q->message()))); return Status::OK; }
-        Status GitTagDelete (ServerContext*, const pb::GitTagRequest* q, pb::Ack* r) override
+        Status GitTagDelete (ServerContext*, const gpb::GitTagRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitTagDelete (js (q->dir()), js (q->name()))); return Status::OK; }
-        Status GitDiff (ServerContext*, const pb::GitDiffRequest* q, pb::GitDiffResult* r) override
+        Status GitDiff (ServerContext*, const gpb::GitDiffRequest* q, gpb::GitDiffResult* r) override
         {
             auto d = main.apiGitDiff (js (q->dir()), js (q->pathspec()), js (q->rev_a()), js (q->rev_b()));
             r->set_ok (d.ok); r->set_error (d.error.toStdString()); r->set_diff (d.diff.toStdString());
             for (auto& f : d.files) { auto* pf = r->add_files(); pf->set_status (f.status.toStdString()); pf->set_path (f.path.toStdString()); }
             return Status::OK;
         }
-        Status GitDiscard (ServerContext*, const pb::GitPathsRequest* q, pb::Ack* r) override
+        Status GitDiscard (ServerContext*, const gpb::GitPathsRequest* q, gpb::Ack* r) override
         {
             juce::StringArray paths; for (auto& p : q->paths()) paths.add (js (p));
             setAck (r, main.apiGitDiscard (js (q->dir()), paths)); return Status::OK;
         }
-        Status GitStash (ServerContext*, const pb::GitStashRequest* q, pb::Ack* r) override
+        Status GitStash (ServerContext*, const gpb::GitStashRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitStash (js (q->dir()), js (q->message()))); return Status::OK; }
-        Status GitStashPop (ServerContext*, const pb::GitDir* q, pb::Ack* r) override
+        Status GitStashPop (ServerContext*, const gpb::GitDir* q, gpb::Ack* r) override
         { setAck (r, main.apiGitStashPop (js (q->dir()))); return Status::OK; }
-        Status GitStashList (ServerContext*, const pb::GitDir* q, pb::GitStashListResult* r) override
+        Status GitStashList (ServerContext*, const gpb::GitDir* q, gpb::GitStashListResult* r) override
         { for (auto& s : main.apiGitStashList (js (q->dir()))) r->add_stashes (s.toStdString()); return Status::OK; }
-        Status GitRevert (ServerContext*, const pb::GitRefRequest* q, pb::Ack* r) override
+        Status GitRevert (ServerContext*, const gpb::GitRefRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitRevert (js (q->dir()), js (q->ref()))); return Status::OK; }
-        Status GitReset (ServerContext*, const pb::GitResetRequest* q, pb::Ack* r) override
+        Status GitReset (ServerContext*, const gpb::GitResetRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitReset (js (q->dir()), js (q->mode()), js (q->ref()))); return Status::OK; }
-        Status GitAddRemote (ServerContext*, const pb::GitAddRemoteRequest* q, pb::Ack* r) override
+        Status GitAddRemote (ServerContext*, const gpb::GitAddRemoteRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitAddRemote (js (q->dir()), js (q->name()), js (q->url()))); return Status::OK; }
-        Status GitListRemotes (ServerContext*, const pb::GitDir* q, pb::GitRemoteList* r) override
+        Status GitListRemotes (ServerContext*, const gpb::GitDir* q, gpb::GitRemoteList* r) override
         { for (auto& rm : main.apiGitListRemotes (js (q->dir()))) { auto* p = r->add_remotes(); p->set_name (rm.name.toStdString()); p->set_url (rm.url.toStdString()); } return Status::OK; }
-        Status GitFetch (ServerContext*, const pb::GitSyncRequest* q, pb::Ack* r) override
+        Status GitFetch (ServerContext*, const gpb::GitSyncRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitFetch (js (q->dir()), js (q->remote()))); return Status::OK; }
-        Status GitPull (ServerContext*, const pb::GitSyncRequest* q, pb::Ack* r) override
+        Status GitPull (ServerContext*, const gpb::GitSyncRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitPull (js (q->dir()), js (q->remote()), js (q->branch()))); return Status::OK; }
-        Status GitPush (ServerContext*, const pb::GitSyncRequest* q, pb::Ack* r) override
+        Status GitPush (ServerContext*, const gpb::GitSyncRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitPush (js (q->dir()), js (q->remote()), js (q->branch()))); return Status::OK; }
-        Status GitConflicts (ServerContext*, const pb::GitDir* q, pb::GitConflictList* r) override
+        Status GitConflicts (ServerContext*, const gpb::GitDir* q, gpb::GitConflictList* r) override
         { for (auto& f : main.apiGitConflicts (js (q->dir()))) r->add_files (f.toStdString()); return Status::OK; }
-        Status GitResolve (ServerContext*, const pb::GitResolveRequest* q, pb::Ack* r) override
+        Status GitResolve (ServerContext*, const gpb::GitResolveRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitResolve (js (q->dir()), js (q->path()), js (q->mode()))); return Status::OK; }
-        Status GitMergeContinue (ServerContext*, const pb::GitDir* q, pb::Ack* r) override
+        Status GitMergeContinue (ServerContext*, const gpb::GitDir* q, gpb::Ack* r) override
         { setAck (r, main.apiGitMergeContinue (js (q->dir()))); return Status::OK; }
-        Status GitMergeAbort (ServerContext*, const pb::GitDir* q, pb::Ack* r) override
+        Status GitMergeAbort (ServerContext*, const gpb::GitDir* q, gpb::Ack* r) override
         { setAck (r, main.apiGitMergeAbort (js (q->dir()))); return Status::OK; }
-        Status GitSetIdentity (ServerContext*, const pb::GitIdentity* q, pb::Ack* r) override
+        Status GitSetIdentity (ServerContext*, const gpb::GitIdentity* q, gpb::Ack* r) override
         { setAck (r, main.apiGitSetIdentity (js (q->dir()), js (q->name()), js (q->email()))); return Status::OK; }
-        Status GitGetIdentity (ServerContext*, const pb::GitDir* q, pb::GitIdentity* r) override
+        Status GitGetIdentity (ServerContext*, const gpb::GitDir* q, gpb::GitIdentity* r) override
         { auto id = main.apiGitGetIdentity (js (q->dir())); r->set_name (id.name.toStdString()); r->set_email (id.email.toStdString()); return Status::OK; }
-        Status GitSetAutoCommit (ServerContext*, const pb::GitBoolRequest* q, pb::Ack* r) override
+        Status GitSetAutoCommit (ServerContext*, const gpb::GitBoolRequest* q, gpb::Ack* r) override
         { setAck (r, main.apiGitSetAutoCommit (js (q->dir()), q->value())); return Status::OK; }
-        Status GitGetAutoCommit (ServerContext*, const pb::GitDir* q, pb::GitBoolValue* r) override
+        Status GitGetAutoCommit (ServerContext*, const gpb::GitDir* q, gpb::GitBoolValue* r) override
         { r->set_value (main.apiGitGetAutoCommit (js (q->dir()))); return Status::OK; }
 
         // ---- project / state ----
-        Status GetState (ServerContext*, const pb::Empty*, pb::ProjectState* r) override
+        Status GetState (ServerContext*, const gpb::Empty*, gpb::ProjectState* r) override
         {
             auto ts = main.apiGetTransport();
             auto* t = r->mutable_transport();
@@ -694,59 +694,59 @@ namespace
             return Status::OK;
         }
 
-        Status NewProject (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        Status NewProject (ServerContext*, const gpb::Empty*, gpb::Ack* r) override
         { main.apiNewProject(); r->set_ok (true); return Status::OK; }
 
-        Status ListTemplates (ServerContext*, const pb::Empty*, pb::TemplateList* r) override
+        Status ListTemplates (ServerContext*, const gpb::Empty*, gpb::TemplateList* r) override
         { for (auto& n : main.apiListTemplates()) r->add_names (n.toStdString()); return Status::OK; }
 
-        Status ListFavorites (ServerContext*, const pb::Empty*, pb::FavoriteList* r) override
+        Status ListFavorites (ServerContext*, const gpb::Empty*, gpb::FavoriteList* r) override
         { for (auto& f : main.apiListFavorites())
           { auto* o = r->add_favorites(); o->set_kind (f.kind.toStdString());
             o->set_ref (f.ref.toStdString()); o->set_label (f.label.toStdString()); }
           return Status::OK; }
 
-        Status AddFavorite (ServerContext*, const pb::AddFavoriteRequest* q, pb::Ack* r) override
+        Status AddFavorite (ServerContext*, const gpb::AddFavoriteRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiAddFavorite (js (q->kind()), js (q->ref()), js (q->label()));
           r->set_ok (ok); if (! ok) r->set_error ("invalid favorite (kind and ref required)"); return Status::OK; }
 
-        Status RemoveFavorite (ServerContext*, const pb::RemoveFavoriteRequest* q, pb::Ack* r) override
+        Status RemoveFavorite (ServerContext*, const gpb::RemoveFavoriteRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiRemoveFavorite (js (q->kind()), js (q->ref()));
           r->set_ok (ok); if (! ok) r->set_error ("favorite not found"); return Status::OK; }
 
-        Status NewFromTemplate (ServerContext*, const pb::TemplateRef* q, pb::Ack* r) override
+        Status NewFromTemplate (ServerContext*, const gpb::TemplateRef* q, gpb::Ack* r) override
         { const bool ok = main.apiNewFromTemplate (js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("unknown template"); return Status::OK; }
 
-        Status SaveAsTemplate (ServerContext*, const pb::TemplateRef* q, pb::Ack* r) override
+        Status SaveAsTemplate (ServerContext*, const gpb::TemplateRef* q, gpb::Ack* r) override
         { const bool ok = main.apiSaveAsTemplate (js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("could not save template"); return Status::OK; }
 
-        Status Undo (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        Status Undo (ServerContext*, const gpb::Empty*, gpb::Ack* r) override
         { main.apiUndo(); r->set_ok (true); return Status::OK; }
 
-        Status Redo (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        Status Redo (ServerContext*, const gpb::Empty*, gpb::Ack* r) override
         { main.apiRedo(); r->set_ok (true); return Status::OK; }
 
-        Status LoadProject (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        Status LoadProject (ServerContext*, const gpb::FilePath* q, gpb::Ack* r) override
         {
             const bool ok = main.apiLoadProject (js (q->path()));
             r->set_ok (ok); if (! ok) r->set_error ("file not found");
             return Status::OK;
         }
 
-        Status SaveProject (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        Status SaveProject (ServerContext*, const gpb::FilePath* q, gpb::Ack* r) override
         { r->set_ok (main.apiSaveProject (js (q->path()))); return Status::OK; }
 
-        Status SaveComposition (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        Status SaveComposition (ServerContext*, const gpb::FilePath* q, gpb::Ack* r) override
         { const bool ok = main.apiSaveComposition (js (q->path()));
           r->set_ok (ok); if (! ok) r->set_error ("save failed"); return Status::OK; }
 
-        Status LoadComposition (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        Status LoadComposition (ServerContext*, const gpb::FilePath* q, gpb::Ack* r) override
         { const bool ok = main.apiLoadComposition (js (q->path()));
           r->set_ok (ok); if (! ok) r->set_error ("no gloopy.toml / load failed"); return Status::OK; }
 
-        Status RenderToFile (ServerContext*, const pb::RenderRequest* q, pb::RenderResult* r) override
+        Status RenderToFile (ServerContext*, const gpb::RenderRequest* q, gpb::RenderResult* r) override
         {
             double s = q->start_beat(), e = q->end_beat();
             if (! q->range_name().empty() && ! main.apiResolveRange (js (q->range_name()), s, e))
@@ -772,7 +772,7 @@ namespace
             }
             return Status::OK;
         }
-        Status GetWaveform (ServerContext*, const pb::WaveformRequest* q, pb::WaveformData* r) override
+        Status GetWaveform (ServerContext*, const gpb::WaveformRequest* q, gpb::WaveformData* r) override
         {
             std::vector<float> mins, maxs; double dur = 0.0;
             if (! main.apiGetWaveform (js (q->path()), q->buckets(), mins, maxs, dur))
@@ -782,25 +782,25 @@ namespace
             r->set_buckets ((int) mins.size()); r->set_duration_seconds (dur);
             return Status::OK;
         }
-        Status ExportMidi (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        Status ExportMidi (ServerContext*, const gpb::FilePath* q, gpb::Ack* r) override
         { const bool ok = main.apiExportMidi (js (q->path()));
           r->set_ok (ok); if (! ok) r->set_error ("midi export failed"); return Status::OK; }
-        Status ExportLoopRegion (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        Status ExportLoopRegion (ServerContext*, const gpb::FilePath* q, gpb::Ack* r) override
         { const bool ok = main.apiExportLoopRegion (js (q->path()));
           r->set_ok (ok); if (! ok) r->set_error ("loop export failed (no loop set or empty)"); return Status::OK; }
-        Status ExportTrack (ServerContext*, const pb::ExportTrackRequest* q, pb::Ack* r) override
+        Status ExportTrack (ServerContext*, const gpb::ExportTrackRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiExportTrack (q->track_id(), js (q->path()));
           r->set_ok (ok); if (! ok) r->set_error ("track export failed (track not found)"); return Status::OK; }
-        Status ExportStems (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        Status ExportStems (ServerContext*, const gpb::FilePath* q, gpb::Ack* r) override
         { const bool ok = ! main.apiExportStems (js (q->path())).empty();
           r->set_ok (ok); if (! ok) r->set_error ("stem export failed (no instrument tracks?)"); return Status::OK; }
-        Status ImportMidi (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        Status ImportMidi (ServerContext*, const gpb::FilePath* q, gpb::Ack* r) override
         { const int n = main.apiImportMidi (js (q->path()));
           r->set_ok (n >= 0); if (n < 0) r->set_error ("midi import failed (unreadable or not a MIDI file)"); return Status::OK; }
-        Status ImportAudio (ServerContext*, const pb::FilePath* q, pb::Ack* r) override
+        Status ImportAudio (ServerContext*, const gpb::FilePath* q, gpb::Ack* r) override
         { const int n = main.apiImportAudio (js (q->path()));
           r->set_ok (n >= 0); if (n < 0) r->set_error ("audio import failed (unreadable or unsupported audio file)"); return Status::OK; }
-        Status AnalyzeFile (ServerContext*, const pb::FilePath* q, pb::LoudnessReport* r) override
+        Status AnalyzeFile (ServerContext*, const gpb::FilePath* q, gpb::LoudnessReport* r) override
         {
             MainComponent::LoudnessReport rep;
             if (! main.apiAnalyzeFile (js (q->path()), rep))
@@ -812,10 +812,10 @@ namespace
         }
 
         // ---- timeline locations ----
-        Status AddLocation (ServerContext*, const pb::TimelineLocation* q, pb::Ack* r) override
+        Status AddLocation (ServerContext*, const gpb::TimelineLocation* q, gpb::Ack* r) override
         { const bool ok = main.apiAddLocation (js (q->name()), js (q->kind()), q->start_beat(), q->end_beat());
           r->set_ok (ok); if (! ok) r->set_error ("invalid location"); return Status::OK; }
-        Status ListLocations (ServerContext*, const pb::Empty*, pb::LocationList* r) override
+        Status ListLocations (ServerContext*, const gpb::Empty*, gpb::LocationList* r) override
         {
             for (auto& l : main.apiListLocations())
             {
@@ -825,41 +825,41 @@ namespace
             }
             return Status::OK;
         }
-        Status RemoveLocation (ServerContext*, const pb::LocationName* q, pb::Ack* r) override
+        Status RemoveLocation (ServerContext*, const gpb::LocationName* q, gpb::Ack* r) override
         { const bool ok = main.apiRemoveLocation (js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("location not found"); return Status::OK; }
 
         // ---- session view (clip-launch grid) ----
-        Status CopyClipToSessionSlot (ServerContext*, const pb::SessionSlotSrc* q, pb::Ack* r) override
+        Status CopyClipToSessionSlot (ServerContext*, const gpb::SessionSlotSrc* q, gpb::Ack* r) override
         { const bool ok = main.apiCopyClipToSessionSlot (q->track_id(), q->clip_index(), q->scene());
           r->set_ok (ok); if (! ok) r->set_error ("no such clip or track"); return Status::OK; }
-        Status SetSessionSlotColour (ServerContext*, const pb::SessionSlotColour* q, pb::Ack* r) override
+        Status SetSessionSlotColour (ServerContext*, const gpb::SessionSlotColour* q, gpb::Ack* r) override
         { const bool ok = main.apiSetSessionSlotColour (q->track_id(), q->scene(), js (q->colour()));
           r->set_ok (ok); if (! ok) r->set_error ("empty slot or no such track"); return Status::OK; }
-        Status LaunchSessionClip (ServerContext*, const pb::SessionClipRef* q, pb::Ack* r) override
+        Status LaunchSessionClip (ServerContext*, const gpb::SessionClipRef* q, gpb::Ack* r) override
         { const bool ok = main.apiSessionLaunchClip (q->track_id(), q->scene());
           r->set_ok (ok); if (! ok) r->set_error ("empty slot or unknown track"); return Status::OK; }
-        Status LaunchSessionScene (ServerContext*, const pb::SessionSceneRef* q, pb::Ack* r) override
+        Status LaunchSessionScene (ServerContext*, const gpb::SessionSceneRef* q, gpb::Ack* r) override
         { r->set_ok (main.apiSessionLaunchScene (q->scene())); return Status::OK; }
-        Status StopSessionTrack (ServerContext*, const pb::TrackId* q, pb::Ack* r) override
+        Status StopSessionTrack (ServerContext*, const gpb::TrackId* q, gpb::Ack* r) override
         { r->set_ok (main.apiSessionStopTrack (q->id())); return Status::OK; }
-        Status StopSessionAll (ServerContext*, const pb::Empty*, pb::Ack* r) override
+        Status StopSessionAll (ServerContext*, const gpb::Empty*, gpb::Ack* r) override
         { r->set_ok (main.apiSessionStopAll()); return Status::OK; }
-        Status GetSessionState (ServerContext*, const pb::Empty*, pb::SessionState* r) override
+        Status GetSessionState (ServerContext*, const gpb::Empty*, gpb::SessionState* r) override
         { auto s = main.apiGetSessionState();
           r->set_scenes (s.scenes); r->set_quantum_beats (s.quantumBeats); r->set_any_playing (s.anyPlaying);
           for (auto& t : s.tracks) { auto* o = r->add_tracks(); o->set_track_id (t.trackId);
               o->set_playing (t.playing); o->set_pending (t.pending); o->set_slots (t.slots); }
           return Status::OK; }
-        Status SetLaunchQuantum (ServerContext*, const pb::LaunchQuantum* q, pb::Ack* r) override
+        Status SetLaunchQuantum (ServerContext*, const gpb::LaunchQuantum* q, gpb::Ack* r) override
         { main.apiSetLaunchQuantumBeats (q->beats()); r->set_ok (true); return Status::OK; }
 
         // ---- export profiles ----
-        Status DefineExportProfile (ServerContext*, const pb::ExportProfile* q, pb::Ack* r) override
+        Status DefineExportProfile (ServerContext*, const gpb::ExportProfile* q, gpb::Ack* r) override
         { const bool ok = main.apiDefineExportProfile (js (q->name()), js (q->target()), js (q->range_name()),
                                                        js (q->format()), q->track_id(), q->tail_seconds());
           r->set_ok (ok); if (! ok) r->set_error ("invalid export profile"); return Status::OK; }
-        Status ListExportProfiles (ServerContext*, const pb::Empty*, pb::ExportProfileList* r) override
+        Status ListExportProfiles (ServerContext*, const gpb::Empty*, gpb::ExportProfileList* r) override
         {
             for (auto& p : main.apiListExportProfiles())
             {
@@ -870,10 +870,10 @@ namespace
             }
             return Status::OK;
         }
-        Status RemoveExportProfile (ServerContext*, const pb::ExportName* q, pb::Ack* r) override
+        Status RemoveExportProfile (ServerContext*, const gpb::ExportName* q, gpb::Ack* r) override
         { const bool ok = main.apiRemoveExportProfile (js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("export profile not found"); return Status::OK; }
-        Status RunExport (ServerContext*, const pb::ExportRun* q, pb::ExportResult* r) override
+        Status RunExport (ServerContext*, const gpb::ExportRun* q, gpb::ExportResult* r) override
         {
             std::vector<juce::String> files;
             const bool ok = main.apiRunExport (js (q->name()), js (q->out_dir()), files);
@@ -884,57 +884,57 @@ namespace
         }
 
         // ---- track & clip management ----
-        Status RemoveTrack (ServerContext*, const pb::TrackId* q, pb::Ack* r) override
+        Status RemoveTrack (ServerContext*, const gpb::TrackId* q, gpb::Ack* r) override
         { const bool ok = main.apiRemoveTrack (q->id()); r->set_ok (ok); if (! ok) r->set_error ("track not found"); return Status::OK; }
 
-        Status RenameTrack (ServerContext*, const pb::RenameTrackRequest* q, pb::Ack* r) override
+        Status RenameTrack (ServerContext*, const gpb::RenameTrackRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiRenameTrack (q->track_id(), js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("rename failed (track not found or empty name)"); return Status::OK; }
-        Status DuplicateTrack (ServerContext*, const pb::TrackId* q, pb::TrackId* r) override
+        Status DuplicateTrack (ServerContext*, const gpb::TrackId* q, gpb::TrackId* r) override
         { r->set_id (main.apiDuplicateTrack (q->id())); return Status::OK; }   // -1 if the source id is unknown
 
-        Status SetTrackColour (ServerContext*, const pb::SetTrackColourRequest* q, pb::Ack* r) override
+        Status SetTrackColour (ServerContext*, const gpb::SetTrackColourRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiSetTrackColour (q->track_id(), js (q->colour()));
           r->set_ok (ok); if (! ok) r->set_error ("recolour failed (track not found)"); return Status::OK; }
 
-        Status MoveTrack (ServerContext*, const pb::MoveTrackRequest* q, pb::Ack* r) override
+        Status MoveTrack (ServerContext*, const gpb::MoveTrackRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiMoveTrack (q->track_id(), q->delta());
           r->set_ok (ok); if (! ok) r->set_error ("move failed (track not found or already at edge)"); return Status::OK; }
 
-        Status SetTrackPolarity (ServerContext*, const pb::SetTrackPolarityRequest* q, pb::Ack* r) override
+        Status SetTrackPolarity (ServerContext*, const gpb::SetTrackPolarityRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiSetTrackPolarity (q->track_id(), q->invert());
           r->set_ok (ok); if (! ok) r->set_error ("polarity failed (track not found)"); return Status::OK; }
 
-        Status AddAudioTrack (ServerContext*, const pb::AddAudioTrackRequest* q, pb::TrackId* r) override
+        Status AddAudioTrack (ServerContext*, const gpb::AddAudioTrackRequest* q, gpb::TrackId* r) override
         { r->set_id (main.apiAddAudioTrack (js (q->name()))); return Status::OK; }
 
-        Status AddSamplerTrack (ServerContext*, const pb::AddSamplerTrackRequest* q, pb::TrackId* r) override
+        Status AddSamplerTrack (ServerContext*, const gpb::AddSamplerTrackRequest* q, gpb::TrackId* r) override
         { r->set_id (main.apiAddSamplerTrack (js (q->name()), js (q->path()), q->root_note())); return Status::OK; }
 
-        Status SetSamplerControls (ServerContext*, const pb::SamplerControlsRequest* q, pb::Ack* r) override
+        Status SetSamplerControls (ServerContext*, const gpb::SamplerControlsRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiSetSamplerControls (q->track_id(), q->start(), q->end(), q->reverse(), q->root_note(), q->fade_in(), q->fade_out(), q->loop(), q->mono(), q->loop_xfade(), q->interp());
           r->set_ok (ok); if (! ok) r->set_error ("not a sampler track"); return Status::OK; }
 
-        Status GetSamplerControls (ServerContext*, const pb::TrackId* q, pb::SamplerControls* r) override
+        Status GetSamplerControls (ServerContext*, const gpb::TrackId* q, gpb::SamplerControls* r) override
         { const auto s = main.apiGetSamplerControls (q->id());
           r->set_ok (s.ok); r->set_start (s.start); r->set_end (s.end); r->set_reverse (s.reverse);
           r->set_root_note (s.rootNote); r->set_name (s.name.toStdString());
           r->set_fade_in (s.fadeIn); r->set_fade_out (s.fadeOut); r->set_loop (s.loop); r->set_mono (s.mono);
           r->set_loop_xfade (s.loopXfade); r->set_interp (s.interp); return Status::OK; }
 
-        Status AddSfzTrack (ServerContext*, const pb::AddSfzTrackRequest* q, pb::TrackId* r) override
+        Status AddSfzTrack (ServerContext*, const gpb::AddSfzTrackRequest* q, gpb::TrackId* r) override
         { r->set_id (main.apiAddSfzTrack (js (q->name()), js (q->path()))); return Status::OK; }
 
-        Status AddSurgeTrack (ServerContext*, const pb::AddSurgeTrackRequest* q, pb::TrackId* r) override
+        Status AddSurgeTrack (ServerContext*, const gpb::AddSurgeTrackRequest* q, gpb::TrackId* r) override
         { r->set_id (main.apiAddSurgeTrack (js (q->name()), js (q->patch()))); return Status::OK; }
 
-        Status AddPluginTrack (ServerContext*, const pb::AddPluginTrackRequest* q, pb::TrackId* r) override
+        Status AddPluginTrack (ServerContext*, const gpb::AddPluginTrackRequest* q, gpb::TrackId* r) override
         { r->set_id (main.apiAddPluginTrack (js (q->identifier()))); return Status::OK; }
 
-        Status RemoveClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
+        Status RemoveClip (ServerContext*, const gpb::ClipRef* q, gpb::Ack* r) override
         { const bool ok = main.apiRemoveClip (q->track_id(), q->index()); r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
 
-        Status MoveClip (ServerContext*, const pb::MoveClipRequest* q, pb::Ack* r) override
+        Status MoveClip (ServerContext*, const gpb::MoveClipRequest* q, gpb::Ack* r) override
         {
             const bool ok = main.apiMoveClip (q->track_id(), q->index(), q->start_beat(),
                                               q->has_to_track_id(), q->to_track_id());
@@ -942,7 +942,7 @@ namespace
             return Status::OK;
         }
 
-        Status AddAudioClip (ServerContext*, const pb::AddAudioClipRequest* q, pb::ClipId* r) override
+        Status AddAudioClip (ServerContext*, const gpb::AddAudioClipRequest* q, gpb::ClipId* r) override
         {
             const int idx = main.apiAddAudioClip (q->track_id(), q->start_beat(), js (q->path()), q->gain());
             r->set_track_id (q->track_id()); r->set_index (idx);
@@ -950,77 +950,77 @@ namespace
         }
 
         // ---- clip / region operations ----
-        Status SplitClip (ServerContext*, const pb::SplitClipRequest* q, pb::ClipId* r) override
+        Status SplitClip (ServerContext*, const gpb::SplitClipRequest* q, gpb::ClipId* r) override
         {
             const int idx = main.apiSplitClip (q->track_id(), q->index(), q->beat());
             r->set_track_id (q->track_id()); r->set_index (idx);
             return Status::OK;
         }
-        Status SplitClipAtMarker (ServerContext*, const pb::SplitAtMarkerRequest* q, pb::ClipId* r) override
+        Status SplitClipAtMarker (ServerContext*, const gpb::SplitAtMarkerRequest* q, gpb::ClipId* r) override
         {
             const int idx = main.apiSplitClipAtMarker (q->track_id(), q->index(), js (q->marker()));
             r->set_track_id (q->track_id()); r->set_index (idx);
             return Status::OK;
         }
-        Status SliceAtTransients (ServerContext*, const pb::SliceTransientsRequest* q, pb::SliceResult* r) override
+        Status SliceAtTransients (ServerContext*, const gpb::SliceTransientsRequest* q, gpb::SliceResult* r) override
         { r->set_slices (main.apiSliceClipAtTransients (q->track_id(), q->index(), q->sensitivity())); return Status::OK; }
-        Status SplitClipEqual (ServerContext*, const pb::SplitEqualRequest* q, pb::SliceResult* r) override
+        Status SplitClipEqual (ServerContext*, const gpb::SplitEqualRequest* q, gpb::SliceResult* r) override
         { r->set_slices (main.apiSplitClipEqual (q->track_id(), q->index(), q->pieces())); return Status::OK; }
-        Status SetClipMuted (ServerContext*, const pb::ClipMuteRequest* q, pb::Ack* r) override
+        Status SetClipMuted (ServerContext*, const gpb::ClipMuteRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiSetClipMuted (q->track_id(), q->index(), q->muted());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
-        Status RenameClip (ServerContext*, const pb::RenameClipRequest* q, pb::Ack* r) override
+        Status RenameClip (ServerContext*, const gpb::RenameClipRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiRenameClip (q->track_id(), q->index(), js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
-        Status SetClipColour (ServerContext*, const pb::ClipColourRequest* q, pb::Ack* r) override
+        Status SetClipColour (ServerContext*, const gpb::ClipColourRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiSetClipColour (q->track_id(), q->index(), js (q->colour()));
           r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
-        Status SetLoopToClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
+        Status SetLoopToClip (ServerContext*, const gpb::ClipRef* q, gpb::Ack* r) override
         { const bool ok = main.apiSetLoopToClip (q->track_id(), q->index());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
-        Status SetMetronome (ServerContext*, const pb::MetronomeRequest* q, pb::Ack* r) override
+        Status SetMetronome (ServerContext*, const gpb::MetronomeRequest* q, gpb::Ack* r) override
         { main.apiSetMetronome (q->enabled()); r->set_ok (true); return Status::OK; }
-        Status SetMetronomeLevel (ServerContext*, const pb::MetronomeLevel* q, pb::Ack* r) override
+        Status SetMetronomeLevel (ServerContext*, const gpb::MetronomeLevel* q, gpb::Ack* r) override
         { main.apiSetMetronomeLevel (q->level()); r->set_ok (true); return Status::OK; }
-        Status GetMetronomeLevel (ServerContext*, const pb::Empty*, pb::MetronomeLevel* r) override
+        Status GetMetronomeLevel (ServerContext*, const gpb::Empty*, gpb::MetronomeLevel* r) override
         { r->set_level (main.apiGetMetronomeLevel()); return Status::OK; }
-        Status DuplicateClip (ServerContext*, const pb::DuplicateClipRequest* q, pb::ClipId* r) override
+        Status DuplicateClip (ServerContext*, const gpb::DuplicateClipRequest* q, gpb::ClipId* r) override
         {
             const int idx = main.apiDuplicateClip (q->track_id(), q->index(), q->at_beat());
             r->set_track_id (q->track_id()); r->set_index (idx);
             return Status::OK;
         }
-        Status RepeatClip (ServerContext*, const pb::RepeatClipRequest* q, pb::SliceResult* r) override
+        Status RepeatClip (ServerContext*, const gpb::RepeatClipRequest* q, gpb::SliceResult* r) override
         { r->set_slices (main.apiRepeatClip (q->track_id(), q->index(), q->copies())); return Status::OK; }
-        Status ReverseClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
+        Status ReverseClip (ServerContext*, const gpb::ClipRef* q, gpb::Ack* r) override
         { const bool ok = main.apiReverseClip (q->track_id(), q->index());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
-        Status CropClip (ServerContext*, const pb::CropClipRequest* q, pb::Ack* r) override
+        Status CropClip (ServerContext*, const gpb::CropClipRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiCropClip (q->track_id(), q->index(), q->start_beat(), q->end_beat());
           r->set_ok (ok); if (! ok) r->set_error ("crop failed (clip not found, not MIDI, or empty range)"); return Status::OK; }
-        Status ScaleClipTime (ServerContext*, const pb::ScaleTimeRequest* q, pb::Ack* r) override
+        Status ScaleClipTime (ServerContext*, const gpb::ScaleTimeRequest* q, gpb::Ack* r) override
         { // proto3 omits an unset factor (0.0); no-op scaling is meaningless, read it as double-time.
           const double f = q->factor() <= 0.0 ? 0.5 : q->factor();
           const bool ok = main.apiScaleClipTime (q->track_id(), q->index(), f);
           r->set_ok (ok); if (! ok) r->set_error ("scale time failed (clip not found or not MIDI)"); return Status::OK; }
-        Status ConsolidateClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
+        Status ConsolidateClip (ServerContext*, const gpb::ClipRef* q, gpb::Ack* r) override
         { const bool ok = main.apiConsolidateClip (q->track_id(), q->index());
           r->set_ok (ok); if (! ok) r->set_error ("consolidate failed (clip not found or not MIDI)"); return Status::OK; }
-        Status BounceClip (ServerContext*, const pb::ClipRef* q, pb::TrackId* r) override
+        Status BounceClip (ServerContext*, const gpb::ClipRef* q, gpb::TrackId* r) override
         { r->set_id (main.apiBounceClip (q->track_id(), q->index())); return Status::OK; }
-        Status SetClipGain (ServerContext*, const pb::ClipGainRequest* q, pb::Ack* r) override
+        Status SetClipGain (ServerContext*, const gpb::ClipGainRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiSetClipGain (q->track_id(), q->index(), q->gain_db());
           r->set_ok (ok); if (! ok) r->set_error ("set clip gain failed (clip not found or not audio)"); return Status::OK; }
-        Status NormalizeClip (ServerContext*, const pb::NormalizeClipRequest* q, pb::Ack* r) override
+        Status NormalizeClip (ServerContext*, const gpb::NormalizeClipRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiNormalizeClip (q->track_id(), q->index(), q->target_dbfs()) >= 0.0f;
           r->set_ok (ok); if (! ok) r->set_error ("normalize failed (clip not found, not audio, or silent)"); return Status::OK; }
-        Status SetClipFades (ServerContext*, const pb::ClipFadesRequest* q, pb::Ack* r) override
+        Status SetClipFades (ServerContext*, const gpb::ClipFadesRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiSetClipFades (q->track_id(), q->index(), q->fade_in_beats(), q->fade_out_beats());
           r->set_ok (ok); if (! ok) r->set_error ("set clip fades failed (clip not found or not audio)"); return Status::OK; }
-        Status SetClipFadeShape (ServerContext*, const pb::ClipFadeShapeRequest* q, pb::Ack* r) override
+        Status SetClipFadeShape (ServerContext*, const gpb::ClipFadeShapeRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiSetClipFadeShape (q->track_id(), q->index(), q->shape());
           r->set_ok (ok); if (! ok) r->set_error ("set clip fade shape failed (clip not found or not audio)"); return Status::OK; }
-        Status GetClipNotes (ServerContext*, const pb::ClipRef* q, pb::NoteList* r) override
+        Status GetClipNotes (ServerContext*, const gpb::ClipRef* q, gpb::NoteList* r) override
         {
             for (auto& n : main.apiGetClipNotes (q->track_id(), q->index()))
             {
@@ -1031,87 +1031,87 @@ namespace
             }
             return Status::OK;
         }
-        Status ExportNotesJSON (ServerContext*, const pb::ClipRef* q, pb::NotesJson* r) override
+        Status ExportNotesJSON (ServerContext*, const gpb::ClipRef* q, gpb::NotesJson* r) override
         { r->set_json (main.apiExportClipNotesJson (q->track_id(), q->index()).toStdString()); return Status::OK; }
-        Status ImportNotesJSON (ServerContext*, const pb::ImportNotesRequest* q, pb::ClipId* r) override
+        Status ImportNotesJSON (ServerContext*, const gpb::ImportNotesRequest* q, gpb::ClipId* r) override
         { const int idx = main.apiImportClipNotesJson (q->track_id(), q->start_beat(), js (q->json()));
           r->set_track_id (q->track_id()); r->set_index (idx); return Status::OK; }
-        Status SetClipTranspose (ServerContext*, const pb::ClipTransposeRequest* q, pb::Ack* r) override
+        Status SetClipTranspose (ServerContext*, const gpb::ClipTransposeRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiSetClipTranspose (q->track_id(), q->index(), q->semitones());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
-        Status SetClipVelocity (ServerContext*, const pb::ClipVelocityRequest* q, pb::Ack* r) override
+        Status SetClipVelocity (ServerContext*, const gpb::ClipVelocityRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiSetClipVelocity (q->track_id(), q->index(), q->scale());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
-        Status SetClipProbability (ServerContext*, const pb::ClipVelocityRequest* q, pb::Ack* r) override   // scale = probability
+        Status SetClipProbability (ServerContext*, const gpb::ClipVelocityRequest* q, gpb::Ack* r) override   // scale = probability
         { const bool ok = main.apiSetClipProbability (q->track_id(), q->index(), q->scale());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
-        Status QuantizeClip (ServerContext*, const pb::QuantizeRequest* q, pb::Ack* r) override
+        Status QuantizeClip (ServerContext*, const gpb::QuantizeRequest* q, gpb::Ack* r) override
         { const double strength = q->strength() <= 0.0 ? 1.0 : q->strength();   // proto3 omits 0; default to full
           const bool ok = main.apiQuantizeClip (q->track_id(), q->index(), q->grid(), strength);
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
-        Status TransposeClip (ServerContext*, const pb::TransposeRequest* q, pb::Ack* r) override
+        Status TransposeClip (ServerContext*, const gpb::TransposeRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiTransposeClip (q->track_id(), q->index(), q->semitones());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
-        Status HumanizeClip (ServerContext*, const pb::HumanizeRequest* q, pb::Ack* r) override
+        Status HumanizeClip (ServerContext*, const gpb::HumanizeRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiHumanizeClip (q->track_id(), q->index(), q->timing(), q->velocity());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
-        Status AddChord (ServerContext*, const pb::ChordRequest* q, pb::Ack* r) override
+        Status AddChord (ServerContext*, const gpb::ChordRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiAddChord (q->track_id(), q->index(), q->root(), js (q->type()),
                                             q->start_beat(), q->length_beats(), q->velocity(), q->inversion());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
-        Status LegatoClip (ServerContext*, const pb::LegatoRequest* q, pb::Ack* r) override
+        Status LegatoClip (ServerContext*, const gpb::LegatoRequest* q, gpb::Ack* r) override
         { // proto3 omits an unset amount (0.0), which would be a no-op; read it as full legato.
           const float amt = q->amount() <= 0.0f ? 1.0f : q->amount();
           const bool ok = main.apiLegatoClip (q->track_id(), q->index(), amt);
           r->set_ok (ok); if (! ok) r->set_error ("legato failed (clip not found or not MIDI)"); return Status::OK; }
-        Status RampClipVelocity (ServerContext*, const pb::VelRampRequest* q, pb::Ack* r) override
+        Status RampClipVelocity (ServerContext*, const gpb::VelRampRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiRampClipVelocity (q->track_id(), q->index(), q->from(), q->to());
           r->set_ok (ok); if (! ok) r->set_error ("velocity ramp failed (clip not found or not MIDI)"); return Status::OK; }
-        Status EchoClip (ServerContext*, const pb::EchoRequest* q, pb::Ack* r) override
+        Status EchoClip (ServerContext*, const gpb::EchoRequest* q, gpb::Ack* r) override
         { // proto3 omits unset repeats(0)/feedback(0); default to a musical 3 echoes at 0.6 feedback.
           const int reps = q->repeats() <= 0 ? 3 : q->repeats();
           const float fb = q->feedback() <= 0.0f ? 0.6f : q->feedback();
           const bool ok = main.apiEchoClip (q->track_id(), q->index(), q->delay_beats(), reps, fb);
           r->set_ok (ok); if (! ok) r->set_error ("echo failed (clip not found or not MIDI)"); return Status::OK; }
-        Status InvertClip (ServerContext*, const pb::ClipRef* q, pb::Ack* r) override
+        Status InvertClip (ServerContext*, const gpb::ClipRef* q, gpb::Ack* r) override
         { const bool ok = main.apiInvertClip (q->track_id(), q->index());
           r->set_ok (ok); if (! ok) r->set_error ("invert failed (clip not found or not MIDI)"); return Status::OK; }
-        Status RatchetClip (ServerContext*, const pb::RatchetRequest* q, pb::Ack* r) override
+        Status RatchetClip (ServerContext*, const gpb::RatchetRequest* q, gpb::Ack* r) override
         { const int sub = q->subdivisions() <= 1 ? 2 : q->subdivisions();   // proto3 omits 0; default to x2
           const bool ok = main.apiRatchetClip (q->track_id(), q->index(), sub);
           r->set_ok (ok); if (! ok) r->set_error ("ratchet failed (clip not found or not MIDI)"); return Status::OK; }
-        Status HarmonizeClip (ServerContext*, const pb::HarmonizeRequest* q, pb::Ack* r) override
+        Status HarmonizeClip (ServerContext*, const gpb::HarmonizeRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiHarmonizeClip (q->track_id(), q->index(), q->semitones());
           r->set_ok (ok); if (! ok) r->set_error ("harmonize failed (clip not found or not MIDI)"); return Status::OK; }
-        Status SwingClip (ServerContext*, const pb::SwingClipRequest* q, pb::Ack* r) override
+        Status SwingClip (ServerContext*, const gpb::SwingClipRequest* q, gpb::Ack* r) override
         { const double grid = q->grid_beats() <= 0.0 ? 0.5 : q->grid_beats();   // proto3 omits 0; default to 1/8
           const bool ok = main.apiSwingClip (q->track_id(), q->index(), grid, q->amount());
           r->set_ok (ok); if (! ok) r->set_error ("swing failed (clip not found or not MIDI)"); return Status::OK; }
-        Status ChordifyClip (ServerContext*, const pb::ChordifyRequest* q, pb::Ack* r) override
+        Status ChordifyClip (ServerContext*, const gpb::ChordifyRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiChordifyClip (q->track_id(), q->index(), q->chord_type());   // 0 (major) is the proto3 default
           r->set_ok (ok); if (! ok) r->set_error ("chordify failed (clip not found or not MIDI)"); return Status::OK; }
-        Status GateClip (ServerContext*, const pb::GateRequest* q, pb::Ack* r) override
+        Status GateClip (ServerContext*, const gpb::GateRequest* q, gpb::Ack* r) override
         { const double factor = q->factor() <= 0.0 ? 1.0 : q->factor();   // proto3 omits 0; default to no-op
           const bool ok = main.apiGateClip (q->track_id(), q->index(), factor);
           r->set_ok (ok); if (! ok) r->set_error ("gate failed (clip not found or not MIDI)"); return Status::OK; }
-        Status FlattenClipVelocity (ServerContext*, const pb::FlattenVelRequest* q, pb::Ack* r) override
+        Status FlattenClipVelocity (ServerContext*, const gpb::FlattenVelRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiFlattenClipVelocity (q->track_id(), q->index(), q->velocity());
           r->set_ok (ok); if (! ok) r->set_error ("flatten velocity failed (clip not found or not MIDI)"); return Status::OK; }
-        Status StrumClip (ServerContext*, const pb::StrumRequest* q, pb::Ack* r) override
+        Status StrumClip (ServerContext*, const gpb::StrumRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiStrumClip (q->track_id(), q->index(), q->step_beats(), q->down());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
-        Status ArpeggiateClip (ServerContext*, const pb::ArpeggiateRequest* q, pb::Ack* r) override
+        Status ArpeggiateClip (ServerContext*, const gpb::ArpeggiateRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiArpeggiateClip (q->track_id(), q->index(), q->step_beats(), q->mode());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
-        Status SplitNotesAtBeat (ServerContext*, const pb::SplitNotesRequest* q, pb::Ack* r) override
+        Status SplitNotesAtBeat (ServerContext*, const gpb::SplitNotesRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiSplitNotesAtBeat (q->track_id(), q->index(), q->beat());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found or not MIDI"); return Status::OK; }
-        Status SetTrackArp (ServerContext*, const pb::ArpSpec* q, pb::Ack* r) override
+        Status SetTrackArp (ServerContext*, const gpb::ArpSpec* q, gpb::Ack* r) override
         { // proto3 omits an unset probability (0.0); a 0% arp is meaningless, so read it as full (1.0).
           const float prob = q->probability() <= 0.0f ? 1.0f : q->probability();
           const bool ok = main.apiSetTrackArp (q->track_id(), q->enabled(), q->rate(), q->octaves(), q->gate(), q->mode(), q->swing(), q->hold(), prob);
           r->set_ok (ok); if (! ok) r->set_error ("track not found"); return Status::OK; }
-        Status GetTrackArp (ServerContext*, const pb::TrackRef2* q, pb::ArpSpec* r) override
+        Status GetTrackArp (ServerContext*, const gpb::TrackRef2* q, gpb::ArpSpec* r) override
         { bool en=false, hold=false; double rate=0.25; int oct=1, mode=0; float gate=0.5f, swing=0.0f, prob=1.0f;
           if (main.apiGetTrackArp (q->track_id(), en, rate, oct, gate, mode, swing, hold, prob))
           { r->set_track_id (q->track_id()); r->set_enabled (en); r->set_rate (rate);
@@ -1120,24 +1120,24 @@ namespace
           return Status::OK; }
 
         // ---- plugins ----
-        Status ScanPlugins (ServerContext*, const pb::ScanPluginsRequest* q, pb::PluginList* r) override
+        Status ScanPlugins (ServerContext*, const gpb::ScanPluginsRequest* q, gpb::PluginList* r) override
         { for (auto& p : main.apiScanPlugins (q->force())) fillPlugin (r->add_plugins(), p); return Status::OK; }
 
-        Status ListPlugins (ServerContext*, const pb::Empty*, pb::PluginList* r) override
+        Status ListPlugins (ServerContext*, const gpb::Empty*, gpb::PluginList* r) override
         { for (auto& p : main.apiListPlugins()) fillPlugin (r->add_plugins(), p); return Status::OK; }
 
-        Status AddPluginEffect (ServerContext*, const pb::AddPluginEffectRequest* q, pb::EffectRef* r) override
+        Status AddPluginEffect (ServerContext*, const gpb::AddPluginEffectRequest* q, gpb::EffectRef* r) override
         {
             const int slot = main.apiAddPluginEffect (q->insert(), js (q->identifier()));
             r->set_insert (q->insert()); r->set_slot (slot);
             return Status::OK;
         }
 
-        Status OpenPluginEditor (ServerContext*, const pb::TrackId* q, pb::Ack* r) override
+        Status OpenPluginEditor (ServerContext*, const gpb::TrackId* q, gpb::Ack* r) override
         { const bool ok = main.apiOpenPluginEditor (q->id()); r->set_ok (ok); if (! ok) r->set_error ("no plugin on track"); return Status::OK; }
 
         // ---- events (streaming out) ----
-        Status Subscribe (ServerContext* ctx, const pb::SubscribeRequest* q, ServerWriter<pb::Event>* writer) override
+        Status Subscribe (ServerContext* ctx, const gpb::SubscribeRequest* q, ServerWriter<gpb::Event>* writer) override
         {
             const int interval = q->interval_ms() > 0 ? (int) q->interval_ms() : 50;
             const int sinkId = q->changes() ? main.apiAddChangeSink() : -1;
@@ -1149,7 +1149,7 @@ namespace
                     main.apiPollChanges (sinkId, changes);
                     for (auto& c : changes)
                     {
-                        pb::Event e;
+                        gpb::Event e;
                         auto* ch = e.mutable_change();
                         ch->set_kind (c.kind.toStdString()); ch->set_track_id (c.trackId); ch->set_insert (c.insert);
                         if (! writer->Write (e)) { main.apiRemoveChangeSink (sinkId); return Status::OK; }
@@ -1158,7 +1158,7 @@ namespace
                 if (q->transport())
                 {
                     auto s = main.apiGetTransport();
-                    pb::Event e;
+                    gpb::Event e;
                     auto* t = e.mutable_transport();
                     t->set_playing (s.playing); t->set_bpm (s.bpm); t->set_position_beats (s.positionBeats);
                     if (! writer->Write (e)) break;
@@ -1168,7 +1168,7 @@ namespace
                     std::vector<float> L, R; std::vector<char> clip;
                     if (main.apiSnapshotMeters (L, R, clip))
                     {
-                        pb::Event e;
+                        gpb::Event e;
                         auto* m = e.mutable_meters();
                         for (float v : L) m->add_peak_l (v);
                         for (float v : R) m->add_peak_r (v);
