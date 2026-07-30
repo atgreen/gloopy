@@ -413,6 +413,64 @@ jobs:
             gloopy-setup-x64.exe
 
   # =====================================================================
+  # SBOM + build provenance. Runs when all three packages built (a tag push, or a
+  # manual `all` dispatch). Generates an SPDX SBOM of the source (incl. the vendored
+  # sfizz source and the vcpkg manifest) and attests build provenance for the
+  # rpm/deb/zip/exe + SBOM via Sigstore keyless signing (OIDC → Fulcio/Rekor, no key).
+  # Consumers verify with:  gh attestation verify <file> --repo atgreen/gloopy
+  # =====================================================================
+  provenance:
+    if: ${{ github.event_name == 'push' || github.event.inputs.packages == 'all' }}
+    needs: [rpm, deb, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # attach the SBOM to the release (tag only)
+      id-token: write      # keyless signing identity (Sigstore/Fulcio)
+      attestations: write  # write the provenance attestations
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download the built packages
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: "{rpm-package,deb-package,windows-package}"
+          merge-multiple: true
+
+      - name: List artifacts
+        run: find dist -type f | sort
+
+      - name: Generate SBOM (SPDX)
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: gloopy.spdx.json
+
+      - name: Attest build provenance (packages + SBOM)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/*.rpm
+            dist/*.deb
+            dist/*.zip
+            dist/*.exe
+            gloopy.spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: gloopy.spdx.json
+
+      - name: Attach SBOM to the release
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        uses: softprops/action-gh-release@v2
+        with:
+          files: gloopy.spdx.json
+
+  # =====================================================================
   # Package repositories, hosted on GitHub Pages (like the icl repos).
   #
   # These run on a TAG push only — they turn the RPM/DEB attached to the

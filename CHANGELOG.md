@@ -33,6 +33,9 @@ First release.
 - **The manual.** A documentation site (user guide + control-and-scripting guide)
   published to GitHub Pages, and a project landing page.
 - Third-party license texts are bundled into every package and the Windows build.
+- Supply chain: RPM/DEB packages and the repo metadata are GPG-signed, and release
+  artifacts ship with an SPDX **SBOM** and **Sigstore** build-provenance attestations
+  (verify with `gh attestation verify <file> --repo atgreen/gloopy`).
 
 ### Changed
 - Packaging moved off CPack to a traditional `rpmbuild`/`dpkg-buildpackage` flow that
