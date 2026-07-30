@@ -94,6 +94,25 @@ jobs:
           mkdir -p out && cp rpmbuild/RPMS/*/*.rpm out/
           rpm -qlp out/*.rpm | grep -c '/usr/include' | xargs -I{} echo "header files packaged (want 0): {}"
 
+      # Sign each .rpm so gpgcheck=1 clients accept the packages (the repo metadata is
+      # signed separately in build-rpm-repo). Must happen BEFORE upload, since the repo's
+      # hrefs point at these Release assets. No-op without the RPM_GPG_PRIVATE_KEY secret —
+      # then the packages ship unsigned and clients need gpgcheck=0.
+      - name: Sign RPM
+        if: ${{ env.RPM_GPG_PRIVATE_KEY != '' }}
+        env:
+          RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
+        run: |
+          dnf install -y --setopt=install_weak_deps=False rpm-sign
+          mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
+          echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
+          echo "pinentry-mode loopback"  > ~/.gnupg/gpg.conf
+          echo "${RPM_GPG_PRIVATE_KEY}" | base64 -d | gpg --batch --import
+          GPG_NAME=$(gpg --list-secret-keys --with-colons | awk -F: '/^uid/{print $10; exit}')
+          printf '%%_signature gpg\n%%_gpg_name %s\n' "$GPG_NAME" > ~/.rpmmacros
+          rpm --addsign out/*.rpm
+          rpm -Kv out/*.rpm | grep -iE "signature|Header V|OK" | head
+
       - name: Upload to release
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
         uses: softprops/action-gh-release@v2
