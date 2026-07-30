@@ -27,7 +27,7 @@
 #include "Lfo.h"
 #include "FadeShape.h"
 #include "Toml.h"
-#include "Time.h"
+#include "TimeTypes.h"
 #include <type_traits>
 
 //==============================================================================
@@ -1451,7 +1451,7 @@ struct FadeShapeTests : juce::UnitTest
     }
 };
 
-// ---- strong time types (Source/Time.h) --------------------------------------------------------
+// ---- strong time types (Source/TimeTypes.h) --------------------------------------------------------
 namespace {
 using namespace gloopy::time;
 

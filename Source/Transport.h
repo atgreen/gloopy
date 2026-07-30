@@ -6,7 +6,7 @@
 #include <JuceHeader.h>
 #include <atomic>
 #include <cmath>
-#include "Time.h"
+#include "TimeTypes.h"
 
 /** Owns the musical clock: tempo, loop length, play state and the playhead.
     All fields are atomic so the GUI thread can read/write them while the audio

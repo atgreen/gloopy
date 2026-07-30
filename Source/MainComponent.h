@@ -13,7 +13,7 @@
 #include "FileDrop.h"
 #include "BrowserDrag.h"
 #include "Clip.h"
-#include "Time.h"
+#include "TimeTypes.h"
 #include "ArrangeView.h"
 #include "BusyOverlay.h"
 #include "PianoRoll.h"

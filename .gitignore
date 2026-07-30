@@ -1,8 +1,11 @@
 build/
 build-surge-plugin/
 build-san/
+build-mingw/
 cmake-build-*/
 .cache/
+# Local Linux->Windows cross-compile experiment scratch (vcpkg mingw/clang-cl, xwin SDK)
+.xwin-cache/
 *.o
 *.a
 
