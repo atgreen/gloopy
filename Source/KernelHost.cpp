@@ -32,8 +32,12 @@ juce::File KernelHost::findFile (const juce::String& relPath)
     roots.add (juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory());
     for (auto base : roots)
         for (int up = 0; up < 6 && base != juce::File(); ++up, base = base.getParentDirectory())
+        {
             if (auto f = base.getChildFile (relPath); f.existsAsFile())
-                return f;
+                return f;                                            // dev tree (repo root / build dir)
+            if (auto f = base.getChildFile ("share/gloopy").getChildFile (relPath); f.existsAsFile())
+                return f;                                            // installed: <prefix>/share/gloopy/...
+        }
     return {};
 }
 
@@ -50,6 +54,8 @@ KernelHost::launchGenerate (const juce::String& job, const GenParams& p, int hos
     // Gloopy's KernelSubmit RPC as an ag-grpc client (the interop-proven direction).
     auto set = [] (const char* k, const juce::String& v) { khSetEnv (k, v); };
     khUnsetEnv ("GLOOPY_SWANK");                        // don't inherit REPL mode into a generate
+    if (auto proto = findFile ("proto/gloopy.proto"); proto.existsAsFile())
+        set ("GLOOPY_PROTO", proto.getFullPathName());   // so the kernel finds it when installed
     set ("GLOOPY_JOB",       job);
     set ("GLOOPY_HOST_PORT", juce::String (hostPort));
     set ("GLOOPY_CTX_TEMPO", juce::String (p.tempoBpm));
@@ -78,6 +84,8 @@ KernelHost::launchServe (int hostPort, juce::String& error)
     khUnsetEnv ("GLOOPY_JOB"); khUnsetEnv ("GLOOPY_SWANK");
     khSetEnv ("GLOOPY_SERVE", "1");
     khSetEnv ("GLOOPY_HOST_PORT", juce::String (hostPort));
+    if (auto proto = findFile ("proto/gloopy.proto"); proto.existsAsFile())
+        khSetEnv ("GLOOPY_PROTO", proto.getFullPathName());   // so the kernel finds it when installed
 
     juce::StringArray argv { "sbcl", "--non-interactive", "--load", kernel.getFullPathName() };
     auto proc = std::make_unique<juce::ChildProcess>();

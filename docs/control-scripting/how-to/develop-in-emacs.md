@@ -16,7 +16,13 @@ Emacs.
 
 ## Set up the package
 
-`gloopy.el` ships in the source tree under `emacs/`. Point Emacs at it and load it:
+If you installed a Gloopy package, `gloopy.el` is in Emacs's `site-lisp`, so it just loads:
+
+```elisp
+(require 'gloopy)
+```
+
+Running from a source checkout instead? Point Emacs at the `emacs/` directory first:
 
 ```elisp
 (add-to-list 'load-path "/path/to/gloopy/emacs")

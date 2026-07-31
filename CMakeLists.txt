@@ -310,6 +310,24 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/licenses")
         COMPONENT gloopy)
 endif()
 
+# Script-clip kernels — the language runtimes Gloopy launches to generate a clip's notes,
+# plus the .proto they compile at startup and the Emacs helper. Without these the script-clip
+# feature only worked from the source tree. KernelHost::findFile locates them under
+# <datadir>/gloopy when installed, and Gloopy passes GLOOPY_PROTO so the kernels find the proto.
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/proto/gloopy.proto
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/gloopy/proto
+    COMPONENT gloopy)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/common-lisp/kernel.lisp
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/gloopy/common-lisp
+    COMPONENT gloopy)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/python/kernel.py
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/gloopy/python
+    COMPONENT gloopy)
+# gloopy.el into site-lisp so Emacs finds it with a bare (require 'gloopy).
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/emacs/gloopy.el
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/emacs/site-lisp
+    COMPONENT gloopy)
+
 # Linux desktop integration — so `dnf/apt install gloopy` puts Gloopy in the application
 # menu and software centres, not just on the PATH. The rpm/deb both stage the `gloopy`
 # component, so these ride along automatically; Windows/macOS package differently and skip them.

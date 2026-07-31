@@ -13,11 +13,21 @@ tagged release.
 
 ## [Unreleased]
 
+### Added
+- The script-clip **kernels are now shipped in the packages** (`share/gloopy/`), and the
+  Emacs helper `gloopy.el` installs into Emacs's `site-lisp` — so script clips and
+  `M-x gloopy-connect` work from an installed Gloopy, not just a source checkout.
+
 ### Fixed
 - The status bar's "λ Slynk" kernel indicator now clears when the resident kernel is
   killed or crashes (previously it stayed stale), and the warm kernel is automatically
   respawned — so the indicator drops and then returns with the new port. The stale
   discovery file is removed too, so Emacs won't try to attach to a dead port.
+
+### Changed
+- Internal: removed the vestigial `Kernel` gRPC service from the proto (the abandoned
+  kernel-as-server design; the kernel is a client of the `Gloopy` service) and the dead
+  Lisp handlers that went with it.
 
 ## [0.1.2] - 2026-07-31
 
