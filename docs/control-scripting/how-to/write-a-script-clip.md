@@ -70,6 +70,7 @@ drive them:
 | RPC | Does |
 |-----|------|
 | `RegenerateClip(track_id, index, script, lang, seed)` | Generate and materialise a clip's notes |
+| `SetClipScriptLive(track_id, index, live)` | Mark a clip "live" — auto-regenerate ~1 bar before it plays |
 | `StartDriver(...)` / `StopDriver()` | Live-drive a clip during playback (ephemeral) |
 | `StartKernelRepl()` | Return the warm kernel's Slynk port, to attach Sly/SLIME (see [Develop generators live in Emacs](develop-in-emacs.md)) |
 

@@ -49,6 +49,7 @@ struct Clip
     juce::String scriptSource;         // "" = a normal, hand-authored clip
     juce::String scriptLang;           // kernel/language id, e.g. "common-lisp", "python"
     juce::int64  scriptSeed { 0 };     // deterministic RNG seed passed to the kernel
+    bool   scriptLive { false };       // "live": auto-regenerate ~1 bar before playback (kernel image)
     bool   isScript() const noexcept { return scriptSource.isNotEmpty(); }
 
     bool   muted { false };      // take-lane: inactive alternate takes are muted

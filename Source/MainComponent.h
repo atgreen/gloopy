@@ -35,6 +35,7 @@
 #include "GloopyLookAndFeel.h"
 #include <unordered_map>
 #include <map>
+#include <set>
 #include <mutex>
 #include <condition_variable>
 #include <thread>
@@ -418,6 +419,7 @@ public:
     int  apiSplitClipAtMarker (int trackId, int index, const juce::String& marker);   // split at a named timeline location; -1 if no marker / outside clip
     int  apiSliceClipAtTransients (int trackId, int index, float sensitivity);   // audio clip -> slices at detected onsets; slice count, or -1
     bool apiSetClipMuted (int trackId, int index, bool muted);       // mute/enable a clip in the arrangement (MIDI or audio)
+    bool apiSetClipScriptLive (int trackId, int index, bool live);   // toggle auto-generate-on-playback for a script clip
     bool apiSetLoopToClip (int trackId, int index);                  // set the transport loop to a clip's [start,end) and enable it
     bool apiSetMetronome (bool enabled);                             // toggle the beat click; -> new state
     bool apiGetMetronome();
@@ -530,6 +532,16 @@ public:
     void         launchEditor (const juce::File& f);
     static juce::File emacsPresenceFile();               // gloopy.el's presence file (M-x gloopy-connect)
     bool         openInConnectedEmacs (const juce::File& f);   // route an edit to a connected Emacs
+    void         toggleClipScriptLive (int trackIdx, int clip);   // flip a clip's auto-generate-on-playback flag
+
+    // "Live" script clips: regenerate ~1 bar before they play, so a generator you redefine
+    // in Emacs is heard the next time the clip comes around (see scheduleLiveClips).
+    void scheduleLiveClips (double playheadBeats);       // called from the message-thread timer
+    void autoRegenScriptClip (int trackId, int clipIndex);   // async regen, no undo/dirty
+    std::map<juce::int64, int> liveRegenPass;            // clip key -> pass index last regenerated
+    std::set<juce::int64>      liveRegenInFlight;        // clip keys with a regen currently running
+    int    livePass { 0 };                               // increments each loop/rewind
+    double liveLastBeats { -1.0 };
     void         editClipScript (int trackIdx, int clip);
     void         regenerateClipScript (int trackIdx, int clip);
     void         driveClipScript (int trackIdx, int clip);

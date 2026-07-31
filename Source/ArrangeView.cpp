@@ -204,8 +204,21 @@ void ArrangeView::drawClip (juce::Graphics& g, const Track& t, const Clip& c,
 
     g.setColour (juce::Colours::black.withAlpha (0.85f));
     g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
-    g.drawText (c.name.isNotEmpty() ? c.name : t.name, r.reduced (5.0f, 1.0f).withHeight (13.0f),
-                juce::Justification::centredLeft, true);
+    auto titleArea = r.reduced (5.0f, 1.0f).withHeight (13.0f);
+
+    // "Live" script clip: a small badge in the title strip — it re-generates from the kernel
+    // a bar ahead of playback, so it's visibly distinct from a frozen/materialised script clip.
+    if (c.scriptLive && titleArea.getWidth() > 34.0f)
+    {
+        auto badge = titleArea.removeFromRight (30.0f);
+        g.setColour (juce::Colour (0xff2ec96b));
+        g.fillEllipse (badge.getX(), badge.getCentreY() - 2.5f, 5.0f, 5.0f);
+        g.setFont (juce::FontOptions (8.5f, juce::Font::bold));
+        g.drawText ("LIVE", badge.withTrimmedLeft (7.0f), juce::Justification::centredLeft, false);
+        g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+        g.setColour (juce::Colours::black.withAlpha (0.85f));
+    }
+    g.drawText (c.name.isNotEmpty() ? c.name : t.name, titleArea, juce::Justification::centredLeft, true);
 }
 
 void ArrangeView::paint (juce::Graphics& g)
@@ -617,6 +630,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         repaint();
 
         bool isMidi = false, isTake = false, isMutedTake = false, isLoopedMidi = false, isMuted = false;
+        bool isScript = false, isScriptLive = false;
         double clipStart = 0.0, clipEnd = 0.0;
         {
             const juce::ScopedLock sl (engineLock);
@@ -629,6 +643,8 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 isMutedTake = isTake && cl.muted;
                 isLoopedMidi = isMidi && cl.looped && cl.contentLenBeats > 0.0
                                && cl.contentLenBeats < cl.lengthBeats - 1.0e-9;   // actually tiles
+                isScript = cl.isScript();
+                isScriptLive = cl.scriptLive;
                 clipStart = cl.startBeat;
                 clipEnd   = cl.startBeat + cl.lengthBeats;
             }
@@ -674,6 +690,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addItem (19, "Copy notes (JSON)", isMidi);         // notes -> system clipboard as JSON
         m.addItem (21, "Generate from script", isMidi);      // run the clip's script (kernel) -> notes
         m.addItem (22, "Edit script code...", isMidi);       // open the clip's source in $EDITOR
+        m.addItem (24, "Live (auto-generate on playback)", isScript, isScriptLive);  // re-run the script ~1 bar ahead
         m.addItem (23, "Live-drive from script", isMidi);    // play the script live during playback (ephemeral)
         m.addItem (20, "Rename clip...");                    // set the clip's label
         {
@@ -801,6 +818,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             if (r == 19) { if (onClipCommand) onClipCommand (t, c, "copynotes"); return; }   // notes -> clipboard
             if (r == 21) { if (onClipCommand) onClipCommand (t, c, "regenerate"); return; }   // run the clip's script
             if (r == 22) { if (onClipCommand) onClipCommand (t, c, "editcode"); return; }     // edit the clip's source
+            if (r == 24) { if (onClipCommand) onClipCommand (t, c, "livetoggle"); return; }   // auto-generate ahead of playback
             if (r == 23) { if (onClipCommand) onClipCommand (t, c, "drive"); return; }        // live-drive the clip
             if (r == 20)   // Rename clip: prompt (prefilled with the clip's current name)
             {

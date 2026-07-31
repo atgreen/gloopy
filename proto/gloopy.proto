@@ -239,6 +239,7 @@ message SplitClipRequest     { int32 track_id = 1; int32 index = 2; double beat 
 message SplitAtMarkerRequest { int32 track_id = 1; int32 index = 2; string marker = 3; }   // split at a named timeline location
 message SliceTransientsRequest { int32 track_id = 1; int32 index = 2; float sensitivity = 3; }   // audio clip -> slices at onsets
 message ClipMuteRequest      { int32 track_id = 1; int32 index = 2; bool muted = 3; }   // mute/enable a clip in the arrangement
+message ClipLiveRequest      { int32 track_id = 1; int32 index = 2; bool live = 3; }    // auto-generate a script clip ~1 bar before playback
 message SliceResult          { int32 slices = 1; }   // number of resulting slices
 message DuplicateClipRequest { int32 track_id = 1; int32 index = 2; double at_beat = 3; }   // at_beat<0 => right after
 message RepeatClipRequest    { int32 track_id = 1; int32 index = 2; int32 copies = 3; }   // tile N butted copies after the clip
@@ -510,6 +511,7 @@ service Gloopy {
   rpc SplitClipEqual  (SplitEqualRequest)      returns (SliceResult);   // chop a clip into N equal clips
   rpc SliceAtTransients(SliceTransientsRequest) returns (SliceResult);   // audio clip -> slices at detected onsets
   rpc SetClipMuted    (ClipMuteRequest)        returns (Ack);      // mute/enable a clip in the arrangement
+  rpc SetClipScriptLive (ClipLiveRequest)      returns (Ack);      // toggle a script clip's auto-generate-on-playback
   rpc RenameClip      (RenameClipRequest)      returns (Ack);      // rename a clip (empty -> track name)
   rpc SetClipColour   (ClipColourRequest)      returns (Ack);      // per-clip colour override (empty -> inherit)
   rpc SetLoopToClip   (ClipRef)                returns (Ack);      // loop the transport over a clip's span

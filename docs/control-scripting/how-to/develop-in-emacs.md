@@ -52,6 +52,16 @@ that, the live image is authoritative, exactly as you'd expect hacking at a Lisp
 clip generates its notes only when you ask it to (step 3) — editing alone doesn't change
 what plays until you generate (or **Live-drive from script**).
 
+## Hands-free: mark a clip "Live"
+
+To skip the manual **Generate** entirely, right-click the clip → **Live (auto-generate on
+playback)**. A **LIVE** badge appears on the clip. Now, while the transport is rolling,
+Gloopy re-runs the clip's generator from the live image **about a bar before the clip
+plays** and swaps in the fresh notes — so with a clip looping, every `C-c C-c` is heard on
+the next pass, no clicks at all. If a generate ever runs long (e.g. the very first, cold
+one), the clip falls back to its cached notes for that pass. Toggle it off to freeze the
+clip again. (Over the control API: `SetClipScriptLive(track_id, index, live)`.)
+
 !!! tip "Save to persist"
     Live redefinitions live in the running image, not on disk. **Save the buffer** (`C-x
     C-s`) when you're happy: a *fresh* kernel (Gloopy restart, or reopening the project)

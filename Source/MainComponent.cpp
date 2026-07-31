@@ -567,6 +567,7 @@ MainComponent::MainComponent (bool headless)
         else if (cmd == "copynotes") juce::SystemClipboard::copyTextToClipboard (apiExportClipNotesJson (id, clip));
         else if (cmd == "regenerate") regenerateClipScript (trackIdx, clip);
         else if (cmd == "editcode")   editClipScript (trackIdx, clip);
+        else if (cmd == "livetoggle") toggleClipScriptLive (trackIdx, clip);
         else if (cmd == "drive")      driveClipScript (trackIdx, clip);
         else if (cmd.startsWith ("transpose:")) apiSetClipTranspose (id, clip, cmd.substring (10).getIntValue());
         else if (cmd.startsWith ("velscale:")) apiSetClipVelocity (id, clip, cmd.substring (9).getIntValue() / 100.0f);
@@ -2830,6 +2831,124 @@ void MainComponent::driveClipScript (int trackIdx, int clip)
         {
             busyOverlay.hide();
             if (! ok) juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Live driver", err);
+        });
+    });
+}
+
+// "Live" — mark/unmark a script clip for auto-generation ~1 bar before it plays. Generation
+// pulls from the live kernel image, so a generator you redefine in Emacs is heard next pass.
+// The context menu passes a track *index*; flip the current value and delegate to the API.
+void MainComponent::toggleClipScriptLive (int trackIdx, int clip)
+{
+    int id = -1; bool live = false;
+    {
+        const juce::ScopedLock sl (engineLock);
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+        auto& cl = tracks[(size_t) trackIdx]->clips;
+        if (! juce::isPositiveAndBelow (clip, (int) cl.size()) || ! cl[(size_t) clip].isScript()) return;
+        id = tracks[(size_t) trackIdx]->id;
+        live = ! cl[(size_t) clip].scriptLive;
+    }
+    apiSetClipScriptLive (id, clip, live);
+}
+
+bool MainComponent::apiSetClipScriptLive (int trackId, int index, bool live)
+{
+    const bool ok = callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        const juce::ScopedLock sl (engineLock);
+        if (! juce::isPositiveAndBelow (index, (int) t->clips.size()) || ! t->clips[(size_t) index].isScript())
+            return false;
+        t->clips[(size_t) index].scriptLive = live;
+        return true;
+    });
+    if (! ok) return false;
+    projectModified = true;
+    if (arrangeView) arrangeView->rebuild();
+    emitChange ("clip_changed", trackId);
+    return true;
+}
+
+// Scheduler (message-thread timer): for each clip marked "live", regenerate it once per pass,
+// as soon as the playhead is within a bar of its start (or already at it for a self-looped
+// clip). Regeneration is async and best-effort — the cached notes cover a slow/cold generate.
+void MainComponent::scheduleLiveClips (double beats)
+{
+    if (! transport.isPlaying())
+    {
+        if (! liveRegenPass.empty()) liveRegenPass.clear();
+        liveLastBeats = -1.0;
+        return;
+    }
+    if (beats < liveLastBeats - 1.0e-6) ++livePass;   // looped or rewound: a new pass
+    liveLastBeats = beats;
+
+    const double lead = juce::jmax (1.0, transport.beatsPerBar());   // one bar of look-ahead
+    struct Due { int trackId, clipIndex; juce::int64 key; };
+    std::vector<Due> due;
+    {
+        const juce::ScopedLock sl (engineLock);
+        for (auto& t : tracks)
+        {
+            if (t == nullptr) continue;
+            for (int i = 0; i < (int) t->clips.size(); ++i)
+            {
+                const auto& c = t->clips[(size_t) i];
+                if (! (c.isScript() && c.scriptLive)) continue;
+                if (beats < c.startBeat - lead || beats >= c.endBeat()) continue;   // outside the pre-roll..end window
+                const juce::int64 key = ((juce::int64) t->id << 20) | (juce::int64) (i & 0xFFFFF);
+                if (liveRegenPass[key] == livePass) continue;   // already done this pass
+                if (liveRegenInFlight.count (key)) continue;    // a regen is still running
+                liveRegenPass[key] = livePass;
+                due.push_back ({ t->id, i, key });
+            }
+        }
+    }
+    for (auto& d : due) { liveRegenInFlight.insert (d.key); autoRegenScriptClip (d.trackId, d.clipIndex); }
+}
+
+// Async regenerate for a live clip: fetch notes off the message thread, then swap them into
+// the clip. No undo snapshot and no dirty flag — it's a derived, reproducible refresh, not an
+// edit. (The explicit "Generate from script" still persists/marks the project.)
+void MainComponent::autoRegenScriptClip (int trackId, int clipIndex)
+{
+    KernelHost::GenParams p;
+    const juce::int64 key = ((juce::int64) trackId << 20) | (juce::int64) (clipIndex & 0xFFFFF);
+    {
+        const juce::ScopedLock sl (engineLock);
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (clipIndex, (int) t->clips.size()))
+        { liveRegenInFlight.erase (key); return; }
+        const auto& c = t->clips[(size_t) clipIndex];
+        p.source = c.scriptSource; p.trackId = trackId; p.clipIndex = clipIndex; p.seed = c.scriptSeed;
+        p.lang = c.scriptLang.isNotEmpty() ? c.scriptLang : juce::String ("common-lisp");
+        p.clipLenBeats = c.contentLenBeats;
+    }
+    p.tempoBpm = transport.getBpm();
+
+    juce::Thread::launch ([this, p, trackId, clipIndex, key]
+    {
+        std::vector<Note> notes; juce::String err;
+        const bool ok = fetchKernelNotes (p, notes, err);
+        juce::MessageManager::callAsync ([this, ok, notes = std::move (notes), trackId, clipIndex, key]() mutable
+        {
+            liveRegenInFlight.erase (key);
+            if (! ok) return;   // keep the cached notes; a slow/cold generate just misses this pass
+            bool changed = false, isSel = false;
+            {
+                const juce::ScopedLock sl (engineLock);
+                Track* t = resolveTrack (trackId);
+                if (t != nullptr && juce::isPositiveAndBelow (clipIndex, (int) t->clips.size()))
+                {
+                    auto& c = t->clips[(size_t) clipIndex];
+                    if (c.isScript() && c.scriptLive) { c.notes = std::move (notes); changed = true; }
+                    if (juce::isPositiveAndBelow (selTrack, (int) tracks.size()))
+                        isSel = tracks[(size_t) selTrack]->id == trackId && selClip == clipIndex;
+                }
+            }
+            if (changed && arrangeView) { arrangeView->repaint(); if (isSel) loadSelectedClipIntoEditor(); }
         });
     });
 }
@@ -5492,6 +5611,7 @@ void MainComponent::timerCallback()
     }
 
     const double beats = transport.getPlayheadBeats();
+    scheduleLiveClips (beats);   // auto-regenerate "live" script clips a bar ahead of playback
     const double bpb   = juce::jmax (1.0, transport.beatsPerBar());   // time-signature aware
     const int bar  = (int) (beats / bpb) + 1;
     const int beat = (int) std::fmod (beats, bpb) + 1;
@@ -6318,6 +6438,7 @@ juce::ValueTree MainComponent::clipToTree (const Clip& c, const juce::Identifier
         cl.setProperty ("script", c.scriptSource, nullptr);
         if (c.scriptLang.isNotEmpty()) cl.setProperty ("scriptlang", c.scriptLang, nullptr);
         if (c.scriptSeed != 0)         cl.setProperty ("scriptseed", (juce::int64) c.scriptSeed, nullptr);
+        if (c.scriptLive)              cl.setProperty ("scriptlive", true, nullptr);
     }
     if (c.isAudio() && c.audioFile.isNotEmpty())
     {
@@ -6375,6 +6496,7 @@ Clip MainComponent::clipFromTree (const juce::ValueTree& cl)
     c.scriptSource = cl.getProperty ("script", "").toString();
     c.scriptLang   = cl.getProperty ("scriptlang", "").toString();
     c.scriptSeed   = (juce::int64) cl.getProperty ("scriptseed", (juce::int64) 0);
+    c.scriptLive   = (bool) cl.getProperty ("scriptlive", false);
 
     if (c.isAudio() && cl.hasProperty ("afile"))
     {

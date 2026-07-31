@@ -1037,6 +1037,9 @@ namespace
         Status SetClipMuted (ServerContext*, const gpb::ClipMuteRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiSetClipMuted (q->track_id(), q->index(), q->muted());
           r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }
+        Status SetClipScriptLive (ServerContext*, const gpb::ClipLiveRequest* q, gpb::Ack* r) override
+        { const bool ok = main.apiSetClipScriptLive (q->track_id(), q->index(), q->live());
+          r->set_ok (ok); if (! ok) r->set_error ("clip not found or not a script clip"); return Status::OK; }
         Status RenameClip (ServerContext*, const gpb::RenameClipRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiRenameClip (q->track_id(), q->index(), js (q->name()));
           r->set_ok (ok); if (! ok) r->set_error ("clip not found"); return Status::OK; }

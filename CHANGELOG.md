@@ -27,9 +27,16 @@ tagged release.
 - **Emacs/Sly integration for script clips.** The resident Lisp kernel also hosts a
   **Slynk** server, and a bundled Emacs package (`emacs/gloopy.el`) connects to it:
   `M-x gloopy-connect` (or *File → Connect Emacs to Kernel (Slynk)*) attaches Sly/SLIME to
-  the very image that generates your clips, so you can redefine a generator and regenerate
-  without a restart. While connected, clicking a script clip in Gloopy opens its source in
-  Emacs. A "λ Slynk <port>" indicator in the status bar shows the kernel is ready.
+  the very image that generates your clips. The kernel is a genuine **live image** — it
+  loads a clip's source once, then a generator you redefine in Emacs (`C-c C-c`) is what the
+  next generate runs, no restart. While connected, clicking a script clip in Gloopy opens
+  its source in Emacs. A "λ Slynk <port>" indicator in the status bar shows the kernel is
+  ready.
+- **"Live" script clips.** Right-click a script clip → *Live (auto-generate on playback)*
+  (a **LIVE** badge appears). While the transport rolls, Gloopy re-runs the clip's generator
+  from the live image about a bar before it plays and swaps in the fresh notes — so a looping
+  clip reflects each `C-c C-c` on the next pass with no *Generate* click, falling back to the
+  cached notes if a generate runs long. Also over the API as `SetClipScriptLive`.
 - **Linux desktop integration.** The RPM/DEB packages now ship a `.desktop` entry, an
   application icon, and AppStream metadata, so Gloopy appears in the application
   menu/launcher and in software centres after install — not just on the `PATH`.
