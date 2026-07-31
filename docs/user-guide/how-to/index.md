@@ -21,6 +21,11 @@ assumes you've done [Your first track](../tutorials/first-track.md).
 - **[Automate a parameter](automate-a-parameter.md)** — keyframes, curves, and
   when to use an LFO or MIDI-learn instead.
 
+## Generating content
+
+- **[Generate a clip's notes from code](generate-notes-from-code.md)** — script a
+  clip's notes in Common Lisp or Python, then generate or live-drive them.
+
 ## Exporting and sharing
 
 - **[Export the mix, a range, a track, or stems](export-audio.md)** — offline

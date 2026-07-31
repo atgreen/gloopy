@@ -14,6 +14,9 @@ Actions run on that mirror, so check CI there with `gh run list -R atgreen/gloop
 
 ## Build & run
 
+There's a convenience `Makefile` wrapping the below — `make` (build), `make run`,
+`make test`, `make clean`, `make help`. The raw commands:
+
 ```sh
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release   # JUCE is fetched via FetchContent
 cmake --build build --target Gloopy                  # incremental; LTO is off for speed
@@ -75,6 +78,27 @@ ctest --test-dir build --output-on-failure       # NoteScheduler/swing + ValueTr
 ./tests/smoke.sh                                 # boots the app, drives gRPC, renders, checks non-silent
 ```
 CI (`.github/workflows/ci.yml`) runs all of the above on push/PR under `xvfb`.
+
+## Docs & changelog — update them WITH the feature
+
+When you ship a user-facing change, update the docs in the same pass — the code is not
+"done" until these are current:
+
+- **`CHANGELOG.md`** — add a bullet under `## [Unreleased]` (Added / Changed / Fixed).
+  Release notes are generated from this section, so an empty entry ships empty notes.
+- **The published manual (`docs/`)** — this is the user-facing front door, built with
+  MkDocs and served on Pages. It has **two** sections (`nav:` in `mkdocs.yml`): the
+  **User guide** (`docs/user-guide/…`, the desktop workflow) and **Control & scripting**
+  (`docs/control-scripting/…`, the API/kernels). A new feature usually needs a **how-to**
+  in the right section (add it to `nav:` and the section `index.md`), plus the relevant
+  **reference** page — new shortcut → `user-guide/reference/keyboard-shortcuts.md`, new
+  menu item → `user-guide/reference/file-menu.md`, etc.
+  - Keep implementation language (C++/JUCE, threads, gRPC internals) OUT of the user
+    guide — describe *what it does*; the Control & scripting section may be more technical.
+  - `docs/CONTROL-API.md`, `ROADMAP.md`, `session-view.md`, `surge-embed.md` are
+    **internal design notes** — they're in `exclude_docs` and are NOT the manual. Updating
+    them does **not** update the user docs.
+- Verify the manual still builds: `mkdocs build --strict` (nav entries, links).
 
 ## Driving it headless
 

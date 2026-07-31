@@ -15,7 +15,8 @@ them, see [The Gloopy model](../concepts/model.md); for worked lessons, the
     Only the **Python** reference is generated — pulled live from the client's
     docstrings by `mkdocstrings` at build time (don't edit it; change the
     docstring). The **gRPC**, **OSC**, and **Common Lisp** pages are
-    **hand-maintained summaries** for now: the [proto](../../../proto/gloopy.proto),
+    **hand-maintained summaries** for now: the
+    [proto](https://github.com/atgreen/gloopy/blob/main/proto/gloopy.proto),
     `Source/OscControl.h`, and the CL package exports remain the authoritative
     source. The `buf`, OSC-schema, and 40ants-doc generators are planned (their
     steps are stubbed in `.github/workflows/docs.yml`) and will replace the

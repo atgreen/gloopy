@@ -9,6 +9,8 @@ Task recipes for driving Gloopy from code or hardware. Each assumes you've read
 
 - **[Let an AI agent drive Gloopy (MCP)](mcp-server.md)** — expose the control
   API to an assistant over the Model Context Protocol.
+- **[Write a script-clip generator](write-a-script-clip.md)** — generate a clip's
+  notes from Common Lisp or Python code, materialised or live-driven.
 - **[Subscribe to the playhead and meters](subscribe-playhead-meters.md)** — a
   live push feed of transport position and levels, in Python, Lisp, and raw gRPC.
 - **[Add and control effects from a script](effects-from-a-script.md)** — put an

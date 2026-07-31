@@ -15,6 +15,7 @@ These work anywhere in the main window.
 | **Ctrl+Z** | Undo |
 | **Ctrl+Shift+Z** / **Ctrl+Y** | Redo |
 | **Ctrl+.** | MIDI panic — all notes off (kills a stuck note) |
+| **?** | Show the keyboard-shortcut overlay (press **?** again or **Esc** to close) |
 
 !!! note "Space is play/pause, not play-from-start"
     Space toggles playback without moving the playhead, so you can audition,
@@ -34,6 +35,14 @@ current strip / track-column selection:
 
 See [Mixer track (bus, send)](../../control-scripting/concepts/model.md#mixer-track-bus-send)
 for what a group is.
+
+## Arrangement and Session views
+
+Acting on the current selection.
+
+| Key | Action |
+|-----|--------|
+| **Delete / Backspace** | Delete the selected arrangement clip, or clear the selected Session slot |
 
 ## Piano roll (the editor)
 
