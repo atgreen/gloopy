@@ -50,14 +50,17 @@ Your source file defines one generator and registers it with `set-generator`
 
 ## Determinism and caching
 
-Each generation is seeded from the clip's seed, so it is reproducible: same code + same
-seed → same notes. Gloopy caches the generated notes in the project, so the clip renders
-and plays with **no runtime installed** — the runtime is only needed to *re-generate*.
+Each generation is seeded from the clip's seed, so from a clean start it is reproducible:
+same source file + same seed → same notes. Gloopy caches the generated notes in the
+project, so the clip renders and plays with **no runtime installed** — the runtime is only
+needed to *re-generate*.
 
 Gloopy keeps a **resident "warm" kernel** running (auto-started when SBCL is installed):
-the proto compiles once, then every generate is instant. That same warm image also hosts
-a Slynk server, so you can attach Emacs and redefine generators live — see
-[Develop generators live in Emacs](develop-in-emacs.md).
+the proto compiles once, then every generate is instant. It loads a clip's source **once
+per session**, so it's a genuine live image — attach Emacs and redefine generators on the
+fly (see [Develop generators live in Emacs](develop-in-emacs.md)). Within such a session
+the live image is authoritative; a fresh kernel reloads from the file, which is what
+restores reproducibility. So: **the file is the record, save when you're happy.**
 
 ## Over the control API
 

@@ -37,8 +37,21 @@
 ;;; --- the script prelude: what a user's generator uses ----------------------
 
 (defvar *generator* nil
-  "The current generator: a function (context) -> list of GLOOPY.PB notes.
-   A user script calls (set-generator #'my-fn) from LoadSource.")
+  "The most recently registered generator: a function (or symbol) (context) -> list of
+   GLOOPY.PB notes. A user script calls (set-generator #'my-fn). Kept for the cold one-shot
+   path and as a fallback; the warm kernel tracks generators per clip in *generators*.")
+
+(defvar *generators* (make-hash-table :test 'equal)
+  "Warm kernel: map a clip's source-file path -> its generator, so several script clips can
+   coexist in one live image without clobbering each other. Storing a *symbol* here (a named
+   generator) means redefining it from Emacs (C-c C-c) is picked up live on the next generate.")
+
+(defvar *loaded-sources* (make-hash-table :test 'equal)
+  "Source paths already loaded in this session. The warm kernel loads a clip's file once, then
+   trusts the live image (your interactive redefinitions) — a fresh kernel reloads from file.")
+
+(defvar *loading-source* nil "Bound to the source path while a clip's file is being loaded.")
+(defvar *last-source*    nil "The source path of the most recently generated clip.")
 
 (defun note (pitch start length &optional (velocity 0.8d0))
   "Build a Note: MIDI PITCH, START/LENGTH in beats within the clip, VELOCITY 0..1."
@@ -48,7 +61,13 @@
                  :length-beats (coerce length 'double-float)
                  :velocity (coerce velocity 'single-float)))
 
-(defun set-generator (fn) (setf *generator* fn))
+(defun set-generator (fn)
+  "Register FN (a function or the symbol of a named function) as the generator. Attributes it
+   to the clip whose file is loading, or — when called interactively from Emacs — to the clip
+   you most recently generated, so a live redefinition takes effect on the next generate."
+  (setf *generator* fn)
+  (let ((key (or *loading-source* *last-source*)))
+    (when key (setf (gethash key *generators*) fn))))
 
 ;;; Default generator (used until a script loads one): an ascending diatonic run,
 ;;; one note per beat from the context key, deterministic in the context seed.
@@ -192,10 +211,22 @@
         (ag-grpc:channel-close channel)))
     (sb-ext:exit :code (if ok 0 1))))
 
-;;; Serve mode (the warm kernel): stay resident and long-poll Gloopy for generate jobs, so
-;;; the proto compiles once at startup and every generate after is instant. Each job resets
-;;; the generator and reloads its source fresh, so results stay reproducible (Slynk-driven
-;;; live redefinition will be an opt-in toggle later).
+;;; Load a clip's source file into the live image, but only the FIRST time we see it this
+;;; session. After that we trust the running image: your interactive redefinitions from Emacs
+;;; (C-c C-c) are what generate uses. A fresh kernel has an empty *loaded-sources*, so it
+;;; reloads from file — which is what keeps a project reproducible after a restart.
+(defun ensure-source-loaded (source)
+  (when (and source (plusp (length source)) (not (gethash source *loaded-sources*)))
+    (let ((*loading-source* source)
+          (*package* (find-package :gloopy-kernel)))
+      (load (truename source)))
+    (setf (gethash source *loaded-sources*) t)))
+
+;;; Serve mode (the warm kernel): stay resident and long-poll Gloopy for generate jobs, so the
+;;; proto compiles once at startup and every generate after is instant. The image is LIVE — a
+;;; clip's file loads once, then Slynk-driven redefinitions (Emacs) drive subsequent generates.
+;;; Each clip's generator is tracked per source in *generators*, so multiple script clips don't
+;;; clobber each other.
 (defun process-job (channel spec)
   (let ((ctx (make-instance 'gloopy.pb::gen-context
                             :tempo-bpm (gloopy.pb::tempo-bpm spec)
@@ -206,10 +237,13 @@
         (ok t) (err "") (notes '()))
     (handler-case
         (progn
-          (setf *generator* nil)                       ; clean per job — no state leak
+          (ensure-source-loaded source)
           (when (and source (plusp (length source)))
-            (let ((*package* (find-package :gloopy-kernel))) (load (truename source))))
-          (setf notes (funcall (or *generator* #'default-generate) ctx)))
+            (setf *last-source* source))               ; so interactive (set-generator ...) attributes here
+          (let ((gen (or (and source (plusp (length source)) (gethash source *generators*))
+                         *generator*
+                         #'default-generate)))
+            (setf notes (funcall gen ctx))))           ; a symbol funcalls its LIVE definition
       (error (e) (setf ok nil err (format nil "~a" e))))
     (ignore-errors
       (ag-grpc:call-unary channel "/gloopy.v1.Gloopy/KernelSubmit"

@@ -42,12 +42,21 @@ You can also open the connection instructions from Gloopy itself:
 
 1. Open a clip's source (click the clip in Gloopy, or `C-x C-f` the file).
 2. Edit the generator and evaluate it with `C-c C-c` (or `C-c C-k` for the whole buffer).
-   `set-generator` installs it into the running kernel.
+   `set-generator` installs it into the running kernel — **it is live immediately**.
 3. Back in Gloopy, **Generate from script** on the clip (or call `RegenerateClip` over the
-   control API). The kernel runs your just-redefined generator and posts the notes back.
+   control API). The kernel runs the generator **as it exists in the image right now**, so
+   your just-evaluated redefinition is what runs — no save, no restart.
 
-Because the kernel is warm and shared, step 2 changes the image step 3 runs against — no
-process restart, no proto recompile.
+The kernel loads a clip's source file **once** (the first generate of the session); after
+that, the live image is authoritative, exactly as you'd expect hacking at a Lisp REPL. A
+clip generates its notes only when you ask it to (step 3) — editing alone doesn't change
+what plays until you generate (or **Live-drive from script**).
+
+!!! tip "Save to persist"
+    Live redefinitions live in the running image, not on disk. **Save the buffer** (`C-x
+    C-s`) when you're happy: a *fresh* kernel (Gloopy restart, or reopening the project)
+    reloads the generator from the file, which is what keeps the project reproducible. Think
+    of it the same way you would any Lisp image — the image is live, the file is the record.
 
 ## How the link works
 
