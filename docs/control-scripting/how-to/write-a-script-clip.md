@@ -50,10 +50,14 @@ Your source file defines one generator and registers it with `set-generator`
 
 ## Determinism and caching
 
-Each generation runs a **fresh** kernel seeded from the clip's seed, so it is
-reproducible: same code + same seed → same notes. Gloopy caches the generated notes in
-the project, so the clip renders and plays with **no runtime installed** — the runtime is
-only needed to *re-generate*.
+Each generation is seeded from the clip's seed, so it is reproducible: same code + same
+seed → same notes. Gloopy caches the generated notes in the project, so the clip renders
+and plays with **no runtime installed** — the runtime is only needed to *re-generate*.
+
+Gloopy keeps a **resident "warm" kernel** running (auto-started when SBCL is installed):
+the proto compiles once, then every generate is instant. That same warm image also hosts
+a Slynk server, so you can attach Emacs and redefine generators live — see
+[Develop generators live in Emacs](develop-in-emacs.md).
 
 ## Over the control API
 
@@ -64,7 +68,7 @@ drive them:
 |-----|------|
 | `RegenerateClip(track_id, index, script, lang, seed)` | Generate and materialise a clip's notes |
 | `StartDriver(...)` / `StopDriver()` | Live-drive a clip during playback (ephemeral) |
-| `StartKernelRepl()` | Start a warm SBCL kernel with a SWANK server; returns the port to attach SLIME/Sly |
+| `StartKernelRepl()` | Return the warm kernel's Slynk port, to attach Sly/SLIME (see [Develop generators live in Emacs](develop-in-emacs.md)) |
 
 ## Requirements
 

@@ -50,11 +50,15 @@ each pass. Use this for generative parts you want to stay code, not fixed notes.
 
 ## Develop interactively (Common Lisp)
 
-**File → Start Lisp REPL (SWANK)…** launches a warm Lisp image and shows a port. Attach
-your editor's Lisp REPL (SLIME/Sly) to `127.0.0.1:<port>` to define and test generators
-live before saving them into a clip.
+Gloopy keeps a warm Lisp kernel running to generate clips, and it hosts a **Slynk** server
+so you can attach Emacs (Sly) to the live image, redefine a generator, and re-run the clip
+without a restart. In Emacs with `gloopy.el` loaded: **`M-x gloopy-connect`**. Once
+connected, clicking a script clip opens its source in Emacs. **File → Connect Emacs to
+Kernel (Slynk)…** shows the connection details.
 
 ## See also
 
 - [Write a script-clip generator](../../control-scripting/how-to/write-a-script-clip.md) —
   the scripting details, the Python generator, and driving it over the control API.
+- [Develop generators live in Emacs (Sly)](../../control-scripting/how-to/develop-in-emacs.md) —
+  the full Emacs workflow.

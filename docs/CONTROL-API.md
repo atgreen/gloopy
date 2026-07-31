@@ -185,17 +185,19 @@ rpc RegenerateClip  (RegenerateRequest)   returns (Ack);   // generate a clip's 
 rpc StartDriver     (RegenerateRequest)   returns (Ack);   // live-drive a clip during playback (ephemeral)
 rpc StopDriver      (Empty)               returns (Ack);
 rpc KernelSubmit    (KernelSubmitRequest) returns (Ack);   // the kernel posts its notes back (kernel is the client)
-rpc StartKernelRepl (Empty)               returns (KernelReplInfo);   // warm SBCL image + SWANK port for SLIME
+rpc KernelReady     (KernelReadyRequest)  returns (Ack);   // the warm kernel announces it's up + its Slynk port
+rpc StartKernelRepl (Empty)               returns (KernelReplInfo);   // hand back the warm kernel's Slynk port (Sly/SLIME)
 ```
 
 Two execution models:
 
-- **Generative** (`RegenerateClip`) — Gloopy launches a fresh kernel, waits for it to
-  submit the notes, and **materialises** them into the clip's `.notes`. Each generate is
-  a fresh image seeded from the clip's seed, so it is deterministic and clean; the notes
-  are cached in the project, so the clip **plays with no runtime installed** — only
-  *regenerating* needs the kernel. `RegenerateRequest` carries the track/index, source
-  path, language, and seed.
+- **Generative** (`RegenerateClip`) — Gloopy dispatches the job to a resident **warm**
+  kernel (auto-started when SBCL is installed) that long-polls for work, waits for it to
+  submit the notes, and **materialises** them into the clip's `.notes`. Generation is
+  seeded from the clip's seed, so it is deterministic; the notes are cached in the project,
+  so the clip **plays with no runtime installed** — only *regenerating* needs the kernel.
+  The proto compiles once in the warm image, so every generate after the first is instant.
+  `RegenerateRequest` carries the track/index, source path, language, and seed.
 - **Live-driving** (`StartDriver`) — the script's notes play **live during playback**
   without being materialised. Gloopy fetches them from the kernel, then a driver thread
   injects note on/off into the track's lock-free live-MIDI queue (the OSC lane) at their
@@ -206,9 +208,11 @@ Languages and interactive development:
 - Generators are written in **Common Lisp** (`common-lisp/kernel.lisp`, SBCL) or
   **Python** (`python/kernel.py`); the same submit protocol drives both. A user source
   file calls `set-generator` / `set_generator` to define the generator.
-- **`StartKernelRepl`** launches a persistent SBCL image running a **SWANK** server (with
-  the generator prelude loaded) so you can attach SLIME/Sly and develop generators
-  interactively in a warm image.
+- The warm kernel also hosts a **Slynk** server (with the generator prelude loaded). It
+  reports its port on startup via **`KernelReady`**; Gloopy writes a discovery file
+  (`$XDG_RUNTIME_DIR/gloopy/kernel.json`) that `emacs/gloopy.el` reads to attach Sly.
+  **`StartKernelRepl`** hands back that same port. When a `gloopy.el`-connected Emacs is
+  present, clicking a script clip routes its source there over `emacsclient`.
 
 ## Security
 
@@ -232,7 +236,8 @@ Languages and interactive development:
 4. Full UI parity and a documented Common Lisp client library.
 5. **Script clips** *(done)* — clips generate notes from Common Lisp or Python code via a
    language kernel that runs as a gRPC *client* of Gloopy (`RegenerateClip` /
-   `StartDriver` / `KernelSubmit`): deterministic, cached, live-driveable, with a SWANK REPL.
+   `StartDriver` / `KernelSubmit`): deterministic, cached, live-driveable, served by a warm
+   resident kernel that also hosts Slynk for live editing from Emacs (`emacs/gloopy.el`).
 
 ## Build / deps
 

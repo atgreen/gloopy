@@ -58,7 +58,7 @@ Settings…**. All documented in
 |------|--------------|
 | **MIDI Inputs ▸** | Read-only: the input sources Gloopy hears and which track they play |
 | **Rescan Plugins** | Re-scan installed VST3/LV2 plugins |
-| **Start Lisp REPL (SWANK)…** | Launch a warm Lisp kernel with a SWANK server and show its port, so you can attach SLIME/Sly and develop [script-clip](../how-to/generate-notes-from-code.md) generators interactively |
+| **Connect Emacs to Kernel (Slynk)…** | Show the resident kernel's Slynk port so you can attach Emacs (Sly) — `M-x gloopy-connect` — and develop [script-clip](../how-to/generate-notes-from-code.md) generators against the live image |
 
 ## About
 
