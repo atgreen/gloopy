@@ -566,6 +566,7 @@ MainComponent::MainComponent (bool headless)
         else if (cmd == "copynotes") juce::SystemClipboard::copyTextToClipboard (apiExportClipNotesJson (id, clip));
         else if (cmd == "regenerate") regenerateClipScript (trackIdx, clip);
         else if (cmd == "editcode")   editClipScript (trackIdx, clip);
+        else if (cmd == "drive")      driveClipScript (trackIdx, clip);
         else if (cmd.startsWith ("transpose:")) apiSetClipTranspose (id, clip, cmd.substring (10).getIntValue());
         else if (cmd.startsWith ("velscale:")) apiSetClipVelocity (id, clip, cmd.substring (9).getIntValue() / 100.0f);
         else if (cmd.startsWith ("prob:")) apiSetClipProbability (id, clip, cmd.substring (5).getIntValue() / 100.0f);
@@ -1180,6 +1181,7 @@ MainComponent::MainComponent (bool headless)
 MainComponent::~MainComponent()
 {
     if (auto* host = keyListenerHost.getComponent()) host->removeKeyListener (this);
+    stopDriver();                // stop the live-driver thread before tracks go away
     if (replKernel != nullptr && replKernel->isRunning()) replKernel->kill();   // stop the SWANK kernel
     stopTimer();
     teardownMidiInputs();        // stop MIDI callbacks before tracks/audio go away
@@ -2490,6 +2492,97 @@ void MainComponent::submitKernelResult (const juce::String& job, bool ok,
     j->cv.notify_all();
 }
 
+// Launch the kernel for `p`, wait for it to post the notes back, and return them (no
+// materialisation). Blocks the calling thread while the kernel works; used by both
+// regenerate (materialise) and the live driver (play ephemerally).
+bool MainComponent::fetchKernelNotes (const KernelHost::GenParams& p, std::vector<Note>& out, juce::String& error)
+{
+    const auto job = juce::Uuid().toDashedString();
+    auto j = std::make_shared<KernelJob>();
+    { const std::lock_guard<std::mutex> lk (kernelJobsMutex); kernelJobs[job] = j; }
+    struct Scope { MainComponent* m; juce::String job; ~Scope() { const std::lock_guard<std::mutex> lk (m->kernelJobsMutex); m->kernelJobs.erase (job); } } scope { this, job };
+
+    auto proc = KernelHost::launchGenerate (job, p, 50051, error);
+    if (proc == nullptr) return false;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds (200);
+    std::unique_lock<std::mutex> lk (j->m);
+    while (! j->done)
+    {
+        if (j->cv.wait_for (lk, std::chrono::milliseconds (500), [&] { return j->done; })) break;
+        if (! proc->isRunning()) { lk.unlock(); error = "kernel: process exited before returning a result"; return false; }
+        if (std::chrono::steady_clock::now() > deadline) { lk.unlock(); proc->kill(); error = "kernel: timed out waiting for the kernel"; return false; }
+    }
+    if (! j->ok) { error = j->error.isNotEmpty() ? j->error : juce::String ("kernel: generate failed"); return false; }
+    out = std::move (j->notes);
+    return true;
+}
+
+void MainComponent::stopDriver()
+{
+    driverStop.store (true);
+    if (driverThread.joinable()) driverThread.join();
+}
+
+// Live-drive a clip (cave #12): fetch the script's notes, then play them LIVE during
+// playback by injecting note on/off into the track's lock-free live-MIDI queue (the same
+// lane OSC uses) at their beat times — without materialising them into the clip. A driver
+// thread polls the playhead; the audio thread just drains the queue (never blocks on us).
+bool MainComponent::apiStartDriver (int trackId, int index, const juce::String& source,
+                                    const juce::String& lang, juce::int64 seed, juce::String& error)
+{
+    stopDriver();
+
+    KernelHost::GenParams p;
+    p.source = source; p.trackId = trackId; p.clipIndex = index; p.seed = seed;
+    p.lang = lang.isNotEmpty() ? lang : juce::String ("common-lisp");
+    p.tempoBpm = transport.getBpm();
+    double clipStart = 0.0;
+    Track* drivenTrack = nullptr;
+    const bool found = callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        const juce::ScopedLock sl (engineLock);
+        if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+        p.clipLenBeats = t->clips[(size_t) index].contentLenBeats;
+        clipStart      = t->clips[(size_t) index].startBeat;
+        drivenTrack    = t;
+        return true;
+    });
+    if (! found) { error = "driver: no such clip"; return false; }
+
+    std::vector<Note> notes;
+    if (! fetchKernelNotes (p, notes, error)) return false;
+
+    driverStop.store (false);
+    driverThread = std::thread ([this, drivenTrack, clipStart, notes]
+    {
+        std::vector<char> on (notes.size(), 0), off (notes.size(), 0);
+        double lastPh = 1e18;
+        while (! driverStop.load())
+        {
+            if (transport.isPlaying())
+            {
+                const double ph = transport.getPlayheadBeats();
+                if (ph < lastPh) { std::fill (on.begin(), on.end(), 0); std::fill (off.begin(), off.end(), 0); }  // looped back
+                lastPh = ph;
+                for (size_t i = 0; i < notes.size(); ++i)
+                {
+                    const double onB  = clipStart + notes[i].startBeat;
+                    const double offB = onB + notes[i].lengthBeats;
+                    if (! on[i] && ph >= onB)
+                    { on[i] = 1; drivenTrack->liveMidi.addMessageToQueue (juce::MidiMessage::noteOn (1, notes[i].pitch,
+                          (juce::uint8) juce::jlimit (1, 127, (int) (notes[i].velocity * 127.0f)))); }
+                    if (on[i] && ! off[i] && ph >= offB)
+                    { off[i] = 1; drivenTrack->liveMidi.addMessageToQueue (juce::MidiMessage::noteOff (1, notes[i].pitch)); }
+                }
+            }
+            juce::Thread::sleep (4);
+        }
+    });
+    return true;
+}
+
 // Mark a clip as a script clip and (re)generate its notes from the language kernel.
 // The kernel runs as an ag-grpc client of THIS server: we register a job, launch it with
 // the clip context, and wait for it to post the notes back via KernelSubmit. This call
@@ -2513,32 +2606,8 @@ bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::Strin
     });
     if (! found) { error = "regenerate: no such clip"; return false; }
 
-    const auto job = juce::Uuid().toDashedString();
-    auto j = std::make_shared<KernelJob>();
-    { const std::lock_guard<std::mutex> lk (kernelJobsMutex); kernelJobs[job] = j; }
-    struct Scope { MainComponent* m; juce::String job; ~Scope() { const std::lock_guard<std::mutex> lk (m->kernelJobsMutex); m->kernelJobs.erase (job); } } scope { this, job };
-
-    auto proc = KernelHost::launchGenerate (job, p, 50051, error);   // the kernel posts back to our own gRPC server
-    if (proc == nullptr) return false;
-
-    {   // Wait for KernelSubmit, the kernel dying, or a timeout. First launch compiles the
-        // proto (~tens of seconds), so allow a generous deadline; poll so a crashed kernel
-        // fails fast instead of hanging, and kill a hung kernel so it isn't orphaned.
-        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds (200);
-        std::unique_lock<std::mutex> lk (j->m);
-        while (! j->done)
-        {
-            if (j->cv.wait_for (lk, std::chrono::milliseconds (500), [&] { return j->done; })) break;
-            if (! proc->isRunning())      // crashed / exited before submitting a result
-            { lk.unlock(); error = "kernel: process exited before returning a result"; return false; }
-            if (std::chrono::steady_clock::now() > deadline)
-            { lk.unlock(); proc->kill(); error = "kernel: timed out waiting for the kernel to generate"; return false; }
-        }
-        if (! j->ok) { error = j->error.isNotEmpty() ? j->error : juce::String ("kernel: generate failed"); return false; }
-    }
-
     std::vector<Note> notes;
-    { const std::lock_guard<std::mutex> lk (j->m); notes = std::move (j->notes); }
+    if (! fetchKernelNotes (p, notes, error)) return false;
 
     return callOnMessageThread ([&] () -> bool
     {
@@ -2638,6 +2707,32 @@ void MainComponent::editClipScript (int trackIdx, int clip)
         if (arrangeView) arrangeView->rebuild();
     }
     launchEditor (src);
+}
+
+// "Live-drive from script" — arm the clip's script as a live driver (plays during playback,
+// ephemeral). Runs off the message thread (the kernel fetch blocks); surfaces any error.
+void MainComponent::driveClipScript (int trackIdx, int clip)
+{
+    juce::String source, lang; juce::int64 seed = 0; int id = -1;
+    { const juce::ScopedLock sl (engineLock);
+      if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+      id = tracks[(size_t) trackIdx]->id;
+      auto& cl = tracks[(size_t) trackIdx]->clips;
+      if (! juce::isPositiveAndBelow (clip, (int) cl.size())) return;
+      source = cl[(size_t) clip].scriptSource; lang = cl[(size_t) clip].scriptLang; seed = cl[(size_t) clip].scriptSeed; }
+
+    busyOverlay.show ("Starting live driver...");
+    juce::Thread::launch ([this, id, clip, source, lang, seed]
+    {
+        juce::String err;
+        const bool ok = apiStartDriver (id, clip, source,
+                                        lang.isNotEmpty() ? lang : juce::String ("common-lisp"), seed, err);
+        juce::MessageManager::callAsync ([this, ok, err]
+        {
+            busyOverlay.hide();
+            if (! ok) juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Live driver", err);
+        });
+    });
 }
 
 // "Generate from script" — run the clip's script through the kernel (off the message thread,

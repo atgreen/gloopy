@@ -943,6 +943,17 @@ namespace
             return Status::OK;
         }
 
+        Status StartDriver (ServerContext*, const gpb::RegenerateRequest* q, gpb::Ack* r) override
+        {
+            juce::String err;
+            const bool ok = main.apiStartDriver (q->track_id(), q->index(), js (q->script()),
+                                                 js (q->lang()), (juce::int64) q->seed(), err);
+            r->set_ok (ok); if (! ok) r->set_error (err.toStdString());
+            return Status::OK;
+        }
+        Status StopDriver (ServerContext*, const gpb::Empty*, gpb::Ack* r) override
+        { main.stopDriver(); r->set_ok (true); return Status::OK; }
+
         Status KernelSubmit (ServerContext*, const gpb::KernelSubmitRequest* q, gpb::Ack* r) override
         {
             std::vector<Note> notes;

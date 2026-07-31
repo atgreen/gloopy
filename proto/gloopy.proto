@@ -493,6 +493,8 @@ service Gloopy {
   rpc AddPluginTrack  (AddPluginTrackRequest)  returns (TrackId);
   rpc RemoveClip      (ClipRef)                returns (Ack);
   rpc RegenerateClip  (RegenerateRequest)      returns (Ack);   // mark a clip as a script clip and generate its notes from the kernel
+  rpc StartDriver     (RegenerateRequest)      returns (Ack);   // live-drive a clip: play the script's notes during playback (ephemeral)
+  rpc StopDriver      (Empty)                  returns (Ack);   // stop the live driver
   rpc KernelSubmit    (KernelSubmitRequest)    returns (Ack);   // a kernel posts back generated notes for a job (kernel is the client)
   rpc StartKernelRepl (Empty)                  returns (KernelReplInfo);   // start a persistent SWANK kernel; returns the port for SLIME
   rpc MoveClip        (MoveClipRequest)        returns (Ack);

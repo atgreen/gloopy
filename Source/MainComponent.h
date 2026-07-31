@@ -37,6 +37,8 @@
 #include <map>
 #include <mutex>
 #include <condition_variable>
+#include <thread>
+#include <atomic>
 #include <future>
 
 /** Linear-arranger workspace: an arrangement of instrument tracks (each owning
@@ -515,12 +517,17 @@ public:
                             const juce::String& lang, juce::int64 seed, juce::String& error);
     void submitKernelResult (const juce::String& job, bool ok, std::vector<Note> notes, const juce::String& error);
     bool apiStartKernelRepl (int& swankPort, juce::String& error);   // persistent SWANK kernel (cave #15)
+    bool fetchKernelNotes (const KernelHost::GenParams& p, std::vector<Note>& out, juce::String& error);
+    bool apiStartDriver (int trackId, int index, const juce::String& source, const juce::String& lang,
+                         juce::int64 seed, juce::String& error);     // live-drive a clip (cave #12)
+    void stopDriver();
     // Script-clip desktop actions (cave #10): clip context menu → edit source / regenerate.
     juce::File   scriptsDir() const;
     juce::String defaultScriptTemplate() const;
     void         launchEditor (const juce::File& f);
     void         editClipScript (int trackIdx, int clip);
     void         regenerateClipScript (int trackIdx, int clip);
+    void         driveClipScript (int trackIdx, int clip);
     bool apiMoveClip (int trackId, int index, double startBeat, bool hasToTrack, int toTrackId);
     int  apiAddAudioClip (int trackId, double startBeat, const juce::String& path, float gain);  // clip index, or -1
 
@@ -908,6 +915,8 @@ private:
     std::map<juce::String, std::shared_ptr<KernelJob>> kernelJobs;
     std::unique_ptr<juce::ChildProcess> replKernel;    // persistent SWANK kernel (cave #15)
     int replSwankPort { 0 };
+    std::thread driverThread;                          // live-driver playback thread (cave #12)
+    std::atomic<bool> driverStop { false };
     juce::ThreadPool bgPool { 1 };
     void runBackground (const juce::String& label,
                         std::function<void()> heavy, std::function<void()> done);

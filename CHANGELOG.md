@@ -21,7 +21,8 @@ tagged release.
   the generated notes are cached in the project so the clip plays without the runtime.
   Generators can be written in Common Lisp (bundled SBCL kernel) or Python, and *File →
   Start Lisp REPL (SWANK)* opens a warm image you can attach SLIME to for interactive
-  generator development.
+  generator development. *Live-drive from script* plays a clip's script live during
+  playback (ephemeral, not materialised) through the real-time note lane.
 - **Linux desktop integration.** The RPM/DEB packages now ship a `.desktop` entry, an
   application icon, and AppStream metadata, so Gloopy appears in the application
   menu/launcher and in software centres after install — not just on the `PATH`.
