@@ -518,7 +518,8 @@ public:
                             const juce::String& lang, juce::int64 seed, juce::String& error);
     void submitKernelResult (const juce::String& job, bool ok, std::vector<Note> notes, const juce::String& error);
     bool apiKernelPoll (KernelHost::GenParams& params, juce::String& job);   // warm kernel long-polls for a job
-    bool apiStartKernelRepl (int& swankPort, juce::String& error);   // persistent SWANK kernel (cave #15)
+    void apiKernelReady (int slynkPort);   // warm kernel reports its Slynk port is up (cave #15)
+    bool apiStartKernelRepl (int& slynkPort, juce::String& error);   // hand back the warm kernel's Slynk port
     bool fetchKernelNotes (const KernelHost::GenParams& p, std::vector<Note>& out, juce::String& error);
     bool apiStartDriver (int trackId, int index, const juce::String& source, const juce::String& lang,
                          juce::int64 seed, juce::String& error);     // live-drive a clip (cave #12)
@@ -920,11 +921,14 @@ private:
     std::mutex jobQueueMutex;
     std::condition_variable jobQueueCv;
     std::deque<PendingJob> jobQueue;
-    std::unique_ptr<juce::ChildProcess> warmKernel;    // resident generate kernel
+    std::unique_ptr<juce::ChildProcess> warmKernel;    // resident generate kernel (+ Slynk, cave #15)
     std::mutex warmKernelMutex;
     void ensureWarmKernel();                           // launch it if not running (unless opted out)
-    std::unique_ptr<juce::ChildProcess> replKernel;    // persistent SWANK kernel (cave #15)
-    int replSwankPort { 0 };
+    std::atomic<int> kernelSlynkPort { 0 };            // warm kernel's Slynk port, 0 until it reports ready
+    std::mutex kernelReadyMutex;
+    std::condition_variable kernelReadyCv;
+    void writeKernelDiscoveryFile (int slynkPort);     // ~/.cache/gloopy/kernel.json for gloopy.el (Sly)
+    static juce::File kernelDiscoveryFile();
     std::thread driverThread;                          // live-driver playback thread (cave #12)
     std::atomic<bool> driverStop { false };
     juce::ThreadPool bgPool { 1 };

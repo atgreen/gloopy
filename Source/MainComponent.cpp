@@ -15,6 +15,7 @@
 #include <cmath>
 #include <algorithm>
 #include <iostream>
+#include <unistd.h>   // getpid() for the kernel discovery file
 
 #ifndef JUCE_APPLICATION_VERSION_STRING
  #define JUCE_APPLICATION_VERSION_STRING "?"   // normally set by CMake from project(VERSION)
@@ -1186,8 +1187,8 @@ MainComponent::~MainComponent()
     if (auto* host = keyListenerHost.getComponent()) host->removeKeyListener (this);
     stopDriver();                // stop the live-driver thread before tracks go away
     jobQueueCv.notify_all();     // wake any KernelPoll waiter so it can unwind
-    if (warmKernel != nullptr && warmKernel->isRunning()) warmKernel->kill();   // stop the warm kernel
-    if (replKernel != nullptr && replKernel->isRunning()) replKernel->kill();   // stop the SWANK kernel
+    if (warmKernel != nullptr && warmKernel->isRunning()) warmKernel->kill();   // stop the warm kernel (+ Slynk)
+    kernelDiscoveryFile().deleteFile();                                         // it's gone; don't leave a stale port
     stopTimer();
     teardownMidiInputs();        // stop MIDI callbacks before tracks/audio go away
     grpc.reset();                // stop gRPC (and its message-thread callbacks) first
@@ -2668,18 +2669,51 @@ bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::Strin
     });
 }
 
-// Start (or reuse) a persistent SBCL kernel running a SWANK server, so you can attach
-// SLIME/Sly and develop generators interactively in a warm image (cave #15).
-bool MainComponent::apiStartKernelRepl (int& swankPort, juce::String& error)
+// The warm kernel hosts a Slynk server (cave #15): the same resident image that generates
+// clips also accepts SLIME/Sly connections, so you develop generators interactively against
+// the very state that plays. It calls this once, at startup, to report the port it bound.
+void MainComponent::apiKernelReady (int slynkPort)
 {
-    if (replKernel != nullptr && replKernel->isRunning()) { swankPort = replSwankPort; return true; }
-    int port = 0;
-    auto proc = KernelHost::launchRepl (port, error);
-    if (proc == nullptr) return false;
-    replKernel = std::move (proc);
-    replSwankPort = port;
-    swankPort = port;
+    kernelSlynkPort.store (slynkPort);
+    writeKernelDiscoveryFile (slynkPort);    // let gloopy.el (emacs/Sly) find the port
+    { const std::lock_guard<std::mutex> lk (kernelReadyMutex); }
+    kernelReadyCv.notify_all();
+    juce::MessageManager::callAsync ([this] { repaint(); });   // refresh the status-bar λ indicator
+}
+
+// Hand back the warm kernel's Slynk port so the user can attach SLIME/Sly. The kernel starts
+// Slynk asynchronously, so ensure it's launched and wait briefly for it to report ready.
+bool MainComponent::apiStartKernelRepl (int& slynkPort, juce::String& error)
+{
+    if (kernelSlynkPort.load() > 0) { slynkPort = kernelSlynkPort.load(); return true; }
+    ensureWarmKernel();
+    std::unique_lock<std::mutex> lk (kernelReadyMutex);
+    if (! kernelReadyCv.wait_for (lk, std::chrono::seconds (30), [&] { return kernelSlynkPort.load() > 0; }))
+    { error = "kernel: Slynk did not start (is SBCL installed, with Slynk available?)"; return false; }
+    slynkPort = kernelSlynkPort.load();
     return true;
+}
+
+// Discovery file gloopy.el reads to connect Sly: JSON with the Slynk port + control port.
+// Prefer $XDG_RUNTIME_DIR (per-session, tmpfs), fall back to ~/.cache.
+juce::File MainComponent::kernelDiscoveryFile()
+{
+    const auto run = juce::SystemStats::getEnvironmentVariable ("XDG_RUNTIME_DIR", {});
+    const juce::File base = run.isNotEmpty()
+        ? juce::File (run)
+        : juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile (".cache");
+    return base.getChildFile ("gloopy").getChildFile ("kernel.json");
+}
+
+void MainComponent::writeKernelDiscoveryFile (int slynkPort)
+{
+    auto f = kernelDiscoveryFile();
+    f.getParentDirectory().createDirectory();
+    juce::DynamicObject::Ptr o = new juce::DynamicObject();
+    o->setProperty ("slynk_port",  slynkPort);
+    o->setProperty ("control_port", 50051);          // the gRPC control API (see MainComponent ctor)
+    o->setProperty ("pid", (juce::int64) ::getpid());
+    f.replaceWithText (juce::JSON::toString (juce::var (o.get())));
 }
 
 juce::File MainComponent::scriptsDir() const
@@ -5541,6 +5575,16 @@ void MainComponent::paintStatusBar (juce::Graphics& g)
         row.removeFromRight (14);
     }
 
+    // --- warm-kernel indicator: lambda + Slynk port once the resident SBCL image is ready ---
+    if (const int sp = kernelSlynkPort.load(); sp > 0)
+    {
+        const juce::String k = juce::String::fromUTF8 ("\xce\xbb") + " Slynk " + juce::String (sp);  // "λ Slynk NNNNN"
+        const int w = measure (k) + 4;
+        g.setColour (Palette::green);
+        g.drawText (k, row.removeFromRight (w), juce::Justification::centredRight, false);
+        row.removeFromRight (14);
+    }
+
     // --- left: saved/unsaved dot + project name (+ 'edited' tag) ---
     int x = row.getX();
     dot ((float) x + 3.0f, projectModified ? Palette::warm : Palette::green);
@@ -5781,7 +5825,7 @@ void MainComponent::showFileMenu()
                                                                         : juce::String ("(select an instrument track)")), false);
     menu.addSubMenu ("MIDI Inputs", midiMenu);
     menu.addItem (5, "Rescan Plugins");
-    menu.addItem (42, "Start Lisp REPL (SWANK)...");   // warm kernel for interactive script development
+    menu.addItem (42, "Connect Emacs to Kernel (Slynk)...");   // warm kernel's Slynk port, for Sly/SLIME
     menu.addSeparator();
     menu.addItem (41, "About Gloopy...");
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
@@ -5801,7 +5845,7 @@ void MainComponent::showFileMenu()
             if (result == 31) { showGitSettings(); return; }      // identity + auto-commit
             if (result == 20) { undo(); return; }
             if (result == 21) { redo(); return; }
-            if (result == 42)   // Start Lisp REPL (SWANK) — warm kernel for interactive script dev
+            if (result == 42)   // Connect Emacs — hand back the warm kernel's Slynk port (Sly/SLIME)
             {
                 busyOverlay.show ("Starting Lisp kernel...");
                 juce::Thread::launch ([this]
@@ -5813,9 +5857,10 @@ void MainComponent::showFileMenu()
                         busyOverlay.hide();
                         juce::NativeMessageBox::showMessageBoxAsync (
                             ok ? juce::MessageBoxIconType::InfoIcon : juce::MessageBoxIconType::WarningIcon,
-                            "Lisp REPL (SWANK)",
-                            ok ? ("SWANK is listening on 127.0.0.1:" + juce::String (port)
-                                  + "\n\nAttach from Emacs:  M-x slime-connect  RET  127.0.0.1  RET  "
+                            "Connect Emacs to Kernel",
+                            ok ? ("The kernel's Slynk server is listening on 127.0.0.1:" + juce::String (port)
+                                  + "\n\nIn Emacs (with gloopy.el loaded):  M-x gloopy-connect\n"
+                                    "or with Sly directly:  M-x sly-connect  RET  127.0.0.1  RET  "
                                   + juce::String (port) + "  RET\n\nThe kernel prelude (note, set-generator) is loaded.")
                                : err);
                     });

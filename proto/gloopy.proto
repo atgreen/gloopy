@@ -223,6 +223,7 @@ message KernelReplInfo      { int32 swank_port = 1; }   // Slynk/SWANK port to a
 // A generate job handed to the warm kernel when it long-polls (empty job = poll timed out, retry).
 message KernelJobSpec { string job = 1; double tempo_bpm = 2; double clip_len_beats = 3;
                         int64 seed = 4; int32 key_root = 5; string source = 6; }
+message KernelReadyRequest { int32 slynk_port = 1; }   // the warm kernel reports it's up + its Slynk port
 message RenameClipRequest  { int32 track_id = 1; int32 index = 2; string name = 3; }   // empty -> track name
 message ClipColourRequest  { int32 track_id = 1; int32 index = 2; string colour = 3; }   // 8-hex ARGB; empty -> inherit track
 message ScaleTimeRequest  { int32 track_id = 1; int32 index = 2; double factor = 3; }   // 0.5 double-time, 2 half-time
@@ -500,7 +501,8 @@ service Gloopy {
   rpc StopDriver      (Empty)                  returns (Ack);   // stop the live driver
   rpc KernelSubmit    (KernelSubmitRequest)    returns (Ack);   // a kernel posts back generated notes for a job (kernel is the client)
   rpc KernelPoll      (Empty)                  returns (KernelJobSpec);   // the warm kernel long-polls for the next generate job
-  rpc StartKernelRepl (Empty)                  returns (KernelReplInfo);   // start a persistent SWANK kernel; returns the port for SLIME
+  rpc KernelReady     (KernelReadyRequest)     returns (Ack);   // the warm kernel announces it's up (with its Slynk port)
+  rpc StartKernelRepl (Empty)                  returns (KernelReplInfo);   // hand back the warm kernel's Slynk port (for Sly/SLIME)
   rpc MoveClip        (MoveClipRequest)        returns (Ack);
   rpc AddAudioClip    (AddAudioClipRequest)    returns (ClipId);
   rpc SplitClip       (SplitClipRequest)       returns (ClipId);    // -> new (right) clip

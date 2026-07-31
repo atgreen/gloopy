@@ -33,15 +33,10 @@ public:
         launchGenerate (const juce::String& job, const GenParams& p, int hostPort, juce::String& error);
 
     /** Start the persistent "warm" SBCL kernel in serve mode: it long-polls Gloopy for
-        generate jobs, so the proto compiles once and every generate after is instant.
-        Returns the running process (keep it alive); null on launch failure. */
+        generate jobs (so the proto compiles once and every generate after is instant) and
+        hosts a Slynk server for interactive development (cave #15), reporting its port back
+        via KernelReady. Returns the running process (keep it alive); null on launch failure. */
     static std::unique_ptr<juce::ChildProcess> launchServe (int hostPort, juce::String& error);
-
-    /** Start a persistent SBCL kernel with a SWANK server for interactive development
-        (cave #15). Returns the running process (keep it alive) and the SWANK port to
-        connect SLIME/Sly to; null on failure. */
-    static std::unique_ptr<juce::ChildProcess>
-        launchRepl (int& swankPortOut, juce::String& error);
 
     static juce::File findFile (const juce::String& relPath);   // locate a repo file (dev tree)
 };

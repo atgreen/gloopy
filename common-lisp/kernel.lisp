@@ -103,6 +103,19 @@
 
 ;;; --- server bootstrap ------------------------------------------------------
 
+(defun set-parent-death-signal ()
+  "On Linux, ask the OS to SIGTERM us when our parent (Gloopy) dies, so a crashed or
+   hard-killed host never leaves this warm kernel orphaned and spinning on KernelPoll."
+  #+linux
+  (ignore-errors
+    (sb-alien:alien-funcall
+     (sb-alien:extern-alien "prctl"
+       (function sb-alien:int sb-alien:int sb-alien:unsigned-long
+                 sb-alien:unsigned-long sb-alien:unsigned-long sb-alien:unsigned-long))
+     1    ; PR_SET_PDEATHSIG
+     15   ; SIGTERM
+     0 0 0)))
+
 (defun free-port ()
   "Ask the OS for a free localhost TCP port."
   (let ((s (make-instance 'sb-bsd-sockets:inet-socket :type :stream :protocol :tcp)))
@@ -205,8 +218,21 @@
                           :response-type 'gloopy.pb::ack))))
 
 (defun serve ()
-  (let* ((port    (env-num "GLOOPY_HOST_PORT" 50051))
-         (channel (ag-grpc:make-channel "127.0.0.1" port)))
+  (set-parent-death-signal)   ; die with Gloopy — never outlive a crashed host
+  (let* ((port       (env-num "GLOOPY_HOST_PORT" 50051))
+         (channel    (ag-grpc:make-channel "127.0.0.1" port))
+         (slynk-port 0))
+    ;; Start Slynk so Emacs (Sly) can attach to this warm image; report the port to Gloopy.
+    (handler-case
+        (progn
+          (handler-bind ((warning #'muffle-warning)) (require :asdf) (asdf:load-system :slynk))
+          (setf slynk-port (free-port))
+          (funcall (find-symbol "CREATE-SERVER" "SLYNK") :port slynk-port :dont-close t))
+      (error (e) (setf slynk-port 0) (format *error-output* "slynk: ~a~%" e)))
+    (ignore-errors
+      (ag-grpc:call-unary channel "/gloopy.v1.Gloopy/KernelReady"
+                          (make-instance 'gloopy.pb::kernel-ready-request :slynk-port slynk-port)
+                          :response-type 'gloopy.pb::ack))
     (loop
       (let ((spec (ignore-errors
                     (ag-grpc:call-response
@@ -217,28 +243,11 @@
             (process-job channel spec)
             (sleep 0.2))))))       ; empty poll (timeout / transient) — brief backoff, re-poll
 
-;;; SWANK mode (cave #15): a persistent, warm image with a SWANK server so you can attach
-;;; SLIME/Sly and inspect/redefine/restart generators interactively (the prelude — note,
-;;; set-generator, default-generate — is already loaded). Writes the SWANK port to
-;;; GLOOPY_KERNEL_PORTFILE so Gloopy can show it, then stays alive.
-(defun swank-repl ()
-  (handler-bind ((warning #'muffle-warning)) (require :asdf) (asdf:load-system :swank))
-  (let ((port (free-port))
-        (pf   (sb-ext:posix-getenv "GLOOPY_KERNEL_PORTFILE")))
-    (funcall (find-symbol "CREATE-SERVER" "SWANK") :port port :dont-close t)
-    (when pf
-      (let ((tmp (concatenate 'string pf ".tmp")))
-        (with-open-file (o tmp :direction :output :if-exists :supersede :if-does-not-exist :create)
-          (format o "~a~%" port))
-        (rename-file tmp pf)))
-    (format t "SWANK-PORT ~a~%" port) (finish-output)
-    (loop (sleep 3600))))
-
 ;;; Entry point. Launch with:  sbcl --non-interactive --load common-lisp/kernel.lisp
 ;;; (--script is NOT usable — it skips ~/.sbclrc, where ocicl registers ag-grpc.)
-;;; GLOOPY_SWANK -> SWANK REPL; GLOOPY_JOB -> submit mode; KERNEL_SELFTEST -> self-test; else serve.
+;;; GLOOPY_SERVE -> warm kernel (serves jobs + hosts Slynk); GLOOPY_JOB -> one-shot submit;
+;;; KERNEL_SELFTEST -> offline self-test.
 (cond ((sb-ext:posix-getenv "KERNEL_SELFTEST") (selftest))
-      ((sb-ext:posix-getenv "GLOOPY_SERVE")    (serve))       ; warm kernel: long-poll for jobs
-      ((sb-ext:posix-getenv "GLOOPY_SWANK")    (swank-repl))
+      ((sb-ext:posix-getenv "GLOOPY_SERVE")    (serve))       ; warm kernel: long-poll for jobs + Slynk
       ((sb-ext:posix-getenv "GLOOPY_JOB")      (submit-job))
       (t (main (let ((p (sb-ext:posix-getenv "KERNEL_PORT"))) (and p (parse-integer p :junk-allowed t))))))

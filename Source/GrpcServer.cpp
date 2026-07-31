@@ -987,6 +987,13 @@ namespace
             return Status::OK;
         }
 
+        Status KernelReady (ServerContext*, const gpb::KernelReadyRequest* q, gpb::Ack* r) override
+        {
+            main.apiKernelReady (q->slynk_port());
+            r->set_ok (true);
+            return Status::OK;
+        }
+
         Status StartKernelRepl (ServerContext*, const gpb::Empty*, gpb::KernelReplInfo* r) override
         {
             int port = 0; juce::String err;

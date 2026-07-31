@@ -64,34 +64,3 @@ KernelHost::launchServe (int hostPort, juce::String& error)
     { error = "kernel: failed to launch sbcl (is SBCL installed?)"; return {}; }
     return proc;
 }
-
-std::unique_ptr<juce::ChildProcess>
-KernelHost::launchRepl (int& swankPortOut, juce::String& error)
-{
-    const auto kernel = findFile ("common-lisp/kernel.lisp");
-    if (! kernel.existsAsFile()) { error = "kernel: cannot find common-lisp/kernel.lisp"; return {}; }
-
-    const auto portFile = juce::File::createTempFile ("gloopy-swank-port");
-    portFile.deleteFile();
-    ::unsetenv ("GLOOPY_JOB");                          // REPL mode, not a one-shot generate
-    ::setenv ("GLOOPY_SWANK", "1", 1);
-    ::setenv ("GLOOPY_KERNEL_PORTFILE", portFile.getFullPathName().toRawUTF8(), 1);
-
-    juce::StringArray argv { "sbcl", "--non-interactive", "--load", kernel.getFullPathName() };
-    auto proc = std::make_unique<juce::ChildProcess>();
-    if (! proc->start (argv, juce::ChildProcess::wantStdOut | juce::ChildProcess::wantStdErr))
-    { error = "kernel: failed to launch sbcl (is SBCL installed?)"; return {}; }
-
-    const auto deadline = juce::Time::getMillisecondCounter() + 180000;   // compile + load swank
-    int port = 0;
-    while (juce::Time::getMillisecondCounter() < deadline)
-    {
-        if (portFile.existsAsFile()) { port = portFile.loadFileAsString().trim().getIntValue(); if (port > 0) break; }
-        if (! proc->isRunning()) { error = "kernel: sbcl exited before starting SWANK"; portFile.deleteFile(); return {}; }
-        juce::Thread::sleep (200);
-    }
-    portFile.deleteFile();
-    if (port <= 0) { proc->kill(); error = "kernel: timed out starting SWANK"; return {}; }
-    swankPortOut = port;
-    return proc;
-}
