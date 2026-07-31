@@ -17,6 +17,12 @@ tagged release.
 - The script-clip **kernels are now shipped in the packages** (`share/gloopy/`), and the
   Emacs helper `gloopy.el` installs into Emacs's `site-lisp` — so script clips and
   `M-x gloopy-connect` work from an installed Gloopy, not just a source checkout.
+- **Live script clips from a Jupyter notebook (Python).** `gloopy.attach()` connects a
+  notebook/REPL as Gloopy's live Python generator kernel — register a generator with
+  `@k.generator`, and redefining it in a cell is picked up on the next generate (and by
+  **Live** clips a bar ahead of playback), the Python analogue of the Emacs/Sly live-image
+  loop. Generate jobs are now **routed by language**, so a Python kernel and the SBCL kernel
+  coexist. See `python/notebooks/live-clips.ipynb`.
 
 ### Fixed
 - The status bar's "λ Slynk" kernel indicator now clears when the resident kernel is

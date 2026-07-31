@@ -13,6 +13,8 @@ Task recipes for driving Gloopy from code or hardware. Each assumes you've read
   notes from Common Lisp or Python code, materialised or live-driven.
 - **[Develop generators live in Emacs (Sly)](develop-in-emacs.md)** — attach Emacs
   to the resident kernel and redefine generators without a restart.
+- **[Live script clips from a Jupyter notebook](drive-from-notebook.md)** — attach a
+  notebook as Gloopy's live Python generator; redefine a cell and hear it next loop.
 - **[Subscribe to the playhead and meters](subscribe-playhead-meters.md)** — a
   live push feed of transport position and levels, in Python, Lisp, and raw gRPC.
 - **[Add and control effects from a script](effects-from-a-script.md)** — put an

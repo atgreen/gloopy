@@ -141,6 +141,7 @@ nav:
           - Let an AI agent drive Gloopy (MCP): control-scripting/how-to/mcp-server.md
           - Write a script-clip generator: control-scripting/how-to/write-a-script-clip.md
           - Develop generators live in Emacs (Sly): control-scripting/how-to/develop-in-emacs.md
+          - Live script clips from a Jupyter notebook: control-scripting/how-to/drive-from-notebook.md
           - Subscribe to the playhead and meters: control-scripting/how-to/subscribe-playhead-meters.md
           - Add and control effects from a script: control-scripting/how-to/effects-from-a-script.md
           - Play Gloopy live over OSC: control-scripting/how-to/play-live-over-osc.md
