@@ -528,6 +528,8 @@ public:
     juce::File   scriptsDir() const;
     juce::String defaultScriptTemplate() const;
     void         launchEditor (const juce::File& f);
+    static juce::File emacsPresenceFile();               // gloopy.el's presence file (M-x gloopy-connect)
+    bool         openInConnectedEmacs (const juce::File& f);   // route an edit to a connected Emacs
     void         editClipScript (int trackIdx, int clip);
     void         regenerateClipScript (int trackIdx, int clip);
     void         driveClipScript (int trackIdx, int clip);

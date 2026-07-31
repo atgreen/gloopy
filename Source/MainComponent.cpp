@@ -2738,11 +2738,38 @@ juce::String MainComponent::defaultScriptTemplate() const
         "     (loop for b below beats collect (note (+ 60 (mod (* b 2) 12)) b 0.9)))))\n";
 }
 
+// Presence file gloopy.el writes when the user runs M-x gloopy-connect: it tells us which
+// Emacs server to route script-clip edits to. Same directory as the kernel discovery file.
+juce::File MainComponent::emacsPresenceFile()
+{
+    return kernelDiscoveryFile().getParentDirectory().getChildFile ("emacs.json");
+}
+
+// If a gloopy.el-connected Emacs is present, ask it (over emacsclient) to open PATH via
+// gloopy-open-clip, so the click lands in the editor the user is already working in.
+// Returns false if there's no live Emacs to route to (caller falls back).
+bool MainComponent::openInConnectedEmacs (const juce::File& f)
+{
+    const auto info = juce::JSON::parse (emacsPresenceFile());
+    if (! info.isObject()) return false;
+    const juce::String socket = info.getProperty ("server_socket", "").toString();
+    if (socket.isEmpty() || ! juce::File (socket).exists()) return false;   // stale / no socket
+
+    const juce::String elisp = "(gloopy-open-clip \"" + f.getFullPathName().replace ("\\", "\\\\").replace ("\"", "\\\"") + "\")";
+    juce::ChildProcess p;
+    if (! p.start (juce::StringArray { "emacsclient", "-s", socket, "-n", "--eval", elisp }))
+        return false;
+    // emacsclient -n returns promptly; a non-zero exit means the server was unreachable.
+    return p.waitForProcessToFinish (4000) && p.getExitCode() == 0;
+}
+
 void MainComponent::launchEditor (const juce::File& f)
 {
-    // TODO: make the editor command configurable (a settings UI / config file). Hardcoded to
-    // a GUI editor for now — $VISUAL/$EDITOR is often a *terminal* editor (nano/vim) that
-    // can't open without a TTY, so launching it from the app silently did nothing.
+    if (openInConnectedEmacs (f)) return;   // a gloopy.el-connected Emacs is driving
+
+    // TODO: make the fallback editor command configurable (a settings UI / config file).
+    // Hardcoded to a GUI editor for now — $VISUAL/$EDITOR is often a *terminal* editor
+    // (nano/vim) that can't open without a TTY, so launching it from the app silently did nothing.
     const juce::String editor = "emacs";
     juce::ChildProcess p;   // GUI editor detaches into its own window; it outlives this call
     if (! p.start (juce::StringArray { editor, f.getFullPathName() }))
