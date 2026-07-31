@@ -1797,6 +1797,8 @@
       
         
       
+        
+      
     
     
     
@@ -1925,6 +1927,34 @@
     
   
     Develop generators live in Emacs (Sly)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/drive-from-notebook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Live script clips from a Jupyter notebook
   
 
     
@@ -2653,6 +2683,39 @@
     <span class="md-ellipsis">
       
         set_loop_to_clip
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.regenerate_clip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        regenerate_clip
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.set_clip_script_live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        set_clip_script_live
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.get_clip_notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_clip_notes
       
     </span>
   </a>
@@ -4536,6 +4599,39 @@
     <span class="md-ellipsis">
       
         set_loop_to_clip
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.regenerate_clip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        regenerate_clip
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.set_clip_script_live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        set_clip_script_live
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.get_clip_notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_clip_notes
       
     </span>
   </a>
@@ -6616,6 +6712,62 @@ override so the clip inherits the track's colour.</p>
     <div class="doc doc-contents ">
 
         <p>Set the transport loop to a clip's span and enable looping (audition on repeat).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="gloopy.client.Gloopy.regenerate_clip" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">regenerate_clip</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">script</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">lang</span><span class="o">=</span><span class="s1">&#39;common-lisp&#39;</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
+
+<a href="#gloopy.client.Gloopy.regenerate_clip" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Mark a clip as a script clip and generate its notes from the kernel.</p>
+<p>With <code>lang="python"</code> and an attached notebook kernel (<code>gloopy.attach</code>), this runs
+your registered generator; with <code>lang="common-lisp"</code> it uses Gloopy's SBCL kernel.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="gloopy.client.Gloopy.set_clip_script_live" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">set_clip_script_live</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">live</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+
+<a href="#gloopy.client.Gloopy.set_clip_script_live" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Toggle a script clip's "Live" flag — auto-regenerate ~1 bar before it plays.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="gloopy.client.Gloopy.get_clip_notes" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">get_clip_notes</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span></code>
+
+<a href="#gloopy.client.Gloopy.get_clip_notes" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return a clip's notes as dicts: pitch, start_beat, length_beats, velocity.</p>
 
 
     </div>
