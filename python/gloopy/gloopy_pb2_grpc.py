@@ -265,6 +265,41 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.ClipRef.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.RegenerateClip = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RegenerateClip',
+                request_serializer=gloopy__pb2.RegenerateRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.StartDriver = channel.unary_unary(
+                '/gloopy.v1.Gloopy/StartDriver',
+                request_serializer=gloopy__pb2.RegenerateRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.StopDriver = channel.unary_unary(
+                '/gloopy.v1.Gloopy/StopDriver',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.KernelSubmit = channel.unary_unary(
+                '/gloopy.v1.Gloopy/KernelSubmit',
+                request_serializer=gloopy__pb2.KernelSubmitRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.KernelPoll = channel.unary_unary(
+                '/gloopy.v1.Gloopy/KernelPoll',
+                request_serializer=gloopy__pb2.KernelPollRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.KernelJobSpec.FromString,
+                _registered_method=True)
+        self.KernelReady = channel.unary_unary(
+                '/gloopy.v1.Gloopy/KernelReady',
+                request_serializer=gloopy__pb2.KernelReadyRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.StartKernelRepl = channel.unary_unary(
+                '/gloopy.v1.Gloopy/StartKernelRepl',
+                request_serializer=gloopy__pb2.Empty.SerializeToString,
+                response_deserializer=gloopy__pb2.KernelReplInfo.FromString,
+                _registered_method=True)
         self.MoveClip = channel.unary_unary(
                 '/gloopy.v1.Gloopy/MoveClip',
                 request_serializer=gloopy__pb2.MoveClipRequest.SerializeToString,
@@ -298,6 +333,11 @@ class GloopyStub:
         self.SetClipMuted = channel.unary_unary(
                 '/gloopy.v1.Gloopy/SetClipMuted',
                 request_serializer=gloopy__pb2.ClipMuteRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.SetClipScriptLive = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetClipScriptLive',
+                request_serializer=gloopy__pb2.ClipLiveRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
         self.RenameClip = channel.unary_unary(
@@ -1500,6 +1540,55 @@ class GloopyServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RegenerateClip(self, request, context):
+        """mark a clip as a script clip and generate its notes from the kernel
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StartDriver(self, request, context):
+        """live-drive a clip: play the script's notes during playback (ephemeral)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StopDriver(self, request, context):
+        """stop the live driver
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def KernelSubmit(self, request, context):
+        """a kernel posts back generated notes for a job (kernel is the client)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def KernelPoll(self, request, context):
+        """a kernel long-polls for the next generate job in its language
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def KernelReady(self, request, context):
+        """the warm kernel announces it's up (with its Slynk port)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StartKernelRepl(self, request, context):
+        """hand back the warm kernel's Slynk port (for Sly/SLIME)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def MoveClip(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1542,6 +1631,13 @@ class GloopyServicer:
 
     def SetClipMuted(self, request, context):
         """mute/enable a clip in the arrangement
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetClipScriptLive(self, request, context):
+        """toggle a script clip's auto-generate-on-playback
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2976,6 +3072,41 @@ def add_GloopyServicer_to_server(servicer, server):
                     request_deserializer=gloopy__pb2.ClipRef.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
+            'RegenerateClip': grpc.unary_unary_rpc_method_handler(
+                    servicer.RegenerateClip,
+                    request_deserializer=gloopy__pb2.RegenerateRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'StartDriver': grpc.unary_unary_rpc_method_handler(
+                    servicer.StartDriver,
+                    request_deserializer=gloopy__pb2.RegenerateRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'StopDriver': grpc.unary_unary_rpc_method_handler(
+                    servicer.StopDriver,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'KernelSubmit': grpc.unary_unary_rpc_method_handler(
+                    servicer.KernelSubmit,
+                    request_deserializer=gloopy__pb2.KernelSubmitRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'KernelPoll': grpc.unary_unary_rpc_method_handler(
+                    servicer.KernelPoll,
+                    request_deserializer=gloopy__pb2.KernelPollRequest.FromString,
+                    response_serializer=gloopy__pb2.KernelJobSpec.SerializeToString,
+            ),
+            'KernelReady': grpc.unary_unary_rpc_method_handler(
+                    servicer.KernelReady,
+                    request_deserializer=gloopy__pb2.KernelReadyRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'StartKernelRepl': grpc.unary_unary_rpc_method_handler(
+                    servicer.StartKernelRepl,
+                    request_deserializer=gloopy__pb2.Empty.FromString,
+                    response_serializer=gloopy__pb2.KernelReplInfo.SerializeToString,
+            ),
             'MoveClip': grpc.unary_unary_rpc_method_handler(
                     servicer.MoveClip,
                     request_deserializer=gloopy__pb2.MoveClipRequest.FromString,
@@ -3009,6 +3140,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'SetClipMuted': grpc.unary_unary_rpc_method_handler(
                     servicer.SetClipMuted,
                     request_deserializer=gloopy__pb2.ClipMuteRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'SetClipScriptLive': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetClipScriptLive,
+                    request_deserializer=gloopy__pb2.ClipLiveRequest.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'RenameClip': grpc.unary_unary_rpc_method_handler(
@@ -5161,6 +5297,195 @@ class Gloopy:
             _registered_method=True)
 
     @staticmethod
+    def RegenerateClip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RegenerateClip',
+            gloopy__pb2.RegenerateRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StartDriver(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/StartDriver',
+            gloopy__pb2.RegenerateRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StopDriver(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/StopDriver',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def KernelSubmit(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/KernelSubmit',
+            gloopy__pb2.KernelSubmitRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def KernelPoll(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/KernelPoll',
+            gloopy__pb2.KernelPollRequest.SerializeToString,
+            gloopy__pb2.KernelJobSpec.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def KernelReady(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/KernelReady',
+            gloopy__pb2.KernelReadyRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StartKernelRepl(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/StartKernelRepl',
+            gloopy__pb2.Empty.SerializeToString,
+            gloopy__pb2.KernelReplInfo.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def MoveClip(request,
             target,
             options=(),
@@ -5338,6 +5663,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/SetClipMuted',
             gloopy__pb2.ClipMuteRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetClipScriptLive(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetClipScriptLive',
+            gloopy__pb2.ClipLiveRequest.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

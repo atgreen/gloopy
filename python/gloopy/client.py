@@ -321,6 +321,27 @@ class Gloopy:
         """Set the transport loop to a clip's span and enable looping (audition on repeat)."""
         self._ack(self.stub.SetLoopToClip(pb.ClipRef(track_id=track_id, index=index)))
 
+    def regenerate_clip(self, track_id: int, index: int, script: str = "",
+                        lang: str = "common-lisp", seed: int = 0) -> None:
+        """Mark a clip as a script clip and generate its notes from the kernel.
+
+        With ``lang="python"`` and an attached notebook kernel (``gloopy.attach``), this runs
+        your registered generator; with ``lang="common-lisp"`` it uses Gloopy's SBCL kernel.
+        """
+        self._ack(self.stub.RegenerateClip(pb.RegenerateRequest(
+            track_id=track_id, index=index, script=script, lang=lang, seed=seed)))
+
+    def set_clip_script_live(self, track_id: int, index: int, live: bool = True) -> None:
+        """Toggle a script clip's "Live" flag — auto-regenerate ~1 bar before it plays."""
+        self._ack(self.stub.SetClipScriptLive(pb.ClipLiveRequest(
+            track_id=track_id, index=index, live=live)))
+
+    def get_clip_notes(self, track_id: int, index: int) -> list[dict]:
+        """Return a clip's notes as dicts: pitch, start_beat, length_beats, velocity."""
+        r = self.stub.GetClipNotes(pb.ClipRef(track_id=track_id, index=index))
+        return [{"pitch": n.pitch, "start_beat": n.start_beat,
+                 "length_beats": n.length_beats, "velocity": n.velocity} for n in r.notes]
+
     def duplicate_clip(self, track_id: int, index: int, at_beat: float = -1.0) -> int:
         """Copy a clip to at_beat (default -1 = butt up right after it); returns new index."""
         r = self.stub.DuplicateClip(pb.DuplicateClipRequest(track_id=track_id, index=index, at_beat=at_beat))
