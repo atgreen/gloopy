@@ -740,7 +740,7 @@ service Gloopy {
 // Ack/Empty from above so results map straight onto the note & automation model.
 
 message Diagnostic {
-  enum Severity { INFO = 0; WARNING = 1; ERROR = 2; }
+  enum Severity { INFO = 0; WARNING = 1; SEV_ERROR = 2; }   // not ERROR: clashes with the Win32 ERROR macro
   Severity severity = 1;
   string   message  = 2;
   string   file     = 3;            // source file, when known
@@ -792,7 +792,7 @@ message GenResult {
   repeated Note       notes       = 2;
   repeated LanePoints automation  = 3;   // optional: automation the script emits
   repeated Diagnostic diagnostics = 4;
-  string   stdout     = 5;               // captured output for the console panel
+  string   stdout_text = 5;              // captured output (not 'stdout': clashes with the MSVC stdio macro)
 }
 message LanePoints {                     // an id-addressed automation lane (unified path)
   string   param_id = 1;                 // e.g. effect/<insert>/<slot>/<param>
@@ -819,7 +819,7 @@ message DriverEvent {
 message LivePoint { string param_id = 1; float value = 2; }
 
 message EvalRequest { string code = 1; }               // one REPL expression (console panel)
-message EvalResult  { bool ok = 1; string value = 2; string stdout = 3;
+message EvalResult  { bool ok = 1; string value = 2; string stdout_text = 3;   // not 'stdout' (MSVC macro)
                       repeated Diagnostic diagnostics = 4; }
 
 // Implemented BY the kernel; Gloopy is the client.
