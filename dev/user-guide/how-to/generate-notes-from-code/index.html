@@ -959,6 +959,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#keep-a-clip-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keep a clip "live"
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#play-the-script-live-instead" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1905,6 +1916,8 @@
       
         
       
+        
+      
     
     
     
@@ -2002,6 +2015,34 @@
     
   
     Write a script-clip generator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../control-scripting/how-to/develop-in-emacs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Develop generators live in Emacs (Sly)
   
 
     
@@ -2497,6 +2538,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#keep-a-clip-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keep a clip "live"
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#play-the-script-live-instead" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2594,18 +2646,28 @@ piano roll, saved with the project. The generated notes are <strong>cached</stro
 on any machine even without the runtime installed; you only need the runtime to
 <em>re-generate</em>. Generation is <strong>deterministic</strong>: the same code and the same seed always
 produce the same notes.</p>
+<h2 id="keep-a-clip-live">Keep a clip "live"<a class="headerlink" href="#keep-a-clip-live" title="Permanent link">&para;</a></h2>
+<p><strong>Right-click the clip → Live (auto-generate on playback)</strong> marks it live (a <strong>LIVE</strong>
+badge appears). While you play, Gloopy re-runs the generator about a bar before the clip
+plays and swaps in the fresh notes — so if you're editing the generator (see below), a
+looping clip reflects each change on the next pass without a manual <strong>Generate</strong>. Toggle it
+off to freeze the clip again.</p>
 <h2 id="play-the-script-live-instead">Play the script live instead<a class="headerlink" href="#play-the-script-live-instead" title="Permanent link">&para;</a></h2>
 <p><strong>Right-click the clip → Live-drive from script</strong> plays the generator's notes <strong>live
 during playback</strong> without writing them into the clip — they're ephemeral and re-fetched
 each pass. Use this for generative parts you want to stay code, not fixed notes.</p>
 <h2 id="develop-interactively-common-lisp">Develop interactively (Common Lisp)<a class="headerlink" href="#develop-interactively-common-lisp" title="Permanent link">&para;</a></h2>
-<p><strong>File → Start Lisp REPL (SWANK)…</strong> launches a warm Lisp image and shows a port. Attach
-your editor's Lisp REPL (SLIME/Sly) to <code>127.0.0.1:&lt;port&gt;</code> to define and test generators
-live before saving them into a clip.</p>
+<p>Gloopy keeps a warm Lisp kernel running to generate clips, and it hosts a <strong>Slynk</strong> server
+so you can attach Emacs (Sly) to the live image, redefine a generator, and re-run the clip
+without a restart. In Emacs with <code>gloopy.el</code> loaded: <strong><code>M-x gloopy-connect</code></strong>. Once
+connected, clicking a script clip opens its source in Emacs. <strong>File → Connect Emacs to
+Kernel (Slynk)…</strong> shows the connection details.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../../control-scripting/how-to/write-a-script-clip/">Write a script-clip generator</a> —
   the scripting details, the Python generator, and driving it over the control API.</li>
+<li><a href="../../../control-scripting/how-to/develop-in-emacs/">Develop generators live in Emacs (Sly)</a> —
+  the full Emacs workflow.</li>
 </ul>
 
 

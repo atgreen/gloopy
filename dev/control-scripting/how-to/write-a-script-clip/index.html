@@ -14,7 +14,7 @@
         <link rel="prev" href="../mcp-server/">
       
       
-        <link rel="next" href="../subscribe-playhead-meters/">
+        <link rel="next" href="../develop-in-emacs/">
       
       
         
@@ -1797,6 +1797,8 @@
       
         
       
+        
+      
     
     
     
@@ -2007,6 +2009,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../develop-in-emacs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Develop generators live in Emacs (Sly)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2599,10 +2629,16 @@ only needs to talk to Gloopy as a client.</p>
 </div>
 </div>
 <h2 id="determinism-and-caching">Determinism and caching<a class="headerlink" href="#determinism-and-caching" title="Permanent link">&para;</a></h2>
-<p>Each generation runs a <strong>fresh</strong> kernel seeded from the clip's seed, so it is
-reproducible: same code + same seed → same notes. Gloopy caches the generated notes in
-the project, so the clip renders and plays with <strong>no runtime installed</strong> — the runtime is
-only needed to <em>re-generate</em>.</p>
+<p>Each generation is seeded from the clip's seed, so from a clean start it is reproducible:
+same source file + same seed → same notes. Gloopy caches the generated notes in the
+project, so the clip renders and plays with <strong>no runtime installed</strong> — the runtime is only
+needed to <em>re-generate</em>.</p>
+<p>Gloopy keeps a <strong>resident "warm" kernel</strong> running (auto-started when SBCL is installed):
+the proto compiles once, then every generate is instant. It loads a clip's source <strong>once
+per session</strong>, so it's a genuine live image — attach Emacs and redefine generators on the
+fly (see <a href="../develop-in-emacs/">Develop generators live in Emacs</a>). Within such a session
+the live image is authoritative; a fresh kernel reloads from the file, which is what
+restores reproducibility. So: <strong>the file is the record, save when you're happy.</strong></p>
 <h2 id="over-the-control-api">Over the control API<a class="headerlink" href="#over-the-control-api" title="Permanent link">&para;</a></h2>
 <p>The same operations are RPCs on the <code>gloopy.v1.Gloopy</code> service, so scripts and agents can
 drive them:</p>
@@ -2619,12 +2655,16 @@ drive them:</p>
 <td>Generate and materialise a clip's notes</td>
 </tr>
 <tr>
+<td><code>SetClipScriptLive(track_id, index, live)</code></td>
+<td>Mark a clip "live" — auto-regenerate ~1 bar before it plays</td>
+</tr>
+<tr>
 <td><code>StartDriver(...)</code> / <code>StopDriver()</code></td>
 <td>Live-drive a clip during playback (ephemeral)</td>
 </tr>
 <tr>
 <td><code>StartKernelRepl()</code></td>
-<td>Start a warm SBCL kernel with a SWANK server; returns the port to attach SLIME/Sly</td>
+<td>Return the warm kernel's Slynk port, to attach Sly/SLIME (see <a href="../develop-in-emacs/">Develop generators live in Emacs</a>)</td>
 </tr>
 </tbody>
 </table>
@@ -2685,13 +2725,13 @@ drive them:</p>
         
         
           
-          <a href="../subscribe-playhead-meters/" class="md-footer__link md-footer__link--next" aria-label="Next: Subscribe to the playhead and meters">
+          <a href="../develop-in-emacs/" class="md-footer__link md-footer__link--next" aria-label="Next: Develop generators live in Emacs (Sly)">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Subscribe to the playhead and meters
+                Develop generators live in Emacs (Sly)
               </div>
             </div>
             <div class="md-footer__button md-icon">
