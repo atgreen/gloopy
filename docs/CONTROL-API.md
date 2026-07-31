@@ -159,55 +159,56 @@ Two notes on the ag-proto codegen, both handled by the client:
 
 ## Script kernels
 
-A third gRPC service, `gloopy.v1.Kernel`, lets a clip's notes — or an automation
-lane — be produced by **code**. Gloopy launches and supervises a long-lived
-language runtime (an SBCL image, a Python interpreter) and drives it: the runtime
-is the **server**, Gloopy is the **client** — the inverse of the `Gloopy` service.
-It's the Jupyter-kernel / nREPL pattern: one warm image per language, so redefining
-a generator and re-running is instant.
+A clip's notes can be produced by **code** — a *script clip*. Gloopy hosts a language
+**kernel** (a bundled SBCL image, or Python) that runs a generator and hands the notes
+back.
 
-The reverse direction — a kernel reading project state or writing results itself —
-needs no new API: the kernel is *also a client of the `Gloopy` service on :50051*
-(the Common Lisp client above already speaks it). So `Kernel` defines only the
-Gloopy → kernel calls.
+**The kernel is a gRPC _client_ of Gloopy, not a server.** Gloopy launches the kernel as
+a child process with the clip's context (tempo, length, seed, key, an optional source
+file) in the environment; the kernel generates the notes and posts them back by calling
+`KernelSubmit` on the ordinary `Gloopy` service on `:50051`, keyed by a job id. This is
+the same direction the Common Lisp client already uses — external programs dial into
+Gloopy's one service, so a new language kernel only needs a gRPC *client* (trivial
+everywhere), not its own HTTP/2 server.
+
+> This inverts the original design (which had Gloopy call a `Kernel` service *in* the
+> kernel). A grpc-c++ client and an in-Lisp gRPC server didn't interop (the server
+> mis-decoded the `:path` header), and kernel-as-client is the simpler, correct shape
+> anyway. The `Kernel` service (`Describe`/`Generate`/`StartDriver`/…) is still declared
+> in `proto/gloopy.proto` but is **vestigial** — nothing calls it; the live contract is
+> `RegenerateClip` / `StartDriver` / `KernelSubmit` on the `Gloopy` service.
+
+The relevant RPCs on `gloopy.v1.Gloopy`:
 
 ```proto
-service Kernel {                                   // implemented BY the kernel; Gloopy is the client
-  rpc Describe   (Empty)         returns (KernelInfo);          // language / runtime / capabilities
-  rpc LoadSource (LoadRequest)   returns (LoadResult);          // load or redefine a file in the image
-  rpc Generate   (GenRequest)    returns (GenResult);           // pure: (context, seed) -> notes / automation
-  rpc StartDriver(DriverRequest) returns (stream DriverEvent);  // live: stream events as the clip plays
-  rpc Eval       (EvalRequest)   returns (EvalResult);          // one REPL expression (console panel)
-  rpc Reset      (Empty)         returns (Ack);                 // drop accumulated state (fresh image)
-}
+rpc RegenerateClip  (RegenerateRequest)   returns (Ack);   // generate a clip's notes (materialised)
+rpc StartDriver     (RegenerateRequest)   returns (Ack);   // live-drive a clip during playback (ephemeral)
+rpc StopDriver      (Empty)               returns (Ack);
+rpc KernelSubmit    (KernelSubmitRequest) returns (Ack);   // the kernel posts its notes back (kernel is the client)
+rpc StartKernelRepl (Empty)               returns (KernelReplInfo);   // warm SBCL image + SWANK port for SLIME
 ```
 
-Two execution models, matching the two lanes at the top:
+Two execution models:
 
-- **Generative** — `Generate` is a pure function of a `GenContext` (tempo, clip
-  length, key/scale, a `seed`, referenced input clips) plus per-clip `params`. It
-  **returns** notes (and optionally automation lanes), which Gloopy materialises
-  into the clip's `.notes`/`.points`. Deterministic, cacheable, diff-friendly,
-  renders headless. `GenResult` reuses `Note` / `AutoPoint`, so it maps straight
-  onto the model with no translation — automation is addressed by the id-based
-  `param_id`, the same unified path `AddAutomationPoint` / `SetAutomationCurve` use.
-- **Live-driving** — `StartDriver` streams timestamped `DriverEvent`s (a note, a
-  parameter change, or a log line) while the clip plays. Gloopy schedules them
-  **look-ahead** into a lock-free queue the audio thread drains, so a slow or hung
-  kernel drops events but **never stalls playback** — the same discipline as the
-  live-MIDI lane. A reactive kernel pulls current transport/state via the `Gloopy`
-  service rather than being pushed ticks.
+- **Generative** (`RegenerateClip`) — Gloopy launches a fresh kernel, waits for it to
+  submit the notes, and **materialises** them into the clip's `.notes`. Each generate is
+  a fresh image seeded from the clip's seed, so it is deterministic and clean; the notes
+  are cached in the project, so the clip **plays with no runtime installed** — only
+  *regenerating* needs the kernel. `RegenerateRequest` carries the track/index, source
+  path, language, and seed.
+- **Live-driving** (`StartDriver`) — the script's notes play **live during playback**
+  without being materialised. Gloopy fetches them from the kernel, then a driver thread
+  injects note on/off into the track's lock-free live-MIDI queue (the OSC lane) at their
+  beat times, so the audio thread only drains the queue and never blocks on the kernel.
 
-**Determinism.** A warm image is great for iteration but bad for reproducible
-renders, so `Generate` takes a `clean` flag: set it (fresh state, fixed `seed`) for
-offline render and CI; leave it off for fast interactive regeneration. The
-materialised notes are cached in the composition, so a project opens and plays even
-with **no runtime installed** — only *regenerating* needs the kernel.
+Languages and interactive development:
 
-> **Status:** the `Kernel` service is **defined in the proto but not yet
-> implemented** — it is the contract for the *script clips* work (the reference
-> SBCL/Python kernels, the script-clip model, and the clip UI land incrementally on
-> top of it), not a shipped feature.
+- Generators are written in **Common Lisp** (`common-lisp/kernel.lisp`, SBCL) or
+  **Python** (`python/kernel.py`); the same submit protocol drives both. A user source
+  file calls `set-generator` / `set_generator` to define the generator.
+- **`StartKernelRepl`** launches a persistent SBCL image running a **SWANK** server (with
+  the generator prelude loaded) so you can attach SLIME/Sly and develop generators
+  interactively in a warm image.
 
 ## Security
 
@@ -229,9 +230,9 @@ with **no runtime installed** — only *regenerating* needs the kernel.
    create sampler/audio/plugin tracks, import audio clips, add plugin effects,
    remove/move tracks & clips, open plugin editors.
 4. Full UI parity and a documented Common Lisp client library.
-5. **Script kernels** *(designed)* — a `Kernel` gRPC service so clips generate and
-   drive notes & automation from code (SBCL, then Python): warm per-language images,
-   deterministic `Generate`, live `StartDriver`.
+5. **Script clips** *(done)* — clips generate notes from Common Lisp or Python code via a
+   language kernel that runs as a gRPC *client* of Gloopy (`RegenerateClip` /
+   `StartDriver` / `KernelSubmit`): deterministic, cached, live-driveable, with a SWANK REPL.
 
 ## Build / deps
 
