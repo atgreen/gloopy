@@ -42,6 +42,14 @@ on any machine even without the runtime installed; you only need the runtime to
 *re-generate*. Generation is **deterministic**: the same code and the same seed always
 produce the same notes.
 
+## Keep a clip "live"
+
+**Right-click the clip → Live (auto-generate on playback)** marks it live (a **LIVE**
+badge appears). While you play, Gloopy re-runs the generator about a bar before the clip
+plays and swaps in the fresh notes — so if you're editing the generator (see below), a
+looping clip reflects each change on the next pass without a manual **Generate**. Toggle it
+off to freeze the clip again.
+
 ## Play the script live instead
 
 **Right-click the clip → Live-drive from script** plays the generator's notes **live
