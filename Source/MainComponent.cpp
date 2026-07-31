@@ -2614,7 +2614,7 @@ bool MainComponent::apiStartDriver (int trackId, int index, const juce::String& 
     stopDriver();
 
     KernelHost::GenParams p;
-    p.source = source; p.trackId = trackId; p.clipIndex = index; p.seed = seed;
+    p.source = resolveScriptFile (source).getFullPathName(); p.trackId = trackId; p.clipIndex = index; p.seed = seed;
     p.lang = lang.isNotEmpty() ? lang : juce::String ("common-lisp");
     p.tempoBpm = transport.getBpm();
     double clipStart = 0.0;
@@ -2673,7 +2673,7 @@ bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::Strin
                                        const juce::String& lang, juce::int64 seed, juce::String& error)
 {
     KernelHost::GenParams p;
-    p.source = source; p.trackId = trackId; p.clipIndex = index; p.seed = seed;
+    p.source = resolveScriptFile (source).getFullPathName(); p.trackId = trackId; p.clipIndex = index; p.seed = seed;
     p.lang = lang.isNotEmpty() ? lang : juce::String ("common-lisp");
     p.tempoBpm = transport.getBpm();
     const bool found = callOnMessageThread ([&] () -> bool
@@ -2763,10 +2763,32 @@ void MainComponent::writeKernelDiscoveryFile (int slynkPort)
     f.replaceWithText (juce::JSON::toString (juce::var (o.get())));
 }
 
+// The current project's directory. A saved project is a composition directory (currentProjectFile
+// is its gloopy.toml); an untitled session uses a per-session scratch dir so its scripts/envs still
+// have a home (RFC project-workflow.md: "always have a project"). Path only — no I/O here, so it's
+// safe to call under the engine lock; scriptsDir() creates the tree on demand.
+juce::File MainComponent::projectDir() const
+{
+    if (currentProjectFile.getFileName() == "gloopy.toml")
+        return currentProjectFile.getParentDirectory();
+    if (scratchProjectDir == juce::File())
+        scratchProjectDir = juce::File::getSpecialLocation (juce::File::userHomeDirectory)
+                              .getChildFile (".cache").getChildFile ("gloopy").getChildFile ("scratch")
+                              .getChildFile (juce::Uuid().toDashedString());
+    return scratchProjectDir;
+}
+
+// Resolve a clip's stored script path: absolute paths (legacy / external) as-is; relative paths
+// against the project dir, so a composition is portable across machines.
+juce::File MainComponent::resolveScriptFile (const juce::String& src) const
+{
+    if (src.isEmpty()) return {};
+    return juce::File::isAbsolutePath (src) ? juce::File (src) : projectDir().getChildFile (src);
+}
+
 juce::File MainComponent::scriptsDir() const
 {
-    auto d = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-               .getChildFile ("Gloopy").getChildFile ("scripts");
+    auto d = projectDir().getChildFile ("scripts");
     d.createDirectory();
     return d;
 }
@@ -2837,17 +2859,19 @@ void MainComponent::editClipScript (int trackIdx, int clip)
       existing = cl[(size_t) clip].scriptSource; }
 
     juce::File src;
-    if (existing.isNotEmpty() && juce::File (existing).existsAsFile())
-        src = juce::File (existing);
+    auto existingFile = resolveScriptFile (existing);
+    if (existing.isNotEmpty() && existingFile.existsAsFile())
+        src = existingFile;
     else
     {
         src = scriptsDir().getChildFile ("clip-" + juce::Uuid().toDashedString() + ".lisp");
         src.replaceWithText (defaultScriptTemplate());
+        const auto rel = src.getRelativePathFrom (projectDir());   // store project-relative -> portable
         { const juce::ScopedLock sl (engineLock);
           if (juce::isPositiveAndBelow (trackIdx, (int) tracks.size()))
           { auto& cl = tracks[(size_t) trackIdx]->clips;
             if (juce::isPositiveAndBelow (clip, (int) cl.size()))
-            { cl[(size_t) clip].scriptSource = src.getFullPathName();
+            { cl[(size_t) clip].scriptSource = rel;
               cl[(size_t) clip].scriptLang   = "common-lisp"; } } }
         projectModified = true;
         if (arrangeView) arrangeView->rebuild();
@@ -2968,7 +2992,7 @@ void MainComponent::autoRegenScriptClip (int trackId, int clipIndex)
         if (t == nullptr || ! juce::isPositiveAndBelow (clipIndex, (int) t->clips.size()))
         { liveRegenInFlight.erase (key); return; }
         const auto& c = t->clips[(size_t) clipIndex];
-        p.source = c.scriptSource; p.trackId = trackId; p.clipIndex = clipIndex; p.seed = c.scriptSeed;
+        p.source = resolveScriptFile (c.scriptSource).getFullPathName(); p.trackId = trackId; p.clipIndex = clipIndex; p.seed = c.scriptSeed;
         p.lang = c.scriptLang.isNotEmpty() ? c.scriptLang : juce::String ("common-lisp");
         p.clipLenBeats = c.contentLenBeats;
     }

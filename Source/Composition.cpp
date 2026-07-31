@@ -391,12 +391,24 @@ bool MainComponent::saveComposition (const juce::File& dir)
             if ((int) cl.getProperty ("colour", 0) != 0) w.integer ("colour", (juce::int64) (int) cl.getProperty ("colour", 0));   // per-clip colour override
             if (cl.hasProperty ("script"))   // script clip: source file + seed (notes below are the cached output)
             {
-                const auto src = cl.getProperty ("script").toString();
-                w.str ("script", src);
+                // Make the composition self-contained: copy the generator source INTO the project
+                // (scripts/<name>) and store a project-relative path, so a clone regenerates.
+                // Resolves against the current project dir, so an untitled session's scratch script
+                // and a legacy absolute path both get pulled in. (RFC project-workflow.md, slices 1-3.)
+                const auto src     = cl.getProperty ("script").toString();
+                const auto srcFile = resolveScriptFile (src);
+                juce::String rel   = src;
+                if (srcFile.existsAsFile())
+                {
+                    rel = "scripts/" + srcFile.getFileName();
+                    const auto dest = dir.getChildFile (rel);
+                    if (dest != srcFile) { dest.getParentDirectory().createDirectory(); srcFile.copyFileTo (dest); }
+                }
+                w.str ("script", rel);
                 if (cl.hasProperty ("scriptlang")) w.str ("script_lang", cl.getProperty ("scriptlang").toString());
                 if ((juce::int64) cl.getProperty ("scriptseed", (juce::int64) 0) != 0)
                     w.integer ("script_seed", (juce::int64) cl.getProperty ("scriptseed", (juce::int64) 0));
-                ctx.keep (src);              // don't prune the script source file
+                ctx.keep (rel);              // don't prune the in-project script source file
             }
 
             if (cl.hasProperty ("afile"))    // referenced audio (recorded take / import)

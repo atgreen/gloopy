@@ -527,6 +527,9 @@ public:
                          juce::int64 seed, juce::String& error);     // live-drive a clip (cave #12)
     void stopDriver();
     // Script-clip desktop actions (cave #10): clip context menu → edit source / regenerate.
+    juce::File   projectDir() const;                 // the project's dir (composition dir, or a scratch dir while untitled)
+    juce::File   resolveScriptFile (const juce::String& src) const;   // absolute -> as-is; relative -> under projectDir()
+    mutable juce::File scratchProjectDir;            // per-session home for an untitled project's scripts/envs
     juce::File   scriptsDir() const;
     juce::String defaultScriptTemplate() const;
     void         launchEditor (const juce::File& f);
