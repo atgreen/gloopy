@@ -2643,13 +2643,16 @@ Emacs.</p>
 <li><strong>Emacs</strong> with <strong>Sly</strong> installed (<code>M-x package-install RET sly</code>).</li>
 </ul>
 <h2 id="set-up-the-package">Set up the package<a class="headerlink" href="#set-up-the-package" title="Permanent link">&para;</a></h2>
-<p><code>gloopy.el</code> ships in the source tree under <code>emacs/</code>. Point Emacs at it and load it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">(</span><span class="nv">add-to-list</span><span class="w"> </span><span class="ss">&#39;load-path</span><span class="w"> </span><span class="s">&quot;/path/to/gloopy/emacs&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="p">(</span><span class="nb">require</span><span class="w"> </span><span class="ss">&#39;gloopy</span><span class="p">)</span>
+<p>If you installed a Gloopy package, <code>gloopy.el</code> is in Emacs's <code>site-lisp</code>, so it just loads:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">(</span><span class="nb">require</span><span class="w"> </span><span class="ss">&#39;gloopy</span><span class="p">)</span>
+</code></pre></div>
+<p>Running from a source checkout instead? Point Emacs at the <code>emacs/</code> directory first:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">(</span><span class="nv">add-to-list</span><span class="w"> </span><span class="ss">&#39;load-path</span><span class="w"> </span><span class="s">&quot;/path/to/gloopy/emacs&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="p">(</span><span class="nb">require</span><span class="w"> </span><span class="ss">&#39;gloopy</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="connect">Connect<a class="headerlink" href="#connect" title="Permanent link">&para;</a></h2>
 <p>With Gloopy running:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>M-x gloopy-connect
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>M-x gloopy-connect
 </code></pre></div>
 <p>This reads the port Gloopy advertised, attaches Sly to the kernel, and turns on
 <code>gloopy-mode</code>. You now have a REPL on the live kernel — the prelude (<code>note</code>,
