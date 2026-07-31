@@ -9,9 +9,19 @@
 name: Windows
 
 # NOT on every push: vcpkg builds grpc from source (~hours the first time), so running
-# it per-push is untenable. Runs on PRs to main and on demand; the vcpkg binary cache
-# below makes runs after the first fast.
+# it per-push is untenable. But cave pushes straight to main (no PRs), so a pull_request
+# trigger alone never fires here — MSVC/proto breakage then hides until release time.
+# Gate on push to main too, but only when files that affect the Windows build change, so
+# docs/lisp/emacs pushes don't spend ~30 min on vcpkg. The binary cache keeps runs fast.
 on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'Source/**'
+      - 'proto/**'
+      - 'CMakeLists.txt'
+      - 'tests/**'
+      - '.github/workflows/windows.yml'
   pull_request:
     branches: [main, master]
   workflow_dispatch:
