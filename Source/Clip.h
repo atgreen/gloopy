@@ -50,7 +50,10 @@ struct Clip
     juce::String scriptLang;           // kernel/language id, e.g. "common-lisp", "python"
     juce::int64  scriptSeed { 0 };     // deterministic RNG seed passed to the kernel
     bool   scriptLive { false };       // "live": auto-regenerate ~1 bar before playback (kernel image)
-    bool   isScript() const noexcept { return scriptSource.isNotEmpty(); }
+    // A script clip's notes come from code — either a source file (scriptSource) or a live
+    // kernel generator identified by language (scriptLang; e.g. a notebook-defined Python
+    // generator with no file on disk).
+    bool   isScript() const noexcept { return scriptSource.isNotEmpty() || scriptLang.isNotEmpty(); }
 
     bool   muted { false };      // take-lane: inactive alternate takes are muted
     juce::Colour colour;         // per-clip colour override; ARGB 0 (default) = inherit the track colour

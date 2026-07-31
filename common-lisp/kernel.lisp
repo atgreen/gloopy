@@ -212,7 +212,7 @@
       (let ((spec (ignore-errors
                     (ag-grpc:call-response
                      (ag-grpc:call-unary channel "/gloopy.v1.Gloopy/KernelPoll"
-                                         (make-instance 'gloopy.pb::empty)
+                                         (make-instance 'gloopy.pb::kernel-poll-request :lang "common-lisp")
                                          :response-type 'gloopy.pb::kernel-job-spec)))))
         (if (and spec (plusp (length (gloopy.pb::job spec))))
             (process-job channel spec)

@@ -2540,17 +2540,32 @@ void MainComponent::checkWarmKernelHealth()
         ensureWarmKernel();   // bring it back (throttled); it re-reports ready and re-shows the port
 }
 
-// The warm kernel long-polls here for the next generate job (blocks briefly, then the
-// kernel re-polls). Returns false when nothing is queued within the window.
-bool MainComponent::apiKernelPoll (KernelHost::GenParams& params, juce::String& job)
+// A kernel long-polls here for the next generate job in ITS language, so the SBCL kernel and a
+// Python kernel (e.g. a notebook) can coexist without stealing each other's jobs. Blocks briefly,
+// then the kernel re-polls. Returns false when nothing matching is queued within the window.
+static bool langMatches (const juce::String& jobLang, const juce::String& pollLang)
+{
+    // Normalise: an empty/"common-lisp"/"lisp" job is Lisp; a poller that doesn't specify a
+    // language (empty) takes anything (back-compat with an older kernel).
+    if (pollLang.isEmpty()) return true;
+    auto norm = [] (const juce::String& s) { return (s.isEmpty() || s == "lisp") ? juce::String ("common-lisp") : s; };
+    return norm (jobLang) == norm (pollLang);
+}
+
+bool MainComponent::apiKernelPoll (const juce::String& lang, KernelHost::GenParams& params, juce::String& job)
 {
     std::unique_lock<std::mutex> lk (jobQueueMutex);
-    if (! jobQueueCv.wait_for (lk, std::chrono::seconds (15), [&] { return ! jobQueue.empty(); }))
+    const auto hasMatch = [&] {
+        return std::any_of (jobQueue.begin(), jobQueue.end(),
+                            [&] (const PendingJob& pj) { return langMatches (pj.params.lang, lang); });
+    };
+    if (! jobQueueCv.wait_for (lk, std::chrono::seconds (15), hasMatch))
         return false;
-    auto pj = std::move (jobQueue.front());
-    jobQueue.pop_front();
-    params = pj.params;
-    job    = pj.id;
+    auto it = std::find_if (jobQueue.begin(), jobQueue.end(),
+                            [&] (const PendingJob& pj) { return langMatches (pj.params.lang, lang); });
+    params = it->params;
+    job    = it->id;
+    jobQueue.erase (it);
     return true;
 }
 
@@ -2558,7 +2573,7 @@ bool MainComponent::apiKernelPoll (KernelHost::GenParams& params, juce::String& 
 // job may wait for the kernel's one-time proto compile; after that it's instant.
 bool MainComponent::fetchKernelNotes (const KernelHost::GenParams& p, std::vector<Note>& out, juce::String& error)
 {
-    ensureWarmKernel();
+    if (p.lang != "python") ensureWarmKernel();   // SBCL is auto-launched; a Python kernel (notebook) attaches itself
 
     const auto job = juce::Uuid().toDashedString();
     auto j = std::make_shared<KernelJob>();

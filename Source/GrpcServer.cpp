@@ -972,10 +972,10 @@ namespace
             return Status::OK;
         }
 
-        Status KernelPoll (ServerContext*, const gpb::Empty*, gpb::KernelJobSpec* r) override
+        Status KernelPoll (ServerContext*, const gpb::KernelPollRequest* q, gpb::KernelJobSpec* r) override
         {
             KernelHost::GenParams p; juce::String job;
-            if (main.apiKernelPoll (p, job))   // else: empty job -> the kernel re-polls
+            if (main.apiKernelPoll (js (q->lang()), p, job))   // else: empty job -> the kernel re-polls
             {
                 r->set_job (job.toStdString());
                 r->set_tempo_bpm (p.tempoBpm);
@@ -983,6 +983,7 @@ namespace
                 r->set_seed ((google::protobuf::int64) p.seed);
                 r->set_key_root (p.keyRoot);
                 r->set_source (p.source.toStdString());
+                r->set_lang (p.lang.toStdString());
             }
             return Status::OK;
         }

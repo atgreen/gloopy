@@ -519,7 +519,7 @@ public:
     bool apiRegenerateClip (int trackId, int index, const juce::String& source,
                             const juce::String& lang, juce::int64 seed, juce::String& error);
     void submitKernelResult (const juce::String& job, bool ok, std::vector<Note> notes, const juce::String& error);
-    bool apiKernelPoll (KernelHost::GenParams& params, juce::String& job);   // warm kernel long-polls for a job
+    bool apiKernelPoll (const juce::String& lang, KernelHost::GenParams& params, juce::String& job);   // a kernel long-polls for a job in its language
     void apiKernelReady (int slynkPort);   // warm kernel reports its Slynk port is up (cave #15)
     bool apiStartKernelRepl (int& slynkPort, juce::String& error);   // hand back the warm kernel's Slynk port
     bool fetchKernelNotes (const KernelHost::GenParams& p, std::vector<Note>& out, juce::String& error);
