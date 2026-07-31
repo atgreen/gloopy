@@ -44,7 +44,7 @@ def bassline(ctx):
 
 ```python
 t = g.add_synth_track(name="Bass", wave="SAW")
-g.add_clip(t, 0, 4)
+g.add_clip(t, start_beat=0, length_beats=4)
 g.regenerate_clip(t, 0, lang="python", seed=1)   # runs your generator, materialises the notes
 g.get_clip_notes(t, 0)
 ```

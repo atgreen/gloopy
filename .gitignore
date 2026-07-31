@@ -38,3 +38,6 @@ licenses/
 # Generated package output (rpmbuild -bb / local package builds)
 rpmbuild/
 /out/
+
+# Jupyter
+.ipynb_checkpoints/
