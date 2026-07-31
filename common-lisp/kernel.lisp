@@ -3,15 +3,17 @@
 ;;;;
 ;;;; kernel.lisp — the SBCL reference kernel for Gloopy script clips (cave #9).
 ;;;;
-;;;; Implements the gloopy.v1.Kernel gRPC service (see proto/gloopy.proto): Gloopy
-;;;; launches this image and drives it — LoadSource loads/redefines a user script
-;;;; into the warm image, Generate calls the script's generator with a context and
-;;;; returns notes, Describe reports the runtime. Gloopy is the client; this is the
-;;;; server. The reverse direction (reading project state) reuses the existing
-;;;; Gloopy service via the gloopy-grpc.lisp client — not needed for Generate.
+;;;; The kernel runs as an ag-grpc CLIENT of the Gloopy service on :50051 (the
+;;;; interop-proven direction). Gloopy launches this image with a mode in the env:
+;;;;   GLOOPY_SERVE=1   the warm kernel — long-poll KernelPoll for a job, generate,
+;;;;                    POST notes back via KernelSubmit, and host a Slynk server so
+;;;;                    Emacs can attach to the live image (redefine generators live).
+;;;;   GLOOPY_JOB=<id>  one-shot: generate for one clip from the env context, submit, exit.
+;;;;   KERNEL_SELFTEST=1  offline: run the generator and print notes (CI, no network).
 ;;;;
-;;;; On start it prints "KERNEL-PORT <n>" on stdout so the host can discover the
-;;;; listening port. Launch:  sbcl --script common-lisp/kernel.lisp [PORT]
+;;;; It compiles proto/gloopy.proto at startup (located via ../proto or GLOOPY_PROTO).
+;;;; Launch:  sbcl --non-interactive --load common-lisp/kernel.lisp
+;;;; (--script is NOT usable — it skips ~/.sbclrc, where ocicl registers ag-grpc.)
 
 (require :asdf)
 (handler-bind ((warning #'muffle-warning))
@@ -81,46 +83,7 @@
           for deg = (aref scale (mod (+ b (random 3 rng)) (length scale)))
           collect (note (+ root deg) b 0.9d0))))
 
-;;; --- gRPC handlers (each: (request context) -> response message) -----------
-
-(defun handle-describe (req ctx)
-  (declare (ignore req ctx))
-  (make-instance 'gloopy.pb::kernel-info
-                 :language "common-lisp"
-                 :runtime (format nil "SBCL ~a" (lisp-implementation-version))
-                 :version "0.1"
-                 :capabilities (list "generate" "load-source")))
-
-(defun handle-load-source (req ctx)
-  (declare (ignore ctx))
-  (let ((path (gloopy.pb::path req))
-        (src  (gloopy.pb::source req))
-        (diags '()))
-    (handler-case
-        (let ((*package* (find-package :gloopy-kernel)))
-          (cond ((and src (plusp (length src)))
-                 (with-input-from-string (in src)
-                   (loop for form = (read in nil :eof) until (eq form :eof) do (eval form))))
-                ((and path (plusp (length path)))
-                 (load (truename path)))))
-      (error (e)
-        (push (make-instance 'gloopy.pb::diagnostic :severity 2
-                             :message (format nil "~a" e)) diags)))
-    (make-instance 'gloopy.pb::load-result
-                   :ok (null diags) :diagnostics (nreverse diags))))
-
-(defun handle-generate (req ctx)
-  (declare (ignore ctx))
-  (handler-case
-      (let* ((context (gloopy.pb::context req))
-             (notes   (funcall (or *generator* #'default-generate) context)))
-        (make-instance 'gloopy.pb::gen-result :ok t :notes notes))
-    (error (e)
-      (make-instance 'gloopy.pb::gen-result :ok nil
-                     :diagnostics (list (make-instance 'gloopy.pb::diagnostic :severity 2
-                                                       :message (format nil "~a" e)))))))
-
-;;; --- server bootstrap ------------------------------------------------------
+;;; --- bootstrap helpers -----------------------------------------------------
 
 (defun set-parent-death-signal ()
   "On Linux, ask the OS to SIGTERM us when our parent (Gloopy) dies, so a crashed or
@@ -143,42 +106,20 @@
     (prog1 (nth-value 1 (sb-bsd-sockets:socket-name s))
       (sb-bsd-sockets:socket-close s))))
 
-(defun main (&optional port)
-  (let* ((port   (or port (free-port)))
-         (server (ag-grpc:make-grpc-server port :host "127.0.0.1")))
-    (ag-grpc:server-register-handler server "/gloopy.v1.Kernel/Describe"   #'handle-describe
-                                     :request-type 'gloopy.pb::empty        :response-type 'gloopy.pb::kernel-info)
-    (ag-grpc:server-register-handler server "/gloopy.v1.Kernel/LoadSource" #'handle-load-source
-                                     :request-type 'gloopy.pb::load-request :response-type 'gloopy.pb::load-result)
-    (ag-grpc:server-register-handler server "/gloopy.v1.Kernel/Generate"   #'handle-generate
-                                     :request-type 'gloopy.pb::gen-request  :response-type 'gloopy.pb::gen-result)
-    (format t "KERNEL-PORT ~a~%" port)
-    (finish-output)
-    ;; Robust handshake: if the host passed a port-file path, write the port there
-    ;; (atomically) so it doesn't have to parse our stdout past the proto-compile output.
-    (let ((pf (sb-ext:posix-getenv "GLOOPY_KERNEL_PORTFILE")))
-      (when pf
-        (let ((tmp (concatenate 'string pf ".tmp")))
-          (with-open-file (o tmp :direction :output :if-exists :supersede :if-does-not-exist :create)
-            (format o "~a~%" port))
-          (rename-file tmp pf))))
-    (ag-grpc:server-start server)))
-
-;;; Self-test: exercise the Generate handler with a synthetic request (no server /
-;;; no network) and print the notes. Verifies proto message construction + the
-;;; generator + the handler. Enable with KERNEL_SELFTEST=1.
+;;; Self-test: build a context, run the generator directly (no server / no network) and
+;;; print the notes. Verifies proto message construction (gen-context, note) + the generator.
+;;; Enable with KERNEL_SELFTEST=1.
 (defun selftest ()
-  (let* ((ctx (make-instance 'gloopy.pb::gen-context :clip-len-beats 4d0 :seed 42 :key-root 0))
-         (req (make-instance 'gloopy.pb::gen-request :context ctx))
-         (res (handle-generate req nil))
-         (ok  (gloopy.pb::ok res)))
-    (format t "SELFTEST ok=~a notes=~a~%" ok (length (gloopy.pb::notes res)))
-    (dolist (n (gloopy.pb::notes res))
+  (let* ((ctx   (make-instance 'gloopy.pb::gen-context :clip-len-beats 4d0 :seed 42 :key-root 0))
+         (notes (handler-case (funcall (or *generator* #'default-generate) ctx)
+                  (error (e) (format t "SELFTEST error: ~a~%" e) (finish-output) (sb-ext:exit :code 1)))))
+    (format t "SELFTEST ok=t notes=~a~%" (length notes))
+    (dolist (n notes)
       (format t "  note pitch=~a start=~a len=~a vel=~a~%"
               (gloopy.pb::pitch n) (gloopy.pb::start-beat n)
               (gloopy.pb::length-beats n) (gloopy.pb::velocity n)))
     (finish-output)
-    (sb-ext:exit :code (if ok 0 1))))
+    (sb-ext:exit :code 0)))
 
 ;;; Submit mode: Gloopy launches us as an ag-grpc CLIENT of its own service (the
 ;;; interop-proven direction). We read the clip context from the environment, generate,
@@ -284,4 +225,6 @@
 (cond ((sb-ext:posix-getenv "KERNEL_SELFTEST") (selftest))
       ((sb-ext:posix-getenv "GLOOPY_SERVE")    (serve))       ; warm kernel: long-poll for jobs + Slynk
       ((sb-ext:posix-getenv "GLOOPY_JOB")      (submit-job))
-      (t (main (let ((p (sb-ext:posix-getenv "KERNEL_PORT"))) (and p (parse-integer p :junk-allowed t))))))
+      (t (format *error-output*
+                 "kernel: no mode set (expected GLOOPY_SERVE, GLOOPY_JOB, or KERNEL_SELFTEST)~%")
+         (sb-ext:exit :code 2)))

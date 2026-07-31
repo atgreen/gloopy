@@ -730,14 +730,11 @@ service Gloopy {
   rpc Subscribe  (SubscribeRequest) returns (stream Event);
 }
 
-// ── script kernels ─────────────────────────────────────────
-// A language runtime (SBCL, Python, …) Gloopy launches and drives to GENERATE a
-// clip's notes/automation, or to DRIVE them live. Gloopy is the CLIENT here and
-// the kernel is the server. The reverse direction — the kernel reading project
-// state or writing results itself — reuses the existing `Gloopy` service on
-// :50051 (the common-lisp/ ag-grpc client already speaks it), so this section
-// defines only the Gloopy → kernel calls. Reuses Note/AutoPoint/TimeSignature/
-// Ack/Empty from above so results map straight onto the note & automation model.
+// ── script-kernel data types ───────────────────────────────
+// A language runtime (SBCL, Python, …) generates a clip's notes. The kernel runs as a
+// CLIENT of the Gloopy service above: it long-polls KernelPoll for a job and posts the
+// result back via KernelSubmit (see those RPCs). These are the shared data types it uses —
+// the context a generator sees, and the diagnostics it can report. Reuses Note/TimeSignature.
 
 message Diagnostic {
   enum Severity { INFO = 0; WARNING = 1; SEV_ERROR = 2; }   // not ERROR: clashes with the Win32 ERROR macro
@@ -746,13 +743,6 @@ message Diagnostic {
   string   file     = 3;            // source file, when known
   int32    line     = 4;
   int32    column   = 5;
-}
-
-message KernelInfo {
-  string language = 1;              // "common-lisp", "python"
-  string runtime  = 2;              // e.g. "SBCL 2.2.9", "CPython 3.12"
-  string version  = 3;              // kernel implementation version
-  repeated string capabilities = 4; // "generate" "driver" "eval" "reset" "swank"
 }
 
 // Everything the script sees. Deterministic given the same context + clean state.
@@ -770,64 +760,3 @@ message GenContext {
   repeated ClipNotes inputs  = 11;  // notes from other clips the script referenced
 }
 message ClipNotes { int32 track_id = 1; int32 clip_index = 2; repeated Note notes = 3; }
-
-// Load or redefine a source file in the warm image (idempotent redefine is the point).
-message LoadRequest {
-  string path   = 1;                // path in the composition (kernel reads it), OR:
-  string source = 2;                // inline source, when Gloopy sends contents directly
-}
-message LoadResult {
-  bool ok = 1;
-  repeated Diagnostic diagnostics = 2;   // compile/load errors + warnings
-}
-
-// Pure generation: (context, seed) -> notes and/or automation.
-message GenRequest {
-  string     entry   = 1;           // generator symbol/function (empty = the clip's default)
-  GenContext context = 2;
-  bool       clean   = 3;           // Reset first — reproducible state for render + CI
-}
-message GenResult {
-  bool ok = 1;
-  repeated Note       notes       = 2;
-  repeated LanePoints automation  = 3;   // optional: automation the script emits
-  repeated Diagnostic diagnostics = 4;
-  string   stdout_text = 5;              // captured output (not 'stdout': clashes with the MSVC stdio macro)
-}
-message LanePoints {                     // an id-addressed automation lane (unified path)
-  string   param_id = 1;                 // e.g. effect/<insert>/<slot>/<param>
-  repeated AutoPoint points = 2;
-  bool     stepped  = 3;                 // hold vs. linear
-  float    curve    = 4;                 // -1 ease-out .. 0 linear .. +1 ease-in
-}
-
-// Live driving: the kernel streams timestamped events while the clip plays. Gloopy
-// schedules them look-ahead into a lock-free queue; the audio thread never blocks on
-// the kernel. A reactive kernel can pull live state via the Gloopy service.
-message DriverRequest {
-  string     entry   = 1;
-  GenContext context = 2;
-}
-message DriverEvent {
-  double when_beat = 1;                  // schedule time (beats; relative to clip start)
-  oneof event {
-    Note      note  = 2;                 // play a note
-    LivePoint param = 3;                 // set an automation/effect parameter
-    Diagnostic log  = 4;                 // stdout / warning / error during the run
-  }
-}
-message LivePoint { string param_id = 1; float value = 2; }
-
-message EvalRequest { string code = 1; }               // one REPL expression (console panel)
-message EvalResult  { bool ok = 1; string value = 2; string stdout_text = 3;   // not 'stdout' (MSVC macro)
-                      repeated Diagnostic diagnostics = 4; }
-
-// Implemented BY the kernel; Gloopy is the client.
-service Kernel {
-  rpc Describe    (Empty)         returns (KernelInfo);          // language/runtime/capabilities
-  rpc LoadSource  (LoadRequest)   returns (LoadResult);          // load/redefine a file into the image
-  rpc Generate    (GenRequest)    returns (GenResult);           // pure: context+seed -> notes/points
-  rpc StartDriver (DriverRequest) returns (stream DriverEvent);  // live: stream events as it plays
-  rpc Eval        (EvalRequest)   returns (EvalResult);          // REPL line
-  rpc Reset       (Empty)         returns (Ack);                 // drop accumulated state (fresh image)
-}
