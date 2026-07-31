@@ -8,10 +8,14 @@ GLOOPY_BUILDDIR ?= build
 %:
 	dh $@
 
-# Already built by the CI before dpkg-buildpackage — skip configure/build/test.
+# Already built by the CI before dpkg-buildpackage — skip configure/build/test AND clean.
+# dh_auto_clean must be stubbed too: newer debhelper treats GLOOPY_BUILDDIR (build/) as its
+# own cmake build tree and the clean phase would delete it before override_dh_auto_install
+# runs (it worked until a debhelper/container bump defaulted the cmake builddir to build/).
 override_dh_auto_configure:
 override_dh_auto_build:
 override_dh_auto_test:
+override_dh_auto_clean:
 
 override_dh_auto_install:
 	DESTDIR=$(CURDIR)/debian/gloopy cmake --install $(GLOOPY_BUILDDIR) --component gloopy --prefix /usr
