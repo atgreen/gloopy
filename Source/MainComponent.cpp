@@ -1147,7 +1147,10 @@ MainComponent::MainComponent (bool headless)
         grpc = std::make_unique<GrpcServer> (*this);
         const int grpcPort = 50051;
         if (grpc->start (grpcPort))
+        {
             std::cout << "[grpc] listening on 127.0.0.1:" << grpcPort << std::endl;
+            ensureWarmKernel();   // warm the generate kernel now (it connects back to :50051)
+        }
         else
             std::cout << "[grpc] FAILED to start on 127.0.0.1:" << grpcPort << std::endl;
     }
@@ -1182,6 +1185,8 @@ MainComponent::~MainComponent()
 {
     if (auto* host = keyListenerHost.getComponent()) host->removeKeyListener (this);
     stopDriver();                // stop the live-driver thread before tracks go away
+    jobQueueCv.notify_all();     // wake any KernelPoll waiter so it can unwind
+    if (warmKernel != nullptr && warmKernel->isRunning()) warmKernel->kill();   // stop the warm kernel
     if (replKernel != nullptr && replKernel->isRunning()) replKernel->kill();   // stop the SWANK kernel
     stopTimer();
     teardownMidiInputs();        // stop MIDI callbacks before tracks/audio go away
@@ -2495,22 +2500,54 @@ void MainComponent::submitKernelResult (const juce::String& job, bool ok,
 // Launch the kernel for `p`, wait for it to post the notes back, and return them (no
 // materialisation). Blocks the calling thread while the kernel works; used by both
 // regenerate (materialise) and the live driver (play ephemerally).
+// Launch the warm kernel if it isn't running (unless opted out via GLOOPY_NO_KERNEL).
+void MainComponent::ensureWarmKernel()
+{
+    if (juce::SystemStats::getEnvironmentVariable ("GLOOPY_NO_KERNEL", {}).isNotEmpty()) return;
+    const std::lock_guard<std::mutex> lk (warmKernelMutex);
+    if (warmKernel != nullptr && warmKernel->isRunning()) return;
+    juce::String err;
+    if (auto proc = KernelHost::launchServe (50051, err)) warmKernel = std::move (proc);
+    // If SBCL isn't installed launchServe fails; generates then time out with a clear error.
+}
+
+// The warm kernel long-polls here for the next generate job (blocks briefly, then the
+// kernel re-polls). Returns false when nothing is queued within the window.
+bool MainComponent::apiKernelPoll (KernelHost::GenParams& params, juce::String& job)
+{
+    std::unique_lock<std::mutex> lk (jobQueueMutex);
+    if (! jobQueueCv.wait_for (lk, std::chrono::seconds (15), [&] { return ! jobQueue.empty(); }))
+        return false;
+    auto pj = std::move (jobQueue.front());
+    jobQueue.pop_front();
+    params = pj.params;
+    job    = pj.id;
+    return true;
+}
+
+// Dispatch a generate to the warm kernel and wait for it to post the notes back. The FIRST
+// job may wait for the kernel's one-time proto compile; after that it's instant.
 bool MainComponent::fetchKernelNotes (const KernelHost::GenParams& p, std::vector<Note>& out, juce::String& error)
 {
+    ensureWarmKernel();
+
     const auto job = juce::Uuid().toDashedString();
     auto j = std::make_shared<KernelJob>();
     { const std::lock_guard<std::mutex> lk (kernelJobsMutex); kernelJobs[job] = j; }
     struct Scope { MainComponent* m; juce::String job; ~Scope() { const std::lock_guard<std::mutex> lk (m->kernelJobsMutex); m->kernelJobs.erase (job); } } scope { this, job };
 
-    auto proc = KernelHost::launchGenerate (job, p, 50051, error);
-    if (proc == nullptr) return false;
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds (200);
+    { const std::lock_guard<std::mutex> lk (jobQueueMutex); jobQueue.push_back ({ job, p, j }); }
+    jobQueueCv.notify_all();
+
     std::unique_lock<std::mutex> lk (j->m);
-    while (! j->done)
+    if (! j->cv.wait_for (lk, std::chrono::seconds (200), [&] { return j->done; }))
     {
-        if (j->cv.wait_for (lk, std::chrono::milliseconds (500), [&] { return j->done; })) break;
-        if (! proc->isRunning()) { lk.unlock(); error = "kernel: process exited before returning a result"; return false; }
-        if (std::chrono::steady_clock::now() > deadline) { lk.unlock(); proc->kill(); error = "kernel: timed out waiting for the kernel"; return false; }
+        lk.unlock();
+        { const std::lock_guard<std::mutex> ql (jobQueueMutex);
+          jobQueue.erase (std::remove_if (jobQueue.begin(), jobQueue.end(),
+                            [&] (const PendingJob& pj) { return pj.id == job; }), jobQueue.end()); }
+        error = "kernel: timed out (is SBCL installed?)";
+        return false;
     }
     if (! j->ok) { error = j->error.isNotEmpty() ? j->error : juce::String ("kernel: generate failed"); return false; }
     out = std::move (j->notes);

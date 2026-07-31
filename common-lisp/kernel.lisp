@@ -179,6 +179,44 @@
         (ag-grpc:channel-close channel)))
     (sb-ext:exit :code (if ok 0 1))))
 
+;;; Serve mode (the warm kernel): stay resident and long-poll Gloopy for generate jobs, so
+;;; the proto compiles once at startup and every generate after is instant. Each job resets
+;;; the generator and reloads its source fresh, so results stay reproducible (Slynk-driven
+;;; live redefinition will be an opt-in toggle later).
+(defun process-job (channel spec)
+  (let ((ctx (make-instance 'gloopy.pb::gen-context
+                            :tempo-bpm (gloopy.pb::tempo-bpm spec)
+                            :clip-len-beats (gloopy.pb::clip-len-beats spec)
+                            :seed (gloopy.pb::seed spec)
+                            :key-root (gloopy.pb::key-root spec)))
+        (source (gloopy.pb::source spec))
+        (ok t) (err "") (notes '()))
+    (handler-case
+        (progn
+          (setf *generator* nil)                       ; clean per job — no state leak
+          (when (and source (plusp (length source)))
+            (let ((*package* (find-package :gloopy-kernel))) (load (truename source))))
+          (setf notes (funcall (or *generator* #'default-generate) ctx)))
+      (error (e) (setf ok nil err (format nil "~a" e))))
+    (ignore-errors
+      (ag-grpc:call-unary channel "/gloopy.v1.Gloopy/KernelSubmit"
+                          (make-instance 'gloopy.pb::kernel-submit-request
+                                         :job (gloopy.pb::job spec) :ok ok :notes notes :error err)
+                          :response-type 'gloopy.pb::ack))))
+
+(defun serve ()
+  (let* ((port    (env-num "GLOOPY_HOST_PORT" 50051))
+         (channel (ag-grpc:make-channel "127.0.0.1" port)))
+    (loop
+      (let ((spec (ignore-errors
+                    (ag-grpc:call-response
+                     (ag-grpc:call-unary channel "/gloopy.v1.Gloopy/KernelPoll"
+                                         (make-instance 'gloopy.pb::empty)
+                                         :response-type 'gloopy.pb::kernel-job-spec)))))
+        (if (and spec (plusp (length (gloopy.pb::job spec))))
+            (process-job channel spec)
+            (sleep 0.2))))))       ; empty poll (timeout / transient) — brief backoff, re-poll
+
 ;;; SWANK mode (cave #15): a persistent, warm image with a SWANK server so you can attach
 ;;; SLIME/Sly and inspect/redefine/restart generators interactively (the prelude — note,
 ;;; set-generator, default-generate — is already loaded). Writes the SWANK port to
@@ -200,6 +238,7 @@
 ;;; (--script is NOT usable — it skips ~/.sbclrc, where ocicl registers ag-grpc.)
 ;;; GLOOPY_SWANK -> SWANK REPL; GLOOPY_JOB -> submit mode; KERNEL_SELFTEST -> self-test; else serve.
 (cond ((sb-ext:posix-getenv "KERNEL_SELFTEST") (selftest))
+      ((sb-ext:posix-getenv "GLOOPY_SERVE")    (serve))       ; warm kernel: long-poll for jobs
       ((sb-ext:posix-getenv "GLOOPY_SWANK")    (swank-repl))
       ((sb-ext:posix-getenv "GLOOPY_JOB")      (submit-job))
       (t (main (let ((p (sb-ext:posix-getenv "KERNEL_PORT"))) (and p (parse-integer p :junk-allowed t))))))

@@ -49,6 +49,23 @@ KernelHost::launchGenerate (const juce::String& job, const GenParams& p, int hos
 }
 
 std::unique_ptr<juce::ChildProcess>
+KernelHost::launchServe (int hostPort, juce::String& error)
+{
+    const auto kernel = findFile ("common-lisp/kernel.lisp");
+    if (! kernel.existsAsFile()) { error = "kernel: cannot find common-lisp/kernel.lisp"; return {}; }
+
+    ::unsetenv ("GLOOPY_JOB"); ::unsetenv ("GLOOPY_SWANK");
+    ::setenv ("GLOOPY_SERVE", "1", 1);
+    ::setenv ("GLOOPY_HOST_PORT", juce::String (hostPort).toRawUTF8(), 1);
+
+    juce::StringArray argv { "sbcl", "--non-interactive", "--load", kernel.getFullPathName() };
+    auto proc = std::make_unique<juce::ChildProcess>();
+    if (! proc->start (argv, juce::ChildProcess::wantStdOut | juce::ChildProcess::wantStdErr))
+    { error = "kernel: failed to launch sbcl (is SBCL installed?)"; return {}; }
+    return proc;
+}
+
+std::unique_ptr<juce::ChildProcess>
 KernelHost::launchRepl (int& swankPortOut, juce::String& error)
 {
     const auto kernel = findFile ("common-lisp/kernel.lisp");

@@ -18,7 +18,9 @@ tagged release.
   clip → *Edit script code...* opens a Common Lisp source in your `$EDITOR`, and *Generate
   from script* runs it through a bundled SBCL kernel and materialises the returned notes.
   Also drivable over the control API (`RegenerateClip`). Deterministic via a per-clip seed;
-  the generated notes are cached in the project so the clip plays without the runtime.
+  the generated notes are cached in the project so the clip plays without the runtime. A
+  resident "warm" kernel (auto-started when SBCL is installed) keeps generation fast — the
+  first generate compiles once, the rest are instant.
   Generators can be written in Common Lisp (bundled SBCL kernel) or Python, and *File →
   Start Lisp REPL (SWANK)* opens a warm image you can attach SLIME to for interactive
   generator development. *Live-drive from script* plays a clip's script live during

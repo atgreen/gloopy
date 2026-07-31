@@ -39,6 +39,7 @@
 #include <condition_variable>
 #include <thread>
 #include <atomic>
+#include <deque>
 #include <future>
 
 /** Linear-arranger workspace: an arrangement of instrument tracks (each owning
@@ -516,6 +517,7 @@ public:
     bool apiRegenerateClip (int trackId, int index, const juce::String& source,
                             const juce::String& lang, juce::int64 seed, juce::String& error);
     void submitKernelResult (const juce::String& job, bool ok, std::vector<Note> notes, const juce::String& error);
+    bool apiKernelPoll (KernelHost::GenParams& params, juce::String& job);   // warm kernel long-polls for a job
     bool apiStartKernelRepl (int& swankPort, juce::String& error);   // persistent SWANK kernel (cave #15)
     bool fetchKernelNotes (const KernelHost::GenParams& p, std::vector<Note>& out, juce::String& error);
     bool apiStartDriver (int trackId, int index, const juce::String& source, const juce::String& lang,
@@ -913,6 +915,14 @@ private:
                        std::vector<Note> notes; juce::String error; };
     std::mutex kernelJobsMutex;
     std::map<juce::String, std::shared_ptr<KernelJob>> kernelJobs;
+    // The warm kernel long-polls for jobs from this queue (compile once, then instant).
+    struct PendingJob { juce::String id; KernelHost::GenParams params; std::shared_ptr<KernelJob> result; };
+    std::mutex jobQueueMutex;
+    std::condition_variable jobQueueCv;
+    std::deque<PendingJob> jobQueue;
+    std::unique_ptr<juce::ChildProcess> warmKernel;    // resident generate kernel
+    std::mutex warmKernelMutex;
+    void ensureWarmKernel();                           // launch it if not running (unless opted out)
     std::unique_ptr<juce::ChildProcess> replKernel;    // persistent SWANK kernel (cave #15)
     int replSwankPort { 0 };
     std::thread driverThread;                          // live-driver playback thread (cave #12)
