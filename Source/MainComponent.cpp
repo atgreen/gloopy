@@ -2513,8 +2513,31 @@ void MainComponent::ensureWarmKernel()
     const std::lock_guard<std::mutex> lk (warmKernelMutex);
     if (warmKernel != nullptr && warmKernel->isRunning()) return;
     juce::String err;
+    lastKernelSpawnMs = juce::Time::getMillisecondCounter();   // stamp even on failure (throttles retries)
     if (auto proc = KernelHost::launchServe (50051, err)) warmKernel = std::move (proc);
     // If SBCL isn't installed launchServe fails; generates then time out with a clear error.
+}
+
+// Health check (message-thread timer, ~1x/sec): if the warm kernel process exited — killed
+// out from under us or crashed — clear the stale "λ Slynk" indicator and the discovery file
+// (so gloopy.el won't attach to a dead port), then respawn it (the warm kernel is meant to be
+// always-on). Respawns are throttled so a kernel that crashes on startup doesn't hot-loop.
+void MainComponent::checkWarmKernelHealth()
+{
+    if (juce::SystemStats::getEnvironmentVariable ("GLOOPY_NO_KERNEL", {}).isNotEmpty()) return;
+
+    bool died = false;
+    {
+        const std::lock_guard<std::mutex> lk (warmKernelMutex);
+        if (warmKernel != nullptr && ! warmKernel->isRunning()) { warmKernel.reset(); died = true; }
+    }
+    if (died && kernelSlynkPort.exchange (0) > 0)
+    {
+        kernelDiscoveryFile().deleteFile();
+        repaint();   // drop the status-bar indicator (already on the message thread)
+    }
+    if (died && juce::Time::getMillisecondCounter() - lastKernelSpawnMs > 3000)
+        ensureWarmKernel();   // bring it back (throttled); it re-reports ready and re-shows the port
 }
 
 // The warm kernel long-polls here for the next generate job (blocks briefly, then the
@@ -5649,6 +5672,8 @@ void MainComponent::timerCallback()
         // runs off the message thread; the uncommitted count also refreshes right after a save.
         static int gitPollTick = 0;
         if (++gitPollTick >= 4) { gitPollTick = 0; pollGitStatusAsync(); }
+
+        checkWarmKernelHealth();   // drop a stale "λ Slynk" indicator + respawn if the kernel was killed
     }
 
     // Keep repainting the header briefly after live MIDI so the input LED animates/fades.

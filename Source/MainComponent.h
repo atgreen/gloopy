@@ -939,6 +939,8 @@ private:
     std::mutex warmKernelMutex;
     void ensureWarmKernel();                           // launch it if not running (unless opted out)
     std::atomic<int> kernelSlynkPort { 0 };            // warm kernel's Slynk port, 0 until it reports ready
+    void checkWarmKernelHealth();                      // clear a stale indicator + respawn if the kernel died
+    juce::uint32 lastKernelSpawnMs { 0 };              // throttles respawns (message thread)
     std::mutex kernelReadyMutex;
     std::condition_variable kernelReadyCv;
     void writeKernelDiscoveryFile (int slynkPort);     // ~/.cache/gloopy/kernel.json for gloopy.el (Sly)
