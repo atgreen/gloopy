@@ -2669,14 +2669,15 @@ juce::String MainComponent::defaultScriptTemplate() const
 
 void MainComponent::launchEditor (const juce::File& f)
 {
-    auto ed = juce::SystemStats::getEnvironmentVariable ("VISUAL", {});
-    if (ed.isEmpty()) ed = juce::SystemStats::getEnvironmentVariable ("EDITOR", {});
-    if (ed.isNotEmpty())
-    {
-        juce::ChildProcess p;                          // detached — the editor outlives this call
-        p.start (ed + " " + f.getFullPathName().quoted());
-    }
-    else f.startAsProcess();                            // OS default handler (xdg-open, ...)
+    // TODO: make the editor command configurable (a settings UI / config file). Hardcoded to
+    // a GUI editor for now — $VISUAL/$EDITOR is often a *terminal* editor (nano/vim) that
+    // can't open without a TTY, so launching it from the app silently did nothing.
+    const juce::String editor = "emacs";
+    juce::ChildProcess p;   // GUI editor detaches into its own window; it outlives this call
+    if (! p.start (juce::StringArray { editor, f.getFullPathName() }))
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+            "Edit script code",
+            "Couldn't launch the editor (" + editor + ").\n\nEdit the script here:\n" + f.getFullPathName());
 }
 
 // "Edit script code" — ensure the clip has a source file (seeded from a template), record it
