@@ -15,7 +15,11 @@
 #include <cmath>
 #include <algorithm>
 #include <iostream>
-#include <unistd.h>   // getpid() for the kernel discovery file
+#if JUCE_WINDOWS
+ #include <process.h>   // _getpid()
+#else
+ #include <unistd.h>    // getpid()
+#endif
 
 #ifndef JUCE_APPLICATION_VERSION_STRING
  #define JUCE_APPLICATION_VERSION_STRING "?"   // normally set by CMake from project(VERSION)
@@ -2713,7 +2717,11 @@ void MainComponent::writeKernelDiscoveryFile (int slynkPort)
     juce::DynamicObject::Ptr o = new juce::DynamicObject();
     o->setProperty ("slynk_port",  slynkPort);
     o->setProperty ("control_port", 50051);          // the gRPC control API (see MainComponent ctor)
+   #if JUCE_WINDOWS
+    o->setProperty ("pid", (juce::int64) _getpid());
+   #else
     o->setProperty ("pid", (juce::int64) ::getpid());
+   #endif
     f.replaceWithText (juce::JSON::toString (juce::var (o.get())));
 }
 
