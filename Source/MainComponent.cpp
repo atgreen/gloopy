@@ -1157,15 +1157,30 @@ MainComponent::MainComponent (bool headless)
     // ---- control API: gRPC command surface ----
     if (! safeMode)
     {
+        // Prefer 50051 (what clients/docs assume); if it's busy — e.g. a container has
+        // published it — fall back to an OS-assigned free port so Gloopy always gets its
+        // control surface up. The actual port is published in the discovery file and passed
+        // to the kernels, so nothing needs to hard-code it.
+        const int preferred = 50051;
         grpc = std::make_unique<GrpcServer> (*this);
-        const int grpcPort = 50051;
-        if (grpc->start (grpcPort))
+        if (grpc->start (preferred)) controlPort = grpc->boundPort();
+        else
         {
-            std::cout << "[grpc] listening on 127.0.0.1:" << grpcPort << std::endl;
-            ensureWarmKernel();   // warm the generate kernel now (it connects back to :50051)
+            grpc = std::make_unique<GrpcServer> (*this);          // fresh builder for the retry
+            if (grpc->start (0)) controlPort = grpc->boundPort();  // 0 -> a free port the OS picks
+        }
+        if (controlPort > 0)
+        {
+            std::cout << "[grpc] listening on 127.0.0.1:" << controlPort
+                      << (controlPort == preferred ? "" : "  (preferred 50051 was busy)") << std::endl;
+            writeKernelDiscoveryFile (0);   // publish control_port now; slynk_port fills in when the kernel warms
+            ensureWarmKernel();             // warm the generate kernel (it connects back to controlPort)
         }
         else
-            std::cout << "[grpc] FAILED to start on 127.0.0.1:" << grpcPort << std::endl;
+        {
+            grpc.reset();
+            std::cout << "[grpc] FAILED to start — no free port available" << std::endl;
+        }
     }
     else
         std::cout << "[safe-mode] skipping gRPC" << std::endl;
@@ -2523,7 +2538,7 @@ void MainComponent::ensureWarmKernel()
     if (warmKernel != nullptr && warmKernel->isRunning()) return;
     juce::String err;
     lastKernelSpawnMs = juce::Time::getMillisecondCounter();   // stamp even on failure (throttles retries)
-    if (auto proc = KernelHost::launchServe (50051, err)) warmKernel = std::move (proc);
+    if (auto proc = KernelHost::launchServe (controlPort, err)) warmKernel = std::move (proc);
     // If SBCL isn't installed launchServe fails; generates then time out with a clear error.
 }
 
@@ -2570,7 +2585,7 @@ void MainComponent::ensureWarmPythonKernel()
     conn.deleteFile();                                         // fresh ports/key; a stale file rebinds to dead ones
     conn.getParentDirectory().createDirectory();
     juce::String err;
-    if (auto proc = KernelHost::launchServePython (50051, conn.getFullPathName(), err))
+    if (auto proc = KernelHost::launchServePython (controlPort, conn.getFullPathName(), err))
         warmPyKernel = std::move (proc);
     // On failure (no python3) the generate times out with the Python-specific message above.
 }
@@ -2832,7 +2847,7 @@ void MainComponent::writeKernelDiscoveryFile (int slynkPort)
     f.getParentDirectory().createDirectory();
     juce::DynamicObject::Ptr o = new juce::DynamicObject();
     o->setProperty ("slynk_port",  slynkPort);
-    o->setProperty ("control_port", 50051);          // the gRPC control API (see MainComponent ctor)
+    o->setProperty ("control_port", controlPort);    // the gRPC control API (see MainComponent ctor)
    #if JUCE_WINDOWS
     o->setProperty ("pid", (juce::int64) _getpid());
    #else

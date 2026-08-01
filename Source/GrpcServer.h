@@ -17,7 +17,8 @@ public:
     explicit GrpcServer (MainComponent& owner);
     ~GrpcServer();
 
-    bool start (int port);   // binds 127.0.0.1:<port>
+    bool start (int port);   // binds 127.0.0.1:<port>; port 0 = OS-assigned free port
+    int  boundPort() const;  // the actual port bound (valid after a successful start)
     void stop();
 
 private:

@@ -43,12 +43,34 @@
         (error "Gloopy: ~a rejected: ~a" method (gloopy.pb::proto-ack-error r)))))
 
 ;;; --- connection -------------------------------------------------------------
-(defun connect (&key (host "127.0.0.1") (port 50051))
-  "Open (or reopen) the channel to a running Gloopy."
-  (when *channel* (ignore-errors (ag-grpc:channel-close *channel*)))
-  (setf *channel* (ag-grpc:make-channel host port))
-  (format t "~&Connected to Gloopy at ~a:~a~%" host port)
-  *channel*)
+(defun %discover-control-port ()
+  "Gloopy's gRPC control port, read from its discovery file (XDG_RUNTIME_DIR/gloopy/
+kernel.json, else ~/.cache/gloopy/kernel.json), or NIL if unavailable. Lets a client
+find Gloopy even when it fell back off 50051 to a free port."
+  (let* ((rt   (uiop:getenv "XDG_RUNTIME_DIR"))
+         (base (if (and rt (plusp (length rt)))
+                   (uiop:ensure-directory-pathname rt)
+                   (merge-pathnames ".cache/" (user-homedir-pathname))))
+         (file (merge-pathnames "gloopy/kernel.json" base)))
+    (when (probe-file file)
+      (let* ((text (uiop:read-file-string file))
+             (key  (search "\"control_port\"" text)))
+        (when key
+          (let* ((colon (position #\: text :start key))
+                 (start (and colon (position-if #'digit-char-p text :start colon)))
+                 (end   (and start (or (position-if-not #'digit-char-p text :start start)
+                                       (length text)))))
+            (when (and start end (> end start))
+              (parse-integer text :start start :end end))))))))
+
+(defun connect (&key (host "127.0.0.1") port)
+  "Open (or reopen) the channel to a running Gloopy.  With no PORT, auto-discover it
+from Gloopy's discovery file (so a moved control port just works), falling back to 50051."
+  (let ((port (or port (%discover-control-port) 50051)))
+    (when *channel* (ignore-errors (ag-grpc:channel-close *channel*)))
+    (setf *channel* (ag-grpc:make-channel host port))
+    (format t "~&Connected to Gloopy at ~a:~a~%" host port)
+    *channel*))
 
 (defun disconnect ()
   (when *channel* (ag-grpc:channel-close *channel*) (setf *channel* nil))

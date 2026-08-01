@@ -1269,6 +1269,7 @@ struct GrpcServer::Impl
     ServiceImpl service;
     std::unique_ptr<Server> server;
     std::thread thread;
+    int boundPort = 0;
 };
 
 GrpcServer::GrpcServer (MainComponent& owner) : impl (std::make_unique<Impl> (owner)) {}
@@ -1278,14 +1279,21 @@ bool GrpcServer::start (int port)
 {
     ServerBuilder builder;
     const std::string addr = "127.0.0.1:" + std::to_string (port);
-    builder.AddListeningPort (addr, grpc::InsecureServerCredentials());
+    int selected = 0;                                        // gRPC reports the actual port here
+    builder.AddListeningPort (addr, grpc::InsecureServerCredentials(), &selected);
     builder.RegisterService (&impl->service);
     impl->server = builder.BuildAndStart();
-    if (impl->server == nullptr)
+    if (impl->server == nullptr || selected == 0)            // build failed, or the port couldn't be bound
+    {
+        if (impl->server != nullptr) { impl->server->Shutdown(); impl->server.reset(); }
         return false;
+    }
+    impl->boundPort = selected;                              // for port 0 this is the OS-assigned free port
     impl->thread = std::thread ([this] { impl->server->Wait(); });
     return true;
 }
+
+int GrpcServer::boundPort() const { return impl->boundPort; }
 
 void GrpcServer::stop()
 {

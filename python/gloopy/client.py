@@ -61,6 +61,24 @@ def _fx(t) -> int:
     return EFFECTS.get(t.upper(), 0) if isinstance(t, str) else int(t)
 
 
+def _discover_target(default: str = "127.0.0.1:50051") -> str:
+    """Gloopy's gRPC address, read from its discovery file (the ``control_port`` it
+    writes on startup) so a client still finds it when 50051 was busy and Gloopy fell
+    back to a free port. Falls back to ``default`` when there's no discovery file."""
+    import os
+    import json
+    base = os.environ.get("XDG_RUNTIME_DIR") or os.path.join(os.path.expanduser("~"), ".cache")
+    path = os.path.join(base, "gloopy", "kernel.json")
+    try:
+        with open(path) as fh:
+            port = json.load(fh).get("control_port")
+        if isinstance(port, int) and port > 0:
+            return f"127.0.0.1:{port}"
+    except (OSError, ValueError, TypeError):
+        pass
+    return default
+
+
 class Gloopy:
     """Connection to a running Gloopy instance.
 
@@ -68,8 +86,10 @@ class Gloopy:
     channel on exit. Methods return plain Python values (ints, dicts, lists).
     """
 
-    def __init__(self, target: str = "127.0.0.1:50051"):
-        self.channel = grpc.insecure_channel(target)
+    def __init__(self, target: Optional[str] = None):
+        # target=None auto-discovers the port from Gloopy's discovery file (so a moved
+        # control port just works); pass an explicit "host:port" to override.
+        self.channel = grpc.insecure_channel(target or _discover_target())
         self.stub = rpc.GloopyStub(self.channel)
 
     # -- lifecycle --------------------------------------------------------
@@ -1261,8 +1281,9 @@ class Gloopy:
 
 
 @contextmanager
-def connect(target: str = "127.0.0.1:50051") -> Iterator[Gloopy]:
-    """Context-manager sugar: ``with connect() as g: ...``."""
+def connect(target: Optional[str] = None) -> Iterator[Gloopy]:
+    """Context-manager sugar: ``with connect() as g: ...``. ``target=None``
+    auto-discovers Gloopy's port (see :class:`Gloopy`)."""
     g = Gloopy(target)
     try:
         yield g
