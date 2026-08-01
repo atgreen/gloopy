@@ -640,6 +640,13 @@ MainComponent::MainComponent (bool headless)
         apiRenameClip (tracks[(size_t) trackIdx]->id, clip, name);   // map view index -> stable API id
     };
 
+    arrangeView->onSetGenerator = [this] (int trackIdx, int clip, const juce::String& generator,
+                                          const juce::String& system, const juce::String& lang)
+    {
+        if (generator.isEmpty()) return;                            // blank = nothing to point at
+        setClipGenerator (trackIdx, clip, generator, system, lang);
+    };
+
     arrangeView->onPasteNotes = [this] (int trackIdx, double beat)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
@@ -1193,6 +1200,8 @@ MainComponent::~MainComponent()
     stopDriver();                // stop the live-driver thread before tracks go away
     jobQueueCv.notify_all();     // wake any KernelPoll waiter so it can unwind
     if (warmKernel != nullptr && warmKernel->isRunning()) warmKernel->kill();   // stop the warm kernel (+ Slynk)
+    if (warmPyKernel != nullptr && warmPyKernel->isRunning()) warmPyKernel->kill();   // stop the Python kernel too
+    pyKernelConnFile().deleteFile();                                            // don't leave a stale connection file
     kernelDiscoveryFile().deleteFile();                                         // it's gone; don't leave a stale port
     stopTimer();
     teardownMidiInputs();        // stop MIDI callbacks before tracks/audio go away
@@ -2518,6 +2527,54 @@ void MainComponent::ensureWarmKernel()
     // If SBCL isn't installed launchServe fails; generates then time out with a clear error.
 }
 
+// The Jupyter connection file the resident Python kernel binds to (when ipykernel is present),
+// and that "Open Python notebook" attaches a frontend to. Lives beside the Slynk discovery file.
+juce::File MainComponent::pyKernelConnFile() const
+{
+    return kernelDiscoveryFile().getParentDirectory().getChildFile ("py-kernel.json");
+}
+
+// Heartbeat file an *interactive* Python kernel (a notebook that ran gloopy.attach()) refreshes
+// ~1x/sec. Its presence means a notebook owns Python generation, so Gloopy stands its own
+// headless kernel down — one Python kernel serves at a time, never two racing for a job.
+juce::File MainComponent::pyLivePresenceFile() const
+{
+    return kernelDiscoveryFile().getParentDirectory().getChildFile ("py-kernel.live");
+}
+
+bool MainComponent::interactivePyKernelPresent() const
+{
+    const auto f = pyLivePresenceFile();
+    return f.existsAsFile()
+        && juce::Time::getCurrentTime().toMilliseconds() - f.getLastModificationTime().toMilliseconds() < 5000;
+}
+
+void MainComponent::killWarmPythonKernel()
+{
+    const std::lock_guard<std::mutex> lk (warmPyKernelMutex);
+    if (warmPyKernel != nullptr) { if (warmPyKernel->isRunning()) warmPyKernel->kill(); warmPyKernel.reset(); }
+}
+
+// Launch the resident Python kernel if it isn't running (unless opted out via GLOOPY_NO_KERNEL).
+// The Python twin of ensureWarmKernel: Python clips generate headlessly, and a notebook can
+// attach to this same process. Respawns are throttled so a missing interpreter doesn't hot-loop.
+void MainComponent::ensureWarmPythonKernel()
+{
+    if (juce::SystemStats::getEnvironmentVariable ("GLOOPY_NO_KERNEL", {}).isNotEmpty()) return;
+    const std::lock_guard<std::mutex> lk (warmPyKernelMutex);
+    if (warmPyKernel != nullptr && warmPyKernel->isRunning()) return;
+    if (juce::Time::getMillisecondCounter() - lastPyKernelSpawnMs < 3000 && lastPyKernelSpawnMs != 0)
+        return;                                                // throttle (e.g. python3 not installed)
+    lastPyKernelSpawnMs = juce::Time::getMillisecondCounter();
+    const auto conn = pyKernelConnFile();
+    conn.deleteFile();                                         // fresh ports/key; a stale file rebinds to dead ones
+    conn.getParentDirectory().createDirectory();
+    juce::String err;
+    if (auto proc = KernelHost::launchServePython (50051, conn.getFullPathName(), err))
+        warmPyKernel = std::move (proc);
+    // On failure (no python3) the generate times out with the Python-specific message above.
+}
+
 // Health check (message-thread timer, ~1x/sec): if the warm kernel process exited — killed
 // out from under us or crashed — clear the stale "λ Slynk" indicator and the discovery file
 // (so gloopy.el won't attach to a dead port), then respawn it (the warm kernel is meant to be
@@ -2538,6 +2595,14 @@ void MainComponent::checkWarmKernelHealth()
     }
     if (died && juce::Time::getMillisecondCounter() - lastKernelSpawnMs > 3000)
         ensureWarmKernel();   // bring it back (throttled); it re-reports ready and re-shows the port
+
+    // If a notebook has taken over Python generation (fresh heartbeat), stand our headless Python
+    // kernel down so the two never race for jobs. It relaunches on demand once the notebook detaches.
+    if (interactivePyKernelPresent())
+    {
+        const std::lock_guard<std::mutex> lk (warmPyKernelMutex);
+        if (warmPyKernel != nullptr) { if (warmPyKernel->isRunning()) warmPyKernel->kill(); warmPyKernel.reset(); }
+    }
 }
 
 // A kernel long-polls here for the next generate job in ITS language, so the SBCL kernel and a
@@ -2573,7 +2638,12 @@ bool MainComponent::apiKernelPoll (const juce::String& lang, KernelHost::GenPara
 // job may wait for the kernel's one-time proto compile; after that it's instant.
 bool MainComponent::fetchKernelNotes (const KernelHost::GenParams& p, std::vector<Note>& out, juce::String& error)
 {
-    if (p.lang != "python") ensureWarmKernel();   // SBCL is auto-launched; a Python kernel (notebook) attaches itself
+    if (p.lang == "python")
+    {
+        if (interactivePyKernelPresent()) killWarmPythonKernel();   // a notebook owns python; don't compete
+        else                              ensureWarmPythonKernel();  // else auto-launch the headless fallback
+    }
+    else ensureWarmKernel();
 
     const auto job = juce::Uuid().toDashedString();
     auto j = std::make_shared<KernelJob>();
@@ -2590,7 +2660,9 @@ bool MainComponent::fetchKernelNotes (const KernelHost::GenParams& p, std::vecto
         { const std::lock_guard<std::mutex> ql (jobQueueMutex);
           jobQueue.erase (std::remove_if (jobQueue.begin(), jobQueue.end(),
                             [&] (const PendingJob& pj) { return pj.id == job; }), jobQueue.end()); }
-        error = "kernel: timed out (is SBCL installed?)";
+        error = p.lang == "python"
+                  ? juce::String ("kernel: no Python kernel responded (is python3 on PATH? see the Python how-to)")
+                  : juce::String ("kernel: timed out (is SBCL installed?)");
         return false;
     }
     if (! j->ok) { error = j->error.isNotEmpty() ? j->error : juce::String ("kernel: generate failed"); return false; }
@@ -2609,12 +2681,14 @@ void MainComponent::stopDriver()
 // lane OSC uses) at their beat times — without materialising them into the clip. A driver
 // thread polls the playhead; the audio thread just drains the queue (never blocks on us).
 bool MainComponent::apiStartDriver (int trackId, int index, const juce::String& source,
+                                    const juce::String& generator, const juce::String& system,
                                     const juce::String& lang, juce::int64 seed, juce::String& error)
 {
     stopDriver();
 
     KernelHost::GenParams p;
     p.source = resolveScriptFile (source).getFullPathName(); p.trackId = trackId; p.clipIndex = index; p.seed = seed;
+    p.generator = generator; p.system = system;
     p.lang = lang.isNotEmpty() ? lang : juce::String ("common-lisp");
     p.tempoBpm = transport.getBpm();
     double clipStart = 0.0;
@@ -2670,10 +2744,12 @@ bool MainComponent::apiStartDriver (int trackId, int index, const juce::String& 
 // runs on a gRPC worker thread (not the message thread) so blocking here is fine; only the
 // note materialisation touches the model, on the message thread.
 bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::String& source,
+                                       const juce::String& generator, const juce::String& system,
                                        const juce::String& lang, juce::int64 seed, juce::String& error)
 {
     KernelHost::GenParams p;
     p.source = resolveScriptFile (source).getFullPathName(); p.trackId = trackId; p.clipIndex = index; p.seed = seed;
+    p.generator = generator; p.system = system;
     p.lang = lang.isNotEmpty() ? lang : juce::String ("common-lisp");
     p.tempoBpm = transport.getBpm();
     const bool found = callOnMessageThread ([&] () -> bool
@@ -2700,7 +2776,9 @@ bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::Strin
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             auto& c = t->clips[(size_t) index];
             c.type = ClipType::Midi;
-            c.scriptSource = source;
+            c.scriptSource    = source;
+            c.scriptGenerator = generator;
+            c.scriptSystem    = system;
             c.scriptLang   = lang.isNotEmpty() ? lang : juce::String ("common-lisp");
             c.scriptSeed   = seed;
             c.notes        = notes;
@@ -2883,19 +2961,20 @@ void MainComponent::editClipScript (int trackIdx, int clip)
 // ephemeral). Runs off the message thread (the kernel fetch blocks); surfaces any error.
 void MainComponent::driveClipScript (int trackIdx, int clip)
 {
-    juce::String source, lang; juce::int64 seed = 0; int id = -1;
+    juce::String source, generator, system, lang; juce::int64 seed = 0; int id = -1;
     { const juce::ScopedLock sl (engineLock);
       if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
       id = tracks[(size_t) trackIdx]->id;
       auto& cl = tracks[(size_t) trackIdx]->clips;
       if (! juce::isPositiveAndBelow (clip, (int) cl.size())) return;
-      source = cl[(size_t) clip].scriptSource; lang = cl[(size_t) clip].scriptLang; seed = cl[(size_t) clip].scriptSeed; }
+      source = cl[(size_t) clip].scriptSource; generator = cl[(size_t) clip].scriptGenerator;
+      system = cl[(size_t) clip].scriptSystem; lang = cl[(size_t) clip].scriptLang; seed = cl[(size_t) clip].scriptSeed; }
 
     busyOverlay.show ("Starting live driver...");
-    juce::Thread::launch ([this, id, clip, source, lang, seed]
+    juce::Thread::launch ([this, id, clip, source, generator, system, lang, seed]
     {
         juce::String err;
-        const bool ok = apiStartDriver (id, clip, source,
+        const bool ok = apiStartDriver (id, clip, source, generator, system,
                                         lang.isNotEmpty() ? lang : juce::String ("common-lisp"), seed, err);
         juce::MessageManager::callAsync ([this, ok, err]
         {
@@ -2993,6 +3072,7 @@ void MainComponent::autoRegenScriptClip (int trackId, int clipIndex)
         { liveRegenInFlight.erase (key); return; }
         const auto& c = t->clips[(size_t) clipIndex];
         p.source = resolveScriptFile (c.scriptSource).getFullPathName(); p.trackId = trackId; p.clipIndex = clipIndex; p.seed = c.scriptSeed;
+        p.generator = c.scriptGenerator; p.system = c.scriptSystem;
         p.lang = c.scriptLang.isNotEmpty() ? c.scriptLang : juce::String ("common-lisp");
         p.clipLenBeats = c.contentLenBeats;
     }
@@ -3027,20 +3107,50 @@ void MainComponent::autoRegenScriptClip (int trackId, int clipIndex)
 // with the busy overlay) and surface any error.
 void MainComponent::regenerateClipScript (int trackIdx, int clip)
 {
-    juce::String source, lang; juce::int64 seed = 0; int id = -1;
+    juce::String source, generator, system, lang; juce::int64 seed = 0; int id = -1;
     { const juce::ScopedLock sl (engineLock);
       if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
       id = tracks[(size_t) trackIdx]->id;
       auto& cl = tracks[(size_t) trackIdx]->clips;
       if (! juce::isPositiveAndBelow (clip, (int) cl.size())) return;
-      source = cl[(size_t) clip].scriptSource; lang = cl[(size_t) clip].scriptLang; seed = cl[(size_t) clip].scriptSeed; }
+      source = cl[(size_t) clip].scriptSource; generator = cl[(size_t) clip].scriptGenerator;
+      system = cl[(size_t) clip].scriptSystem; lang = cl[(size_t) clip].scriptLang; seed = cl[(size_t) clip].scriptSeed; }
 
     busyOverlay.show ("Generating...");
-    juce::Thread::launch ([this, id, clip, source, lang, seed]
+    juce::Thread::launch ([this, id, clip, source, generator, system, lang, seed]
     {
         juce::String err;
-        const bool ok = apiRegenerateClip (id, clip, source,
+        const bool ok = apiRegenerateClip (id, clip, source, generator, system,
                                            lang.isNotEmpty() ? lang : juce::String ("common-lisp"), seed, err);
+        juce::MessageManager::callAsync ([this, ok, err]
+        {
+            busyOverlay.hide();
+            if (! ok) juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Script", err);
+        });
+    });
+}
+
+// "Set script generator..." — point a clip at a named generator (pkg:sym) in the project's
+// system/module and regenerate. Clears any file-based source: a clip is EITHER a source file
+// OR a named generator (project-workflow.md). Runs off the message thread (the kernel fetch
+// blocks) behind the busy overlay; preserves the clip's seed; surfaces any error.
+void MainComponent::setClipGenerator (int trackIdx, int clip, const juce::String& generator,
+                                      const juce::String& system, const juce::String& lang)
+{
+    juce::int64 seed = 0; int id = -1;
+    { const juce::ScopedLock sl (engineLock);
+      if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+      id = tracks[(size_t) trackIdx]->id;
+      auto& cl = tracks[(size_t) trackIdx]->clips;
+      if (! juce::isPositiveAndBelow (clip, (int) cl.size())) return;
+      seed = cl[(size_t) clip].scriptSeed; }
+
+    const auto useLang = lang.isNotEmpty() ? lang : juce::String ("common-lisp");
+    busyOverlay.show ("Generating...");
+    juce::Thread::launch ([this, id, clip, generator, system, useLang, seed]
+    {
+        juce::String err;
+        const bool ok = apiRegenerateClip (id, clip, /*source*/ {}, generator, system, useLang, seed, err);
         juce::MessageManager::callAsync ([this, ok, err]
         {
             busyOverlay.hide();
@@ -6045,6 +6155,7 @@ void MainComponent::showFileMenu()
     menu.addSubMenu ("MIDI Inputs", midiMenu);
     menu.addItem (5, "Rescan Plugins");
     menu.addItem (42, "Connect Emacs to Kernel (Slynk)...");   // warm kernel's Slynk port, for Sly/SLIME
+    menu.addItem (43, "Open Python Notebook...");              // attach a live console to the resident Python kernel
     menu.addSeparator();
     menu.addItem (41, "About Gloopy...");
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
@@ -6082,6 +6193,36 @@ void MainComponent::showFileMenu()
                                     "or with Sly directly:  M-x sly-connect  RET  127.0.0.1  RET  "
                                   + juce::String (port) + "  RET\n\nThe kernel prelude (note, set-generator) is loaded.")
                                : err);
+                    });
+                });
+                return;
+            }
+            if (result == 43)   // Open Python Notebook — attach a live console to the resident Python kernel
+            {
+                busyOverlay.show ("Starting Python kernel...");
+                juce::Thread::launch ([this]
+                {
+                    ensureWarmPythonKernel();
+                    const auto conn = pyKernelConnFile();
+                    // ipykernel writes the connection file once it's up; wait briefly for it to appear.
+                    bool ready = false;
+                    for (int i = 0; i < 100 && ! (ready = conn.existsAsFile()); ++i) juce::Thread::sleep (50);
+                    juce::MessageManager::callAsync ([this, conn, ready]
+                    {
+                        busyOverlay.hide();
+                        const juce::String msg = ready
+                            ? ("The Python kernel is live. Attach a console to this same process:\n\n"
+                               "    jupyter qtconsole --existing " + conn.getFullPathName() + "\n"
+                               "    (or)  jupyter console --existing " + conn.getFullPathName() + "\n\n"
+                               "In it:\n    import gloopy\n    @gloopy.generator\n    def gen(ctx):\n        ...\n\n"
+                               "Redefine the generator and the next Generate / Live pass uses it.")
+                            : ("The Python kernel is serving clips headlessly, but attaching a live notebook needs "
+                               "ipykernel.\n\nInstall it in the interpreter Gloopy launches (python3, or set "
+                               "GLOOPY_PYTHON):\n    pip install ipykernel qtconsole\n\nThen reopen this. "
+                               "(Python clips still generate without it.)");
+                        juce::NativeMessageBox::showMessageBoxAsync (
+                            ready ? juce::MessageBoxIconType::InfoIcon : juce::MessageBoxIconType::WarningIcon,
+                            "Open Python Notebook", msg);
                     });
                 });
                 return;
@@ -6505,9 +6646,11 @@ juce::ValueTree MainComponent::clipToTree (const Clip& c, const juce::Identifier
     if (c.fadeInBeats  > 0.0) cl.setProperty ("fadein",  c.fadeInBeats,  nullptr);
     if (c.fadeOutBeats > 0.0) cl.setProperty ("fadeout", c.fadeOutBeats, nullptr);
     if (c.fadeShape != 0)     cl.setProperty ("fadeshape", c.fadeShape, nullptr);
-    if (c.scriptSource.isNotEmpty())   // script clip: source + seed; the notes below are the cached output
+    if (c.isScript())   // script clip: source file OR named generator + seed (notes below are cached output)
     {
-        cl.setProperty ("script", c.scriptSource, nullptr);
+        if (c.scriptSource.isNotEmpty())    cl.setProperty ("script", c.scriptSource, nullptr);
+        if (c.scriptGenerator.isNotEmpty()) cl.setProperty ("generator", c.scriptGenerator, nullptr);
+        if (c.scriptSystem.isNotEmpty())    cl.setProperty ("scriptsystem", c.scriptSystem, nullptr);
         if (c.scriptLang.isNotEmpty()) cl.setProperty ("scriptlang", c.scriptLang, nullptr);
         if (c.scriptSeed != 0)         cl.setProperty ("scriptseed", (juce::int64) c.scriptSeed, nullptr);
         if (c.scriptLive)              cl.setProperty ("scriptlive", true, nullptr);
@@ -6565,9 +6708,11 @@ Clip MainComponent::clipFromTree (const juce::ValueTree& cl)
     c.fadeInBeats  = (double) cl.getProperty ("fadein", 0.0);
     c.fadeOutBeats = (double) cl.getProperty ("fadeout", 0.0);
     c.fadeShape    = (int) cl.getProperty ("fadeshape", 0);
-    c.scriptSource = cl.getProperty ("script", "").toString();
-    c.scriptLang   = cl.getProperty ("scriptlang", "").toString();
-    c.scriptSeed   = (juce::int64) cl.getProperty ("scriptseed", (juce::int64) 0);
+    c.scriptSource    = cl.getProperty ("script", "").toString();
+    c.scriptGenerator = cl.getProperty ("generator", "").toString();
+    c.scriptSystem    = cl.getProperty ("scriptsystem", "").toString();
+    c.scriptLang      = cl.getProperty ("scriptlang", "").toString();
+    c.scriptSeed      = (juce::int64) cl.getProperty ("scriptseed", (juce::int64) 0);
     c.scriptLive   = (bool) cl.getProperty ("scriptlive", false);
 
     if (c.isAudio() && cl.hasProperty ("afile"))

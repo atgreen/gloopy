@@ -938,6 +938,7 @@ namespace
         {
             juce::String err;
             const bool ok = main.apiRegenerateClip (q->track_id(), q->index(), js (q->script()),
+                                                    js (q->generator()), js (q->system()),
                                                     js (q->lang()), (juce::int64) q->seed(), err);
             r->set_ok (ok); if (! ok) r->set_error (err.toStdString());
             return Status::OK;
@@ -947,6 +948,7 @@ namespace
         {
             juce::String err;
             const bool ok = main.apiStartDriver (q->track_id(), q->index(), js (q->script()),
+                                                 js (q->generator()), js (q->system()),
                                                  js (q->lang()), (juce::int64) q->seed(), err);
             r->set_ok (ok); if (! ok) r->set_error (err.toStdString());
             return Status::OK;
@@ -984,6 +986,8 @@ namespace
                 r->set_key_root (p.keyRoot);
                 r->set_source (p.source.toStdString());
                 r->set_lang (p.lang.toStdString());
+                r->set_generator (p.generator.toStdString());
+                r->set_system (p.system.toStdString());
             }
             return Status::OK;
         }

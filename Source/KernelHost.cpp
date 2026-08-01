@@ -93,3 +93,42 @@ KernelHost::launchServe (int hostPort, juce::String& error)
     { error = "kernel: failed to launch sbcl (is SBCL installed?)"; return {}; }
     return proc;
 }
+
+std::unique_ptr<juce::ChildProcess>
+KernelHost::launchServePython (int hostPort, const juce::String& connFile, juce::String& error)
+{
+    // Locate the `gloopy` package so `-m gloopy._serve` imports in both the dev tree and an
+    // installed build; its grandparent (the `python/` dir) is the import root for PYTHONPATH.
+    const auto serve = findFile ("python/gloopy/_serve.py");
+    if (! serve.existsAsFile()) { error = "kernel: cannot find python/gloopy/_serve.py"; return {}; }
+    const auto pyRoot = serve.getParentDirectory().getParentDirectory();   // .../python
+
+    khUnsetEnv ("GLOOPY_JOB"); khUnsetEnv ("GLOOPY_SWANK"); khUnsetEnv ("GLOOPY_SERVE");
+    khSetEnv ("GLOOPY_HOST_PORT", juce::String (hostPort));
+    khSetEnv ("GLOOPY_KERNEL_HEADLESS", "1");   // the fallback kernel: don't announce (a notebook preempts it)
+    if (connFile.isNotEmpty()) khSetEnv ("GLOOPY_PY_CONNFILE", connFile);
+    else                       khUnsetEnv ("GLOOPY_PY_CONNFILE");
+
+   #if JUCE_WINDOWS
+    const char pathSep = ';';
+    const juce::String defaultPy = "python";
+   #else
+    const char pathSep = ':';
+    const juce::String defaultPy = "python3";
+   #endif
+    // Prepend our import root so the child finds the package (dev tree or installed).
+    juce::String pythonPath = pyRoot.getFullPathName();
+    if (const char* cur = std::getenv ("PYTHONPATH"); cur != nullptr && cur[0] != '\0')
+        pythonPath << pathSep << cur;
+    khSetEnv ("PYTHONPATH", pythonPath);
+
+    // GLOOPY_PYTHON lets a project point at its own interpreter (e.g. a venv); else python3/python.
+    const char* pyEnv = std::getenv ("GLOOPY_PYTHON");
+    const juce::String python = (pyEnv != nullptr && pyEnv[0] != '\0') ? juce::String (pyEnv) : defaultPy;
+
+    juce::StringArray argv { python, "-m", "gloopy._serve" };
+    auto proc = std::make_unique<juce::ChildProcess>();
+    if (! proc->start (argv, juce::ChildProcess::wantStdOut | juce::ChildProcess::wantStdErr))
+    { error = "kernel: failed to launch " + python + " (is Python on PATH?)"; return {}; }
+    return proc;
+}

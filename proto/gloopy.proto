@@ -215,14 +215,19 @@ message AddSurgeTrackRequest   { string name = 1; string patch = 2; } // embedde
 message AddPluginTrackRequest  { string identifier = 1; }                        // PluginInfo.identifier
 message ClipRef            { int32 track_id = 1; int32 index = 2; }
 // Mark a clip as a script clip (source/lang/seed) and (re)generate its notes from the kernel.
-message RegenerateRequest  { int32 track_id = 1; int32 index = 2; string script = 3; string lang = 4; int64 seed = 5; }
+// A clip's generator is EITHER a source file (`script`, a project-relative path) OR a named
+// generator in the project's system/module (`generator`, e.g. "myproject.gens:arp" (py) /
+// "myproject:arp" (lisp); `system` is the ASDF system to load for Lisp). See project-workflow.md.
+message RegenerateRequest  { int32 track_id = 1; int32 index = 2; string script = 3; string lang = 4;
+                             int64 seed = 5; string generator = 6; string system = 7; }
 // A kernel posts generated notes back for a job. The kernel is an ag-grpc CLIENT of this
 // Gloopy service (the proven direction) — it launches, generates, and submits here.
 message KernelSubmitRequest { string job = 1; bool ok = 2; repeated Note notes = 3; string error = 4; }
 message KernelReplInfo      { int32 swank_port = 1; }   // Slynk/SWANK port to attach Sly/SLIME to
 // A generate job handed to a kernel when it long-polls (empty job = poll timed out, retry).
 message KernelJobSpec { string job = 1; double tempo_bpm = 2; double clip_len_beats = 3;
-                        int64 seed = 4; int32 key_root = 5; string source = 6; string lang = 7; }
+                        int64 seed = 4; int32 key_root = 5; string source = 6; string lang = 7;
+                        string generator = 8; string system = 9; }   // named generator (else source file)
 // A kernel polls for work in its own language ("common-lisp", "python") so jobs route to the
 // right runtime — the SBCL kernel and a Python kernel (e.g. a notebook) can coexist.
 message KernelPollRequest { string lang = 1; }

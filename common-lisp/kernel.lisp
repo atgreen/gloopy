@@ -168,6 +168,21 @@
 ;;; clip's file loads once, then Slynk-driven redefinitions (Emacs) drive subsequent generates.
 ;;; Each clip's generator is tracked per source in *generators*, so multiple script clips don't
 ;;; clobber each other.
+(defun resolve-named-generator (name system)
+  "Resolve NAME 'package:symbol' to its function in the live image (loading SYSTEM via ASDF
+   first, if given). This is the idiomatic Lisp path: a clip names a generator, you redefine
+   the function in Sly, and the next generate uses it."
+  (when (and system (plusp (length system)))
+    (ignore-errors (require :asdf) (funcall (find-symbol "LOAD-SYSTEM" "ASDF") system)))
+  (let* ((colon (or (position #\: name) (error "generator ~s is not package:symbol" name)))
+         (sym-start (if (and (< (1+ colon) (length name)) (char= (char name (1+ colon)) #\:))
+                        (+ colon 2) (1+ colon)))        ; accept pkg:sym and pkg::sym
+         (pkg (string-upcase (subseq name 0 colon)))
+         (sym (string-upcase (subseq name sym-start)))
+         (s   (find-symbol sym pkg)))
+    (if (and s (fboundp s)) (symbol-function s)
+        (error "no generator ~a in package ~a (defined it? loaded the system?)" sym pkg))))
+
 (defun process-job (channel spec)
   (let ((ctx (make-instance 'gloopy.pb::gen-context
                             :tempo-bpm (gloopy.pb::tempo-bpm spec)
@@ -175,16 +190,21 @@
                             :seed (gloopy.pb::seed spec)
                             :key-root (gloopy.pb::key-root spec)))
         (source (gloopy.pb::source spec))
+        (gen-name (gloopy.pb::generator spec))
+        (system (gloopy.pb::system spec))
         (ok t) (err "") (notes '()))
     (handler-case
-        (progn
-          (ensure-source-loaded source)
-          (when (and source (plusp (length source)))
-            (setf *last-source* source))               ; so interactive (set-generator ...) attributes here
-          (let ((gen (or (and source (plusp (length source)) (gethash source *generators*))
-                         *generator*
-                         #'default-generate)))
-            (setf notes (funcall gen ctx))))           ; a symbol funcalls its LIVE definition
+        (let ((gen
+                (cond
+                  ((plusp (length gen-name))                  ; named generator in the live image
+                   (resolve-named-generator gen-name system))
+                  (t                                          ; file-based / registered generator
+                   (ensure-source-loaded source)
+                   (when (plusp (length source))
+                     (setf *last-source* source))             ; interactive (set-generator ...) attributes here
+                   (or (and (plusp (length source)) (gethash source *generators*))
+                       *generator* #'default-generate)))))
+          (setf notes (funcall gen ctx)))                     ; a symbol funcalls its LIVE definition
       (error (e) (setf ok nil err (format nil "~a" e))))
     (ignore-errors
       (ag-grpc:call-unary channel "/gloopy.v1.Gloopy/KernelSubmit"

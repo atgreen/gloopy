@@ -517,14 +517,16 @@ public:
     bool apiRemoveClip (int trackId, int index);
     // Mark a clip as a script clip and generate its notes from the language kernel (cave #9).
     bool apiRegenerateClip (int trackId, int index, const juce::String& source,
+                            const juce::String& generator, const juce::String& system,
                             const juce::String& lang, juce::int64 seed, juce::String& error);
     void submitKernelResult (const juce::String& job, bool ok, std::vector<Note> notes, const juce::String& error);
     bool apiKernelPoll (const juce::String& lang, KernelHost::GenParams& params, juce::String& job);   // a kernel long-polls for a job in its language
     void apiKernelReady (int slynkPort);   // warm kernel reports its Slynk port is up (cave #15)
     bool apiStartKernelRepl (int& slynkPort, juce::String& error);   // hand back the warm kernel's Slynk port
     bool fetchKernelNotes (const KernelHost::GenParams& p, std::vector<Note>& out, juce::String& error);
-    bool apiStartDriver (int trackId, int index, const juce::String& source, const juce::String& lang,
-                         juce::int64 seed, juce::String& error);     // live-drive a clip (cave #12)
+    bool apiStartDriver (int trackId, int index, const juce::String& source,
+                         const juce::String& generator, const juce::String& system,
+                         const juce::String& lang, juce::int64 seed, juce::String& error);   // live-drive a clip (cave #12)
     void stopDriver();
     // Script-clip desktop actions (cave #10): clip context menu → edit source / regenerate.
     juce::File   projectDir() const;                 // the project's dir (composition dir, or a scratch dir while untitled)
@@ -548,6 +550,9 @@ public:
     void         editClipScript (int trackIdx, int clip);
     void         regenerateClipScript (int trackIdx, int clip);
     void         driveClipScript (int trackIdx, int clip);
+    // "Set script generator..." — point a clip at a named generator in the project's system/module.
+    void         setClipGenerator (int trackIdx, int clip, const juce::String& generator,
+                                   const juce::String& system, const juce::String& lang);
     bool apiMoveClip (int trackId, int index, double startBeat, bool hasToTrack, int toTrackId);
     int  apiAddAudioClip (int trackId, double startBeat, const juce::String& path, float gain);  // clip index, or -1
 
@@ -944,6 +949,16 @@ private:
     std::atomic<int> kernelSlynkPort { 0 };            // warm kernel's Slynk port, 0 until it reports ready
     void checkWarmKernelHealth();                      // clear a stale indicator + respawn if the kernel died
     juce::uint32 lastKernelSpawnMs { 0 };              // throttles respawns (message thread)
+    // Resident Python kernel (gloopy._serve): the Python twin of the warm SBCL kernel, so Python
+    // clips generate headlessly. Attach-to-live: a notebook attaches to this exact process.
+    std::unique_ptr<juce::ChildProcess> warmPyKernel;
+    std::mutex warmPyKernelMutex;
+    juce::uint32 lastPyKernelSpawnMs { 0 };            // throttles respawns
+    void ensureWarmPythonKernel();                     // launch it if not running (unless opted out)
+    void killWarmPythonKernel();                        // stand the headless kernel down (a notebook took over)
+    juce::File pyKernelConnFile() const;               // Jupyter connection file the notebook attaches to
+    juce::File pyLivePresenceFile() const;             // heartbeat an interactive (notebook) kernel writes
+    bool interactivePyKernelPresent() const;           // is a notebook serving python right now? (fresh heartbeat)
     std::mutex kernelReadyMutex;
     std::condition_variable kernelReadyCv;
     void writeKernelDiscoveryFile (int slynkPort);     // ~/.cache/gloopy/kernel.json for gloopy.el (Sly)

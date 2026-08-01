@@ -690,6 +690,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         m.addItem (19, "Copy notes (JSON)", isMidi);         // notes -> system clipboard as JSON
         m.addItem (21, "Generate from script", isMidi);      // run the clip's script (kernel) -> notes
         m.addItem (22, "Edit script code...", isMidi);       // open the clip's source in $EDITOR
+        m.addItem (25, "Set script generator...", isMidi);   // reference a named generator (pkg:sym) in the project's system/module
         m.addItem (24, "Live (auto-generate on playback)", isScript, isScriptLive);  // re-run the script ~1 bar ahead
         m.addItem (23, "Live-drive from script", isMidi);    // play the script live during playback (ephemeral)
         m.addItem (20, "Rename clip...");                    // set the clip's label
@@ -818,6 +819,34 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             if (r == 19) { if (onClipCommand) onClipCommand (t, c, "copynotes"); return; }   // notes -> clipboard
             if (r == 21) { if (onClipCommand) onClipCommand (t, c, "regenerate"); return; }   // run the clip's script
             if (r == 22) { if (onClipCommand) onClipCommand (t, c, "editcode"); return; }     // edit the clip's source
+            if (r == 25)   // Set script generator: reference a named generator in the project's system/module
+            {
+                juce::String curGen, curSys, curLang;
+                { const juce::ScopedLock sl (engineLock);
+                  if (juce::isPositiveAndBelow (t, (int) tracks.size())
+                      && juce::isPositiveAndBelow (c, (int) tracks[(size_t) t]->clips.size()))
+                  { auto& cl = tracks[(size_t) t]->clips[(size_t) c];
+                    curGen = cl.scriptGenerator; curSys = cl.scriptSystem; curLang = cl.scriptLang; } }
+                if (curLang.isEmpty()) curLang = "common-lisp";
+                auto* gw = new juce::AlertWindow ("Script generator",
+                    "Name a generator in the project's system/module.\n"
+                    "Lisp: pkg:sym (system loaded via ASDF).   Python: pkg.mod:fn.",
+                    juce::MessageBoxIconType::NoIcon);
+                gw->addTextEditor ("generator", curGen, "Generator (pkg:sym)");
+                gw->addTextEditor ("system", curSys, "System / import root (optional)");
+                gw->addTextEditor ("lang", curLang, "Language");
+                gw->addButton ("Set", 1, juce::KeyPress (juce::KeyPress::returnKey));
+                gw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+                gw->enterModalState (true, juce::ModalCallbackFunction::create ([this, gw, t, c] (int rr)
+                {
+                    if (rr == 1 && onSetGenerator)
+                        onSetGenerator (t, c, gw->getTextEditorContents ("generator").trim(),
+                                        gw->getTextEditorContents ("system").trim(),
+                                        gw->getTextEditorContents ("lang").trim());
+                    delete gw;
+                }));
+                return;
+            }
             if (r == 24) { if (onClipCommand) onClipCommand (t, c, "livetoggle"); return; }   // auto-generate ahead of playback
             if (r == 23) { if (onClipCommand) onClipCommand (t, c, "drive"); return; }        // live-drive the clip
             if (r == 20)   // Rename clip: prompt (prefilled with the clip's current name)
@@ -1004,7 +1033,9 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
     else   // create a new 1-bar MIDI clip
     {
         Clip c;
-        c.startBeat      = juce::jmax (0.0, snapToBar (beatForX (p.x)));
+        // Land the clip in the bar the cursor is IN — floor, not snap-to-nearest, so a click in
+        // the second half of a bar doesn't jump the new clip into the next bar (feels misplaced).
+        c.startBeat      = juce::jmax (0.0, std::floor (beatForX (p.x) / beatsPerBar) * beatsPerBar);
         c.lengthBeats    = beatsPerBar;
         c.contentLenBeats = beatsPerBar;
         c.looped         = true;

@@ -24,6 +24,8 @@ public:
         int         clipIndex    { 0 };
         juce::String lang;                   // "common-lisp" (default) or "python"
         juce::String source;                 // source file to load before generating (optional)
+        juce::String generator;              // OR a named generator ("pkg.mod:fn" / "pkg:sym")
+        juce::String system;                 // ASDF system to load for a named Lisp generator (optional)
     };
 
     /** Start the kernel for `job`, generating with `p` and posting results back to
@@ -37,6 +39,14 @@ public:
         hosts a Slynk server for interactive development (cave #15), reporting its port back
         via KernelReady. Returns the running process (keep it alive); null on launch failure. */
     static std::unique_ptr<juce::ChildProcess> launchServe (int hostPort, juce::String& error);
+
+    /** Start the persistent "warm" Python kernel (gloopy._serve): it long-polls Gloopy for
+        Python generate jobs, so Python clips generate headlessly like Lisp ones. If ipykernel
+        is available and `connFile` is given, it runs as a Jupyter kernel bound to that
+        connection file *and* serves jobs from the one process — so a notebook can attach to
+        this exact kernel and edit generators live (attach-to-live). Null on launch failure. */
+    static std::unique_ptr<juce::ChildProcess>
+        launchServePython (int hostPort, const juce::String& connFile, juce::String& error);
 
     static juce::File findFile (const juce::String& relPath);   // locate a repo file (dev tree)
 };

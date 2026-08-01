@@ -1,12 +1,20 @@
 # Live script clips from a Jupyter notebook (Python)
 
-You can drive a running Gloopy from a notebook and — the interesting part — **attach the
-notebook as Gloopy's live Python generator kernel**. Redefine a generator in a cell and a
-[**Live** clip](../../user-guide/how-to/generate-notes-from-code.md) picks it up on the next
-loop, no restart. It's the Python analogue of connecting Emacs to the Lisp kernel: your
-process *is* the live image.
+Gloopy generates Python script clips **headlessly** — it auto-launches its own Python kernel,
+so a `lang="python"` clip generates with nothing extra running (just as it auto-launches SBCL
+for Lisp). You only bring a notebook when you want to *author* generators.
 
-A ready-to-run notebook ships at `python/notebooks/live-clips.ipynb`.
+The interesting part is **attaching a notebook** as the live generator source: redefine a
+generator in a cell and a [**Live** clip](../../user-guide/how-to/generate-notes-from-code.md)
+picks it up on the next loop, no restart. It's the Python analogue of connecting Emacs to the
+Lisp kernel: your process *is* the live image.
+
+Attaching **takes over** from the auto-launched kernel — exactly one Python kernel serves at a
+time, so the two never race. Detach (or close the notebook) and Gloopy resumes generating on
+its own from each clip's cached notes / its headless kernel.
+
+A ready-to-run notebook ships at `python/notebooks/live-clips.ipynb`. (Gloopy also surfaces the
+connect details under **File → Open Python Notebook…**.)
 
 ## Prerequisites
 
@@ -40,6 +48,10 @@ def bassline(ctx):
     return [gloopy.note(root + steps[b % 4], b, 0.9) for b in range(int(ctx.clip_len_beats))]
 ```
 
+The module-level `@gloopy.generator` works too (it attaches on first use), so you needn't keep
+the `k` handle around: `import gloopy` then `@gloopy.generator`. Name a generator —
+`@gloopy.generator("bass")` — to have a clip reference it by name.
+
 ## Generate a clip
 
 ```python
@@ -68,6 +80,11 @@ Gloopy then falls back to each clip's cached notes.
 
 ## How it works
 
+- By default Gloopy runs its **own** headless Python kernel, so clips generate with no notebook
+  at all. When you `attach()`, your process refreshes a heartbeat file and Gloopy **stands its
+  headless kernel down** — one Python kernel serves at a time, so the two never race for a job.
+  Detach (or close the notebook) and the heartbeat goes stale; Gloopy relaunches its headless
+  kernel on the next generate.
 - `gloopy.attach()` long-polls `KernelPoll(lang="python")`; on a job it builds the context,
   calls your registered generator, and posts notes via `KernelSubmit`.
 - The generator lives in your notebook's namespace, so redefining it (re-running the cell) is
