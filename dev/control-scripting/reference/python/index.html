@@ -9367,14 +9367,15 @@ a number of beats or duration shorthand (<code>"q"</code>, <code>"8t"</code>) â€
 
 
 <h3 id="gloopy.client.connect" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">connect</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="s1">&#39;127.0.0.1:50051&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">connect</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.connect" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
     <div class="doc doc-contents ">
 
-        <p>Context-manager sugar: <code>with connect() as g: ...</code>.</p>
+        <p>Context-manager sugar: <code>with connect() as g: ...</code>. <code>target=None</code>
+auto-discovers Gloopy's port (see :class:<code>Gloopy</code>).</p>
 
 
     </div>
