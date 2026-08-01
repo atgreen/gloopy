@@ -32,7 +32,9 @@ Every RPC is a plain function; messages come back as plists.")
    #:add-audio-track #:add-plugin-track #:set-track-params #:set-synth-param
    #:remove-track
    ;; clips
-   #:note #:add-clip #:remove-clip #:move-clip #:add-audio-clip
+   #:note #:seq #:add-clip #:remove-clip #:move-clip #:add-audio-clip
+   ;; music theory (note names, durations, scales, chords)
+   #:pitch #:pitch-name #:dur #:scale #:chord
    ;; mixer / effects
    #:list-inserts #:add-effect #:add-plugin-effect #:remove-effect
    #:set-effect-param #:set-effect-bypass #:effect-params

@@ -183,9 +183,29 @@ ftype cutoff reso fenvamt fattack fdecay fsustain frelease lfotarget lforate lfo
 
 ;;; --- clips ------------------------------------------------------------------
 (defun note (pitch start length &optional (velocity 0.8))
-  "Build a Note for add-clip: MIDI PITCH, START/LENGTH in beats, VELOCITY 0..1."
-  (mk 'gloopy.pb::note :pitch (round pitch) :start-beat (d start)
-      :length-beats (d length) :velocity (s velocity)))
+  "Build a Note for add-clip: PITCH is a MIDI number or a name (\"C#4\"),
+START/LENGTH are in beats (LENGTH also accepts shorthand like \"q\"/\"8t\"),
+VELOCITY 0..1.  See music.lisp for the name/duration helpers."
+  (mk 'gloopy.pb::note :pitch (round (gloopy:pitch pitch)) :start-beat (d start)
+      :length-beats (d (dur length)) :velocity (s velocity)))
+
+(defun seq (steps &key (start 0) (velocity 0.8))
+  "Lay STEPS end-to-end from START and return a list of Notes for add-clip.
+Each step is (PITCH DURATION) or (PITCH DURATION VELOCITY).  A step's duration
+advances the clock whether or not it sounds, so a rest pitch (:rest, nil, or
+\"r\") just leaves a gap:
+
+    (seq '((\"C4\" \"q\") (\"E4\" \"e\") (:rest \"e\") (\"G4\" \"h\")))"
+  (let ((out '()) (tpos start))
+    (dolist (step steps (nreverse out))
+      (destructuring-bind (p d &optional (v velocity)) step
+        (let ((len (dur d)))
+          (unless (or (null p) (eq p :rest)
+                      (and (or (stringp p) (symbolp p))
+                           (member (string-downcase (string p))
+                                   '("r" "rest" "-" "_") :test #'string=)))
+            (push (note p tpos len v) out))
+          (incf tpos len))))))
 
 (defun add-clip (track-id &key (start 0) (length 4) (content 0) (looped t) notes (name ""))
   "Add a MIDI clip of NOTES (from #'note) to TRACK-ID.  CONTENT 0 means = length.

@@ -5,12 +5,17 @@
 Mirrors ``examples/gloopy-grpc.lisp``. The DAW listens on 127.0.0.1:50051;
 structural edits and queries go over gRPC (live notes/knobs are on OSC 9000).
 
-    from gloopy import Gloopy, note
+    from gloopy import Gloopy, note, seq, scale, chord
 
     g = Gloopy()                      # connects to 127.0.0.1:50051
     g.set_tempo(128)
     tid = g.add_synth_track("lead", wave="SAW")
-    g.add_clip(tid, notes=[note(60, 0, 1), note(64, 1, 1), note(67, 2, 2)])
+
+    # Notes are (pitch, start_beat, length_beats). pitch accepts a MIDI int or a
+    # name; length accepts beats or shorthand ("q", "8t"). See gloopy.music for
+    # seq() (lay steps end-to-end, with rests), scale() and chord().
+    g.add_clip(tid, notes=[note(60, 0, 1), note("E4", 1, 1), note("G4", 2, 2)])
+    g.add_clip(tid, notes=seq([("C4","q"), ("E4","e"), (None,"e"), ("G4","h")]))
     g.play()
     ...
     g.render("/tmp/out.wav", tail_seconds=1.0)
@@ -34,11 +39,16 @@ AUTO_TARGETS = {"TRACK_VOL": 0, "TRACK_PAN": 1, "INSERT_VOL": 2,
                 "INSERT_PAN": 3, "EFFECT_PARAM": 4}
 
 
-def note(pitch: int, start_beat: float, length_beats: float,
+def note(pitch, start_beat: float, length_beats,
          velocity: float = 0.8) -> pb.Note:
-    """Build a Note for AddClip. Times are in beats, relative to the clip."""
-    return pb.Note(pitch=pitch, start_beat=start_beat,
-                   length_beats=length_beats, velocity=velocity)
+    """Build a Note for AddClip. Times are in beats, relative to the clip.
+
+    ``pitch`` accepts a MIDI int or a name (``"C#4"``); ``length_beats`` accepts
+    a number of beats or duration shorthand (``"q"``, ``"8t"``) — see
+    ``gloopy.music``."""
+    from .music import pitch as _pitch, dur as _dur
+    return pb.Note(pitch=_pitch(pitch), start_beat=start_beat,
+                   length_beats=_dur(length_beats), velocity=velocity)
 
 
 def _wave(w) -> int:

@@ -37,6 +37,7 @@
   :serial t
   :pathname "src"
   :components ((:file "packages")
+               (:file "music")
                (:file "proto")
                (:file "grpc")
                (:file "osc"))

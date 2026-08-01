@@ -7,6 +7,10 @@ generated from ``proto/gloopy.proto`` (regenerate with ``python/gen.sh``).
 """
 from .client import Gloopy, connect, note, WAVEFORMS, EFFECTS, AUTO_TARGETS
 from .live import attach, LiveKernel
+from .music import (pitch, pitch_name, dur, scale, chord, seq, REST,
+                    SCALES, CHORDS)
 
 __all__ = ["Gloopy", "connect", "note", "WAVEFORMS", "EFFECTS", "AUTO_TARGETS",
-           "attach", "LiveKernel"]
+           "attach", "LiveKernel",
+           "pitch", "pitch_name", "dur", "scale", "chord", "seq", "REST",
+           "SCALES", "CHORDS"]

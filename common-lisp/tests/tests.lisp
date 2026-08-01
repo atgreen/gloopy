@@ -84,10 +84,52 @@
   (is (= 2 (gloopy::fx-int :delay)))
   (signals error (gloopy::fx-int :bogus)))
 
+;;; --- music theory: note names, durations, scales, chords --------------------
+(test music-pitch-names
+  (is (= 60 (gloopy:pitch "C4")))
+  (is (= 60 (gloopy:pitch "C")))                 ; octave defaults to 4
+  (is (= 61 (gloopy:pitch "C#4")))
+  (is (= 61 (gloopy:pitch "Db4")))               ; enharmonic
+  (is (= 0  (gloopy:pitch "C-1")))
+  (is (= 127 (gloopy:pitch "G9")))
+  (is (= 60 (gloopy:pitch 60)))                  ; int passes through
+  (is (string= "C#4" (gloopy:pitch-name 61)))
+  (is (string= "C4"  (gloopy:pitch-name 60)))
+  (signals error (gloopy:pitch "H4")))
+
+(test music-durations
+  (is (= 1 (gloopy:dur "q")))
+  (is (= 1/2 (gloopy:dur "8")))
+  (is (= 4 (gloopy:dur "w")))
+  (is (= 3/2 (gloopy:dur "q.")))                 ; dotted
+  (is (= 7/4 (gloopy:dur "q..")))                ; double-dotted
+  (is (= 1/3 (gloopy:dur "8t")))                 ; triplet
+  (is (= 0.25 (gloopy:dur 0.25)))                ; number passes through
+  (signals error (gloopy:dur "z")))
+
+(test music-scales-chords
+  (is (equal '(60 62 64 65 67 69 71) (gloopy:scale "C4" :major)))
+  (is (equal '(60 63 65 67 70) (gloopy:scale "C4" :pentatonic-minor)))
+  (is (= 14 (length (gloopy:scale "C4" :major 2))))
+  (is (equal '(60 64 67 71) (gloopy:chord "C4" :maj7)))
+  (is (equal '(60 63 67) (gloopy:chord "C4" :min)))
+  (is (equal '(64 67 72) (gloopy:chord "C4" :maj 1)))   ; first inversion
+  (signals error (gloopy:scale "C4" :bogus))
+  (signals error (gloopy:chord "C4" :bogus)))
+
+(test music-seq
+  ;; rests advance the clock without emitting a note; 3 notes from 4 steps
+  (let ((ns (gloopy:seq '(("C4" "q") ("E4" "e") (:rest "e") ("G4" "h")))))
+    (is (= 3 (length ns)))
+    (is (= 60 (gloopy.pb::pitch (first ns))))
+    (is (= 2.0d0 (gloopy.pb::start-beat (third ns))))   ; G4 after C4(1)+E4(.5)+rest(.5)
+    (is (= 2.0d0 (gloopy.pb::length-beats (third ns))))))
+
 ;;; --- packages export what we advertise --------------------------------------
 (test public-api-present
   (dolist (sym '("CONNECT" "DISCONNECT" "PLAY" "STOP" "ADD-SYNTH-TRACK"
-                 "ADD-CLIP" "NOTE" "SUBSCRIBE" "RENDER"))
+                 "ADD-CLIP" "NOTE" "SEQ" "PITCH" "PITCH-NAME" "DUR" "SCALE"
+                 "CHORD" "SUBSCRIBE" "RENDER"))
     (is (eq :external (nth-value 1 (find-symbol sym :gloopy)))
         "GLOOPY should export ~a" sym))
   (dolist (sym '("CONNECT" "NOTE-ON" "NOTE-OFF" "CC" "VOL" "PAN" "MUTE"
