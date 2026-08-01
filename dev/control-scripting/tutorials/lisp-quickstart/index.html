@@ -2280,6 +2280,8 @@
       
         
       
+        
+      
     
     
     
@@ -2335,6 +2337,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/describing-notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Describing notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -2680,6 +2710,12 @@ directory are on the source-registry), load the system, and enter the package:</
 <strong>stable <code>id</code></strong> — every later call refers to the track by that id. The <code>note</code>
 helper is just <code>(note pitch start-beat length-beats &amp;optional (velocity 0.8))</code>,
 with beats and velocity as its arguments.</p>
+<div class="admonition tip">
+<p class="admonition-title">Note names, not just numbers</p>
+<p><code>pitch</code> also takes a name, and <code>length</code> a shorthand — <code>(note "E4" 1 "q")</code>.
+For a whole melody in one line there's <code>(mini "c4q e g c5")</code>, plus <code>seq</code>,
+<code>scale</code> and <code>chord</code>. See <a href="../../reference/describing-notes/">Describing notes</a>.</p>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Why the clip loops</p>
 <p>You gave four beats of notes; on a longer arrangement the clip <strong>loops</strong> by

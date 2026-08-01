@@ -2258,6 +2258,8 @@
       
         
       
+        
+      
     
     
     
@@ -2313,6 +2315,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/describing-notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Describing notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -2596,6 +2626,13 @@
 <p><strong>Goal:</strong> you generated a melody, drum pattern, or whole part in code (an
 algorithm, an ML model, a script) and want it as a clip in Gloopy. Instead of
 firing hundreds of note-adds, hand Gloopy the notes as <strong>JSON</strong> in one call.</p>
+<div class="admonition tip">
+<p class="admonition-title">Generating in Python or Lisp? You may not need JSON</p>
+<p>JSON import shines when the notes come from <strong>another process or language</strong>.
+If you're generating <em>in</em> the Python or Lisp client, build a note list with
+<code>note</code>, <code>seq</code>, <code>mini</code>, <code>scale</code> or <code>chord</code> and pass it straight to <code>add_clip</code>
+— no JSON round-trip. See <a href="../../reference/describing-notes/">Describing notes</a>.</p>
+</div>
 <h2 id="the-note-format">The note format<a class="headerlink" href="#the-note-format" title="Permanent link">&para;</a></h2>
 <p>A sequence is a JSON <strong>array of notes</strong>, each a small object:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">[</span>

@@ -2167,6 +2167,8 @@
       
         
       
+        
+      
     
     
     
@@ -2222,6 +2224,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../describing-notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Describing notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -2446,6 +2476,17 @@
     <span class="md-ellipsis">
       
         Clips
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#note-names-durations-scales-chords" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Note names, durations, scales &amp; chords
       
     </span>
   </a>
@@ -2750,6 +2791,17 @@
     <span class="md-ellipsis">
       
         Clips
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#note-names-durations-scales-chords" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Note names, durations, scales &amp; chords
       
     </span>
   </a>
@@ -3124,7 +3176,15 @@ frelease lfotarget lforate lfodepth</code>.</p>
 <tbody>
 <tr>
 <td><code>(note pitch start length &amp;optional (velocity 0.8))</code></td>
-<td>Build a note for <code>add-clip</code>: MIDI <code>pitch</code>, <code>start</code>/<code>length</code> in beats, <code>velocity</code> 0–1.</td>
+<td>Build a note for <code>add-clip</code>: <code>pitch</code> a MIDI number or a name (<code>"C#4"</code>), <code>start</code>/<code>length</code> in beats (<code>length</code> also takes a <code>dur</code> code), <code>velocity</code> 0–1.</td>
+</tr>
+<tr>
+<td><code>(seq steps &amp;key (start 0) (velocity 0.8))</code></td>
+<td>Lay <code>(pitch duration)</code> steps end-to-end; a <code>:rest</code>/<code>nil</code>/<code>"r"</code> pitch leaves a gap. Returns a list of notes.</td>
+</tr>
+<tr>
+<td><code>(mini string &amp;key (start 0) (velocity 0.8))</code></td>
+<td>Parse <a href="../describing-notes/#mini-the-mini-notation-string">mini-notation</a> into a list of notes.</td>
 </tr>
 <tr>
 <td><code>(add-clip track-id &amp;key (start 0) (length 4) (content 0) (looped t) notes (name ""))</code></td>
@@ -3141,6 +3201,40 @@ frelease lfotarget lforate lfodepth</code>.</p>
 <tr>
 <td><code>(move-clip track-id index start &amp;key to-track)</code></td>
 <td>Move a clip along its track, or <code>:to-track</code> another track.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="note-names-durations-scales-chords">Note names, durations, scales &amp; chords<a class="headerlink" href="#note-names-durations-scales-chords" title="Permanent link">&para;</a></h3>
+<p>Pure client-side helpers for building notes musically. Full syntax — pitch
+names, duration codes, scale and chord tables, the mini-notation grammar — is in
+<a href="../describing-notes/">Describing notes</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>(pitch name-or-midi)</code></td>
+<td>MIDI number for a name (<code>"C#4"</code>, <code>"Eb3"</code>; default octave 4); ints pass through.</td>
+</tr>
+<tr>
+<td><code>(pitch-name midi)</code></td>
+<td>Sharp-spelled name for a MIDI number (<code>61</code> → <code>"C#4"</code>).</td>
+</tr>
+<tr>
+<td><code>(dur code)</code></td>
+<td>Beats for a duration code (<code>"q"</code> <code>"h"</code> <code>"w"</code> <code>"e"</code> <code>"s"</code>, dotted <code>"q."</code>, triplet <code>"8t"</code>); numbers pass through.</td>
+</tr>
+<tr>
+<td><code>(scale root &amp;optional (name :major) (octaves 1))</code></td>
+<td>List of MIDI pitches of a named scale from <code>root</code>.</td>
+</tr>
+<tr>
+<td><code>(chord root &amp;optional (quality :maj) (inversion 0))</code></td>
+<td>List of MIDI pitches of a chord above <code>root</code>.</td>
 </tr>
 </tbody>
 </table>

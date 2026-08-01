@@ -2283,6 +2283,8 @@
       
         
       
+        
+      
     
     
     
@@ -2335,6 +2337,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../control-scripting/reference/describing-notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Describing notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -2663,6 +2693,13 @@ generative pattern, a seeded variation — instead of drawing them by hand. This
 <p><code>note</code> takes <code>(pitch start length &amp;optional velocity)</code> — start and length in <strong>beats
 within the clip</strong>. <code>ctx</code> gives you the clip length, key, and a per-clip <strong>seed</strong> for
 repeatable randomness.</p>
+<div class="admonition tip">
+<p class="admonition-title">Name notes musically</p>
+<p><code>pitch</code> accepts names (<code>"C#4"</code>) and <code>length</code> duration codes (<code>"q"</code>), and
+<code>scale</code>, <code>chord</code>, <code>seq</code> and <code>mini</code> build note lists for you — e.g.
+<code>(seq '(("C4" "q") ("Eb4" "q") ("G4" "h")))</code> or <code>(mini "c4q eb g4h")</code>.
+See <a href="../../../control-scripting/reference/describing-notes/">Describing notes</a>.</p>
+</div>
 </li>
 <li>
 <p>Save the file.</p>
