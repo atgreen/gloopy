@@ -15,9 +15,10 @@ tagged release.
 
 ## [0.1.3] - 2026-08-01
 
-Notebook-driven live coding and a musical vocabulary for the clients: a Python
-(Jupyter) live kernel alongside the Lisp one, note-name / scale / chord /
-mini-notation helpers, and the script-clip kernels now bundled in the packages.
+Notebook-driven live coding and a musical vocabulary for the clients: a headless
+Python kernel (with attach-to-live notebooks) beside the Lisp one, note-name /
+scale / chord / mini-notation helpers, named generators and self-contained
+"song-as-repo" projects, and the script-clip kernels now bundled in the packages.
 
 ### Added
 - **Musical note helpers in the Python and Common Lisp clients.** A pure,
@@ -31,18 +32,44 @@ mini-notation helpers, and the script-clip kernels now bundled in the packages.
 - The script-clip **kernels are now shipped in the packages** (`share/gloopy/`), and the
   Emacs helper `gloopy.el` installs into Emacs's `site-lisp` — so script clips and
   `M-x gloopy-connect` work from an installed Gloopy, not just a source checkout.
+- **Python script clips generate headlessly, out of the box.** Gloopy now auto-launches a
+  resident Python kernel — the twin of the warm SBCL kernel — so a Python-language clip
+  generates with zero setup instead of hanging until a notebook attaches. The same kernel
+  can run as a Jupyter kernel (*attach-to-live*): a notebook attaches to that exact process
+  and edits its generators live, the Python analogue of Emacs attaching to the SBCL image
+  over Slynk. One Python kernel serves at a time — a notebook that runs `gloopy.attach()`
+  preempts the headless one, so no two race for a job. *File → Open Python Notebook…* ensures
+  the kernel and shows the `jupyter console --existing` command.
 - **Live script clips from a Jupyter notebook (Python).** `gloopy.attach()` connects a
   notebook/REPL as Gloopy's live Python generator kernel — register a generator with
   `@k.generator`, and redefining it in a cell is picked up on the next generate (and by
   **Live** clips a bar ahead of playback), the Python analogue of the Emacs/Sly live-image
   loop. Generate jobs are now **routed by language**, so a Python kernel and the SBCL kernel
   coexist. See `python/notebooks/live-clips.ipynb`.
+- **Clips can be driven by a named generator.** Instead of each script clip carrying its own
+  source file, a clip can name a generator in the project's package/module
+  (`myproject.gens:arp` in Python, `myproject:arp` in Lisp, with an optional system/import
+  root to load first), so one reusable generator can drive several clips. Assign one from the
+  desktop via the arrangement clip's **Set script generator…** menu item; a clip is either a
+  source file or a named generator (setting one clears the other, preserving the seed).
+- **Compositions are self-contained, reproducible "song-as-repo" folders.** A clip's
+  generator source now lives inside the project (`<project>/scripts/`, stored as a
+  project-relative path) rather than a global directory, and saving copies each clip's script
+  into the folder — so a cloned composition carries every source needed to regenerate its
+  clips. The composition `.gitignore` now excludes the heavy, platform-specific installed
+  environments (`.venv/`, ocicl systems, `__pycache__`, `.ipynb_checkpoints`) while keeping
+  authored `scripts/` and lockfiles committed, and a starter `README.md` is written on first
+  save.
 
 ### Fixed
 - The status bar's "λ Slynk" kernel indicator now clears when the resident kernel is
   killed or crashes (previously it stayed stale), and the warm kernel is automatically
   respawned — so the indicator drops and then returns with the new port. The stale
   discovery file is removed too, so Emacs won't try to attach to a dead port.
+- Clicking to create a clip now lands it in the bar you clicked. Click-to-create rounded to
+  the nearest bar, so a click in the second half of a bar jumped the new clip into the next
+  one; it now floors to the bar under the cursor (drag/resize/loop snapping still rounds to
+  nearest).
 
 ### Changed
 - Internal: removed the vestigial `Kernel` gRPC service from the proto (the abandoned
