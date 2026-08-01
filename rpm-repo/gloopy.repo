@@ -1,5 +1,5 @@
 [gloopy]
-name=Gloopy - scriptable composition-as-repo DAW
+name=Gloopy - scriptable composition-as-code DAW
 baseurl=https://atgreen.github.io/gloopy/rpm-repo
 enabled=1
 gpgcheck=1
