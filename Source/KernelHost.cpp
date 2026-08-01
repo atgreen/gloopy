@@ -23,6 +23,43 @@ namespace
         ::unsetenv (name);
        #endif
     }
+
+    // A stable, writable working directory for kernel child processes. The desktop
+    // launcher starts Gloopy in "/", which the user can't write to; the SBCL kernel
+    // loads ocicl from ~/.sbclrc, which registers the *current directory* as its
+    // source-registry and wants to fetch/compile systems there — so in "/" it fails
+    // and the kernel dies before it can load ag-grpc/Slynk. Launch kernels in a
+    // per-user cache dir instead of inheriting Gloopy's cwd. Persistent (not a temp
+    // dir) so the ocicl systems + fasl cache survive across launches.
+    juce::File kernelWorkingDir()
+    {
+        auto dir = juce::File::getSpecialLocation (juce::File::userHomeDirectory)
+                       .getChildFile (".cache/gloopy/kernel");
+        dir.createDirectory();
+        return dir.isDirectory() ? dir
+                                 : juce::File::getSpecialLocation (juce::File::tempDirectory);
+    }
+
+    // Wrap argv so the child runs in `dir`. JUCE's ChildProcess inherits the parent's
+    // cwd and offers no override, so on POSIX we exec through `sh -c`, which cds first
+    // then `exec`s the real command in the same pid (so JUCE still tracks/kills it).
+    // Positional args ($1 = dir, then the command) sidestep hand-quoting the paths.
+    juce::StringArray inDir (const juce::File& dir, const juce::StringArray& argv)
+    {
+       #if JUCE_WINDOWS
+        juce::ignoreUnused (dir);
+        return argv;                     // the cwd="/" landmine is POSIX/desktop-specific
+       #else
+        juce::StringArray wrapped;
+        wrapped.add ("/bin/sh");
+        wrapped.add ("-c");
+        wrapped.add ("cd \"$1\" || exit 1; shift; exec \"$@\"");
+        wrapped.add ("gloopy-kernel");   // $0
+        wrapped.add (dir.getFullPathName());
+        wrapped.addArray (argv);
+        return wrapped;
+       #endif
+    }
 }
 
 juce::File KernelHost::findFile (const juce::String& relPath)
@@ -70,7 +107,7 @@ KernelHost::launchGenerate (const juce::String& job, const GenParams& p, int hos
         ? juce::StringArray { "python3", kernel.getFullPathName() }
         : juce::StringArray { "sbcl", "--non-interactive", "--load", kernel.getFullPathName() };
     auto proc = std::make_unique<juce::ChildProcess>();
-    if (! proc->start (argv, juce::ChildProcess::wantStdOut | juce::ChildProcess::wantStdErr))
+    if (! proc->start (inDir (kernelWorkingDir(), argv), juce::ChildProcess::wantStdOut | juce::ChildProcess::wantStdErr))
     { error = "kernel: failed to launch sbcl (is SBCL installed?)"; return {}; }
     return proc;
 }
@@ -89,7 +126,7 @@ KernelHost::launchServe (int hostPort, juce::String& error)
 
     juce::StringArray argv { "sbcl", "--non-interactive", "--load", kernel.getFullPathName() };
     auto proc = std::make_unique<juce::ChildProcess>();
-    if (! proc->start (argv, juce::ChildProcess::wantStdOut | juce::ChildProcess::wantStdErr))
+    if (! proc->start (inDir (kernelWorkingDir(), argv), juce::ChildProcess::wantStdOut | juce::ChildProcess::wantStdErr))
     { error = "kernel: failed to launch sbcl (is SBCL installed?)"; return {}; }
     return proc;
 }
@@ -128,7 +165,7 @@ KernelHost::launchServePython (int hostPort, const juce::String& connFile, juce:
 
     juce::StringArray argv { python, "-m", "gloopy._serve" };
     auto proc = std::make_unique<juce::ChildProcess>();
-    if (! proc->start (argv, juce::ChildProcess::wantStdOut | juce::ChildProcess::wantStdErr))
+    if (! proc->start (inDir (kernelWorkingDir(), argv), juce::ChildProcess::wantStdOut | juce::ChildProcess::wantStdErr))
     { error = "kernel: failed to launch " + python + " (is Python on PATH?)"; return {}; }
     return proc;
 }
