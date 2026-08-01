@@ -45,6 +45,30 @@ server you may already use."
   :type 'string
   :group 'gloopy)
 
+(defcustom gloopy-repl-package "GLOOPY-KERNEL"
+  "Package a fresh Gloopy REPL switches to on connect.
+This is the package a clip's generator is loaded into, so you land where
+your generators live instead of in CL-USER."
+  :type 'string
+  :group 'gloopy)
+
+(defcustom gloopy-replace-banner t
+  "When non-nil, replace SLY's startup banner with a Gloopy one in Gloopy REPLs."
+  :type 'boolean
+  :group 'gloopy)
+
+(defconst gloopy--repl-banner
+  (concat
+   ";; ================= Gloopy kernel =================\n"
+   ";;  You're attached to the live image that generates\n"
+   ";;  your clips. Redefine a generator and re-run the\n"
+   ";;  clip — no restart. You start in the project package.\n"
+   ";; ================================================\n\n")
+  "Banner inserted at the top of a fresh Gloopy REPL.")
+
+(defvar gloopy--connection nil
+  "The Sly connection `gloopy-connect' opened, so REPL setup only touches ours.")
+
 (defun gloopy--runtime-dir ()
   "Directory Gloopy shares its discovery/presence files in."
   (let ((xdg (getenv "XDG_RUNTIME_DIR")))
@@ -86,9 +110,33 @@ Signals a clear error if Gloopy is not running or Sly is unavailable."
     (let ((port (alist-get 'slynk_port info)))
       (unless (and (integerp port) (> port 0))
         (user-error "Gloopy kernel has no Slynk port yet; wait for the kernel to warm up"))
-      (funcall (intern "sly-connect") "127.0.0.1" port)
+      (setq gloopy--connection (funcall (intern "sly-connect") "127.0.0.1" port))
       (gloopy-mode 1)
       (message "gloopy: connected to kernel Slynk on 127.0.0.1:%d" port))))
+
+(defun gloopy--setup-repl ()
+  "Set up a fresh Gloopy MREPL: Gloopy banner, and start in `gloopy-repl-package'.
+Run from `sly-mrepl-hook'.  Only touches the REPL of the connection
+`gloopy-connect' opened, so it never disturbs other Sly REPLs."
+  (when (and gloopy--connection
+             (fboundp 'sly-current-connection)
+             (eq (sly-current-connection) gloopy--connection))
+    (when gloopy-replace-banner
+      (let ((inhibit-read-only t))
+        (save-excursion
+          (goto-char (point-min))
+          ;; Drop SLY's sylvester banner (everything above its "; SLY" note), if present.
+          (if (re-search-forward "^;+ +SLY " nil t)
+              (delete-region (point-min) (line-beginning-position))
+            (goto-char (point-min)))
+          (goto-char (point-min))
+          (insert gloopy--repl-banner))))
+    (when (fboundp 'sly-mrepl--eval-for-repl)
+      (ignore-errors
+        (sly-mrepl--eval-for-repl
+         `(slynk-mrepl:guess-and-set-package ,gloopy-repl-package))))))
+
+(add-hook 'sly-mrepl-hook #'gloopy--setup-repl)
 
 (defun gloopy-disconnect ()
   "Turn off `gloopy-mode' (stop advertising this Emacs to Gloopy).
