@@ -20,6 +20,7 @@ Jobs are routed by language, so this coexists with Gloopy's own SBCL kernel.
 """
 from __future__ import annotations
 
+import os
 import threading
 import time
 import traceback
@@ -58,8 +59,39 @@ class LiveKernel:
         self._generators: dict[str, Generator] = {}   # named generators (clip references them by name)
         self._stop = threading.Event()
         self._last_error: str | None = None
+        # An *interactive* kernel (a notebook) announces itself with a heartbeat file so Gloopy
+        # stands its own auto-launched headless kernel down — exactly one Python kernel serves at
+        # a time, so the two never race for the same jobs. The headless kernel Gloopy launches
+        # sets GLOOPY_KERNEL_HEADLESS=1 and stays silent (it's the fallback, not the announcer).
+        self._headless = bool(os.environ.get("GLOOPY_KERNEL_HEADLESS"))
         self._thread = threading.Thread(target=self._serve, name="gloopy-live-kernel", daemon=True)
         self._thread.start()
+        if not self._headless:
+            threading.Thread(target=self._heartbeat, name="gloopy-live-heartbeat", daemon=True).start()
+
+    @staticmethod
+    def _presence_file() -> str:
+        """The heartbeat file Gloopy watches; same dir as its kernel discovery file."""
+        base = os.environ.get("XDG_RUNTIME_DIR") or os.path.join(os.path.expanduser("~"), ".cache")
+        return os.path.join(base, "gloopy", "py-kernel.live")
+
+    def _heartbeat(self) -> None:
+        p = self._presence_file()
+        try:
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+        except OSError:
+            return
+        while not self._stop.is_set():
+            try:
+                with open(p, "w") as f:
+                    f.write(str(os.getpid()))
+            except OSError:
+                pass
+            self._stop.wait(1.0)
+        try:
+            os.remove(p)   # detach/exit: let Gloopy relaunch its headless kernel
+        except OSError:
+            pass
 
     # -- registration ------------------------------------------------------
     def generator(self, fn_or_name=None):

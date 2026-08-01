@@ -2534,6 +2534,27 @@ juce::File MainComponent::pyKernelConnFile() const
     return kernelDiscoveryFile().getParentDirectory().getChildFile ("py-kernel.json");
 }
 
+// Heartbeat file an *interactive* Python kernel (a notebook that ran gloopy.attach()) refreshes
+// ~1x/sec. Its presence means a notebook owns Python generation, so Gloopy stands its own
+// headless kernel down — one Python kernel serves at a time, never two racing for a job.
+juce::File MainComponent::pyLivePresenceFile() const
+{
+    return kernelDiscoveryFile().getParentDirectory().getChildFile ("py-kernel.live");
+}
+
+bool MainComponent::interactivePyKernelPresent() const
+{
+    const auto f = pyLivePresenceFile();
+    return f.existsAsFile()
+        && juce::Time::getCurrentTime().toMilliseconds() - f.getLastModificationTime().toMilliseconds() < 5000;
+}
+
+void MainComponent::killWarmPythonKernel()
+{
+    const std::lock_guard<std::mutex> lk (warmPyKernelMutex);
+    if (warmPyKernel != nullptr) { if (warmPyKernel->isRunning()) warmPyKernel->kill(); warmPyKernel.reset(); }
+}
+
 // Launch the resident Python kernel if it isn't running (unless opted out via GLOOPY_NO_KERNEL).
 // The Python twin of ensureWarmKernel: Python clips generate headlessly, and a notebook can
 // attach to this same process. Respawns are throttled so a missing interpreter doesn't hot-loop.
@@ -2574,6 +2595,14 @@ void MainComponent::checkWarmKernelHealth()
     }
     if (died && juce::Time::getMillisecondCounter() - lastKernelSpawnMs > 3000)
         ensureWarmKernel();   // bring it back (throttled); it re-reports ready and re-shows the port
+
+    // If a notebook has taken over Python generation (fresh heartbeat), stand our headless Python
+    // kernel down so the two never race for jobs. It relaunches on demand once the notebook detaches.
+    if (interactivePyKernelPresent())
+    {
+        const std::lock_guard<std::mutex> lk (warmPyKernelMutex);
+        if (warmPyKernel != nullptr) { if (warmPyKernel->isRunning()) warmPyKernel->kill(); warmPyKernel.reset(); }
+    }
 }
 
 // A kernel long-polls here for the next generate job in ITS language, so the SBCL kernel and a
@@ -2609,8 +2638,12 @@ bool MainComponent::apiKernelPoll (const juce::String& lang, KernelHost::GenPara
 // job may wait for the kernel's one-time proto compile; after that it's instant.
 bool MainComponent::fetchKernelNotes (const KernelHost::GenParams& p, std::vector<Note>& out, juce::String& error)
 {
-    if (p.lang == "python") ensureWarmPythonKernel();   // both kernels are auto-launched now (attach-to-live)
-    else                    ensureWarmKernel();
+    if (p.lang == "python")
+    {
+        if (interactivePyKernelPresent()) killWarmPythonKernel();   // a notebook owns python; don't compete
+        else                              ensureWarmPythonKernel();  // else auto-launch the headless fallback
+    }
+    else ensureWarmKernel();
 
     const auto job = juce::Uuid().toDashedString();
     auto j = std::make_shared<KernelJob>();

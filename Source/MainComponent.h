@@ -955,7 +955,10 @@ private:
     std::mutex warmPyKernelMutex;
     juce::uint32 lastPyKernelSpawnMs { 0 };            // throttles respawns
     void ensureWarmPythonKernel();                     // launch it if not running (unless opted out)
+    void killWarmPythonKernel();                        // stand the headless kernel down (a notebook took over)
     juce::File pyKernelConnFile() const;               // Jupyter connection file the notebook attaches to
+    juce::File pyLivePresenceFile() const;             // heartbeat an interactive (notebook) kernel writes
+    bool interactivePyKernelPresent() const;           // is a notebook serving python right now? (fresh heartbeat)
     std::mutex kernelReadyMutex;
     std::condition_variable kernelReadyCv;
     void writeKernelDiscoveryFile (int slynkPort);     // ~/.cache/gloopy/kernel.json for gloopy.el (Sly)

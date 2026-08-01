@@ -105,6 +105,7 @@ KernelHost::launchServePython (int hostPort, const juce::String& connFile, juce:
 
     khUnsetEnv ("GLOOPY_JOB"); khUnsetEnv ("GLOOPY_SWANK"); khUnsetEnv ("GLOOPY_SERVE");
     khSetEnv ("GLOOPY_HOST_PORT", juce::String (hostPort));
+    khSetEnv ("GLOOPY_KERNEL_HEADLESS", "1");   // the fallback kernel: don't announce (a notebook preempts it)
     if (connFile.isNotEmpty()) khSetEnv ("GLOOPY_PY_CONNFILE", connFile);
     else                       khUnsetEnv ("GLOOPY_PY_CONNFILE");
 
