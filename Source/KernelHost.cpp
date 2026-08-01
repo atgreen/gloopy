@@ -24,20 +24,121 @@ namespace
        #endif
     }
 
-    // A stable, writable working directory for kernel child processes. The desktop
-    // launcher starts Gloopy in "/", which the user can't write to; the SBCL kernel
-    // loads ocicl from ~/.sbclrc, which registers the *current directory* as its
-    // source-registry and wants to fetch/compile systems there — so in "/" it fails
-    // and the kernel dies before it can load ag-grpc/Slynk. Launch kernels in a
-    // per-user cache dir instead of inheriting Gloopy's cwd. Persistent (not a temp
-    // dir) so the ocicl systems + fasl cache survive across launches.
-    juce::File kernelWorkingDir()
+    // The shared per-user cache root for everything the kernels need: SBCL fasls
+    // (<root>/common-lisp), ocicl's global system collection (<root>/ocicl), and the
+    // Python venv (<root>/python). Pinning these here — off the user's global setup and
+    // off the launch cwd — keeps the kernels self-contained and makes repeat launches
+    // fast: deps are fetched/compiled once and reused.
+    juce::File gloopyCacheDir()
     {
         auto dir = juce::File::getSpecialLocation (juce::File::userHomeDirectory)
-                       .getChildFile (".cache/gloopy/kernel");
+                       .getChildFile (".cache/gloopy");
+        dir.createDirectory();
+        return dir;
+    }
+
+    // A stable, writable working directory for kernel child processes. The desktop
+    // launcher starts Gloopy in "/", which the user can't write to; the SBCL kernel
+    // loads ocicl from ~/.sbclrc, which registers the *current directory* as a
+    // source-registry — so in "/" it fails and the kernel dies before loading
+    // ag-grpc/Slynk. Launch kernels here instead of inheriting Gloopy's cwd.
+    juce::File kernelWorkingDir()
+    {
+        auto dir = gloopyCacheDir().getChildFile ("kernel");
         dir.createDirectory();
         return dir.isDirectory() ? dir
                                  : juce::File::getSpecialLocation (juce::File::tempDirectory);
+    }
+
+    // Run after ~/.sbclrc (which loads ocicl-runtime) but before the kernel file: flip
+    // ocicl into global mode (the `-g`/`--global` behaviour) so deps resolve to and
+    // install into <root>/ocicl regardless of cwd or any local ocicl.csv. Guarded, so a
+    // plain SBCL with no ocicl just no-ops.
+    const char* const kOciclForceGlobal =
+        "(when (find-package :ocicl-runtime)"
+        " (setf (symbol-value (find-symbol \"*FORCE-GLOBAL*\" :ocicl-runtime)) t))";
+
+    // The SBCL kernel command. Pin ASDF fasls (XDG_CACHE_HOME -> <root>/common-lisp) and
+    // ocicl's global system collection (XDG_DATA_HOME -> <root>/ocicl) via an `env` prefix
+    // — scoped to the child, NOT set on Gloopy's own process — then force ocicl global mode
+    // before loading the kernel. (~/.sbclrc loads ocicl-runtime by absolute path, so
+    // redirecting XDG_DATA_HOME doesn't disturb the runtime load.) The env prefix is
+    // POSIX-only; the cwd/ocicl issue it addresses is desktop-Linux/macOS-specific.
+    juce::StringArray lispKernelArgv (const juce::File& kernel)
+    {
+        juce::StringArray a;
+       #if ! JUCE_WINDOWS
+        const auto root = gloopyCacheDir().getFullPathName();
+        a.add ("env");
+        a.add ("XDG_CACHE_HOME=" + root);
+        a.add ("XDG_DATA_HOME=" + root);
+       #endif
+        a.add ("sbcl");
+        a.add ("--non-interactive");
+        a.add ("--eval");
+        a.add (kOciclForceGlobal);
+        a.add ("--load");
+        a.add (kernel.getFullPathName());
+        return a;
+    }
+
+    // The interpreter to run a Python kernel: GLOOPY_PYTHON if set, else python3/python.
+    juce::String basePython()
+    {
+       #if JUCE_WINDOWS
+        const juce::String dflt = "python";
+       #else
+        const juce::String dflt = "python3";
+       #endif
+        if (const char* e = std::getenv ("GLOOPY_PYTHON"); e != nullptr && e[0] != '\0')
+            return juce::String (e);
+        return dflt;
+    }
+
+    // A shared Python venv at <root>/python, created and provisioned (grpcio, protobuf,
+    // ipykernel) on first use so the kernel doesn't depend on the system site-packages.
+    // Returns the venv's interpreter; returns {} (caller falls back to the system python)
+    // if the venv can't be built. Provisioning is one-time — marked by a ready file — but
+    // that first `pip install` is slow and needs network, so callers run this off the
+    // message thread.
+    juce::File pythonVenvInterpreter (const juce::String& base)
+    {
+        const auto venv  = gloopyCacheDir().getChildFile ("python");
+       #if JUCE_WINDOWS
+        const auto py    = venv.getChildFile ("Scripts").getChildFile ("python.exe");
+       #else
+        const auto py    = venv.getChildFile ("bin").getChildFile ("python");
+       #endif
+        const auto ready = venv.getChildFile (".gloopy-ready");
+        if (py.existsAsFile() && ready.existsAsFile())
+            return py;
+
+        auto run = [] (const juce::StringArray& argv) -> bool
+        {
+            juce::ChildProcess p;
+            if (! p.start (argv, juce::ChildProcess::wantStdOut | juce::ChildProcess::wantStdErr))
+                return false;
+            p.readAllProcessOutput();                     // blocks until the child exits
+            return p.getExitCode() == 0;
+        };
+
+        if (! py.existsAsFile())
+            if (! run ({ base, "-m", "venv", venv.getFullPathName() }))
+                return {};                                // no venv module / creation failed
+        if (! run ({ py.getFullPathName(), "-m", "pip", "install", "--disable-pip-version-check",
+                     "-q", "grpcio", "protobuf", "ipykernel" }))
+            return {};                                    // provisioning failed -> system python
+        ready.create();
+        return py;
+    }
+
+    // The Python interpreter for a kernel launch: the shared venv if it can be built,
+    // otherwise the base (GLOOPY_PYTHON / system) interpreter.
+    juce::String pythonForKernel()
+    {
+        const auto base = basePython();
+        const auto venv = pythonVenvInterpreter (base);
+        return venv.existsAsFile() ? venv.getFullPathName() : base;
     }
 
     // Wrap argv so the child runs in `dir`. JUCE's ChildProcess inherits the parent's
@@ -101,11 +202,14 @@ KernelHost::launchGenerate (const juce::String& job, const GenParams& p, int hos
     set ("GLOOPY_CTX_KEY",   juce::String (p.keyRoot));
     set ("GLOOPY_SOURCE",    p.source);
 
-    // Python: `python3 kernel.py`. Lisp: --non-interactive --load (NOT --script, which
-    // skips ~/.sbclrc where ocicl registers ag-grpc).
-    juce::StringArray argv = python
-        ? juce::StringArray { "python3", kernel.getFullPathName() }
-        : juce::StringArray { "sbcl", "--non-interactive", "--load", kernel.getFullPathName() };
+    // Python: run kernel.py with the shared venv interpreter. Lisp: --non-interactive
+    // --load (NOT --script, which skips ~/.sbclrc where ocicl is registered), with the
+    // fasl/ocicl caches pinned to ~/.cache/gloopy and ocicl forced into global mode.
+    juce::StringArray argv;
+    if (python)
+        argv = { pythonForKernel(), kernel.getFullPathName() };
+    else
+        argv = lispKernelArgv (kernel);
     auto proc = std::make_unique<juce::ChildProcess>();
     if (! proc->start (inDir (kernelWorkingDir(), argv), juce::ChildProcess::wantStdOut | juce::ChildProcess::wantStdErr))
     { error = "kernel: failed to launch sbcl (is SBCL installed?)"; return {}; }
@@ -124,9 +228,8 @@ KernelHost::launchServe (int hostPort, juce::String& error)
     if (auto proto = findFile ("proto/gloopy.proto"); proto.existsAsFile())
         khSetEnv ("GLOOPY_PROTO", proto.getFullPathName());   // so the kernel finds it when installed
 
-    juce::StringArray argv { "sbcl", "--non-interactive", "--load", kernel.getFullPathName() };
     auto proc = std::make_unique<juce::ChildProcess>();
-    if (! proc->start (inDir (kernelWorkingDir(), argv), juce::ChildProcess::wantStdOut | juce::ChildProcess::wantStdErr))
+    if (! proc->start (inDir (kernelWorkingDir(), lispKernelArgv (kernel)), juce::ChildProcess::wantStdOut | juce::ChildProcess::wantStdErr))
     { error = "kernel: failed to launch sbcl (is SBCL installed?)"; return {}; }
     return proc;
 }
@@ -148,10 +251,8 @@ KernelHost::launchServePython (int hostPort, const juce::String& connFile, juce:
 
    #if JUCE_WINDOWS
     const char pathSep = ';';
-    const juce::String defaultPy = "python";
    #else
     const char pathSep = ':';
-    const juce::String defaultPy = "python3";
    #endif
     // Prepend our import root so the child finds the package (dev tree or installed).
     juce::String pythonPath = pyRoot.getFullPathName();
@@ -159,9 +260,9 @@ KernelHost::launchServePython (int hostPort, const juce::String& connFile, juce:
         pythonPath << pathSep << cur;
     khSetEnv ("PYTHONPATH", pythonPath);
 
-    // GLOOPY_PYTHON lets a project point at its own interpreter (e.g. a venv); else python3/python.
-    const char* pyEnv = std::getenv ("GLOOPY_PYTHON");
-    const juce::String python = (pyEnv != nullptr && pyEnv[0] != '\0') ? juce::String (pyEnv) : defaultPy;
+    // Run the kernel with the shared venv interpreter (grpcio/protobuf/ipykernel), created
+    // under ~/.cache/gloopy/python on first use; falls back to GLOOPY_PYTHON / system.
+    const juce::String python = pythonForKernel();
 
     juce::StringArray argv { python, "-m", "gloopy._serve" };
     auto proc = std::make_unique<juce::ChildProcess>();
