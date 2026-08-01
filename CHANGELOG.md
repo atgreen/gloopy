@@ -13,6 +13,12 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-08-01
+
+Notebook-driven live coding and a musical vocabulary for the clients: a Python
+(Jupyter) live kernel alongside the Lisp one, note-name / scale / chord /
+mini-notation helpers, and the script-clip kernels now bundled in the packages.
+
 ### Added
 - **Musical note helpers in the Python and Common Lisp clients.** A pure,
   dependency-free layer for describing music by name instead of raw numbers:
@@ -144,7 +150,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/atgreen/gloopy/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/atgreen/gloopy/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/atgreen/gloopy/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/atgreen/gloopy/releases/tag/v0.1.0
