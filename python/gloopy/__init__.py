@@ -6,7 +6,7 @@ See ``client.py`` for the ``Gloopy`` class. The ``gloopy_pb2*`` modules are
 generated from ``proto/gloopy.proto`` (regenerate with ``python/gen.sh``).
 """
 from .client import Gloopy, connect, note, WAVEFORMS, EFFECTS, AUTO_TARGETS
-from .live import attach, LiveKernel
+from .live import attach, LiveKernel, generator, set_generator
 
 __all__ = ["Gloopy", "connect", "note", "WAVEFORMS", "EFFECTS", "AUTO_TARGETS",
-           "attach", "LiveKernel"]
+           "attach", "LiveKernel", "generator", "set_generator"]

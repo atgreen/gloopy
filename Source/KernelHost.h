@@ -40,5 +40,13 @@ public:
         via KernelReady. Returns the running process (keep it alive); null on launch failure. */
     static std::unique_ptr<juce::ChildProcess> launchServe (int hostPort, juce::String& error);
 
+    /** Start the persistent "warm" Python kernel (gloopy._serve): it long-polls Gloopy for
+        Python generate jobs, so Python clips generate headlessly like Lisp ones. If ipykernel
+        is available and `connFile` is given, it runs as a Jupyter kernel bound to that
+        connection file *and* serves jobs from the one process — so a notebook can attach to
+        this exact kernel and edit generators live (attach-to-live). Null on launch failure. */
+    static std::unique_ptr<juce::ChildProcess>
+        launchServePython (int hostPort, const juce::String& connFile, juce::String& error);
+
     static juce::File findFile (const juce::String& relPath);   // locate a repo file (dev tree)
 };

@@ -949,6 +949,13 @@ private:
     std::atomic<int> kernelSlynkPort { 0 };            // warm kernel's Slynk port, 0 until it reports ready
     void checkWarmKernelHealth();                      // clear a stale indicator + respawn if the kernel died
     juce::uint32 lastKernelSpawnMs { 0 };              // throttles respawns (message thread)
+    // Resident Python kernel (gloopy._serve): the Python twin of the warm SBCL kernel, so Python
+    // clips generate headlessly. Attach-to-live: a notebook attaches to this exact process.
+    std::unique_ptr<juce::ChildProcess> warmPyKernel;
+    std::mutex warmPyKernelMutex;
+    juce::uint32 lastPyKernelSpawnMs { 0 };            // throttles respawns
+    void ensureWarmPythonKernel();                     // launch it if not running (unless opted out)
+    juce::File pyKernelConnFile() const;               // Jupyter connection file the notebook attaches to
     std::mutex kernelReadyMutex;
     std::condition_variable kernelReadyCv;
     void writeKernelDiscoveryFile (int slynkPort);     // ~/.cache/gloopy/kernel.json for gloopy.el (Sly)

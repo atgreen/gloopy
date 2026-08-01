@@ -126,14 +126,41 @@ class LiveKernel:
         return self._last_error
 
     def __repr__(self) -> str:
-        state = "registered" if self._gen else "default generator"
-        return f"<gloopy.LiveKernel {self.target} — {state}>"
+        named = f", {len(self._generators)} named" if self._generators else ""
+        state = "registered" if self._default else "default generator"
+        return f"<gloopy.LiveKernel {self.target} — {state}{named}>"
+
+
+# The process-wide live kernel. `attach()` is idempotent so a headless launch and a notebook
+# attached to the *same* kernel process share one poll loop — never two kernels racing for the
+# same jobs (the attach-to-live model, mirroring Emacs attaching to one SBCL image via Slynk).
+_LIVE: LiveKernel | None = None
 
 
 def attach(target: str = "127.0.0.1:50051") -> LiveKernel:
-    """Attach this process as Gloopy's live Python generator kernel. Returns a :class:`LiveKernel`.
+    """Attach this process as Gloopy's live Python generator kernel (idempotent).
 
-    The bridge starts immediately on a background daemon thread; register a generator with the
-    returned object's ``@k.generator`` decorator (or ``k.set_generator``).
+    Returns the process-wide :class:`LiveKernel`, creating it on the first call and reusing it
+    thereafter. Register a generator with the module-level ``@gloopy.generator`` /
+    ``gloopy.set_generator`` (or the returned object's ``@k.generator``). The bridge runs on a
+    background daemon thread that long-polls Gloopy for Python jobs.
     """
-    return LiveKernel(target)
+    global _LIVE
+    if _LIVE is None or _LIVE._stop.is_set():
+        _LIVE = LiveKernel(target)
+    return _LIVE
+
+
+def generator(fn_or_name=None):
+    """Register a generator on the process-wide live kernel, attaching first if needed.
+
+        @gloopy.generator            # the default (unnamed) generator
+        @gloopy.generator("bass")    # a named generator a clip references by name
+
+    This is the notebook-friendly entry point: you never need the ``LiveKernel`` handle — the
+    kernel Gloopy already launched (and this notebook is attached to) is reused.
+    """
+    return attach().generator(fn_or_name)
+
+
+set_generator = generator  # alias for symmetry with the Lisp/one-shot kernels

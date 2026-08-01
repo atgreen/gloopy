@@ -1200,6 +1200,8 @@ MainComponent::~MainComponent()
     stopDriver();                // stop the live-driver thread before tracks go away
     jobQueueCv.notify_all();     // wake any KernelPoll waiter so it can unwind
     if (warmKernel != nullptr && warmKernel->isRunning()) warmKernel->kill();   // stop the warm kernel (+ Slynk)
+    if (warmPyKernel != nullptr && warmPyKernel->isRunning()) warmPyKernel->kill();   // stop the Python kernel too
+    pyKernelConnFile().deleteFile();                                            // don't leave a stale connection file
     kernelDiscoveryFile().deleteFile();                                         // it's gone; don't leave a stale port
     stopTimer();
     teardownMidiInputs();        // stop MIDI callbacks before tracks/audio go away
@@ -2525,6 +2527,33 @@ void MainComponent::ensureWarmKernel()
     // If SBCL isn't installed launchServe fails; generates then time out with a clear error.
 }
 
+// The Jupyter connection file the resident Python kernel binds to (when ipykernel is present),
+// and that "Open Python notebook" attaches a frontend to. Lives beside the Slynk discovery file.
+juce::File MainComponent::pyKernelConnFile() const
+{
+    return kernelDiscoveryFile().getParentDirectory().getChildFile ("py-kernel.json");
+}
+
+// Launch the resident Python kernel if it isn't running (unless opted out via GLOOPY_NO_KERNEL).
+// The Python twin of ensureWarmKernel: Python clips generate headlessly, and a notebook can
+// attach to this same process. Respawns are throttled so a missing interpreter doesn't hot-loop.
+void MainComponent::ensureWarmPythonKernel()
+{
+    if (juce::SystemStats::getEnvironmentVariable ("GLOOPY_NO_KERNEL", {}).isNotEmpty()) return;
+    const std::lock_guard<std::mutex> lk (warmPyKernelMutex);
+    if (warmPyKernel != nullptr && warmPyKernel->isRunning()) return;
+    if (juce::Time::getMillisecondCounter() - lastPyKernelSpawnMs < 3000 && lastPyKernelSpawnMs != 0)
+        return;                                                // throttle (e.g. python3 not installed)
+    lastPyKernelSpawnMs = juce::Time::getMillisecondCounter();
+    const auto conn = pyKernelConnFile();
+    conn.deleteFile();                                         // fresh ports/key; a stale file rebinds to dead ones
+    conn.getParentDirectory().createDirectory();
+    juce::String err;
+    if (auto proc = KernelHost::launchServePython (50051, conn.getFullPathName(), err))
+        warmPyKernel = std::move (proc);
+    // On failure (no python3) the generate times out with the Python-specific message above.
+}
+
 // Health check (message-thread timer, ~1x/sec): if the warm kernel process exited — killed
 // out from under us or crashed — clear the stale "λ Slynk" indicator and the discovery file
 // (so gloopy.el won't attach to a dead port), then respawn it (the warm kernel is meant to be
@@ -2580,7 +2609,8 @@ bool MainComponent::apiKernelPoll (const juce::String& lang, KernelHost::GenPara
 // job may wait for the kernel's one-time proto compile; after that it's instant.
 bool MainComponent::fetchKernelNotes (const KernelHost::GenParams& p, std::vector<Note>& out, juce::String& error)
 {
-    if (p.lang != "python") ensureWarmKernel();   // SBCL is auto-launched; a Python kernel (notebook) attaches itself
+    if (p.lang == "python") ensureWarmPythonKernel();   // both kernels are auto-launched now (attach-to-live)
+    else                    ensureWarmKernel();
 
     const auto job = juce::Uuid().toDashedString();
     auto j = std::make_shared<KernelJob>();
@@ -2597,7 +2627,9 @@ bool MainComponent::fetchKernelNotes (const KernelHost::GenParams& p, std::vecto
         { const std::lock_guard<std::mutex> ql (jobQueueMutex);
           jobQueue.erase (std::remove_if (jobQueue.begin(), jobQueue.end(),
                             [&] (const PendingJob& pj) { return pj.id == job; }), jobQueue.end()); }
-        error = "kernel: timed out (is SBCL installed?)";
+        error = p.lang == "python"
+                  ? juce::String ("kernel: no Python kernel responded (is python3 on PATH? see the Python how-to)")
+                  : juce::String ("kernel: timed out (is SBCL installed?)");
         return false;
     }
     if (! j->ok) { error = j->error.isNotEmpty() ? j->error : juce::String ("kernel: generate failed"); return false; }
@@ -6090,6 +6122,7 @@ void MainComponent::showFileMenu()
     menu.addSubMenu ("MIDI Inputs", midiMenu);
     menu.addItem (5, "Rescan Plugins");
     menu.addItem (42, "Connect Emacs to Kernel (Slynk)...");   // warm kernel's Slynk port, for Sly/SLIME
+    menu.addItem (43, "Open Python Notebook...");              // attach a live console to the resident Python kernel
     menu.addSeparator();
     menu.addItem (41, "About Gloopy...");
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
@@ -6127,6 +6160,36 @@ void MainComponent::showFileMenu()
                                     "or with Sly directly:  M-x sly-connect  RET  127.0.0.1  RET  "
                                   + juce::String (port) + "  RET\n\nThe kernel prelude (note, set-generator) is loaded.")
                                : err);
+                    });
+                });
+                return;
+            }
+            if (result == 43)   // Open Python Notebook — attach a live console to the resident Python kernel
+            {
+                busyOverlay.show ("Starting Python kernel...");
+                juce::Thread::launch ([this]
+                {
+                    ensureWarmPythonKernel();
+                    const auto conn = pyKernelConnFile();
+                    // ipykernel writes the connection file once it's up; wait briefly for it to appear.
+                    bool ready = false;
+                    for (int i = 0; i < 100 && ! (ready = conn.existsAsFile()); ++i) juce::Thread::sleep (50);
+                    juce::MessageManager::callAsync ([this, conn, ready]
+                    {
+                        busyOverlay.hide();
+                        const juce::String msg = ready
+                            ? ("The Python kernel is live. Attach a console to this same process:\n\n"
+                               "    jupyter qtconsole --existing " + conn.getFullPathName() + "\n"
+                               "    (or)  jupyter console --existing " + conn.getFullPathName() + "\n\n"
+                               "In it:\n    import gloopy\n    @gloopy.generator\n    def gen(ctx):\n        ...\n\n"
+                               "Redefine the generator and the next Generate / Live pass uses it.")
+                            : ("The Python kernel is serving clips headlessly, but attaching a live notebook needs "
+                               "ipykernel.\n\nInstall it in the interpreter Gloopy launches (python3, or set "
+                               "GLOOPY_PYTHON):\n    pip install ipykernel qtconsole\n\nThen reopen this. "
+                               "(Python clips still generate without it.)");
+                        juce::NativeMessageBox::showMessageBoxAsync (
+                            ready ? juce::MessageBoxIconType::InfoIcon : juce::MessageBoxIconType::WarningIcon,
+                            "Open Python Notebook", msg);
                     });
                 });
                 return;
