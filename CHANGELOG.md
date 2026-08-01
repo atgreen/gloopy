@@ -13,6 +13,20 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-08-01
+
+### Fixed
+- **Gloopy no longer fails silently when port 50051 is in use.** Its gRPC control server
+  binds `127.0.0.1:50051`, and the script-clip kernel is launched only once that bind
+  succeeds — so if another service had taken 50051 (e.g. a container publishing that port),
+  Gloopy came up with **no kernel and no clear reason**, and generation / the Emacs–Slynk
+  connection just didn't work. Gloopy now **falls back to an OS-assigned free port** when
+  50051 is busy, publishes the actual port in its `kernel.json` discovery file, and passes
+  it to the kernels. Emacs (`gloopy.el`) is unaffected — it already reads the kernel's Slynk
+  port from that file. The **Python and Common Lisp clients** now auto-discover the control
+  port from the discovery file (`Gloopy()` / `(connect)`), falling back to 50051, so external
+  scripts follow a moved port too.
+
 ## [0.1.5] - 2026-08-01
 
 Faster, self-contained script-clip kernels: their caches now live under
@@ -211,7 +225,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/atgreen/gloopy/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/atgreen/gloopy/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/atgreen/gloopy/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/atgreen/gloopy/compare/v0.1.2...v0.1.3
