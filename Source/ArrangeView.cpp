@@ -1033,7 +1033,9 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
     else   // create a new 1-bar MIDI clip
     {
         Clip c;
-        c.startBeat      = juce::jmax (0.0, snapToBar (beatForX (p.x)));
+        // Land the clip in the bar the cursor is IN — floor, not snap-to-nearest, so a click in
+        // the second half of a bar doesn't jump the new clip into the next bar (feels misplaced).
+        c.startBeat      = juce::jmax (0.0, std::floor (beatForX (p.x) / beatsPerBar) * beatsPerBar);
         c.lengthBeats    = beatsPerBar;
         c.contentLenBeats = beatsPerBar;
         c.looped         = true;
