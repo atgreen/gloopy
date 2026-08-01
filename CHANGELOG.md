@@ -13,6 +13,25 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-08-01
+
+A follow-up to 0.1.3: the script-clip kernel now starts when Gloopy is launched
+from the desktop, and the project describes itself as "composition-as-code".
+
+### Fixed
+- **Script-clip kernels now start when Gloopy is launched from the desktop.** The SBCL and
+  Python kernels were launched inheriting Gloopy's working directory, but the
+  application-menu launcher starts Gloopy in `/` — where ocicl (which the kernel loads from
+  `~/.sbclrc`, and which resolves the kernel's Lisp dependencies relative to the current
+  directory) can't operate. The kernel died on startup, so generation and *Connect Emacs to
+  Kernel* failed with "Slynk did not start (is SBCL installed, with Slynk available?)" even
+  when SBCL and Slynk were installed. Kernels now launch in a writable per-user directory
+  (`~/.cache/gloopy/kernel`), so they start regardless of how Gloopy was opened.
+
+### Changed
+- Renamed the project's tagline and terminology from **composition-as-repo** to
+  **composition-as-code** across the app, packages, documentation, and control-API comments.
+
 ## [0.1.3] - 2026-08-01
 
 Notebook-driven live coding and a musical vocabulary for the clients: a headless
@@ -177,7 +196,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/atgreen/gloopy/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/atgreen/gloopy/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/atgreen/gloopy/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/atgreen/gloopy/compare/v0.1.0...v0.1.1
