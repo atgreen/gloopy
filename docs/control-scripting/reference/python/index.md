@@ -16,13 +16,16 @@ with Gloopy() as g:                 # connects to 127.0.0.1:50051
 
 Methods map roughly one-to-one onto the RPCs and return plain Python values.
 `note(pitch, start_beat, length_beats, velocity=0.8)` is a small helper for
-building notes.
+building notes; the music-theory helpers below (`pitch`, `dur`, `scale`,
+`chord`, `seq`, `mini`) are documented in full under
+[Describing notes](../describing-notes.md).
 
 !!! info "Pulled live from the source"
     The reference below is generated at build time from the docstrings in
-    `python/gloopy/client.py` (mkdocstrings, Google-style docstrings) — no
-    pre-generation step, so it never drifts from the code. If it's blank here,
-    the docs environment doesn't have the `gloopy` package importable yet.
+    `python/gloopy/client.py` and `python/gloopy/music.py` (mkdocstrings,
+    Google-style docstrings) — no pre-generation step, so it never drifts from
+    the code. If it's blank here, the docs environment doesn't have the `gloopy`
+    package importable yet.
 
 ::: gloopy.client
     options:
@@ -30,3 +33,12 @@ building notes.
       members_order: source
       show_root_heading: true
       heading_level: 2
+
+## Music-theory helpers — `gloopy.music`
+
+::: gloopy.music
+    options:
+      show_source: false
+      members_order: source
+      show_root_heading: true
+      heading_level: 3

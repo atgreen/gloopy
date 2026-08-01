@@ -29,6 +29,12 @@ generative pattern, a seeded variation — instead of drawing them by hand. This
     within the clip**. `ctx` gives you the clip length, key, and a per-clip **seed** for
     repeatable randomness.
 
+    !!! tip "Name notes musically"
+        `pitch` accepts names (`"C#4"`) and `length` duration codes (`"q"`), and
+        `scale`, `chord`, `seq` and `mini` build note lists for you — e.g.
+        `(seq '(("C4" "q") ("Eb4" "q") ("G4" "h")))` or `(mini "c4q eb g4h")`.
+        See [Describing notes](../../control-scripting/reference/describing-notes.md).
+
 4. Save the file.
 
 ## Generate the notes

@@ -52,6 +52,11 @@ Gloopy plays a four-note arpeggio. `add_synth_track` returned the new track's
 **stable `id`** — every later call refers to the track by that id. The `note()`
 helper is just `note(pitch, start_beat, length_beats, velocity=0.8)`.
 
+!!! tip "Note names, not just numbers"
+    `pitch` also takes a name, and `length` a shorthand — `note("E4", 1, "q")`.
+    For a whole melody in one line there's `mini("c4q e g c5")`, plus `seq`,
+    `scale` and `chord`. See [Describing notes](../reference/describing-notes.md).
+
 !!! note "Why the clip loops"
     You gave four beats of notes; on a longer arrangement the clip **loops** by
     default. Clips own their content and repeat — see

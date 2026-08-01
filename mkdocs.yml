@@ -150,6 +150,7 @@ nav:
           - Render export profiles from a script or CI: control-scripting/how-to/export-profiles-ci.md
       - Reference:
           - control-scripting/reference/index.md
+          - Describing notes: control-scripting/reference/describing-notes.md
           - gRPC API: control-scripting/reference/grpc/index.md
           - OSC address space: control-scripting/reference/osc/index.md
           - Python client: control-scripting/reference/python/index.md

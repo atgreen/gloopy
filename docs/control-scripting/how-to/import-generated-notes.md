@@ -4,6 +4,12 @@
 algorithm, an ML model, a script) and want it as a clip in Gloopy. Instead of
 firing hundreds of note-adds, hand Gloopy the notes as **JSON** in one call.
 
+!!! tip "Generating in Python or Lisp? You may not need JSON"
+    JSON import shines when the notes come from **another process or language**.
+    If you're generating *in* the Python or Lisp client, build a note list with
+    `note`, `seq`, `mini`, `scale` or `chord` and pass it straight to `add_clip`
+    — no JSON round-trip. See [Describing notes](../reference/describing-notes.md).
+
 ## The note format
 
 A sequence is a JSON **array of notes**, each a small object:

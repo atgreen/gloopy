@@ -112,11 +112,27 @@ frelease lfotarget lforate lfodepth`.
 
 | Function | Purpose |
 |----------|---------|
-| `(note pitch start length &optional (velocity 0.8))` | Build a note for `add-clip`: MIDI `pitch`, `start`/`length` in beats, `velocity` 0–1. |
+| `(note pitch start length &optional (velocity 0.8))` | Build a note for `add-clip`: `pitch` a MIDI number or a name (`"C#4"`), `start`/`length` in beats (`length` also takes a `dur` code), `velocity` 0–1. |
+| `(seq steps &key (start 0) (velocity 0.8))` | Lay `(pitch duration)` steps end-to-end; a `:rest`/`nil`/`"r"` pitch leaves a gap. Returns a list of notes. |
+| `(mini string &key (start 0) (velocity 0.8))` | Parse [mini-notation](../describing-notes.md#mini-the-mini-notation-string) into a list of notes. |
 | `(add-clip track-id &key (start 0) (length 4) (content 0) (looped t) notes (name ""))` | Add a MIDI clip; returns `(:track-id :index)`. `content` 0 means = `length`. |
 | `(add-audio-clip track-id path &key (start 0) (gain 1.0))` | Import a server-side `.wav` as an audio clip; returns `(:track-id :index)`. |
 | `(remove-clip track-id index)` | Delete a clip. |
 | `(move-clip track-id index start &key to-track)` | Move a clip along its track, or `:to-track` another track. |
+
+### Note names, durations, scales & chords
+
+Pure client-side helpers for building notes musically. Full syntax — pitch
+names, duration codes, scale and chord tables, the mini-notation grammar — is in
+[Describing notes](../describing-notes.md).
+
+| Function | Purpose |
+|----------|---------|
+| `(pitch name-or-midi)` | MIDI number for a name (`"C#4"`, `"Eb3"`; default octave 4); ints pass through. |
+| `(pitch-name midi)` | Sharp-spelled name for a MIDI number (`61` → `"C#4"`). |
+| `(dur code)` | Beats for a duration code (`"q"` `"h"` `"w"` `"e"` `"s"`, dotted `"q."`, triplet `"8t"`); numbers pass through. |
+| `(scale root &optional (name :major) (octaves 1))` | List of MIDI pitches of a named scale from `root`. |
+| `(chord root &optional (quality :maj) (inversion 0))` | List of MIDI pitches of a chord above `root`. |
 
 ### Mixer & effects
 
