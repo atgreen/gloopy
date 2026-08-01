@@ -2667,12 +2667,18 @@
 
 
 <h1 id="live-script-clips-from-a-jupyter-notebook-python">Live script clips from a Jupyter notebook (Python)<a class="headerlink" href="#live-script-clips-from-a-jupyter-notebook-python" title="Permanent link">&para;</a></h1>
-<p>You can drive a running Gloopy from a notebook and — the interesting part — <strong>attach the
-notebook as Gloopy's live Python generator kernel</strong>. Redefine a generator in a cell and a
-<a href="../../../user-guide/how-to/generate-notes-from-code/"><strong>Live</strong> clip</a> picks it up on the next
-loop, no restart. It's the Python analogue of connecting Emacs to the Lisp kernel: your
-process <em>is</em> the live image.</p>
-<p>A ready-to-run notebook ships at <code>python/notebooks/live-clips.ipynb</code>.</p>
+<p>Gloopy generates Python script clips <strong>headlessly</strong> — it auto-launches its own Python kernel,
+so a <code>lang="python"</code> clip generates with nothing extra running (just as it auto-launches SBCL
+for Lisp). You only bring a notebook when you want to <em>author</em> generators.</p>
+<p>The interesting part is <strong>attaching a notebook</strong> as the live generator source: redefine a
+generator in a cell and a <a href="../../../user-guide/how-to/generate-notes-from-code/"><strong>Live</strong> clip</a>
+picks it up on the next loop, no restart. It's the Python analogue of connecting Emacs to the
+Lisp kernel: your process <em>is</em> the live image.</p>
+<p>Attaching <strong>takes over</strong> from the auto-launched kernel — exactly one Python kernel serves at a
+time, so the two never race. Detach (or close the notebook) and Gloopy resumes generating on
+its own from each clip's cached notes / its headless kernel.</p>
+<p>A ready-to-run notebook ships at <code>python/notebooks/live-clips.ipynb</code>. (Gloopy also surfaces the
+connect details under <strong>File → Open Python Notebook…</strong>.)</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Gloopy running (it listens on <code>127.0.0.1:50051</code>).</li>
@@ -2697,6 +2703,9 @@ notes. Register it with the <code>@k.generator</code> decorator:</p>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">steps</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">5</span><span class="p">]</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">return</span> <span class="p">[</span><span class="n">gloopy</span><span class="o">.</span><span class="n">note</span><span class="p">(</span><span class="n">root</span> <span class="o">+</span> <span class="n">steps</span><span class="p">[</span><span class="n">b</span> <span class="o">%</span> <span class="mi">4</span><span class="p">],</span> <span class="n">b</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">clip_len_beats</span><span class="p">))]</span>
 </code></pre></div>
+<p>The module-level <code>@gloopy.generator</code> works too (it attaches on first use), so you needn't keep
+the <code>k</code> handle around: <code>import gloopy</code> then <code>@gloopy.generator</code>. Name a generator —
+<code>@gloopy.generator("bass")</code> — to have a clip reference it by name.</p>
 <h2 id="generate-a-clip">Generate a clip<a class="headerlink" href="#generate-a-clip" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">t</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">add_synth_track</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Bass&quot;</span><span class="p">,</span> <span class="n">wave</span><span class="o">=</span><span class="s2">&quot;SAW&quot;</span><span class="p">)</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">g</span><span class="o">.</span><span class="n">add_clip</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">start_beat</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">length_beats</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
@@ -2717,6 +2726,11 @@ notes) rather than killing the bridge — check <code>k.last_error</code>. When 
 Gloopy then falls back to each clip's cached notes.</p>
 <h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <ul>
+<li>By default Gloopy runs its <strong>own</strong> headless Python kernel, so clips generate with no notebook
+  at all. When you <code>attach()</code>, your process refreshes a heartbeat file and Gloopy <strong>stands its
+  headless kernel down</strong> — one Python kernel serves at a time, so the two never race for a job.
+  Detach (or close the notebook) and the heartbeat goes stale; Gloopy relaunches its headless
+  kernel on the next generate.</li>
 <li><code>gloopy.attach()</code> long-polls <code>KernelPoll(lang="python")</code>; on a job it builds the context,
   calls your registered generator, and posts notes via <code>KernelSubmit</code>.</li>
 <li>The generator lives in your notebook's namespace, so redefining it (re-running the cell) is
