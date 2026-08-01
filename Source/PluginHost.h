@@ -5,6 +5,7 @@
 
 #include <JuceHeader.h>
 #include <functional>
+#include <cstdlib>   // setenv / _putenv_s
 
 /** Owns the plugin format manager (VST3 + LV2) and the scanned plugin list.
     Scanning is done in-process for simplicity. */
@@ -14,6 +15,7 @@ public:
     PluginHost()
     {
         addBundledDirsToLV2Path();                        // must precede format construction
+        setBundledSurgeDataHome();                        // so the hosted Surge XT finds its patches
         juce::addDefaultFormatsToManager (formatManager); // VST3 + LV2
     }
 
@@ -56,6 +58,43 @@ public:
         a bundle added only to the scan path is discoverable yet fails to create from cache with
         "Unable to locate plugin with the requested URI". Prepending our dirs to $LV2_PATH before
         the LV2 format is constructed puts the bundled Surge XT in the world from the start. */
+    /** Point Surge XT at the factory data we bundle. When hosted, Surge can't reliably
+        find its data relative to its own binary — its dladdr/GetModuleFileName lookup
+        resolves to the *host* (Gloopy), not the plugin, so it falls through to empty
+        system paths and shows no patches. Surge honours the SURGE_DATA_HOME env var above
+        every other path, on all platforms — so set it to our bundled SurgeXTData. This
+        is cross-platform (an env var), unlike a per-OS symlink, and we never override a
+        value the user set themselves. */
+    static void setBundledSurgeDataHome()
+    {
+        if (juce::SystemStats::getEnvironmentVariable ("SURGE_DATA_HOME", {}).isNotEmpty())
+            return;                                       // respect an explicit user setting
+
+        auto setIt = [] (const juce::File& data)
+        {
+           #if JUCE_WINDOWS
+            _putenv_s ("SURGE_DATA_HOME", data.getFullPathName().toRawUTF8());
+           #else
+            ::setenv ("SURGE_DATA_HOME", data.getFullPathName().toRawUTF8(), 1);
+           #endif
+        };
+
+        for (auto& d : bundledPluginDirs())
+        {
+            if (! d.isDirectory()) continue;
+            // Known bundle layouts, checked directly (fast). The build stages the data as
+            // SurgeXTData/ inside the plugin bundle; a valid data dir has patches_factory/.
+            for (const char* rel : { "Surge XT.lv2/SurgeXTData",
+                                     "Surge XT.vst3/Contents/Resources/SurgeXTData" })
+                if (auto f = d.getChildFile (rel); f.getChildFile ("patches_factory").isDirectory())
+                { setIt (f); return; }
+            // Fallback: find a SurgeXTData/ anywhere under this plugin dir (one-time, startup).
+            for (juce::DirectoryIterator it (d, true, "SurgeXTData", juce::File::findDirectories); it.next();)
+                if (auto f = it.getFile(); f.getChildFile ("patches_factory").isDirectory())
+                { setIt (f); return; }
+        }
+    }
+
     static void addBundledDirsToLV2Path()
     {
        #if JUCE_LINUX || JUCE_BSD
