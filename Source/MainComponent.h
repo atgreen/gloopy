@@ -550,6 +550,9 @@ public:
     void         editClipScript (int trackIdx, int clip);
     void         regenerateClipScript (int trackIdx, int clip);
     void         driveClipScript (int trackIdx, int clip);
+    // "Set script generator..." — point a clip at a named generator in the project's system/module.
+    void         setClipGenerator (int trackIdx, int clip, const juce::String& generator,
+                                   const juce::String& system, const juce::String& lang);
     bool apiMoveClip (int trackId, int index, double startBeat, bool hasToTrack, int toTrackId);
     int  apiAddAudioClip (int trackId, double startBeat, const juce::String& path, float gain);  // clip index, or -1
 

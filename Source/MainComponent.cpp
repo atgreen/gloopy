@@ -640,6 +640,13 @@ MainComponent::MainComponent (bool headless)
         apiRenameClip (tracks[(size_t) trackIdx]->id, clip, name);   // map view index -> stable API id
     };
 
+    arrangeView->onSetGenerator = [this] (int trackIdx, int clip, const juce::String& generator,
+                                          const juce::String& system, const juce::String& lang)
+    {
+        if (generator.isEmpty()) return;                            // blank = nothing to point at
+        setClipGenerator (trackIdx, clip, generator, system, lang);
+    };
+
     arrangeView->onPasteNotes = [this] (int trackIdx, double beat)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
@@ -3050,6 +3057,35 @@ void MainComponent::regenerateClipScript (int trackIdx, int clip)
         juce::String err;
         const bool ok = apiRegenerateClip (id, clip, source, generator, system,
                                            lang.isNotEmpty() ? lang : juce::String ("common-lisp"), seed, err);
+        juce::MessageManager::callAsync ([this, ok, err]
+        {
+            busyOverlay.hide();
+            if (! ok) juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Script", err);
+        });
+    });
+}
+
+// "Set script generator..." — point a clip at a named generator (pkg:sym) in the project's
+// system/module and regenerate. Clears any file-based source: a clip is EITHER a source file
+// OR a named generator (project-workflow.md). Runs off the message thread (the kernel fetch
+// blocks) behind the busy overlay; preserves the clip's seed; surfaces any error.
+void MainComponent::setClipGenerator (int trackIdx, int clip, const juce::String& generator,
+                                      const juce::String& system, const juce::String& lang)
+{
+    juce::int64 seed = 0; int id = -1;
+    { const juce::ScopedLock sl (engineLock);
+      if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+      id = tracks[(size_t) trackIdx]->id;
+      auto& cl = tracks[(size_t) trackIdx]->clips;
+      if (! juce::isPositiveAndBelow (clip, (int) cl.size())) return;
+      seed = cl[(size_t) clip].scriptSeed; }
+
+    const auto useLang = lang.isNotEmpty() ? lang : juce::String ("common-lisp");
+    busyOverlay.show ("Generating...");
+    juce::Thread::launch ([this, id, clip, generator, system, useLang, seed]
+    {
+        juce::String err;
+        const bool ok = apiRegenerateClip (id, clip, /*source*/ {}, generator, system, useLang, seed, err);
         juce::MessageManager::callAsync ([this, ok, err]
         {
             busyOverlay.hide();
