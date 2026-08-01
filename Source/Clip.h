@@ -46,14 +46,16 @@ struct Clip
     // output of a language kernel (see the gloopy.v1.Kernel service). scriptSource is the
     // source-file path relative to the composition; the notes are the materialised
     // "lockfile" so the clip plays without a runtime — only regenerating needs the kernel.
-    juce::String scriptSource;         // "" = a normal, hand-authored clip
+    juce::String scriptSource;         // source-file path (project-relative) — the file-based generator
+    juce::String scriptGenerator;      // OR a named generator: "pkg.mod:fn" (py) / "pkg:sym" (lisp)
+    juce::String scriptSystem;         // ASDF system to load for a named Lisp generator (optional)
     juce::String scriptLang;           // kernel/language id, e.g. "common-lisp", "python"
     juce::int64  scriptSeed { 0 };     // deterministic RNG seed passed to the kernel
     bool   scriptLive { false };       // "live": auto-regenerate ~1 bar before playback (kernel image)
     // A script clip's notes come from code — either a source file (scriptSource) or a live
     // kernel generator identified by language (scriptLang; e.g. a notebook-defined Python
     // generator with no file on disk).
-    bool   isScript() const noexcept { return scriptSource.isNotEmpty() || scriptLang.isNotEmpty(); }
+    bool   isScript() const noexcept { return scriptSource.isNotEmpty() || scriptGenerator.isNotEmpty() || scriptLang.isNotEmpty(); }
 
     bool   muted { false };      // take-lane: inactive alternate takes are muted
     juce::Colour colour;         // per-clip colour override; ARGB 0 (default) = inherit the track colour

@@ -24,6 +24,8 @@ public:
         int         clipIndex    { 0 };
         juce::String lang;                   // "common-lisp" (default) or "python"
         juce::String source;                 // source file to load before generating (optional)
+        juce::String generator;              // OR a named generator ("pkg.mod:fn" / "pkg:sym")
+        juce::String system;                 // ASDF system to load for a named Lisp generator (optional)
     };
 
     /** Start the kernel for `job`, generating with `p` and posting results back to

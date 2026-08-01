@@ -54,17 +54,32 @@ class LiveKernel:
         self.target = target
         self._chan = grpc.insecure_channel(target)
         self._stub = rpc.GloopyStub(self._chan)
-        self._gen: Generator | None = None
+        self._default: Generator | None = None       # the unnamed generator
+        self._generators: dict[str, Generator] = {}   # named generators (clip references them by name)
         self._stop = threading.Event()
         self._last_error: str | None = None
         self._thread = threading.Thread(target=self._serve, name="gloopy-live-kernel", daemon=True)
         self._thread.start()
 
     # -- registration ------------------------------------------------------
-    def generator(self, fn: Generator) -> Generator:
-        """Register the generator: a callable ``(ctx) -> list of notes``. Usable as a decorator."""
-        self._gen = fn
-        return fn
+    def generator(self, fn_or_name=None):
+        """Register a generator ``(ctx) -> list of notes``. Usable as a decorator:
+
+            @k.generator            # the unnamed/default generator
+            @k.generator("bass")    # a named generator a clip references by name
+        """
+        if callable(fn_or_name):                 # @k.generator
+            self._default = fn_or_name
+            return fn_or_name
+        name = fn_or_name                         # @k.generator("bass")
+
+        def deco(fn: Generator) -> Generator:
+            if name:
+                self._generators[name] = fn
+            else:
+                self._default = fn
+            return fn
+        return deco
 
     set_generator = generator  # alias for symmetry with the Lisp/one-shot kernels
 
@@ -77,7 +92,9 @@ class LiveKernel:
             key_root=spec.key_root,
         )
         try:
-            notes = list((self._gen or default_generate)(ctx))
+            name = spec.generator
+            gen = (self._generators.get(name) if name else None) or self._default or default_generate
+            notes = list(gen(ctx))
             self._stub.KernelSubmit(pb.KernelSubmitRequest(job=spec.job, ok=True, notes=notes))
             self._last_error = None
         except Exception as e:  # noqa: BLE001 — surface any generator error to Gloopy, keep serving

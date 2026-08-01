@@ -2609,12 +2609,14 @@ void MainComponent::stopDriver()
 // lane OSC uses) at their beat times — without materialising them into the clip. A driver
 // thread polls the playhead; the audio thread just drains the queue (never blocks on us).
 bool MainComponent::apiStartDriver (int trackId, int index, const juce::String& source,
+                                    const juce::String& generator, const juce::String& system,
                                     const juce::String& lang, juce::int64 seed, juce::String& error)
 {
     stopDriver();
 
     KernelHost::GenParams p;
     p.source = resolveScriptFile (source).getFullPathName(); p.trackId = trackId; p.clipIndex = index; p.seed = seed;
+    p.generator = generator; p.system = system;
     p.lang = lang.isNotEmpty() ? lang : juce::String ("common-lisp");
     p.tempoBpm = transport.getBpm();
     double clipStart = 0.0;
@@ -2670,10 +2672,12 @@ bool MainComponent::apiStartDriver (int trackId, int index, const juce::String& 
 // runs on a gRPC worker thread (not the message thread) so blocking here is fine; only the
 // note materialisation touches the model, on the message thread.
 bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::String& source,
+                                       const juce::String& generator, const juce::String& system,
                                        const juce::String& lang, juce::int64 seed, juce::String& error)
 {
     KernelHost::GenParams p;
     p.source = resolveScriptFile (source).getFullPathName(); p.trackId = trackId; p.clipIndex = index; p.seed = seed;
+    p.generator = generator; p.system = system;
     p.lang = lang.isNotEmpty() ? lang : juce::String ("common-lisp");
     p.tempoBpm = transport.getBpm();
     const bool found = callOnMessageThread ([&] () -> bool
@@ -2700,7 +2704,9 @@ bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::Strin
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             auto& c = t->clips[(size_t) index];
             c.type = ClipType::Midi;
-            c.scriptSource = source;
+            c.scriptSource    = source;
+            c.scriptGenerator = generator;
+            c.scriptSystem    = system;
             c.scriptLang   = lang.isNotEmpty() ? lang : juce::String ("common-lisp");
             c.scriptSeed   = seed;
             c.notes        = notes;
@@ -2883,19 +2889,20 @@ void MainComponent::editClipScript (int trackIdx, int clip)
 // ephemeral). Runs off the message thread (the kernel fetch blocks); surfaces any error.
 void MainComponent::driveClipScript (int trackIdx, int clip)
 {
-    juce::String source, lang; juce::int64 seed = 0; int id = -1;
+    juce::String source, generator, system, lang; juce::int64 seed = 0; int id = -1;
     { const juce::ScopedLock sl (engineLock);
       if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
       id = tracks[(size_t) trackIdx]->id;
       auto& cl = tracks[(size_t) trackIdx]->clips;
       if (! juce::isPositiveAndBelow (clip, (int) cl.size())) return;
-      source = cl[(size_t) clip].scriptSource; lang = cl[(size_t) clip].scriptLang; seed = cl[(size_t) clip].scriptSeed; }
+      source = cl[(size_t) clip].scriptSource; generator = cl[(size_t) clip].scriptGenerator;
+      system = cl[(size_t) clip].scriptSystem; lang = cl[(size_t) clip].scriptLang; seed = cl[(size_t) clip].scriptSeed; }
 
     busyOverlay.show ("Starting live driver...");
-    juce::Thread::launch ([this, id, clip, source, lang, seed]
+    juce::Thread::launch ([this, id, clip, source, generator, system, lang, seed]
     {
         juce::String err;
-        const bool ok = apiStartDriver (id, clip, source,
+        const bool ok = apiStartDriver (id, clip, source, generator, system,
                                         lang.isNotEmpty() ? lang : juce::String ("common-lisp"), seed, err);
         juce::MessageManager::callAsync ([this, ok, err]
         {
@@ -2993,6 +3000,7 @@ void MainComponent::autoRegenScriptClip (int trackId, int clipIndex)
         { liveRegenInFlight.erase (key); return; }
         const auto& c = t->clips[(size_t) clipIndex];
         p.source = resolveScriptFile (c.scriptSource).getFullPathName(); p.trackId = trackId; p.clipIndex = clipIndex; p.seed = c.scriptSeed;
+        p.generator = c.scriptGenerator; p.system = c.scriptSystem;
         p.lang = c.scriptLang.isNotEmpty() ? c.scriptLang : juce::String ("common-lisp");
         p.clipLenBeats = c.contentLenBeats;
     }
@@ -3027,19 +3035,20 @@ void MainComponent::autoRegenScriptClip (int trackId, int clipIndex)
 // with the busy overlay) and surface any error.
 void MainComponent::regenerateClipScript (int trackIdx, int clip)
 {
-    juce::String source, lang; juce::int64 seed = 0; int id = -1;
+    juce::String source, generator, system, lang; juce::int64 seed = 0; int id = -1;
     { const juce::ScopedLock sl (engineLock);
       if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
       id = tracks[(size_t) trackIdx]->id;
       auto& cl = tracks[(size_t) trackIdx]->clips;
       if (! juce::isPositiveAndBelow (clip, (int) cl.size())) return;
-      source = cl[(size_t) clip].scriptSource; lang = cl[(size_t) clip].scriptLang; seed = cl[(size_t) clip].scriptSeed; }
+      source = cl[(size_t) clip].scriptSource; generator = cl[(size_t) clip].scriptGenerator;
+      system = cl[(size_t) clip].scriptSystem; lang = cl[(size_t) clip].scriptLang; seed = cl[(size_t) clip].scriptSeed; }
 
     busyOverlay.show ("Generating...");
-    juce::Thread::launch ([this, id, clip, source, lang, seed]
+    juce::Thread::launch ([this, id, clip, source, generator, system, lang, seed]
     {
         juce::String err;
-        const bool ok = apiRegenerateClip (id, clip, source,
+        const bool ok = apiRegenerateClip (id, clip, source, generator, system,
                                            lang.isNotEmpty() ? lang : juce::String ("common-lisp"), seed, err);
         juce::MessageManager::callAsync ([this, ok, err]
         {
@@ -6505,9 +6514,11 @@ juce::ValueTree MainComponent::clipToTree (const Clip& c, const juce::Identifier
     if (c.fadeInBeats  > 0.0) cl.setProperty ("fadein",  c.fadeInBeats,  nullptr);
     if (c.fadeOutBeats > 0.0) cl.setProperty ("fadeout", c.fadeOutBeats, nullptr);
     if (c.fadeShape != 0)     cl.setProperty ("fadeshape", c.fadeShape, nullptr);
-    if (c.scriptSource.isNotEmpty())   // script clip: source + seed; the notes below are the cached output
+    if (c.isScript())   // script clip: source file OR named generator + seed (notes below are cached output)
     {
-        cl.setProperty ("script", c.scriptSource, nullptr);
+        if (c.scriptSource.isNotEmpty())    cl.setProperty ("script", c.scriptSource, nullptr);
+        if (c.scriptGenerator.isNotEmpty()) cl.setProperty ("generator", c.scriptGenerator, nullptr);
+        if (c.scriptSystem.isNotEmpty())    cl.setProperty ("scriptsystem", c.scriptSystem, nullptr);
         if (c.scriptLang.isNotEmpty()) cl.setProperty ("scriptlang", c.scriptLang, nullptr);
         if (c.scriptSeed != 0)         cl.setProperty ("scriptseed", (juce::int64) c.scriptSeed, nullptr);
         if (c.scriptLive)              cl.setProperty ("scriptlive", true, nullptr);
@@ -6565,9 +6576,11 @@ Clip MainComponent::clipFromTree (const juce::ValueTree& cl)
     c.fadeInBeats  = (double) cl.getProperty ("fadein", 0.0);
     c.fadeOutBeats = (double) cl.getProperty ("fadeout", 0.0);
     c.fadeShape    = (int) cl.getProperty ("fadeshape", 0);
-    c.scriptSource = cl.getProperty ("script", "").toString();
-    c.scriptLang   = cl.getProperty ("scriptlang", "").toString();
-    c.scriptSeed   = (juce::int64) cl.getProperty ("scriptseed", (juce::int64) 0);
+    c.scriptSource    = cl.getProperty ("script", "").toString();
+    c.scriptGenerator = cl.getProperty ("generator", "").toString();
+    c.scriptSystem    = cl.getProperty ("scriptsystem", "").toString();
+    c.scriptLang      = cl.getProperty ("scriptlang", "").toString();
+    c.scriptSeed      = (juce::int64) cl.getProperty ("scriptseed", (juce::int64) 0);
     c.scriptLive   = (bool) cl.getProperty ("scriptlive", false);
 
     if (c.isAudio() && cl.hasProperty ("afile"))

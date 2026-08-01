@@ -394,26 +394,34 @@ bool MainComponent::saveComposition (const juce::File& dir)
             if ((double) cl.getProperty ("fadeout", 0.0) > 0.0) w.number ("fade_out", cl.getProperty ("fadeout", 0.0));
             if ((int) cl.getProperty ("fadeshape", 0) != 0) w.number ("fade_shape", (double) (int) cl.getProperty ("fadeshape", 0));
             if ((int) cl.getProperty ("colour", 0) != 0) w.integer ("colour", (juce::int64) (int) cl.getProperty ("colour", 0));   // per-clip colour override
-            if (cl.hasProperty ("script"))   // script clip: source file + seed (notes below are the cached output)
+            if (cl.hasProperty ("script") || cl.hasProperty ("generator"))   // script clip (notes below are cached output)
             {
-                // Make the composition self-contained: copy the generator source INTO the project
-                // (scripts/<name>) and store a project-relative path, so a clone regenerates.
-                // Resolves against the current project dir, so an untitled session's scratch script
-                // and a legacy absolute path both get pulled in. (RFC project-workflow.md, slices 1-3.)
-                const auto src     = cl.getProperty ("script").toString();
-                const auto srcFile = resolveScriptFile (src);
-                juce::String rel   = src;
-                if (srcFile.existsAsFile())
+                if (cl.hasProperty ("script"))   // file-based generator
                 {
-                    rel = "scripts/" + srcFile.getFileName();
-                    const auto dest = dir.getChildFile (rel);
-                    if (dest != srcFile) { dest.getParentDirectory().createDirectory(); srcFile.copyFileTo (dest); }
+                    // Make the composition self-contained: copy the generator source INTO the project
+                    // (scripts/<name>) and store a project-relative path, so a clone regenerates.
+                    // Resolves against the current project dir, so an untitled session's scratch script
+                    // and a legacy absolute path both get pulled in. (RFC project-workflow.md, slices 1-3.)
+                    const auto src     = cl.getProperty ("script").toString();
+                    const auto srcFile = resolveScriptFile (src);
+                    juce::String rel   = src;
+                    if (srcFile.existsAsFile())
+                    {
+                        rel = "scripts/" + srcFile.getFileName();
+                        const auto dest = dir.getChildFile (rel);
+                        if (dest != srcFile) { dest.getParentDirectory().createDirectory(); srcFile.copyFileTo (dest); }
+                    }
+                    w.str ("script", rel);
+                    ctx.keep (rel);          // don't prune the in-project script source file
                 }
-                w.str ("script", rel);
+                if (cl.hasProperty ("generator"))    // named generator in the project's system/module
+                {
+                    w.str ("generator", cl.getProperty ("generator").toString());
+                    if (cl.hasProperty ("scriptsystem")) w.str ("system", cl.getProperty ("scriptsystem").toString());
+                }
                 if (cl.hasProperty ("scriptlang")) w.str ("script_lang", cl.getProperty ("scriptlang").toString());
                 if ((juce::int64) cl.getProperty ("scriptseed", (juce::int64) 0) != 0)
                     w.integer ("script_seed", (juce::int64) cl.getProperty ("scriptseed", (juce::int64) 0));
-                ctx.keep (rel);              // don't prune the in-project script source file
             }
 
             if (cl.hasProperty ("afile"))    // referenced audio (recorded take / import)
@@ -989,9 +997,11 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                     if (cd.getDouble ("fade_out", 0.0) > 0.0) cl.setProperty ("fadeout", cd.getDouble ("fade_out", 0.0), nullptr);
                     if ((int) cd.getDouble ("fade_shape", 0.0) != 0) cl.setProperty ("fadeshape", (int) cd.getDouble ("fade_shape", 0.0), nullptr);
                     if (cd.getInt ("colour", 0) != 0) cl.setProperty ("colour", cd.getInt ("colour", 0), nullptr);   // per-clip colour override
-                    if (cd.has ("script"))        // script clip: source file + seed
+                    if (cd.has ("script") || cd.has ("generator"))   // script clip: file OR named generator + seed
                     {
-                        cl.setProperty ("script", cd.getString ("script"), nullptr);
+                        if (cd.has ("script"))    cl.setProperty ("script", cd.getString ("script"), nullptr);
+                        if (cd.has ("generator")) cl.setProperty ("generator", cd.getString ("generator"), nullptr);
+                        if (cd.has ("system"))    cl.setProperty ("scriptsystem", cd.getString ("system"), nullptr);
                         if (cd.has ("script_lang")) cl.setProperty ("scriptlang", cd.getString ("script_lang"), nullptr);
                         if (const auto sd = cd.getString ("script_seed").getLargeIntValue(); sd != 0)
                             cl.setProperty ("scriptseed", (juce::int64) sd, nullptr);
