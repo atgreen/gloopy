@@ -5,7 +5,7 @@
 Mirrors ``examples/gloopy-grpc.lisp``. The DAW listens on 127.0.0.1:50051;
 structural edits and queries go over gRPC (live notes/knobs are on OSC 9000).
 
-    from gloopy import Gloopy, note, seq, scale, chord
+    from gloopy import Gloopy, note, seq, mini, scale, chord
 
     g = Gloopy()                      # connects to 127.0.0.1:50051
     g.set_tempo(128)
@@ -13,9 +13,11 @@ structural edits and queries go over gRPC (live notes/knobs are on OSC 9000).
 
     # Notes are (pitch, start_beat, length_beats). pitch accepts a MIDI int or a
     # name; length accepts beats or shorthand ("q", "8t"). See gloopy.music for
-    # seq() (lay steps end-to-end, with rests), scale() and chord().
+    # seq() (lay steps end-to-end, with rests), the mini() string DSL, scale()
+    # and chord().
     g.add_clip(tid, notes=[note(60, 0, 1), note("E4", 1, 1), note("G4", 2, 2)])
     g.add_clip(tid, notes=seq([("C4","q"), ("E4","e"), (None,"e"), ("G4","h")]))
+    g.add_clip(tid, notes=mini("c4q d e f  g4h a b"))   # compact melody DSL
     g.play()
     ...
     g.render("/tmp/out.wav", tail_seconds=1.0)

@@ -207,6 +207,101 @@ advances the clock whether or not it sounds, so a rest pitch (:rest, nil, or
             (push (note p tpos len v) out))
           (incf tpos len))))))
 
+;;; --- mini-notation: a compact string DSL for melodies -----------------------
+;;; One whitespace-separated token per event.  A token is  PITCH[DUR] , a rest
+;;; r[DUR] / _[DUR] , or a chord [P P ...][DUR] .  PITCH is any name #'pitch
+;;; accepts (c, c#4, eb3 — default octave 4); DUR is any code #'dur accepts
+;;; (q h w e s, dotted "q.", triplet "et") glued straight on with NO separator.
+;;; Durations are sticky: omit one and the event inherits the previous length
+;;; (quarter to start), so a run of same-length notes is just "c4q d e f g".
+;;; Because durations are letters, digits stay free for absolute octaves.
+
+(defun %ws-split (s)
+  "Non-empty whitespace-delimited substrings of S."
+  (let ((out '()) (i 0) (n (length s)))
+    (loop while (< i n) do
+      (if (member (char s i) '(#\Space #\Tab #\Newline #\Return))
+          (incf i)
+          (let ((j i))
+            (loop while (and (< j n)
+                             (not (member (char s j) '(#\Space #\Tab #\Newline #\Return))))
+                  do (incf j))
+            (push (subseq s i j) out)
+            (setf i j))))
+    (nreverse out)))
+
+(defun %mini-tokenize (s)
+  "Top-level tokens of a mini string, keeping a [chord]dur together as one token."
+  (let ((out '()) (i 0) (n (length s)))
+    (loop while (< i n) do
+      (let ((c (char s i)))
+        (cond
+          ((member c '(#\Space #\Tab #\Newline #\Return)) (incf i))
+          ((char= c #\[)
+           (let ((close (position #\] s :start i)))
+             (unless close (error "mini: unclosed [ in ~S" s))
+             (let ((j (1+ close)))
+               (loop while (and (< j n)
+                                (not (member (char s j) '(#\Space #\Tab #\Newline #\Return))))
+                     do (incf j))
+               (push (subseq s i j) out)
+               (setf i j))))
+          (t (let ((j i))
+               (loop while (and (< j n)
+                                (not (member (char s j) '(#\Space #\Tab #\Newline #\Return))))
+                     do (incf j))
+               (push (subseq s i j) out)
+               (setf i j))))))
+    (nreverse out)))
+
+(defun %split-pitch/dur (tok)
+  "Split a note token into (values pitch-name dur-or-nil): the pitch is a
+leading letter + #/b accidentals + optional signed octave, the remainder (if
+any) is the duration suffix."
+  (let ((n (length tok)) (i 1))
+    (loop while (and (< i n) (member (char tok i) '(#\# #\b))) do (incf i))
+    (when (and (< i n) (char= (char tok i) #\-)) (incf i))
+    (loop while (and (< i n) (digit-char-p (char tok i))) do (incf i))
+    (values (subseq tok 0 i) (and (< i n) (subseq tok i)))))
+
+(defun mini (s &key (start 0) (velocity 0.8))
+  "Parse mini-notation S into a list of Notes for add-clip.  Durations glue onto
+the pitch with no separator and are sticky (a bare note inherits the previous
+length; quarter to start):
+
+    (mini \"c4q d e f\")             ; four quarter notes, C4 D4 E4 F4
+    (mini \"c4q d e f g4h a b\")     ; C..F quarter, then G4 A4 B4 half
+    (mini \"[c e g]q [f a c5]h\")    ; chords (spaces inside the brackets)
+    (mini \"c4e r e f\")             ; a rest inherits the duration too
+
+PITCH is anything #'pitch accepts, DUR anything #'dur accepts (q h w e s, plus
+dotted \"q.\" and triplet \"et\").  There are no bare duration tokens: to change
+length, attach the code to the note that starts the run."
+  (let ((tpos start) (cur (dur "q")) (out '()))
+    (dolist (tok (%mini-tokenize s) (nreverse out))
+      (let ((c0 (char-downcase (char tok 0))))
+        (cond
+          ;; chord: [p p ...]dur
+          ((char= c0 #\[)
+           (let* ((close (position #\] tok))
+                  (inner (subseq tok 1 close))
+                  (d (and (< (1+ close) (length tok)) (subseq tok (1+ close)))))
+             (when d (setf cur (dur d)))
+             (dolist (p (%ws-split inner))
+               (push (note p tpos cur velocity) out))
+             (incf tpos cur)))
+          ;; rest: r[dur] or _[dur] — advances the clock, sounds nothing
+          ((or (char= c0 #\r) (char= c0 #\_))
+           (let ((d (and (> (length tok) 1) (subseq tok 1))))
+             (when d (setf cur (dur d)))
+             (incf tpos cur)))
+          ;; note: pitch[dur]
+          (t
+           (multiple-value-bind (p d) (%split-pitch/dur tok)
+             (when d (setf cur (dur d)))
+             (push (note p tpos cur velocity) out)
+             (incf tpos cur))))))))
+
 (defun add-clip (track-id &key (start 0) (length 4) (content 0) (looped t) notes (name ""))
   "Add a MIDI clip of NOTES (from #'note) to TRACK-ID.  CONTENT 0 means = length.
 Returns (:track-id :index)."

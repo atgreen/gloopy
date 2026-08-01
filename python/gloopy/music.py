@@ -222,7 +222,100 @@ def seq(steps: Iterable[Sequence],
     return out
 
 
+# ---- mini-notation: a compact string DSL for melodies ----------------------
+# One whitespace-separated token per event: PITCH[DUR], a rest r[DUR]/_[DUR],
+# or a chord [P P ...][DUR]. A duration glues onto the pitch with NO separator
+# (q h w e s, dotted "q.", triplet "8t") and is sticky: omit it and the event
+# inherits the previous length (quarter to start). Because durations are
+# letters, digits stay free for absolute octaves ("c4", "c5").
+
+_WS = " \t\n\r"
+
+
+def _mini_tokenize(s: str) -> List[str]:
+    """Top-level tokens of a mini string, keeping a ``[chord]dur`` as one token."""
+    out: List[str] = []
+    i, n = 0, len(s)
+    while i < n:
+        c = s[i]
+        if c in _WS:
+            i += 1
+        elif c == "[":
+            close = s.find("]", i)
+            if close < 0:
+                raise ValueError(f"mini: unclosed [ in {s!r}")
+            j = close + 1
+            while j < n and s[j] not in _WS:
+                j += 1
+            out.append(s[i:j])
+            i = j
+        else:
+            j = i
+            while j < n and s[j] not in _WS:
+                j += 1
+            out.append(s[i:j])
+            i = j
+    return out
+
+
+def _split_pitch_dur(tok: str):
+    """(pitch_name, dur_or_None): pitch is a leading letter + #/b accidentals +
+    optional signed octave; the remainder (if any) is the duration suffix."""
+    n, i = len(tok), 1
+    while i < n and tok[i] in "#b":
+        i += 1
+    if i < n and tok[i] == "-":
+        i += 1
+    while i < n and tok[i].isdigit():
+        i += 1
+    return tok[:i], (tok[i:] if i < n else None)
+
+
+def mini(s: str, start: float = 0.0, velocity: float = 0.8, note_builder=None) -> list:
+    """Parse mini-notation ``s`` into a list of Notes for ``add_clip``.
+
+    Durations glue onto the pitch with no separator and are sticky (a bare note
+    inherits the previous length; quarter to start)::
+
+        mini("c4q d e f")            # four quarter notes, C4 D4 E4 F4
+        mini("c4q d e f g4h a b")    # C..F quarter, then G4 A4 B4 half
+        mini("[c e g]q [f a c5]h")   # chords (spaces inside the brackets)
+        mini("c4e r e f")            # a rest inherits the duration too
+
+    ``pitch`` is anything :func:`pitch` accepts, the duration anything
+    :func:`dur` accepts (q h w e s, dotted ``"q."``, triplet ``"8t"``). There are
+    no bare duration tokens: to change length, attach the code to the note that
+    starts the run. ``note_builder`` defaults to ``gloopy.note``."""
+    tokens = _mini_tokenize(s)          # parse first, so errors don't need client
+    if note_builder is None:
+        from .client import note as note_builder
+    out = []
+    t = float(start)
+    cur = dur("q")
+    for tok in tokens:
+        c0 = tok[0].lower()
+        if c0 == "[":
+            close = tok.index("]")
+            inner, suffix = tok[1:close], tok[close + 1:]
+            if suffix:
+                cur = dur(suffix)
+            for p in inner.split():
+                out.append(note_builder(pitch(p), t, cur, velocity))
+            t += cur
+        elif c0 in "r_":
+            if len(tok) > 1:
+                cur = dur(tok[1:])
+            t += cur
+        else:
+            p, d = _split_pitch_dur(tok)
+            if d:
+                cur = dur(d)
+            out.append(note_builder(pitch(p), t, cur, velocity))
+            t += cur
+    return out
+
+
 __all__ = [
-    "pitch", "pitch_name", "dur", "scale", "chord", "seq", "REST",
+    "pitch", "pitch_name", "dur", "scale", "chord", "seq", "mini", "REST",
     "SCALES", "CHORDS", "PitchLike", "DurLike",
 ]

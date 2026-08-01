@@ -78,6 +78,30 @@ def test_seq():
     assert rows2 == [(60, 0.0, 0.5), (64, 2.0, 0.8)]
 
 
+def test_mini():
+    def rows(s):
+        return m.mini(s, note_builder=lambda p, s_, l, v: (p, s_, l))
+    # sticky quarter carries the run
+    assert rows("c4q d e f") == [(60,0.0,1.0),(62,1.0,1.0),(64,2.0,1.0),(65,3.0,1.0)]
+    # absolute octaves survive (digits free because durations are letters)
+    assert rows("c4q c5") == [(60,0.0,1.0),(72,1.0,1.0)]
+    # a duration change is sticky from there on
+    assert rows("c4q g4h a") == [(60,0.0,1.0),(67,1.0,2.0),(69,3.0,2.0)]
+    # chord: every pitch shares start and length
+    assert rows("[c e g]q") == [(60,0.0,1.0),(64,0.0,1.0),(67,0.0,1.0)]
+    # rest inherits the running duration and advances the clock silently
+    assert rows("c4e r e") == [(60,0.0,0.5),(64,1.0,0.5)]
+    # accidentals + dotted; eighth-triplet length ~ 1/3
+    assert rows("eb4q.")[0] == (63,0.0,1.5)
+    assert abs(rows("c4et")[0][2] - 1/3) < 1e-9
+    try:
+        m.mini("[c e g")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("unclosed bracket should raise")
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

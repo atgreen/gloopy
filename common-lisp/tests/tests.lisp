@@ -125,10 +125,33 @@
     (is (= 2.0d0 (gloopy.pb::start-beat (third ns))))   ; G4 after C4(1)+E4(.5)+rest(.5)
     (is (= 2.0d0 (gloopy.pb::length-beats (third ns))))))
 
+(test music-mini
+  (flet ((rows (s) (mapcar (lambda (n) (list (gloopy.pb::pitch n)
+                                             (gloopy.pb::start-beat n)
+                                             (gloopy.pb::length-beats n)))
+                           (gloopy:mini s))))
+    ;; sticky quarter: one duration carries the whole run
+    (is (equal '((60 0.0d0 1.0d0) (62 1.0d0 1.0d0) (64 2.0d0 1.0d0) (65 3.0d0 1.0d0))
+               (rows "c4q d e f")))
+    ;; absolute octaves survive (digits are free because durations are letters)
+    (is (equal '((60 0.0d0 1.0d0) (72 1.0d0 1.0d0)) (rows "c4q c5")))
+    ;; a duration change is sticky from there on
+    (is (equal '((60 0.0d0 1.0d0) (67 1.0d0 2.0d0) (69 3.0d0 2.0d0))
+               (rows "c4q g4h a")))
+    ;; chord: every pitch shares the start and length
+    (is (equal '((60 0.0d0 1.0d0) (64 0.0d0 1.0d0) (67 0.0d0 1.0d0))
+               (rows "[c e g]q")))
+    ;; rest inherits the running duration and advances the clock silently
+    (is (equal '((60 0.0d0 0.5d0) (64 1.0d0 0.5d0)) (rows "c4e r e")))
+    ;; accidentals, dotted and eighth-triplet parse (eb4 = 63, q. = 1.5)
+    (is (equal '(63 0.0d0 1.5d0) (first (rows "eb4q."))))
+    (is (< (abs (- (third (first (rows "c4et"))) (/ 1.0d0 3))) 1d-9))
+    (signals error (gloopy:mini "[c e g"))))          ; unclosed bracket
+
 ;;; --- packages export what we advertise --------------------------------------
 (test public-api-present
   (dolist (sym '("CONNECT" "DISCONNECT" "PLAY" "STOP" "ADD-SYNTH-TRACK"
-                 "ADD-CLIP" "NOTE" "SEQ" "PITCH" "PITCH-NAME" "DUR" "SCALE"
+                 "ADD-CLIP" "NOTE" "SEQ" "MINI" "PITCH" "PITCH-NAME" "DUR" "SCALE"
                  "CHORD" "SUBSCRIBE" "RENDER"))
     (is (eq :external (nth-value 1 (find-symbol sym :gloopy)))
         "GLOOPY should export ~a" sym))
