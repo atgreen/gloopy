@@ -13,6 +13,21 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-08-01
+
+Faster, self-contained script-clip kernels: their caches now live under
+`~/.cache/gloopy/`.
+
+### Changed
+- **Script-clip kernels keep their caches under `~/.cache/gloopy/`.** The SBCL kernel
+  writes its ASDF fasl cache to `~/.cache/gloopy/common-lisp` and resolves its Lisp
+  dependencies from ocicl's global collection at `~/.cache/gloopy/ocicl` (forced global,
+  `-g`, mode); the Python kernel runs in a shared venv at `~/.cache/gloopy/python`,
+  auto-created and provisioned with grpcio/protobuf/ipykernel (falling back to the system
+  interpreter if it can't be built). Dedicated, persistent caches mean the dependencies are
+  fetched and compiled once and reused, so repeat startups are fast and independent of the
+  user's global ocicl setup or Python site-packages.
+
 ## [0.1.4] - 2026-08-01
 
 A follow-up to 0.1.3: the script-clip kernel now starts when Gloopy is launched
@@ -196,7 +211,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/atgreen/gloopy/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/atgreen/gloopy/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/atgreen/gloopy/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/atgreen/gloopy/compare/v0.1.1...v0.1.2
