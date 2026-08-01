@@ -13,7 +13,7 @@ timeline, and each track owns the clips placed along it. There is no separate
 ### Composition (project)
 The whole song: its tracks, mixer, transport settings, tempo map, locations,
 automation, and metadata. "Composition" and "project" are the same thing.
-On disk a composition is a [composition-as-repo directory](#on-disk-two-forms)
+On disk a composition is a [composition-as-code directory](#on-disk-two-forms)
 (the default), or a single-file `.gloopy` archive (a zip of that folder).
 
 ### Track

@@ -65,7 +65,7 @@ public:
         if (args.contains ("--help") || args.contains ("-h"))
         {
             std::cout <<
-                "gloopy \xe2\x80\x94 a scriptable, composition-as-repo DAW (JUCE 9 / C++17)\n"
+                "gloopy \xe2\x80\x94 a scriptable, composition-as-code DAW (JUCE 9 / C++17)\n"
                 "\n"
                 "Usage:\n"
                 "  gloopy                          Launch the GUI\n"

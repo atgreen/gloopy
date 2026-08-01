@@ -16,7 +16,7 @@
 Name:           gloopy
 Version:        %{?_gloopy_version}%{!?_gloopy_version:0.1.0}
 Release:        1%{?dist}
-Summary:        A scriptable, composition-as-repo DAW
+Summary:        A scriptable, composition-as-code DAW
 # The binary embeds Surge XT (GPL-3.0), combined with gloopy's own AGPL-3.0.
 License:        AGPL-3.0-only AND GPL-3.0-or-later
 URL:            https://github.com/atgreen/gloopy
@@ -26,7 +26,7 @@ AutoReqProv:    yes
 
 %description
 Gloopy is a linear-arranger DAW driven end to end by an OSC + gRPC control API over a
-diff-friendly composition-as-repo text format. It hosts VST3/LV2 plugins, ships a bundled
+diff-friendly composition-as-code text format. It hosts VST3/LV2 plugins, ships a bundled
 Surge XT synth, and its projects are plain, version-controllable text.
 
 # The software is already built; packaging only stages the `gloopy` install component.

@@ -40,7 +40,7 @@ the impact you observed.
   (scripts and tools on the same machine). Do **not** expose these ports to an untrusted
   network; anything that can reach them can drive Gloopy and read/write project files.
 - Gloopy **hosts third-party VST3/LV2 plugins** and loads project files (a
-  composition-as-repo folder or `.gloopy`/zip). Plugins run as native code, and project
+  composition-as-code folder or `.gloopy`/zip). Plugins run as native code, and project
   files can reference plugins and audio; treat both as you would any code/content from an
   untrusted source.
 - Gloopy vendors third-party components (sfizz, Surge XT, JUCE, and others); their

@@ -353,7 +353,7 @@ message ProjectStatus {
   int32 git_ahead = 12;       // commits ahead of upstream
   int32 git_behind = 13;      // commits behind upstream
 }
-// Git — source control over the composition-as-repo (Git.cpp).
+// Git — source control over the composition-as-code (Git.cpp).
 message GitVersion { bool available = 1; string version = 2; }   // e.g. "git version 2.43.0"
 message GitDir     { string dir = 1; }                           // empty = the open project's dir
 message GitFileChange { string xy = 1; string path = 2; }        // porcelain status code (e.g. " M", "??") + path

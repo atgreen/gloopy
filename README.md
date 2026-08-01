@@ -64,7 +64,7 @@ bounce it to a WAV.
   **OSC** for low-latency live notes and knob turns. See
   [Control & scripting](docs/control-scripting/index.md).
 - **Save / Load / Render** — projects persist to a diff-friendly
-  **composition-as-repo** directory (the default: readable TOML + `.notes`/`.points` + WAV
+  **composition-as-code** directory (the default: readable TOML + `.notes`/`.points` + WAV
   sidecars), or a single-file **`.gloopy` archive** (a zip of that folder) for sharing.
   `--render` bounces to a WAV offline, and named **export profiles**
   (mix / range / track / stems) drive batch renders.

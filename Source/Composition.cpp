@@ -735,7 +735,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
               << ctx.pruned << " pruned)" << std::endl;
 
     // A composition folder IS a git repo: auto-init it on save, so every project is
-    // version-controlled from the start (the composition-as-repo north star — "store it in
+    // version-controlled from the start (the composition-as-code north star — "store it in
     // git"). Skipped for throwaway temp dirs — the `.gloopy` zip archive, `gloopy pack`, and
     // the test harness all write under tempDirectory and must not carry a `.git`. `git init`
     // is idempotent, so re-saving an existing repo is a no-op.

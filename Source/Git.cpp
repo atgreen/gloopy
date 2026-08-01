@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Anthony Green <green@moxielogic.com>
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Git project management — source control over the composition-as-repo. We shell
+// Git project management — source control over the composition-as-code. We shell
 // out to the *system* git (juce::ChildProcess) rather than link a git library: it
 // reuses the user's identity, SSH keys, and credential helpers, adds no dependency,
 // and keeps a clean process boundary. Git state lives in .git, out of band — nothing

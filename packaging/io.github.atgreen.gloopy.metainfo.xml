@@ -6,7 +6,7 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>AGPL-3.0-only</project_license>
   <name>Gloopy</name>
-  <summary>A scriptable, composition-as-repo DAW</summary>
+  <summary>A scriptable, composition-as-code DAW</summary>
   <description>
     <p>
       Gloopy is a linear-arranger digital audio workstation driven end to end by an

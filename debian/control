@@ -9,8 +9,8 @@ Homepage: https://github.com/atgreen/gloopy
 Package: gloopy
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: scriptable, composition-as-repo DAW
+Description: scriptable, composition-as-code DAW
  Gloopy is a linear-arranger DAW driven end to end by an OSC + gRPC control API
- over a diff-friendly composition-as-repo text format. It hosts VST3/LV2 plugins,
+ over a diff-friendly composition-as-code text format. It hosts VST3/LV2 plugins,
  ships a bundled Surge XT synth, and stores projects as plain, version-controllable
  text.

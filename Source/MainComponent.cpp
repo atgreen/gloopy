@@ -3327,7 +3327,7 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
     resetModulationSmoothing();   // deterministic slew: each offline render seeds afresh
     // Reset every insert/master effect's internal state (delay lines, LFO phase) so a
     // bounce is bit-reproducible run-to-run — otherwise a delay/chorus/flanger/phaser
-    // carries state from a previous render (composition-as-repo wants deterministic renders).
+    // carries state from a previous render (composition-as-code wants deterministic renders).
     for (auto& mt : mixerTracks) for (auto& fx : mt->effects) fx->reset();
     double dummy; transport.consumeSeek (dummy); transport.consumeReset();
     transport.setPlaying (true);
@@ -6231,7 +6231,7 @@ void MainComponent::showFileMenu()
             {
                 const juce::String about =
                     "Gloopy " + juce::String (JUCE_APPLICATION_VERSION_STRING) + "\n"
-                    "A scriptable, composition-as-repo DAW.\n"
+                    "A scriptable, composition-as-code DAW.\n"
                     "Copyright \xc2\xa9 2026 Anthony Green.\n\n"
                     "Licensed under the GNU Affero General Public License v3 (AGPL-3.0).\n"
                     "Bundles Surge XT (GPL-3.0), JUCE, sfizz, and the Salamander Grand Piano "

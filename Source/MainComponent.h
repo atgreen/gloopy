@@ -217,7 +217,7 @@ public:
     void openNotes();                                   // UI: a notes editor window
 
     // --- git project management (Git.cpp) ---
-    // Version control over the composition-as-repo by shelling out to the system git
+    // Version control over the composition-as-code by shelling out to the system git
     // (juce::ChildProcess, off the audio thread). Git state lives in .git, out of band.
     struct GitFileChange { juce::String xy, path; };    // porcelain code (" M", "??") + path
     struct GitStatusSnap {
