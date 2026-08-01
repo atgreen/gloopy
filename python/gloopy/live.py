@@ -20,7 +20,9 @@ Jobs are routed by language, so this coexists with Gloopy's own SBCL kernel.
 """
 from __future__ import annotations
 
+import importlib
 import os
+import sys
 import threading
 import time
 import traceback
@@ -41,6 +43,38 @@ def default_generate(ctx) -> List["pb.Note"]:
     root = 60 + (ctx.key_root if ctx.key_root >= 0 else 0)
     scale = [0, 2, 4, 5, 7, 9, 11]
     return [note(root + scale[b % len(scale)], b, 0.9) for b in range(beats)]
+
+
+def _import_symbol(ref: str, system: str = "") -> Generator:
+    """Resolve a named generator ``"pkg.mod:fn"`` (also ``"pkg.mod.fn"``) to the live function in
+    the project's module — the Python twin of the Lisp kernel's resolve-named-generator. ``system``
+    is an optional import root prepended to ``sys.path`` (e.g. the project's ``src/``)."""
+    if system and system not in sys.path:
+        sys.path.insert(0, system)
+    mod_name, sep, attr = ref.partition(":")
+    if not sep:
+        mod_name, _, attr = ref.rpartition(".")
+    if not mod_name or not attr:
+        raise ValueError(f"generator {ref!r} is not module:function")
+    fn = getattr(importlib.import_module(mod_name), attr)
+    if not callable(fn):
+        raise TypeError(f"generator {ref!r} is not callable")
+    return fn
+
+
+def _load_source(path: str) -> "Generator | None":
+    """Run a file-based generator: exec the ``.py`` at ``path`` with the kernel prelude
+    (``note``, ``set_generator``, ``pb``) — same convention as the one-shot ``python/kernel.py``.
+    The file registers via ``set_generator(fn)`` or defines a top-level ``generate(ctx)``."""
+    holder: dict[str, Generator] = {}
+    def _set(fn: Generator) -> Generator:
+        holder["gen"] = fn
+        return fn
+    ns = {"note": note, "set_generator": _set, "generator": _set, "pb": pb,
+          "__name__": "gloopy_script", "__file__": path}
+    with open(path) as f:
+        exec(compile(f.read(), path, "exec"), ns)   # noqa: S102 — the project's own generator file
+    return holder.get("gen") or ns.get("generate") or ns.get("gen")
 
 
 class LiveKernel:
@@ -116,6 +150,20 @@ class LiveKernel:
     set_generator = generator  # alias for symmetry with the Lisp/one-shot kernels
 
     # -- the bridge --------------------------------------------------------
+    def _resolve_generator(self, spec) -> Generator:
+        """Pick the generator for a job, mirroring the Lisp kernel: a named generator (an
+        in-process registration, else a ``pkg.mod:fn`` import), then a source file, then the
+        default. Lets a project reference ``generator="songs.demos:arp"`` and generate headlessly
+        — no notebook cell need have run first."""
+        name = spec.generator
+        if name:
+            return self._generators.get(name) or _import_symbol(name, spec.system)
+        if spec.source:
+            gen = _load_source(spec.source)
+            if gen is not None:
+                return gen
+        return self._default or default_generate
+
     def _run_job(self, spec) -> None:
         ctx = pb.GenContext(
             tempo_bpm=spec.tempo_bpm,
@@ -124,9 +172,7 @@ class LiveKernel:
             key_root=spec.key_root,
         )
         try:
-            name = spec.generator
-            gen = (self._generators.get(name) if name else None) or self._default or default_generate
-            notes = list(gen(ctx))
+            notes = list(self._resolve_generator(spec)(ctx))
             self._stub.KernelSubmit(pb.KernelSubmitRequest(job=spec.job, ok=True, notes=notes))
             self._last_error = None
         except Exception as e:  # noqa: BLE001 — surface any generator error to Gloopy, keep serving
