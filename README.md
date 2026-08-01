@@ -1,5 +1,7 @@
 # Gloopy
 
+**[Website & manual → atgreen.github.io/gloopy](https://atgreen.github.io/gloopy/)**
+
 > ⚠️ **Highly experimental — don't bother trying it yet.**
 > Gloopy is under active development: unstable, incomplete, and subject to change
 > without notice. There are no supported releases, and interfaces, project
@@ -156,9 +158,10 @@ binary), configure with `-DGLOOPY_WITH_SURGE=OFF`. Surge XT is GPL-3.0 — see
 
 ## Documentation
 
-The full manual lives in [`docs/`](docs/) — a docs-as-code site (Material for
-MkDocs) with two front doors: a **User guide** for musicians and producers, and
-**Control & scripting** for driving Gloopy over the API. The domain model —
+The full manual is published at **<https://atgreen.github.io/gloopy/>** and lives
+in [`docs/`](docs/) — a docs-as-code site (Material for MkDocs) with two front
+doors: a **User guide** for musicians and producers, and **Control & scripting**
+for driving Gloopy over the API. The domain model —
 tracks, clips, scenes, transport, the mixer — is defined once in
 [The Gloopy model](docs/control-scripting/concepts/model.md), and the OSC + gRPC
 control surface is documented alongside it. Preview it locally:
@@ -211,6 +214,11 @@ with Gloopy() as g:
     g.add_clip(lead, notes=[note(60, 0, 1), note(64, 1, 1), note(67, 2, 1)])
     g.play(); g.render("/tmp/mix.wav", tail_seconds=1.0)   # offline bounce
 ```
+
+Pitches accept **names** (`note("E4", 0, 1)`), and both clients add `scale`,
+`chord`, a `seq` step-builder, and a compact `mini` note-string
+(`mini("c4q d e f g4h a b")`) — see
+[Describing notes](docs/control-scripting/reference/describing-notes.md).
 
 ## Layout
 

@@ -14,6 +14,14 @@ tagged release.
 ## [Unreleased]
 
 ### Added
+- **Musical note helpers in the Python and Common Lisp clients.** A pure,
+  dependency-free layer for describing music by name instead of raw numbers:
+  note names (`"C#4"`), duration shorthand (`q`, `8t`, dotted `q.`), `scale` and
+  `chord` builders, a `seq` step-sequencer, and a compact `mini` note-string DSL
+  (`mini("c4q d e f g4h a b")` — sticky letter-durations, chords, and rests).
+  `note()` now also accepts a pitch name and a duration code. Documented once,
+  language-agnostically, in the new *Describing notes* reference page. The wire
+  format is unchanged (MIDI pitch + beats).
 - The script-clip **kernels are now shipped in the packages** (`share/gloopy/`), and the
   Emacs helper `gloopy.el` installs into Emacs's `site-lisp` — so script clips and
   `M-x gloopy-connect` work from an installed Gloopy, not just a source checkout.
