@@ -13,6 +13,23 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-08-01
+
+### Fixed
+- **The hosted Surge XT synth now shows its factory patches.** When Surge XT is loaded
+  by a host, its data lookup (relative to its own binary) resolves to *Gloopy* rather than
+  the plugin, so it never finds the `SurgeXTData` bundled beside it and fell through to
+  empty system paths — an empty patch browser. Gloopy now sets the `SURGE_DATA_HOME`
+  environment variable (which Surge honours above all other paths, on every platform) to
+  the bundled data at startup, so the featured Surge instrument comes up fully populated.
+
+### Changed
+- **`gloopy-connect` (Emacs) opens the REPL in the kernel package with a Gloopy banner.**
+  Attaching Sly now drops you into `gloopy-kernel` — where a clip's generators live — instead
+  of `CL-USER`, and replaces SLY's startup banner with a short Gloopy one (customisable via
+  `gloopy-repl-package` and `gloopy-replace-banner`). Scoped to the connection `gloopy-connect`
+  opened, so other Sly REPLs are untouched.
+
 ## [0.1.6] - 2026-08-01
 
 ### Fixed
@@ -225,7 +242,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/atgreen/gloopy/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/atgreen/gloopy/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/atgreen/gloopy/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/atgreen/gloopy/compare/v0.1.3...v0.1.4
