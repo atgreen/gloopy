@@ -24,6 +24,9 @@ tagged release.
   available over gRPC and from the Python (`rename_macro`, `clear_macro_mappings`,
   `remove_macro`) and Common Lisp clients — where you can additionally set a narrower `[lo, hi]`
   safe range per mapping.
+- **A Randomize button in the RACK panel.** Rolls every macro on the track to a fresh random
+  value at once — musical because each mapping stays inside its authored safe range. (The same
+  `randomize-macros` was already scriptable; this is the desktop control.)
 
 ## [0.1.11] - 2026-08-02
 

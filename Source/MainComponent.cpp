@@ -1015,6 +1015,7 @@ MainComponent::MainComponent (bool headless)
     };
     rackPanel.onSetValue = [this] (int macro, float v) { if (rackTrack >= 0) apiSetMacroValue (rackTrack, macro, v); };
     rackPanel.onMacroMenu = [this] (int macro, juce::Component* anchor) { showMacroMenu (macro, anchor); };
+    rackPanel.onRandomize = [this] { if (rackTrack >= 0) { apiRandomizeMacros (rackTrack); refreshRackPanel(); } };
 
     verticalLayout.setItemLayout (0, 120.0, -0.85, -0.60);   // arrangement
     verticalLayout.setItemLayout (1, 6.0, 6.0, 6.0);         // divider

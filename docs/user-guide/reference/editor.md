@@ -58,7 +58,8 @@ one or more of the track's synth/effect parameters at once. **+ Macro** adds one
 turn a knob (0..1) and every parameter it drives sweeps across its safe range, so a
 single knob moves a whole sound. Under each knob is the macro's name and how many
 parameters it drives, and the knobs update live when a macro changes elsewhere (for
-example a script `randomize-macros`).
+example a script `randomize-macros`). **Randomize** rolls every macro to a fresh value
+at once — musical, since each mapping stays inside its safe range.
 
 The **⋯** button on each knob opens its menu:
 

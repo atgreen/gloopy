@@ -39,6 +39,11 @@ public:
         addBtn.onClick = [this] { if (onAddMacro) { onAddMacro(); refresh(); } };
         addAndMakeVisible (addBtn);
 
+        randomBtn.setButtonText ("Randomize");
+        randomBtn.setTooltip ("Roll every macro to a fresh random value — musical, since each stays in its safe range");
+        randomBtn.onClick = [this] { if (onRandomize) { onRandomize(); refresh(); } };
+        addAndMakeVisible (randomBtn);
+
         startTimerHz (12);   // live feedback: track values changed elsewhere
     }
 
@@ -46,6 +51,7 @@ public:
     std::function<juce::String()>            getTitle;    // "MACROS  •  TRACK"
     std::function<std::vector<MacroInfo>()>  getMacros;   // one entry per macro
     std::function<void()>                    onAddMacro;  // add a macro to the track
+    std::function<void()>                    onRandomize; // roll all macros to fresh random values
     std::function<void (int, float)>         onSetValue;  // (macro index, value 0..1)
     std::function<void (int, juce::Component*)> onMacroMenu; // (macro index, anchor) map/rename/remove
     std::function<void()>                    onShowClip;  // switch back to the clip editor
@@ -58,6 +64,7 @@ public:
     {
         title.setText (getTitle ? getTitle() : "MACROS", juce::dontSendNotification);
         macros = getMacros ? getMacros() : std::vector<MacroInfo>{};
+        randomBtn.setEnabled (! macros.empty());   // nothing to roll on an empty rack
         knobs.clear();
         menuBtns.clear();
         for (int i = 0; i < (int) macros.size(); ++i)
@@ -121,8 +128,10 @@ public:
         auto a = getLocalBounds();
         auto h = a.removeFromTop (26).reduced (4, 3);
         if (! standalone) { clipBtn.setBounds (h.removeFromLeft (54)); h.removeFromLeft (8); }
-        title.setBounds (h.removeFromLeft (juce::jmin (240, h.getWidth() - 90)));
+        title.setBounds (h.removeFromLeft (juce::jmin (200, juce::jmax (0, h.getWidth() - 180))));
         addBtn.setBounds (h.removeFromRight (78));
+        h.removeFromRight (6);
+        randomBtn.setBounds (h.removeFromRight (84));
 
         // Encoder grid: a ⋯ menu button (top-right), knob, name + "N params" hint per cell.
         auto grid = a.reduced (12, 10);
@@ -156,7 +165,7 @@ private:
     }
 
     juce::Label      title;
-    juce::TextButton clipBtn, addBtn;
+    juce::TextButton clipBtn, addBtn, randomBtn;
     std::vector<std::unique_ptr<juce::Slider>>     knobs;
     std::vector<std::unique_ptr<juce::TextButton>> menuBtns;   // per-macro ⋯ map/rename/remove
     std::vector<MacroInfo> macros;
