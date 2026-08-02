@@ -155,6 +155,35 @@ namespace
             return Status::OK;
         }
 
+        // --- Macros (the rack layer) -------------------------------------------
+        Status AddMacro (ServerContext*, const gpb::MacroAdd* q, gpb::MacroIndex* r) override
+        {
+            r->set_track_id (q->track_id());
+            r->set_index (main.apiAddMacro (q->track_id(), js (q->name())));
+            return Status::OK;
+        }
+        Status SetMacroValue (ServerContext*, const gpb::MacroValue* q, gpb::Ack* r) override
+        {
+            const bool ok = main.apiSetMacroValue (q->track_id(), q->macro(), q->value());
+            r->set_ok (ok); if (! ok) r->set_error ("no such track/macro"); return Status::OK;
+        }
+        Status MapMacroSynth (ServerContext*, const gpb::MacroMapSynth* q, gpb::Ack* r) override
+        {
+            const bool ok = main.apiMapMacroSynth (q->track_id(), q->macro(), js (q->param()), q->lo(), q->hi());
+            r->set_ok (ok); if (! ok) r->set_error ("no such track/macro"); return Status::OK;
+        }
+        Status MapMacroEffect (ServerContext*, const gpb::MacroMapEffect* q, gpb::Ack* r) override
+        {
+            const bool ok = main.apiMapMacroEffect (q->track_id(), q->macro(), q->insert(), q->slot(),
+                                                    js (q->param()), q->lo(), q->hi());
+            r->set_ok (ok); if (! ok) r->set_error ("no such track/macro"); return Status::OK;
+        }
+        Status RandomizeMacros (ServerContext*, const gpb::TrackId* q, gpb::Ack* r) override
+        {
+            const bool ok = main.apiRandomizeMacros (q->id());
+            r->set_ok (ok); if (! ok) r->set_error ("no such track"); return Status::OK;
+        }
+
         Status ListPresets (ServerContext*, const gpb::PresetCategory* q, gpb::PresetList* r) override
         { for (auto& n : main.apiListPresets (js (q->category()))) r->add_names (n.toStdString()); return Status::OK; }
 

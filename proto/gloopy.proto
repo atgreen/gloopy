@@ -67,6 +67,15 @@ message TakeCount      { int32 count = 1; }
 // ftype cutoff reso fenvamt fattack fdecay fsustain frelease lfotarget lforate lfodepth
 message SynthParamSet { int32 track_id = 1; string name = 2; float value = 3; }
 
+// Macros — the "rack" layer. A macro is one perceptual encoder (0..1) mapped onto
+// one or more params, each within an authored [lo,hi] safe range: param = lerp(lo,hi,value).
+message MacroAdd       { int32 track_id = 1; string name = 2; }
+message MacroIndex     { int32 track_id = 1; int32 index = 2; }   // AddMacro reply: the new macro's index
+message MacroValue     { int32 track_id = 1; int32 macro = 2; float value = 3; }
+message MacroMapSynth  { int32 track_id = 1; int32 macro = 2; string param = 3; float lo = 4; float hi = 5; }
+message MacroMapEffect { int32 track_id = 1; int32 macro = 2; int32 insert = 3; int32 slot = 4;
+                         string param = 5; float lo = 6; float hi = 7; }
+
 message TrackParams {
   int32 id = 1;
   optional float  volume = 2;
@@ -486,6 +495,13 @@ service Gloopy {
   rpc SetTrackParams(TrackParams)          returns (Ack);
   rpc SetSynthParam (SynthParamSet)        returns (Ack);   // tweak the built-in synth engine
   rpc ListTracks    (Empty)                returns (TrackList);
+
+  // macros (the rack layer): perceptual encoders over a track's synth/effect params
+  rpc AddMacro        (MacroAdd)       returns (MacroIndex);
+  rpc SetMacroValue   (MacroValue)     returns (Ack);
+  rpc MapMacroSynth   (MacroMapSynth)  returns (Ack);
+  rpc MapMacroEffect  (MacroMapEffect) returns (Ack);
+  rpc RandomizeMacros (TrackId)        returns (Ack);
 
   // clips & notes (programmatic sequences)
   rpc AddClip       (AddClipRequest)       returns (ClipId);

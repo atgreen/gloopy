@@ -190,6 +190,31 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
                 response_deserializer=gloopy__pb2.TrackList.FromString,
                 _registered_method=True)
+        self.AddMacro = channel.unary_unary(
+                '/gloopy.v1.Gloopy/AddMacro',
+                request_serializer=gloopy__pb2.MacroAdd.SerializeToString,
+                response_deserializer=gloopy__pb2.MacroIndex.FromString,
+                _registered_method=True)
+        self.SetMacroValue = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetMacroValue',
+                request_serializer=gloopy__pb2.MacroValue.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.MapMacroSynth = channel.unary_unary(
+                '/gloopy.v1.Gloopy/MapMacroSynth',
+                request_serializer=gloopy__pb2.MacroMapSynth.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.MapMacroEffect = channel.unary_unary(
+                '/gloopy.v1.Gloopy/MapMacroEffect',
+                request_serializer=gloopy__pb2.MacroMapEffect.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.RandomizeMacros = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RandomizeMacros',
+                request_serializer=gloopy__pb2.TrackId.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.AddClip = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AddClip',
                 request_serializer=gloopy__pb2.AddClipRequest.SerializeToString,
@@ -1438,6 +1463,37 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def ListTracks(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AddMacro(self, request, context):
+        """macros (the rack layer): perceptual encoders over a track's synth/effect params
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetMacroValue(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MapMacroSynth(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MapMacroEffect(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RandomizeMacros(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2996,6 +3052,31 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.ListTracks,
                     request_deserializer=gloopy__pb2.Empty.FromString,
                     response_serializer=gloopy__pb2.TrackList.SerializeToString,
+            ),
+            'AddMacro': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddMacro,
+                    request_deserializer=gloopy__pb2.MacroAdd.FromString,
+                    response_serializer=gloopy__pb2.MacroIndex.SerializeToString,
+            ),
+            'SetMacroValue': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetMacroValue,
+                    request_deserializer=gloopy__pb2.MacroValue.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'MapMacroSynth': grpc.unary_unary_rpc_method_handler(
+                    servicer.MapMacroSynth,
+                    request_deserializer=gloopy__pb2.MacroMapSynth.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'MapMacroEffect': grpc.unary_unary_rpc_method_handler(
+                    servicer.MapMacroEffect,
+                    request_deserializer=gloopy__pb2.MacroMapEffect.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'RandomizeMacros': grpc.unary_unary_rpc_method_handler(
+                    servicer.RandomizeMacros,
+                    request_deserializer=gloopy__pb2.TrackId.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'AddClip': grpc.unary_unary_rpc_method_handler(
                     servicer.AddClip,
@@ -4881,6 +4962,141 @@ class Gloopy:
             '/gloopy.v1.Gloopy/ListTracks',
             gloopy__pb2.Empty.SerializeToString,
             gloopy__pb2.TrackList.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AddMacro(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/AddMacro',
+            gloopy__pb2.MacroAdd.SerializeToString,
+            gloopy__pb2.MacroIndex.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetMacroValue(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetMacroValue',
+            gloopy__pb2.MacroValue.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def MapMacroSynth(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/MapMacroSynth',
+            gloopy__pb2.MacroMapSynth.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def MapMacroEffect(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/MapMacroEffect',
+            gloopy__pb2.MacroMapEffect.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RandomizeMacros(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RandomizeMacros',
+            gloopy__pb2.TrackId.SerializeToString,
+            gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,
             insecure,
