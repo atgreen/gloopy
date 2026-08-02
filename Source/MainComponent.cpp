@@ -1014,6 +1014,7 @@ MainComponent::MainComponent (bool headless)
         apiAddMacro (rackTrack, "Macro " + juce::String (n + 1));
     };
     rackPanel.onSetValue = [this] (int macro, float v) { if (rackTrack >= 0) apiSetMacroValue (rackTrack, macro, v); };
+    rackPanel.onMacroMenu = [this] (int macro, juce::Component* anchor) { showMacroMenu (macro, anchor); };
 
     verticalLayout.setItemLayout (0, 120.0, -0.85, -0.60);   // arrangement
     verticalLayout.setItemLayout (1, 6.0, 6.0, 6.0);         // divider
@@ -1816,6 +1817,40 @@ bool MainComponent::apiRandomizeMacros (int trackId)
         if (t == nullptr) return false;
         auto& rng = juce::Random::getSystemRandom();
         for (auto& m : t->macros) { m.value = rng.nextFloat(); applyMacroMappings (t, m); }
+        return true;
+    });
+}
+
+bool MainComponent::apiRenameMacro (int trackId, int macro, const juce::String& name)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (macro, (int) t->macros.size()) || name.trim().isEmpty())
+            return false;
+        t->macros[(size_t) macro].name = name.trim();
+        return true;
+    });
+}
+
+bool MainComponent::apiRemoveMacro (int trackId, int macro)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (macro, (int) t->macros.size())) return false;
+        t->macros.erase (t->macros.begin() + macro);
+        return true;
+    });
+}
+
+bool MainComponent::apiClearMacroMappings (int trackId, int macro)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (macro, (int) t->macros.size())) return false;
+        t->macros[(size_t) macro].mappings.clear();
         return true;
     });
 }
@@ -3862,6 +3897,128 @@ void MainComponent::refreshRackPanel()
         rackTrack = juce::isPositiveAndBelow (tIdx, (int) tracks.size()) ? tracks[(size_t) tIdx]->id : -1;
     }
     rackPanel.refresh();
+}
+
+// The continuous built-in-synth params a macro can be mapped to, with a sensible full-range
+// [lo,hi] default (envelope times capped to a musical range). Enum/switch params (wave, ftype,
+// lfotarget) are intentionally omitted — mapping a smooth encoder to a discrete switch is noise.
+namespace {
+struct SynthParamDesc { const char* name; float lo, hi; };
+const std::vector<SynthParamDesc>& synthParamDescs()
+{
+    static const std::vector<SynthParamDesc> v = {
+        { "cutoff", 20.0f, 20000.0f }, { "reso", 0.5f, 20.0f }, { "fenvamt", 0.0f, 8.0f },
+        { "oscmix", 0.0f, 1.0f }, { "sub", 0.0f, 1.0f }, { "osc2detune", -1200.0f, 1200.0f },
+        { "attack", 0.0f, 2.0f }, { "decay", 0.0f, 2.0f }, { "sustain", 0.0f, 1.0f }, { "release", 0.0f, 4.0f },
+        { "gain", 0.0f, 4.0f }, { "fattack", 0.0f, 2.0f }, { "fdecay", 0.0f, 2.0f }, { "fsustain", 0.0f, 1.0f },
+        { "frelease", 0.0f, 4.0f }, { "lforate", 0.01f, 40.0f }, { "lfodepth", 0.0f, 1.0f }, { "detune", -100.0f, 100.0f },
+    };
+    return v;
+}
+} // namespace
+
+// Right-click / ⋯ on a macro: rename it, map it to a synth or effect param (over that param's
+// range), clear its mappings, or remove it. All the track/synth/effect knowledge lives here, so
+// the rack panel just asks us to pop the menu anchored on the knob.
+void MainComponent::showMacroMenu (int macroIndex, juce::Component* anchor)
+{
+    if (rackTrack < 0) return;
+
+    bool hasSynth = false;
+    int  insert   = -1;
+    {
+        const juce::ScopedLock sl (engineLock);
+        auto* t = resolveTrack (rackTrack);
+        if (t == nullptr) return;
+        hasSynth = dynamic_cast<SynthGenerator*> (t->generator.get()) != nullptr;
+        insert   = juce::jlimit (0, (int) mixerTracks.size() - 1, t->mixerTrack.load());
+    }
+
+    // Enumerate the track's effect slots (name + slot), then read each slot's params outside the
+    // lock via apiGetEffectParams (which marshals + locks itself).
+    struct EffTarget { juce::String label; int insert, slot; juce::String param; float lo, hi; };
+    std::vector<EffTarget> effTargets;
+    {
+        std::vector<std::pair<juce::String, int>> slots;
+        { const juce::ScopedLock sl (engineLock);
+          if (juce::isPositiveAndBelow (insert, (int) mixerTracks.size()))
+              for (int s = 0; s < (int) mixerTracks[(size_t) insert]->effects.size(); ++s)
+                  slots.push_back ({ mixerTracks[(size_t) insert]->effects[(size_t) s]->name(), s }); }
+        const juce::String dot (juce::CharPointer_UTF8 ("\xc2\xb7"));   // ·
+        for (auto& sp : slots)
+            for (auto& p : apiGetEffectParams (insert, sp.second))
+                effTargets.push_back ({ sp.first + " " + dot + " " + p.name, insert, sp.second, p.name, p.min, p.max });
+    }
+
+    std::vector<juce::String> synthNames;
+    if (hasSynth) for (auto& d : synthParamDescs()) synthNames.push_back (d.name);
+
+    juce::PopupMenu m;
+    m.addItem (1, juce::String::fromUTF8 ("Rename\xe2\x80\xa6"));
+    m.addSeparator();
+    if (! synthNames.empty())
+    {
+        juce::PopupMenu sub;
+        for (int i = 0; i < (int) synthNames.size(); ++i) sub.addItem (1000 + i, synthNames[(size_t) i]);
+        m.addSubMenu ("Map to synth", sub);
+    }
+    if (! effTargets.empty())
+    {
+        juce::PopupMenu sub;
+        for (int i = 0; i < (int) effTargets.size(); ++i) sub.addItem (2000 + i, effTargets[(size_t) i].label);
+        m.addSubMenu ("Map to effect", sub);
+    }
+    if (synthNames.empty() && effTargets.empty()) m.addItem (9, "No mappable params on this track", false, false);
+    m.addSeparator();
+    m.addItem (3, "Clear mappings");
+    m.addItem (4, "Remove macro");
+
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (anchor),
+        [this, macroIndex, synthNames, effTargets] (int r)
+        {
+            if (r == 0) return;
+            if (r == 1) { promptRenameMacro (macroIndex); return; }
+            if (r == 3) { apiClearMacroMappings (rackTrack, macroIndex); refreshRackPanel(); return; }
+            if (r == 4) { apiRemoveMacro (rackTrack, macroIndex); refreshRackPanel(); return; }
+            if (r >= 1000 && r < 1000 + (int) synthNames.size())
+            {
+                const auto nm = synthNames[(size_t) (r - 1000)];
+                for (auto& d : synthParamDescs())
+                    if (nm == d.name) { apiMapMacroSynth (rackTrack, macroIndex, nm, d.lo, d.hi); break; }
+                refreshRackPanel();
+            }
+            else if (r >= 2000 && r < 2000 + (int) effTargets.size())
+            {
+                const auto& e = effTargets[(size_t) (r - 2000)];
+                apiMapMacroEffect (rackTrack, macroIndex, e.insert, e.slot, e.param, e.lo, e.hi);
+                refreshRackPanel();
+            }
+        });
+}
+
+void MainComponent::promptRenameMacro (int macroIndex)
+{
+    if (rackTrack < 0) return;
+    juce::String cur;
+    {
+        const juce::ScopedLock sl (engineLock);
+        auto* t = resolveTrack (rackTrack);
+        if (t != nullptr && juce::isPositiveAndBelow (macroIndex, (int) t->macros.size()))
+            cur = t->macros[(size_t) macroIndex].name;
+    }
+    auto* aw = new juce::AlertWindow ("Rename macro", "New name:", juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("name", cur);
+    aw->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, macroIndex] (int r)
+    {
+        if (r == 1)
+        {
+            const auto nm = aw->getTextEditorContents ("name").trim();
+            if (nm.isNotEmpty()) { apiRenameMacro (rackTrack, macroIndex, nm); refreshRackPanel(); }
+        }
+        delete aw;
+    }), false);
 }
 
 // The clip currently loaded in the editor — a session slot (if selected) or an arrangement clip.

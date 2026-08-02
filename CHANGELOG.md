@@ -13,6 +13,18 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-08-02
+
+### Added
+- **Map and name macros from the desktop — no scripting needed.** Each macro knob in the
+  RACK panel now has a **⋯** menu: **Rename…** it ("Brightness", "Drive"), **Map to synth ▸**
+  a built-in synth parameter or **Map to effect ▸** a parameter of one of the track's insert
+  effects (mapped over that parameter's range), **Clear mappings**, or **Remove macro**. Map a
+  macro onto several parameters and one knob morphs them together. The same operations are also
+  available over gRPC and from the Python (`rename_macro`, `clear_macro_mappings`,
+  `remove_macro`) and Common Lisp clients — where you can additionally set a narrower `[lo, hi]`
+  safe range per mapping.
+
 ## [0.1.11] - 2026-08-02
 
 ### Added
@@ -288,7 +300,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.11...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.12...HEAD
+[0.1.12]: https://github.com/atgreen/gloopy/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/atgreen/gloopy/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/atgreen/gloopy/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/atgreen/gloopy/compare/v0.1.8...v0.1.9

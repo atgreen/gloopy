@@ -75,6 +75,8 @@ message MacroValue     { int32 track_id = 1; int32 macro = 2; float value = 3; }
 message MacroMapSynth  { int32 track_id = 1; int32 macro = 2; string param = 3; float lo = 4; float hi = 5; }
 message MacroMapEffect { int32 track_id = 1; int32 macro = 2; int32 insert = 3; int32 slot = 4;
                          string param = 5; float lo = 6; float hi = 7; }
+message MacroRef       { int32 track_id = 1; int32 macro = 2; }                 // remove / clear mappings
+message MacroRename    { int32 track_id = 1; int32 macro = 2; string name = 3; }
 
 message TrackParams {
   int32 id = 1;
@@ -502,6 +504,9 @@ service Gloopy {
   rpc MapMacroSynth   (MacroMapSynth)  returns (Ack);
   rpc MapMacroEffect  (MacroMapEffect) returns (Ack);
   rpc RandomizeMacros (TrackId)        returns (Ack);
+  rpc RenameMacro       (MacroRename)  returns (Ack);
+  rpc RemoveMacro       (MacroRef)     returns (Ack);
+  rpc ClearMacroMappings(MacroRef)     returns (Ack);
 
   // clips & notes (programmatic sequences)
   rpc AddClip       (AddClipRequest)       returns (ClipId);

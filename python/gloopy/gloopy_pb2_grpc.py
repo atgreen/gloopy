@@ -215,6 +215,21 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.TrackId.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.RenameMacro = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RenameMacro',
+                request_serializer=gloopy__pb2.MacroRename.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.RemoveMacro = channel.unary_unary(
+                '/gloopy.v1.Gloopy/RemoveMacro',
+                request_serializer=gloopy__pb2.MacroRef.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
+        self.ClearMacroMappings = channel.unary_unary(
+                '/gloopy.v1.Gloopy/ClearMacroMappings',
+                request_serializer=gloopy__pb2.MacroRef.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.AddClip = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AddClip',
                 request_serializer=gloopy__pb2.AddClipRequest.SerializeToString,
@@ -1494,6 +1509,24 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def RandomizeMacros(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RenameMacro(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RemoveMacro(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ClearMacroMappings(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -3076,6 +3109,21 @@ def add_GloopyServicer_to_server(servicer, server):
             'RandomizeMacros': grpc.unary_unary_rpc_method_handler(
                     servicer.RandomizeMacros,
                     request_deserializer=gloopy__pb2.TrackId.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'RenameMacro': grpc.unary_unary_rpc_method_handler(
+                    servicer.RenameMacro,
+                    request_deserializer=gloopy__pb2.MacroRename.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'RemoveMacro': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemoveMacro,
+                    request_deserializer=gloopy__pb2.MacroRef.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'ClearMacroMappings': grpc.unary_unary_rpc_method_handler(
+                    servicer.ClearMacroMappings,
+                    request_deserializer=gloopy__pb2.MacroRef.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'AddClip': grpc.unary_unary_rpc_method_handler(
@@ -5096,6 +5144,87 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/RandomizeMacros',
             gloopy__pb2.TrackId.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RenameMacro(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RenameMacro',
+            gloopy__pb2.MacroRename.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RemoveMacro(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/RemoveMacro',
+            gloopy__pb2.MacroRef.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ClearMacroMappings(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/ClearMacroMappings',
+            gloopy__pb2.MacroRef.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

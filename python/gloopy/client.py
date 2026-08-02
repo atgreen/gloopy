@@ -296,6 +296,19 @@ class Gloopy:
         each mapping stays within its authored [lo,hi] safe range."""
         self._ack(self.stub.RandomizeMacros(pb.TrackId(id=track_id)))
 
+    def rename_macro(self, track_id: int, macro: int, name: str) -> None:
+        """Rename a macro. Empty/whitespace names are rejected."""
+        self._ack(self.stub.RenameMacro(
+            pb.MacroRename(track_id=track_id, macro=macro, name=name)))
+
+    def clear_macro_mappings(self, track_id: int, macro: int) -> None:
+        """Remove all of a macro's param mappings (the macro itself stays)."""
+        self._ack(self.stub.ClearMacroMappings(pb.MacroRef(track_id=track_id, macro=macro)))
+
+    def remove_macro(self, track_id: int, macro: int) -> None:
+        """Delete a macro from the track (later macros shift down by one index)."""
+        self._ack(self.stub.RemoveMacro(pb.MacroRef(track_id=track_id, macro=macro)))
+
     def remove_track(self, track_id: int) -> None:
         self._ack(self.stub.RemoveTrack(pb.TrackId(id=track_id)))
 

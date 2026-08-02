@@ -233,6 +233,21 @@ ftype cutoff reso fenvamt fattack fdecay fsustain frelease lfotarget lforate lfo
 mapping stays within its authored [lo,hi] safe range."
   (%ack "RandomizeMacros" (mk 'gloopy.pb::track-id :id (round id))))
 
+(defun rename-macro (id macro name)
+  "Rename MACRO (index) on track ID.  Empty names are rejected."
+  (%ack "RenameMacro" (mk 'gloopy.pb::macro-rename
+                          :track-id (round id) :macro (round macro) :name (string name))))
+
+(defun clear-macro-mappings (id macro)
+  "Remove all of MACRO's param mappings (the macro itself stays)."
+  (%ack "ClearMacroMappings" (mk 'gloopy.pb::macro-ref
+                                 :track-id (round id) :macro (round macro))))
+
+(defun remove-macro (id macro)
+  "Delete MACRO from track ID (later macros shift down by one index)."
+  (%ack "RemoveMacro" (mk 'gloopy.pb::macro-ref
+                          :track-id (round id) :macro (round macro))))
+
 (defun remove-track (id) (%ack "RemoveTrack" (mk 'gloopy.pb::track-id :id (round id))))
 
 ;;; --- clips ------------------------------------------------------------------
