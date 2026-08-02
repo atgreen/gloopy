@@ -18,8 +18,10 @@ tagged release.
   (which already played back but was invisible) now draws as a curve with breakpoints over each
   track's row. Grab a breakpoint to drag it (value + grid-snapped time), double-click one to
   delete it, and **Alt-click** a lane to add a point. Currently shows track-owned parameters
-  (synth, macros, volume/pan); effect and bus/group automation lanes are coming, along with
-  break-out sub-lanes, a parameter picker, and curve handles.
+  (synth, macros, volume/pan); effect and bus/group automation lanes are coming.
+  Click the **▾** in a track's header to **break the automation out into a sub-lane** below the
+  clips, and use the sub-lane's **parameter picker** to choose which parameter it automates (any
+  of the track's synth/macro/mix params). Multi-lane stacking, curve handles, and bus rows follow.
 - **Insert a macro snapshot into the timeline.** A snapshot slot's right-click menu gains **Insert
   at playhead**, which stamps that snapshot's values as an automation breakpoint into every macro's
   lane at once. Drop one snapshot early and another later and playback **morphs the whole rack
