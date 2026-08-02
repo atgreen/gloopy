@@ -69,6 +69,8 @@ The **⋯** button on each knob opens its menu:
 | **Map to synth ▸** | Map the macro onto a built-in synth parameter (over that parameter's range) |
 | **Map to effect ▸** | Map it onto a parameter of one of the track's insert effects |
 | **MIDI Learn** | Arm learn, then move a hardware knob/fader — that CC now drives the macro |
+| **Automate at playhead** | Drop an automation keyframe for the macro at the current position — move the playhead and repeat to draw an envelope; playback morphs the macro smoothly between points |
+| **Clear automation** | Remove the macro's automation lane |
 | **Clear mappings** | Remove all of this macro's mappings (keep the macro) |
 | **Remove macro** | Delete the macro |
 

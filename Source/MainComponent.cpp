@@ -4051,6 +4051,8 @@ void MainComponent::showMacroMenu (int macroIndex, juce::Component* anchor)
     if (synthNames.empty() && effTargets.empty()) m.addItem (9, "No mappable params on this track", false, false);
     m.addSeparator();
     m.addItem (5, "MIDI Learn (move a controller)");
+    m.addItem (6, "Automate at playhead");
+    m.addItem (7, "Clear automation");
     m.addSeparator();
     m.addItem (3, "Clear mappings");
     m.addItem (4, "Remove macro");
@@ -4060,8 +4062,17 @@ void MainComponent::showMacroMenu (int macroIndex, juce::Component* anchor)
         [this, macroIndex, trackForMenu, synthNames, effTargets] (int r)
         {
             if (r == 0) return;
+            const juce::String macroTgt = "track/" + juce::String (trackForMenu) + "/macro/" + juce::String (macroIndex);
             if (r == 1) { promptRenameMacro (macroIndex); return; }
-            if (r == 5) { apiMidiLearn ("track/" + juce::String (trackForMenu) + "/macro/" + juce::String (macroIndex)); return; }
+            if (r == 5) { apiMidiLearn (macroTgt); return; }
+            if (r == 6)   // add an automation keyframe at the playhead with the macro's current value
+            {
+                ParamDesc d;
+                const float value = apiGetParameter (macroTgt, d) ? d.value : 0.0f;
+                apiAddAutomationPointById (macroTgt, transport.getPlayheadBeats(), value);
+                return;
+            }
+            if (r == 7) { apiSetAutomationById (macroTgt, {}); return; }
             if (r == 3) { apiClearMacroMappings (rackTrack, macroIndex); refreshRackPanel(); return; }
             if (r == 4) { apiRemoveMacro (rackTrack, macroIndex); refreshRackPanel(); return; }
             if (r >= 1000 && r < 1000 + (int) synthNames.size())

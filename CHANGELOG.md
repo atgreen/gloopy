@@ -31,6 +31,11 @@ tagged release.
   fader, and that CC now drives the macro (and through it, every param the macro maps). Macros
   are now addressable controller/automation targets (`track/<id>/macro/<index>`), so they also
   show up for the OSC/gRPC controller API and persist like any other mapping.
+- **Automate a macro along the arrangement.** The ⋯ menu gains **Automate at playhead** (and
+  **Clear automation**) — drop keyframes for a macro as you move the playhead, and playback
+  morphs the macro smoothly between them (the arrangement's automation ramps linearly, with the
+  usual step/ease options). The RACK knobs animate live as automation plays. Macros were already
+  automation targets over the API; this is the desktop control.
 - **Macro snapshots (rack variations).** A strip under the RACK header saves whole knob states:
   **+ Snapshot** captures the current macro positions as a recallable slot; click a slot to snap
   the whole rack back to that state (the knobs animate, and the slot stays lit until you move a
