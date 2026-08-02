@@ -14,6 +14,28 @@
 
 enum class TrackType { Instrument, Audio, MidiOut };
 
+// --- Macros: the "rack" abstraction layer -----------------------------------
+// A macro is one perceptual encoder (0..1) mapped onto one or more underlying
+// params, each within an authored [lo,hi] safe range: param = lerp(lo, hi, value).
+// That safe range is the guardrail — a macro can only move a param within it, so
+// Randomize and live morphing stay musical. This is what the Sound Browser device
+// panel drives. Targets reuse the existing setters: a built-in synth param on the
+// track, or a mixer-insert effect param (insert, slot). (Hosted-plugin params later.)
+struct MacroMapping
+{
+    juce::String synthParam;                  // non-empty => a built-in synth param on this track
+    int          insert { -1 }, slot { -1 };  // >= 0 => a mixer effect param (insert/slot)
+    juce::String effectParam;                 // effect param name (with insert/slot)
+    float        lo { 0.0f }, hi { 1.0f };    // the range the macro sweeps this param across
+};
+
+struct Macro
+{
+    juce::String              name  { "Macro" };
+    float                     value { 0.0f };   // 0..1; message-thread owned for now
+    std::vector<MacroMapping> mappings;
+};
+
 /** A track in the linear arrangement: a sound source (for instrument tracks)
     plus a row of clips on the timeline, and its mix settings. Unifies the old
     Channel + Pattern + playlist-lane into one thing. */
@@ -67,7 +89,8 @@ struct Track
     // state; reset() on arp-off / panic. (The clip arp above is the non-destructive playback one.)
     LiveArp liveArp;
 
-    std::vector<Clip> clips;   // arrangement clips on the timeline; guarded by the engine lock
+    std::vector<Clip>  clips;    // arrangement clips on the timeline; guarded by the engine lock
+    std::vector<Macro> macros;   // the rack layer: perceptual encoders over this track's params
 
     // Session view (clip-launch grid): one launchable slot per global scene (null = empty).
     // Kept the same length as MainComponent's scene list (see SessionModel.h). Guarded by the

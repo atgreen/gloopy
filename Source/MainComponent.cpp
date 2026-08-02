@@ -1706,6 +1706,86 @@ bool MainComponent::applySynthParam (Track* t, const char* name, float value)
     return true;
 }
 
+// --- Macros (the rack layer) ------------------------------------------------
+// A macro's value (0..1) drives each of its mappings to lerp(lo,hi,value), reusing
+// the existing synth/effect param setters. The [lo,hi] range is the guardrail.
+void MainComponent::applyMacroMappings (Track* t, const Macro& m)
+{
+    if (t == nullptr) return;
+    for (const auto& mp : m.mappings)
+    {
+        const float v = mp.lo + m.value * (mp.hi - mp.lo);
+        if (mp.synthParam.isNotEmpty())
+            applySynthParam (t, mp.synthParam.toRawUTF8(), v);
+        else if (mp.insert >= 0 && mp.slot >= 0 && mp.effectParam.isNotEmpty())
+            apiSetEffectParam (mp.insert, mp.slot, mp.effectParam, v);
+    }
+}
+
+int MainComponent::apiAddMacro (int trackId, const juce::String& name)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr) return -1;
+        Macro m;
+        m.name = name.isNotEmpty() ? name : ("Macro " + juce::String ((int) t->macros.size() + 1));
+        t->macros.push_back (std::move (m));
+        return (int) t->macros.size() - 1;
+    });
+}
+
+bool MainComponent::apiSetMacroValue (int trackId, int macro, float value)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (macro, (int) t->macros.size())) return false;
+        t->macros[(size_t) macro].value = juce::jlimit (0.0f, 1.0f, value);
+        applyMacroMappings (t, t->macros[(size_t) macro]);
+        return true;
+    });
+}
+
+bool MainComponent::apiMapMacroSynth (int trackId, int macro, const juce::String& param, float lo, float hi)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (macro, (int) t->macros.size())) return false;
+        MacroMapping mp; mp.synthParam = param; mp.lo = lo; mp.hi = hi;
+        t->macros[(size_t) macro].mappings.push_back (std::move (mp));
+        applyMacroMappings (t, t->macros[(size_t) macro]);
+        return true;
+    });
+}
+
+bool MainComponent::apiMapMacroEffect (int trackId, int macro, int insert, int slot,
+                                       const juce::String& param, float lo, float hi)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (macro, (int) t->macros.size())) return false;
+        MacroMapping mp; mp.insert = insert; mp.slot = slot; mp.effectParam = param; mp.lo = lo; mp.hi = hi;
+        t->macros[(size_t) macro].mappings.push_back (std::move (mp));
+        applyMacroMappings (t, t->macros[(size_t) macro]);
+        return true;
+    });
+}
+
+bool MainComponent::apiRandomizeMacros (int trackId)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        auto& rng = juce::Random::getSystemRandom();
+        for (auto& m : t->macros) { m.value = rng.nextFloat(); applyMacroMappings (t, m); }
+        return true;
+    });
+}
+
 std::vector<MainComponent::TrackSnap> MainComponent::apiListTracks()
 {
     return callOnMessageThread ([&]

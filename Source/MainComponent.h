@@ -107,6 +107,14 @@ public:
     void apiSetSwing (double amount);
     bool apiSetSynthParam (int trackId, const juce::String& name, float value);
     bool applySynthParam (Track* t, const char* name, float value);   // atomic, thread-agnostic; alloc-free name (audio thread)
+
+    // --- Macros (the rack layer): perceptual encoders over a track's params ---
+    void applyMacroMappings (Track* t, const Macro& m);   // set each mapped param to lerp(lo,hi,value)
+    int  apiAddMacro (int trackId, const juce::String& name);   // returns macro index, -1 on failure
+    bool apiSetMacroValue (int trackId, int macro, float value);          // 0..1, then apply
+    bool apiMapMacroSynth  (int trackId, int macro, const juce::String& param, float lo, float hi);
+    bool apiMapMacroEffect (int trackId, int macro, int insert, int slot, const juce::String& param, float lo, float hi);
+    bool apiRandomizeMacros (int trackId);   // random 0..1 for every macro, then apply
     void apiSeek (double beats);
     void apiSetLoop (bool enabled, double startBeat, double endBeat);
     TransportSnap apiGetTransport();
