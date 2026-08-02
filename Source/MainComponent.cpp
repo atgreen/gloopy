@@ -939,6 +939,8 @@ MainComponent::MainComponent (bool headless)
     { editorPanel.roll.setAuditionEnabled (editorPanel.auditionBtn.getToggleState()); };
     editorPanel.devicesBtn.onClick = [this]
     { bottomMode = BottomMode::Devices; refreshDevicePanel(); resized(); };
+    editorPanel.rackBtn.onClick = [this]
+    { bottomMode = BottomMode::Rack; refreshRackPanel(); resized(); };
     setEditorMode (editorMode);
 
     // Device panel — the selected track's effect chain, shown in the bottom area in place of the
@@ -980,6 +982,38 @@ MainComponent::MainComponent (bool headless)
     devicePanel.onSetBypass    = [this] (int slot, bool b)                { apiSetEffectBypass (deviceTrack, slot, b); };
     devicePanel.onSetParam     = [this] (int slot, const juce::String& n, float v) { apiSetEffectParam (deviceTrack, slot, n, v); };
     devicePanel.getAnalyzerData = [this] (int slot)                       { return apiGetAnalyzerData (deviceTrack, slot); };
+
+    // Rack panel — the selected track's macros (perceptual encoders), shown in the bottom area in
+    // place of the clip editor. Hidden until the RACK button is pressed. Callbacks route to the
+    // api* macro calls for the selected *track id* (rackTrack), not a mixer insert.
+    addChildComponent (rackPanel);
+    rackPanel.onShowClip = [this] { bottomMode = BottomMode::Clip; resized(); };
+    rackPanel.getTitle = [this]
+    {
+        const juce::ScopedLock sl (engineLock);
+        if (auto* t = resolveTrack (rackTrack))
+        {
+            const juce::String bullet (juce::CharPointer_UTF8 ("\xe2\x80\xa2"));
+            return "MACROS   " + bullet + "   " + t->name.toUpperCase();
+        }
+        return juce::String ("MACROS");
+    };
+    rackPanel.getMacros = [this]
+    {
+        std::vector<RackPanel::MacroInfo> out;
+        const juce::ScopedLock sl (engineLock);
+        if (auto* t = resolveTrack (rackTrack))
+            for (auto& m : t->macros) out.push_back ({ m.name, m.value, (int) m.mappings.size() });
+        return out;
+    };
+    rackPanel.onAddMacro = [this]
+    {
+        if (rackTrack < 0) return;
+        int n = 0;
+        { const juce::ScopedLock sl (engineLock); if (auto* t = resolveTrack (rackTrack)) n = (int) t->macros.size(); }
+        apiAddMacro (rackTrack, "Macro " + juce::String (n + 1));
+    };
+    rackPanel.onSetValue = [this] (int macro, float v) { if (rackTrack >= 0) apiSetMacroValue (rackTrack, macro, v); };
 
     verticalLayout.setItemLayout (0, 120.0, -0.85, -0.60);   // arrangement
     verticalLayout.setItemLayout (1, 6.0, 6.0, 6.0);         // divider
@@ -3788,6 +3822,7 @@ void MainComponent::selectClip (int track, int clip)
                              && tracks[(size_t) track]->generator != nullptr
                            ? tracks[(size_t) track]->id : -1);
     if (bottomMode == BottomMode::Devices) refreshDevicePanel();
+    else if (bottomMode == BottomMode::Rack) refreshRackPanel();
 }
 
 void MainComponent::selectSessionClip (int trackIndex, int scene)
@@ -3800,6 +3835,7 @@ void MainComponent::selectSessionClip (int trackIndex, int scene)
                              && tracks[(size_t) trackIndex]->generator != nullptr
                            ? tracks[(size_t) trackIndex]->id : -1);
     if (bottomMode == BottomMode::Devices) refreshDevicePanel();
+    else if (bottomMode == BottomMode::Rack) refreshRackPanel();
 }
 
 // Point the device panel at the mixer insert of the currently selected track (arrangement or
@@ -3814,6 +3850,18 @@ void MainComponent::refreshDevicePanel()
                         : -1;
     }
     devicePanel.refresh();
+}
+
+// Point the rack panel at the currently selected track's macros (by stable track id, since macros
+// live on the track, not the mixer insert). Called on selection changes while the rack is showing.
+void MainComponent::refreshRackPanel()
+{
+    const int tIdx = selTrack >= 0 ? selTrack : selSessionTrack;
+    {
+        const juce::ScopedLock sl (engineLock);
+        rackTrack = juce::isPositiveAndBelow (tIdx, (int) tracks.size()) ? tracks[(size_t) tIdx]->id : -1;
+    }
+    rackPanel.refresh();
 }
 
 // The clip currently loaded in the editor — a session slot (if selected) or an arrangement clip.
@@ -6144,11 +6192,15 @@ void MainComponent::resized()
     Component* topPane = (viewMode == ViewMode::Session && sessionPane) ? (Component*) sessionPane.get()
                        : viewMode == ViewMode::Mixer   ? (Component*) &mixerViewport
                                                        : (Component*) &arrangeViewport;
-    // The bottom pane is the clip editor or the device chain, per bottomMode.
+    // The bottom pane is the clip editor, the device chain, or the macro rack, per bottomMode.
     const bool devices = bottomMode == BottomMode::Devices;
-    editorPanel.setVisible (! devices);
+    const bool rack    = bottomMode == BottomMode::Rack;
+    editorPanel.setVisible (! devices && ! rack);
     devicePanel.setVisible (devices);
-    Component* bottomPane = devices ? (Component*) &devicePanel : (Component*) &editorPanel;
+    rackPanel.setVisible (rack);
+    Component* bottomPane = devices ? (Component*) &devicePanel
+                          : rack    ? (Component*) &rackPanel
+                                    : (Component*) &editorPanel;
     Component* comps[] = { topPane, dividerBar.get(), bottomPane };
     verticalLayout.layOutComponents (comps, 3, area.getX(), area.getY(),
                                      area.getWidth(), area.getHeight(), true, true);

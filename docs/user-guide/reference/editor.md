@@ -10,6 +10,7 @@ two views of the *same* notes. (Keyboard shortcuts are in
 |---------|--------------|
 | **STEPS** / **PIANO** | Switch between the step grid and the piano roll |
 | **DEVICES** | Swap the pane to the selected track's effect chain |
+| **RACK** | Swap the pane to the selected track's macro rack (perceptual encoders) |
 | **AUDITION** | Play notes through the instrument as you click/brush them (default on) |
 | **SCALE** | Snap drawn and moved notes to the project scale |
 | **KNIFE** | Click a note to split it at that beat |
@@ -49,3 +50,15 @@ per-parameter **rotary knobs**, and **Bypass** / **×** (remove) for the selecte
 device. The analyzer effects — **Scope**, **Spectrum**, **Vectorscope** — draw a
 live display instead of knobs. The same chain is editable in the full
 [Mixer](mixer-strip.md).
+
+## Rack tab
+
+**RACK** shows the selected track's **macros** — perceptual encoders that each drive
+one or more of the track's synth/effect parameters at once. **+ Macro** adds one;
+turn a knob (0..1) and every parameter it drives sweeps across its safe range, so a
+single knob moves a whole sound. Under each knob is the macro's name and how many
+parameters it drives, and the knobs update live when a macro changes elsewhere (for
+example a script `randomize-macros`). Mapping a macro to parameters is done from the
+[Python](../../control-scripting/reference/python/index.md) or
+[Lisp](../../control-scripting/reference/lisp/index.md#macros-the-rack-layer)
+clients for now; a desktop map mode is coming.
