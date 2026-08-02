@@ -42,13 +42,15 @@ int ArrangeView::preferredHeight() const
 {
     int h = rulerHeight;
     for (int i = 0; i < (int) tracks.size(); ++i) h += rowHeight (i);
+    h += (int) busRows.size() * busRowH;                // content-less bus/master rows below
     return juce::jmax (rulerHeight + trackHeight, h);   // always at least one row tall
 }
 
 void ArrangeView::refreshAutomation()
 {
     autoLanes = getAutomation ? getAutomation() : std::vector<AutoLaneView>{};
-    setSize (getWidth(), preferredHeight());   // lane count affects expanded row heights
+    busRows   = getBusRows    ? getBusRows()    : std::vector<BusRowView>{};
+    setSize (getWidth(), preferredHeight());   // lane count / bus rows affect total height
     resized();
     repaint();
 }
@@ -611,6 +613,32 @@ void ArrangeView::paint (juce::Graphics& g)
 
         g.setColour (Palette::lineSoft);
         g.drawHorizontalLine (y + rh, 0.0f, (float) getWidth());   // row-bottom separator (incl. sub-lane)
+    }
+
+    // Content-less bus / group / master rows below the tracks — each carries only automation.
+    {
+        int by = rowTop ((int) tracks.size());
+        for (const auto& br : busRows)
+        {
+            g.setColour (Palette::inset.darker (0.12f));
+            g.fillRect (headerWidth, by, getWidth() - headerWidth, busRowH);
+            g.setColour (Palette::panelAlt);
+            g.fillRect (0, by, headerWidth, busRowH);
+            const juce::Colour c = br.colour.getAlpha() == 0 ? Palette::accentDim : br.colour;
+            g.setColour (c); g.fillRect (0, by + 3, 4, busRowH - 6);
+            g.setColour (Palette::text);
+            g.setFont (juce::FontOptions (12.5f, juce::Font::bold));
+            g.drawText (br.name, 12, by + 4, headerWidth - 20, 16, juce::Justification::centredLeft, true);
+            g.setColour (Palette::textDim);
+            g.setFont (Palette::sectionFont());
+            g.drawText (br.mixerIndex == 0 ? "MASTER" : "BUS", 12, by + 22, headerWidth - 20, 12,
+                        juce::Justification::centredLeft, false);
+            for (const auto& lane : br.lanes)
+                drawOneLane (g, lane, (float) by + 4.0f, (float) (by + busRowH) - 4.0f);
+            g.setColour (Palette::lineSoft);
+            g.drawHorizontalLine (by + busRowH, 0.0f, (float) getWidth());
+            by += busRowH;
+        }
     }
 
     // Loop region.

@@ -449,6 +449,35 @@ MainComponent::MainComponent (bool headless)
         }
         return out;
     };
+    // Content-less bus/master rows: the master (always) + any bus that has automation, each with
+    // its insert/effect automation lanes. (Read-only in the arrangement for now; edit via the mixer.)
+    arrangeView->getBusRows = [this] () -> std::vector<ArrangeView::BusRowView>
+    {
+        std::vector<ArrangeView::BusRowView> out;
+        auto lanes = apiGetAutomation();
+        const juce::ScopedLock sl (engineLock);
+        for (int i = 0; i < (int) mixerTracks.size(); ++i)
+        {
+            auto& mt = *mixerTracks[(size_t) i];
+            const bool isMaster = (i == 0);
+            if (! isMaster && ! mt.isBus) continue;               // per-track inserts aren't bus rows
+            ArrangeView::BusRowView br;
+            br.mixerIndex = i; br.name = mt.name; br.colour = mt.colour;
+            const juce::String insP = "insert/" + juce::String (i) + "/";
+            const juce::String fxP  = "effect/" + juce::String (i) + "/";
+            for (auto& l : lanes)
+                if (l.target.startsWith (insP) || l.target.startsWith (fxP))
+                {
+                    ArrangeView::AutoLaneView v; v.target = l.target; v.trackId = -1;
+                    v.step = l.step; v.curve = l.curve;
+                    ParamDesc d; if (apiGetParameter (l.target, d)) { v.lo = d.min; v.hi = d.max; }
+                    for (auto& pt : l.points) v.points.push_back ({ pt.beat, pt.value });
+                    br.lanes.push_back (std::move (v));
+                }
+            if (isMaster || ! br.lanes.empty()) out.push_back (std::move (br));
+        }
+        return out;
+    };
     arrangeView->onAddAutomationPoint = [this] (const juce::String& target, double beat, float value)
     {
         apiAddAutomationPointById (target, beat, value);

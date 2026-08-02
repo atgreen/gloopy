@@ -117,6 +117,9 @@ public:
         std::vector<std::pair<double, float>> points;   // (beat, value), sorted by beat
     };
     std::function<std::vector<AutoLaneView>()> getAutomation;   // owner supplies track-owned lanes
+    // Content-less bus/group/master rows below the tracks: each carries only automation lanes.
+    struct BusRowView { int mixerIndex { 0 }; juce::String name; juce::Colour colour; std::vector<AutoLaneView> lanes; };
+    std::function<std::vector<BusRowView>()> getBusRows;        // master + buses that have automation
     void refreshAutomation();                                   // re-pull + repaint (on edits / load)
     std::function<void (const juce::String&, double, float)> onAddAutomationPoint;  // target, beat, value
     std::function<void (const juce::String&, std::vector<std::pair<double, float>>)> onSetAutomation;  // target, points (commit)
@@ -190,6 +193,8 @@ private:
     int selTrack { -1 }, selClip { -1 };
 
     std::vector<AutoLaneView> autoLanes;   // cached from getAutomation(); refreshed on edits/load
+    std::vector<BusRowView>   busRows;     // cached content-less bus/master rows below the tracks
+    static constexpr int      busRowH = 52;
     std::set<int> expandedTracks;          // track ids whose automation lane is broken out below
     std::map<int, juce::String> focusedTarget;   // track id -> the param its sub-lane shows/edits
 
