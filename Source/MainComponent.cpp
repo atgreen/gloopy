@@ -1935,6 +1935,26 @@ bool MainComponent::apiDeleteMacroSnapshot (int trackId, int snap)
     });
 }
 
+bool MainComponent::apiMorphToSnapshot (int trackId, int snap, double durationMs)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (snap, (int) t->macroSnapshots.size())) return false;
+        std::vector<float> from, to = t->macroSnapshots[(size_t) snap].values;
+        for (auto& m : t->macros) from.push_back (m.value);
+        if (durationMs <= 1.0)      // instant = a plain recall
+        {
+            for (size_t i = 0; i < t->macros.size() && i < to.size(); ++i)
+            { t->macros[i].value = juce::jlimit (0.0f, 1.0f, to[i]); applyMacroMappings (t, t->macros[i]); }
+            macroMorph.cancel();
+            return true;
+        }
+        macroMorph.begin (trackId, std::move (from), std::move (to), durationMs);
+        return true;
+    });
+}
+
 std::vector<MainComponent::TrackSnap> MainComponent::apiListTracks()
 {
     return callOnMessageThread ([&]
@@ -4120,17 +4140,30 @@ void MainComponent::promptRenameMacro (int macroIndex)
 void MainComponent::showSnapshotMenu (int snap, juce::Component* anchor)
 {
     if (rackTrack < 0) return;
+    const std::vector<double> morphBeats { 0.5, 1.0, 2.0, 4.0, 8.0 };
+    const char* morphLabels[] = { "1/2 beat", "1 beat", "2 beats", "4 beats", "8 beats" };
+
     juce::PopupMenu m;
-    m.addItem (1, "Overwrite with current knobs");
-    m.addItem (2, juce::String::fromUTF8 ("Rename\xe2\x80\xa6"));
+    m.addItem (1, "Recall instantly");
+    juce::PopupMenu morphSub;
+    for (int i = 0; i < (int) morphBeats.size(); ++i) morphSub.addItem (100 + i, morphLabels[i]);
+    m.addSubMenu ("Morph to this over", morphSub);
     m.addSeparator();
-    m.addItem (3, "Delete");
+    m.addItem (2, "Overwrite with current knobs");
+    m.addItem (3, juce::String::fromUTF8 ("Rename\xe2\x80\xa6"));
+    m.addItem (4, "Delete");
     m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (anchor),
-        [this, snap] (int r)
+        [this, snap, morphBeats] (int r)
         {
-            if      (r == 1) { apiUpdateMacroSnapshot (rackTrack, snap); refreshRackPanel(); }
-            else if (r == 2) { promptRenameSnapshot (snap); }
-            else if (r == 3) { apiDeleteMacroSnapshot (rackTrack, snap); refreshRackPanel(); }
+            if      (r == 1) { apiMorphToSnapshot (rackTrack, snap, 0.0); }           // instant
+            else if (r == 2) { apiUpdateMacroSnapshot (rackTrack, snap); refreshRackPanel(); }
+            else if (r == 3) { promptRenameSnapshot (snap); }
+            else if (r == 4) { apiDeleteMacroSnapshot (rackTrack, snap); refreshRackPanel(); }
+            else if (r >= 100 && r < 100 + (int) morphBeats.size())
+            {
+                const double bpm = juce::jmax (1.0, transport.getBpm());
+                apiMorphToSnapshot (rackTrack, snap, morphBeats[(size_t) (r - 100)] * 60000.0 / bpm);
+            }
         });
 }
 

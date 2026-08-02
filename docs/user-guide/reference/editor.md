@@ -83,5 +83,9 @@ clients, where you can also set a narrower `[lo, hi]` safe range per mapping.
 **Snapshots** (variations). The strip under the header saves whole knob states:
 **+ Snapshot** captures the current positions as a slot; click a slot to recall it
 (the knobs animate back to it and the slot highlights until you move a knob).
-Right-click a slot to **Overwrite** it with the current knobs, **Rename**, or
-**Delete** it. Snapshots are saved with the project.
+Right-click a slot to **Morph to this over** ½–8 beats (the whole rack glides smoothly
+from where it is to the snapshot), **Recall instantly**, **Overwrite** it with the
+current knobs, **Rename**, or **Delete** it. Snapshots are saved with the project.
+
+To sequence snapshot changes across a song, either morph between them live, or automate
+the individual macros (**⋯ → Automate at playhead**) so the arrangement drives them.

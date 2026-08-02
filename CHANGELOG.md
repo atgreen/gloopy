@@ -41,6 +41,10 @@ tagged release.
   the whole rack back to that state (the knobs animate, and the slot stays lit until you move a
   knob). Right-click a slot to **Overwrite** it with the current knobs, **Rename**, or **Delete**
   it. Snapshots are saved with the project.
+- **Morph between snapshots.** Right-click a snapshot slot → **Morph to this over** ½–8 beats
+  (tempo-relative) and the whole rack glides smoothly from its current state to the snapshot —
+  every macro lerps at once — instead of jumping. **Recall instantly** is still there for a hard
+  switch.
 
 ## [0.1.11] - 2026-08-02
 
