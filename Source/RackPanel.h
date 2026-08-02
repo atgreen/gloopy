@@ -45,6 +45,13 @@ public:
         randomBtn.onClick = [this] { if (onRandomize) { onRandomize(); refresh(); } };
         addAndMakeVisible (randomBtn);
 
+        writeBtn.setButtonText ("Write");
+        writeBtn.setClickingTogglesState (true);
+        writeBtn.setColour (juce::TextButton::buttonOnColourId, Palette::red);
+        writeBtn.setTooltip ("Automation write: while playing, record your macro moves as automation");
+        writeBtn.onClick = [this] { if (onSetWrite) onSetWrite (writeBtn.getToggleState()); };
+        addAndMakeVisible (writeBtn);
+
         storeBtn.setButtonText ("+ Snapshot");
         storeBtn.setTooltip ("Save the current knob positions as a snapshot you can recall later");
         storeBtn.onClick = [this] { if (onStoreSnapshot) { onStoreSnapshot(); refresh(); } };
@@ -58,6 +65,7 @@ public:
     std::function<std::vector<MacroInfo>()>  getMacros;   // one entry per macro
     std::function<void()>                    onAddMacro;  // add a macro to the track
     std::function<void()>                    onRandomize; // roll all macros to fresh random values
+    std::function<void (bool)>               onSetWrite;  // arm/disarm automation write
     std::function<void (int, float)>         onSetValue;  // (macro index, value 0..1)
     std::function<void (int, juce::Component*)> onMacroMenu; // (macro index, anchor) map/rename/remove
     std::function<void()>                    onShowClip;  // switch back to the clip editor
@@ -175,10 +183,12 @@ public:
         auto a = getLocalBounds();
         auto h = a.removeFromTop (26).reduced (4, 3);
         if (! standalone) { clipBtn.setBounds (h.removeFromLeft (54)); h.removeFromLeft (8); }
-        title.setBounds (h.removeFromLeft (juce::jmin (200, juce::jmax (0, h.getWidth() - 180))));
+        title.setBounds (h.removeFromLeft (juce::jmin (170, juce::jmax (0, h.getWidth() - 240))));
         addBtn.setBounds (h.removeFromRight (78));
         h.removeFromRight (6);
         randomBtn.setBounds (h.removeFromRight (84));
+        h.removeFromRight (6);
+        writeBtn.setBounds (h.removeFromRight (54));
 
         // Snapshot strip (rack variations): + Snapshot, then a row of recall slots.
         if (! macros.empty())
@@ -235,7 +245,7 @@ private:
     }
 
     juce::Label      title;
-    juce::TextButton clipBtn, addBtn, randomBtn, storeBtn;
+    juce::TextButton clipBtn, addBtn, randomBtn, storeBtn, writeBtn;
     std::vector<std::unique_ptr<juce::Slider>>     knobs;
     std::vector<std::unique_ptr<juce::TextButton>> menuBtns;   // per-macro ⋯ map/rename/remove
     std::vector<std::unique_ptr<juce::TextButton>> snapBtns;   // snapshot recall slots

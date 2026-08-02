@@ -1212,6 +1212,13 @@ private:
     int              deviceTrack { -1 };             // mixer insert whose device chain the panel shows
     int              rackTrack { -1 };               // stable track id whose macros the rack panel shows
 
+    // Automation write (Latch): while armed + playing, live macro moves are captured as automation
+    // and those targets stop reading their own automation (writingTargets, guarded by engineLock).
+    std::atomic<bool>        autoWriteArmed { false };
+    std::set<juce::String>   writingTargets;
+    void captureAutomationWrite (const juce::String& target, float value);   // record + latch a target
+    void setAutomationWrite (bool armed);                                    // arm/disarm; disarm clears + refreshes
+
     // Snapshot morph: glide a track's macros from their current values to a snapshot over a
     // duration. Runs on the message thread (a Timer), lerping and re-applying each tick, so the
     // rack knobs animate. A new begin() supersedes any morph in progress on that track.

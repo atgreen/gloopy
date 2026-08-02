@@ -128,6 +128,7 @@ public:
     std::function<void (int trackId, const juce::String& target)> onPickAutomationParam;   // create/focus a lane
     std::function<void (const juce::String&, bool)>  onSetAutomationStep;    // stepped (hold) vs ramped
     std::function<void (const juce::String&, float)> onSetAutomationCurve;   // ease -1..0..+1
+    std::function<void ()>                           onPlaybackStopped;      // play->stop edge (end a write pass)
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -203,6 +204,7 @@ private:
     int    dragTrack { -1 }, dragClip { -1 };
     double dragBeatOffset { 0.0 };
     int    dragAutoLane { -1 }, dragAutoPoint { -1 };   // automation breakpoint being dragged
+    bool   wasPlaying { false };                        // for the play->stop edge (write mode)
 
     // Ruler drag (seek / loop region; Alt = punch region).
     bool   rulerDrag { false }, loopDragged { false }, rulerAlt { false };

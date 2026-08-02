@@ -1612,4 +1612,8 @@ void ArrangeView::timerCallback()
 {
     // Repaint so the playhead tracks both playback and manual seeks.
     repaint();
+    // Detect the play->stop edge to end an automation-write pass.
+    const bool playing = transport.isPlaying();
+    if (wasPlaying && ! playing && onPlaybackStopped) onPlaybackStopped();
+    wasPlaying = playing;
 }

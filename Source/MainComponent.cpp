@@ -511,6 +511,13 @@ MainComponent::MainComponent (bool headless)
     { apiSetAutomationStep (target, step);  if (arrangeView) arrangeView->refreshAutomation(); };
     arrangeView->onSetAutomationCurve = [this] (const juce::String& target, float curve)
     { apiSetAutomationCurve (target, curve); if (arrangeView) arrangeView->refreshAutomation(); };
+    // End of a write pass (transport stopped): stop latching (targets read their automation again)
+    // and reveal what was just recorded. The Write arm itself stays on for the next pass.
+    arrangeView->onPlaybackStopped = [this]
+    {
+        { const juce::ScopedLock sl (engineLock); writingTargets.clear(); }
+        if (arrangeView) arrangeView->refreshAutomation();
+    };
     arrangeView->onLoopChanged  = [this]
     {
         loopButton.setToggleState (transport.isLoopEnabled(), juce::dontSendNotification);
@@ -1101,6 +1108,7 @@ MainComponent::MainComponent (bool headless)
     rackPanel.onSetValue = [this] (int macro, float v) { if (rackTrack >= 0) apiSetMacroValue (rackTrack, macro, v); };
     rackPanel.onMacroMenu = [this] (int macro, juce::Component* anchor) { showMacroMenu (macro, anchor); };
     rackPanel.onRandomize = [this] { if (rackTrack >= 0) { apiRandomizeMacros (rackTrack); refreshRackPanel(); } };
+    rackPanel.onSetWrite  = [this] (bool armed) { setAutomationWrite (armed); };
     rackPanel.getSnapshots = [this]
     {
         std::vector<juce::String> out;
@@ -1876,8 +1884,10 @@ bool MainComponent::apiSetMacroValue (int trackId, int macro, float value)
     {
         auto* t = resolveTrack (trackId);
         if (t == nullptr || ! juce::isPositiveAndBelow (macro, (int) t->macros.size())) return false;
-        t->macros[(size_t) macro].value = juce::jlimit (0.0f, 1.0f, value);
+        const float v = juce::jlimit (0.0f, 1.0f, value);
+        t->macros[(size_t) macro].value = v;
         applyMacroMappings (t, t->macros[(size_t) macro]);
+        captureAutomationWrite ("track/" + juce::String (t->id) + "/macro/" + juce::String (macro), v);  // write mode
         return true;
     });
 }
@@ -2352,6 +2362,9 @@ void MainComponent::evaluateAutomation (double beat)
     for (auto& lane : automationLanes)
     {
         if (lane.points.empty()) continue;
+        // Write mode (Latch): a target you're actively recording stops reading its own automation,
+        // so your live moves don't fight the playback. Cleared on stop/disarm.
+        if (! writingTargets.empty() && lane.target.isNotEmpty() && writingTargets.count (lane.target) > 0) continue;
         const float v = interpAuto (lane.points, beat, lane.step, lane.curve);
         if (lane.target.isNotEmpty()) { applyParamValue (lane.target, v); continue; }   // id-addressed (unified path)
         const bool insertOk = juce::isPositiveAndBelow (lane.id, (int) mixerTracks.size());
@@ -2471,6 +2484,33 @@ float MainComponent::apiGetAutomationCurve (const juce::String& target)
 // Append (or replace, if one already sits at that beat) a single point on a target's
 // id-addressed lane — the primitive the "Automate at playhead" desktop hook uses to
 // build a curve keyframe by keyframe.
+void MainComponent::captureAutomationWrite (const juce::String& target, float value)
+{
+    if (! autoWriteArmed.load() || ! transport.isPlaying() || target.isEmpty()) return;
+    constexpr double q = 0.125;   // quantise capture to 1/8 beat so rapid moves collapse to one keyframe
+    const double beat = juce::jmax (0.0, std::round (transport.getPlayheadBeats() / q) * q);
+    const juce::ScopedLock sl (engineLock);
+    writingTargets.insert (target);   // latch: this target writes (and stops reading) until stop/disarm
+    auto it = std::find_if (automationLanes.begin(), automationLanes.end(),
+                            [&] (const AutoLaneSnap& l) { return l.target == target; });
+    if (it == automationLanes.end()) { automationLanes.push_back ({ -1, -1, -1, {}, { { beat, value } }, target }); return; }
+    auto& pts = it->points;
+    auto p = std::find_if (pts.begin(), pts.end(), [&] (const AutoPointSnap& x) { return std::abs (x.beat - beat) < 1.0e-6; });
+    if (p != pts.end()) p->value = value;
+    else { pts.push_back ({ beat, value });
+           std::sort (pts.begin(), pts.end(), [] (const AutoPointSnap& a, const AutoPointSnap& b) { return a.beat < b.beat; }); }
+}
+
+void MainComponent::setAutomationWrite (bool armed)
+{
+    autoWriteArmed.store (armed);
+    if (! armed)
+    {
+        { const juce::ScopedLock sl (engineLock); writingTargets.clear(); }
+        if (arrangeView) arrangeView->refreshAutomation();   // reveal what was just recorded
+    }
+}
+
 bool MainComponent::apiAddAutomationPointById (const juce::String& target, double beat, float value)
 {
     if (target.trim().isEmpty()) return false;
