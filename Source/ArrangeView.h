@@ -102,6 +102,21 @@ public:
     std::function<bool (double&, double&)> getPunchRange;                      // -> enabled, fills in/out
     std::function<void (bool, double, double)> onSetPunchRange;                // enabled, in, out
 
+    // --- automation lanes ---
+    // One entry per parameter automation lane the owner wants shown, already resolved to the track
+    // it belongs to plus the param's value range (so we can normalise the curve into the row).
+    struct AutoLaneView
+    {
+        juce::String target;                       // ParamModel id, e.g. "track/3/macro/0"
+        int          trackId { -1 };               // Track::id this lane draws on
+        float        lo { 0.0f }, hi { 1.0f };     // param value range, for vertical normalisation
+        bool         step { false };               // stepped (hold) vs ramped
+        float        curve { 0.0f };               // ease amount (-1..1)
+        std::vector<std::pair<double, float>> points;   // (beat, value), sorted by beat
+    };
+    std::function<std::vector<AutoLaneView>()> getAutomation;   // owner supplies track-owned lanes
+    void refreshAutomation();                                   // re-pull + repaint (on edits / load)
+
     void paint (juce::Graphics&) override;
     void resized() override;
     void mouseDown (const juce::MouseEvent&) override;
@@ -119,6 +134,7 @@ private:
     double snapToBar (double beat) const;
     int    clipAt (int track, juce::Point<float> p) const;
     void   drawClip (juce::Graphics&, const Track&, const Clip&, juce::Rectangle<float>, bool selected) const;
+    void   drawAutomation (juce::Graphics&, int trackId, juce::Rectangle<float> band) const;   // overlay a track's lanes
     void   promptAddTempoMarker (double beat);   // AlertWindow BPM prompt -> onAddTempoMarker
     void   promptAddMarker (double beat);        // AlertWindow name prompt -> onAddMarker
     void   promptTimeSignature();                // AlertWindow num/denom prompt -> onSetTimeSignature
@@ -142,6 +158,8 @@ private:
     std::vector<std::unique_ptr<juce::Slider>>     volSliders;
 
     int selTrack { -1 }, selClip { -1 };
+
+    std::vector<AutoLaneView> autoLanes;   // cached from getAutomation(); refreshed on edits/load
 
     enum class Drag { none, move, resize };
     Drag   drag { Drag::none };

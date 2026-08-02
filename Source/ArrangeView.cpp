@@ -19,6 +19,12 @@ int ArrangeView::preferredHeight() const
     return rulerHeight + juce::jmax (1, (int) tracks.size()) * trackHeight;
 }
 
+void ArrangeView::refreshAutomation()
+{
+    autoLanes = getAutomation ? getAutomation() : std::vector<AutoLaneView>{};
+    repaint();
+}
+
 void ArrangeView::rebuild()
 {
     beatsPerBar = transport.beatsPerBar();   // follow the project time signature
@@ -91,6 +97,7 @@ void ArrangeView::rebuild()
 
     setSize (getWidth(), preferredHeight());
     resized();
+    refreshAutomation();   // pull automation lanes after a track-set change / project load
     repaint();
 }
 
@@ -151,6 +158,42 @@ int ArrangeView::clipAt (int track, juce::Point<float> p) const
 // ---------------------------------------------------------------------------
 // Painting
 // ---------------------------------------------------------------------------
+
+// Read-only overlay of a track's automation lanes: each lane's breakpoints normalised into the
+// row's height (lo at the bottom, hi at the top) and drawn as a warm polyline with point dots.
+// Stepped lanes hold-then-jump; ramped lanes interpolate linearly (curve easing comes later).
+void ArrangeView::drawAutomation (juce::Graphics& g, int trackId, juce::Rectangle<float> band) const
+{
+    const float pad = 4.0f;
+    const float top = band.getY() + pad, bot = band.getBottom() - pad;
+    for (const auto& lane : autoLanes)
+    {
+        if (lane.trackId != trackId || lane.points.empty()) continue;
+        const float range = juce::jmax (1.0e-6f, lane.hi - lane.lo);
+        auto yForVal = [&] (float v)
+        {
+            const float n = juce::jlimit (0.0f, 1.0f, (v - lane.lo) / range);
+            return bot - n * (bot - top);
+        };
+
+        juce::Path p;
+        p.startNewSubPath (band.getX(), yForVal (lane.points[0].second));   // flat lead-in
+        for (size_t i = 0; i < lane.points.size(); ++i)
+        {
+            const float x = xForBeat (lane.points[i].first);
+            if (lane.step && i > 0) p.lineTo (x, yForVal (lane.points[i - 1].second));   // hold, then jump
+            p.lineTo (x, yForVal (lane.points[i].second));
+        }
+        p.lineTo (band.getRight(), yForVal (lane.points.back().second));    // hold out to the edge
+
+        g.setColour (Palette::warm.withAlpha (0.75f));
+        g.strokePath (p, juce::PathStrokeType (1.4f));
+        g.setColour (Palette::warm);
+        for (const auto& pt : lane.points)
+            g.fillEllipse (xForBeat (pt.first) - 2.0f, yForVal (pt.second) - 2.0f, 4.0f, 4.0f);
+    }
+}
+
 void ArrangeView::drawClip (juce::Graphics& g, const Track& t, const Clip& c,
                             juce::Rectangle<float> r, bool selected) const
 {
@@ -344,6 +387,10 @@ void ArrangeView::paint (juce::Graphics& g)
                                       (float) trackHeight - 4.0f);
             drawClip (g, *t, c, r, i == selTrack && ci == selClip);
         }
+
+        // Automation lanes (read-only overlay) drawn over this track's clips.
+        drawAutomation (g, t->id, { (float) headerWidth, (float) y,
+                                    (float) (getWidth() - headerWidth), (float) trackHeight });
 
         g.setColour (Palette::lineSoft);
         g.drawHorizontalLine (y + trackHeight, 0.0f, (float) getWidth());

@@ -426,6 +426,29 @@ MainComponent::MainComponent (bool headless)
     };
     arrangeView->onClipSelected = [this] (int t, int c) { selectClip (t, c); };
     arrangeView->onChanged      = [this] { if (arrangeView) arrangeView->repaint(); };
+    // Automation overlay: hand the arrangement the track-owned lanes, resolved to their track id
+    // and value range so it can normalise each curve into the row. (Bus/effect lanes come later.)
+    arrangeView->getAutomation = [this]
+    {
+        std::vector<ArrangeView::AutoLaneView> out;
+        for (auto& l : apiGetAutomation())
+        {
+            if (! l.target.startsWith ("track/")) continue;   // slice 1: only track-owned params
+            const juce::String rest = l.target.substring (6);
+            const int slash = rest.indexOfChar ('/');
+            if (slash <= 0) continue;
+            ArrangeView::AutoLaneView v;
+            v.target  = l.target;
+            v.trackId = rest.substring (0, slash).getIntValue();
+            v.step    = l.step;
+            v.curve   = l.curve;
+            ParamDesc d;
+            if (apiGetParameter (l.target, d)) { v.lo = d.min; v.hi = d.max; }
+            for (auto& p : l.points) v.points.push_back ({ p.beat, p.value });
+            out.push_back (std::move (v));
+        }
+        return out;
+    };
     arrangeView->onLoopChanged  = [this]
     {
         loopButton.setToggleState (transport.isLoopEnabled(), juce::dontSendNotification);
@@ -1064,8 +1087,9 @@ MainComponent::MainComponent (bool headless)
         ParamDesc d;
         const float value = apiGetParameter (target, d) ? d.value : 0.0f;
         apiAddAutomationPointById (target, transport.getPlayheadBeats(), value);
+        if (arrangeView) arrangeView->refreshAutomation();
     };
-    mixerView->onClearAutomation    = [this] (const juce::String& target) { apiSetAutomationById (target, {}); };
+    mixerView->onClearAutomation    = [this] (const juce::String& target) { apiSetAutomationById (target, {}); if (arrangeView) arrangeView->refreshAutomation(); };
     mixerView->getAutomationStep    = [this] (const juce::String& target) { return apiGetAutomationStep (target); };
     mixerView->onSetAutomationStep  = [this] (const juce::String& target, bool step) { apiSetAutomationStep (target, step); };
     mixerView->getAutomationCurve   = [this] (const juce::String& target) { return apiGetAutomationCurve (target); };
@@ -4090,9 +4114,10 @@ void MainComponent::showMacroMenu (int macroIndex, juce::Component* anchor)
                 ParamDesc d;
                 const float value = apiGetParameter (macroTgt, d) ? d.value : 0.0f;
                 apiAddAutomationPointById (macroTgt, transport.getPlayheadBeats(), value);
+                if (arrangeView) arrangeView->refreshAutomation();
                 return;
             }
-            if (r == 7) { apiSetAutomationById (macroTgt, {}); return; }
+            if (r == 7) { apiSetAutomationById (macroTgt, {}); if (arrangeView) arrangeView->refreshAutomation(); return; }
             if (r == 3) { apiClearMacroMappings (rackTrack, macroIndex); refreshRackPanel(); return; }
             if (r == 4) { apiRemoveMacro (rackTrack, macroIndex); refreshRackPanel(); return; }
             if (r >= 1000 && r < 1000 + (int) synthNames.size())
