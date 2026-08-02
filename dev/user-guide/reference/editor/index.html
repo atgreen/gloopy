@@ -2759,10 +2759,67 @@ one or more of the track's synth/effect parameters at once. <strong>+ Macro</str
 turn a knob (0..1) and every parameter it drives sweeps across its safe range, so a
 single knob moves a whole sound. Under each knob is the macro's name and how many
 parameters it drives, and the knobs update live when a macro changes elsewhere (for
-example a script <code>randomize-macros</code>). Mapping a macro to parameters is done from the
-<a href="../../../control-scripting/reference/python/">Python</a> or
+example a script <code>randomize-macros</code>). <strong>Randomize</strong> rolls every macro to a fresh value
+at once — musical, since each mapping stays inside its safe range.</p>
+<p>The <strong>⋯</strong> button on each knob opens its menu:</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Rename…</strong></td>
+<td>Give the macro a perceptual name — "Brightness", "Drive"</td>
+</tr>
+<tr>
+<td><strong>Map to synth ▸</strong></td>
+<td>Map the macro onto a built-in synth parameter (over that parameter's range)</td>
+</tr>
+<tr>
+<td><strong>Map to effect ▸</strong></td>
+<td>Map it onto a parameter of one of the track's insert effects</td>
+</tr>
+<tr>
+<td><strong>MIDI Learn</strong></td>
+<td>Arm learn, then move a hardware knob/fader — that CC now drives the macro</td>
+</tr>
+<tr>
+<td><strong>Automate at playhead</strong></td>
+<td>Drop an automation keyframe for the macro at the current position — move the playhead and repeat to draw an envelope; playback morphs the macro smoothly between points</td>
+</tr>
+<tr>
+<td><strong>Clear automation</strong></td>
+<td>Remove the macro's automation lane</td>
+</tr>
+<tr>
+<td><strong>Clear mappings</strong></td>
+<td>Remove all of this macro's mappings (keep the macro)</td>
+</tr>
+<tr>
+<td><strong>Remove macro</strong></td>
+<td>Delete the macro</td>
+</tr>
+</tbody>
+</table>
+<p>Map a macro to several parameters and one knob morphs them together. Mapping,
+renaming, removing, and Randomize are scriptable from the
+<a href="../../../control-scripting/reference/python/">Python</a> and
 <a href="../../../control-scripting/reference/lisp/#macros-the-rack-layer">Lisp</a>
-clients for now; a desktop map mode is coming.</p>
+clients, where you can also set a narrower <code>[lo, hi]</code> safe range per mapping.</p>
+<p><strong>Snapshots</strong> (variations). The strip under the header saves whole knob states:
+<strong>+ Snapshot</strong> captures the current positions as a slot; click a slot to recall it
+(the knobs animate back to it and the slot highlights until you move a knob).
+Right-click a slot to <strong>Morph to this over</strong> ½–8 beats (the whole rack glides smoothly
+from where it is to the snapshot), <strong>Recall instantly</strong>, <strong>Insert at playhead</strong>, <strong>Overwrite</strong>
+it with the current knobs, <strong>Rename</strong>, or <strong>Delete</strong> it. Snapshots are saved with the project.</p>
+<p><strong>Insert at playhead</strong> stamps the snapshot into the timeline: it writes an automation
+breakpoint into <em>every</em> macro's lane at the playhead using that snapshot's values. Insert
+one snapshot at the start and another later, and playback <strong>morphs the whole rack between
+them</strong> as it ramps from one set of points to the next — the snapshot becomes ordinary,
+editable automation. (To drive individual macros instead, use <strong>⋯ → Automate at playhead</strong>.)</p>
 
 
 

@@ -3221,6 +3221,18 @@ live on a track and are saved with the project.</p>
 <td><code>(randomize-macros id)</code></td>
 <td>Roll every macro to a fresh random <code>0..1</code> and apply.</td>
 </tr>
+<tr>
+<td><code>(rename-macro id macro name)</code></td>
+<td>Rename a macro (empty names rejected).</td>
+</tr>
+<tr>
+<td><code>(clear-macro-mappings id macro)</code></td>
+<td>Remove all of a macro's mappings (keep the macro).</td>
+</tr>
+<tr>
+<td><code>(remove-macro id macro)</code></td>
+<td>Delete a macro (later macros shift down one index).</td>
+</tr>
 </tbody>
 </table>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">(</span><span class="k">let</span><span class="w"> </span><span class="p">((</span><span class="nv">tr</span><span class="w"> </span><span class="p">(</span><span class="nv">add-synth-track</span><span class="w"> </span><span class="s">&quot;Lead&quot;</span><span class="p">)))</span>

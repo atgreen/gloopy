@@ -909,21 +909,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#where-automation-is-authored" class="md-nav__link">
+  <a href="#automation-lanes-on-the-timeline" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Where automation is authored
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#place-keyframes-at-the-playhead" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Place keyframes at the playhead
+        Automation lanes on the timeline
       
     </span>
   </a>
@@ -935,6 +924,39 @@
     <span class="md-ellipsis">
       
         Shape the motion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bus-group-and-master-automation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bus, group, and master automation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keyframe-at-the-playhead-the-quick-way" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keyframe at the playhead (the quick way)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#write-mode-perform-it-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Write mode — perform it live
       
     </span>
   </a>
@@ -2565,21 +2587,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#where-automation-is-authored" class="md-nav__link">
+  <a href="#automation-lanes-on-the-timeline" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Where automation is authored
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#place-keyframes-at-the-playhead" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Place keyframes at the playhead
+        Automation lanes on the timeline
       
     </span>
   </a>
@@ -2591,6 +2602,39 @@
     <span class="md-ellipsis">
       
         Shape the motion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bus-group-and-master-automation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bus, group, and master automation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keyframe-at-the-playhead-the-quick-way" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keyframe at the playhead (the quick way)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#write-mode-perform-it-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Write mode — perform it live
       
     </span>
   </a>
@@ -2647,42 +2691,56 @@
 <h1 id="automate-a-parameter">Automate a parameter<a class="headerlink" href="#automate-a-parameter" title="Permanent link">&para;</a></h1>
 <p><strong>Task:</strong> make a value change over the course of the song — a fader that rides up
 into the chorus, a filter that opens over eight bars. Automation plays back from
-the <strong>arrangement</strong>.</p>
-<h2 id="where-automation-is-authored">Where automation is authored<a class="headerlink" href="#where-automation-is-authored" title="Permanent link">&para;</a></h2>
-<p>Automation is set from the <strong>parameter's own right-click menu</strong> in the mixer.
-Right-click a <strong>fader</strong>, a <strong>pan</strong> control, or an <strong>effect knob</strong> to get its menu.
-(There's no separate breakpoint-drawing lane to open — you place keyframes on the
-parameter itself.)</p>
-<h2 id="place-keyframes-at-the-playhead">Place keyframes at the playhead<a class="headerlink" href="#place-keyframes-at-the-playhead" title="Permanent link">&para;</a></h2>
-<p>The desktop workflow is <strong>keyframe-at-playhead</strong> — set the value where you want
-it, and stamp it at the current time:</p>
+the <strong>arrangement</strong>, and you can see and edit it right on the timeline.</p>
+<h2 id="automation-lanes-on-the-timeline">Automation lanes on the timeline<a class="headerlink" href="#automation-lanes-on-the-timeline" title="Permanent link">&para;</a></h2>
+<p>Every automated parameter draws as a <strong>curve with breakpoints</strong> over its track's row
+in the arrangement. To work with it directly:</p>
 <ol>
-<li>Move the <strong>playhead</strong> to where the change should begin (click the ruler, or
-   play and stop).</li>
-<li>Set the parameter to its starting value (drag the fader/knob).</li>
-<li>Right-click it → <strong>Automate at playhead</strong>. That drops a keyframe: <em>this value,
-   this beat</em>.</li>
-<li>Move the playhead later, change the value, and <strong>Automate at playhead</strong> again.
-   Two keyframes make a ramp; add more for a shape.</li>
+<li>Click the <strong>▾</strong> in a track's header to break its automation out into a <strong>sub-lane</strong>
+   below the clips.</li>
+<li>Click <strong>+ Lane</strong> and pick a parameter (any of the track's synth, macro, or mix
+   params). A lane appears with a keyframe at the playhead.</li>
+<li>Edit the curve directly:</li>
+<li><strong>Alt-click</strong> a lane to add a breakpoint.</li>
+<li><strong>Drag</strong> a breakpoint to move it (up/down = value, left/right = time, snapped to
+     the grid).</li>
+<li><strong>Double-click</strong> (or right-click) a breakpoint to delete it.</li>
+<li>The <strong>×</strong> in a lane's header removes the whole lane.</li>
 </ol>
-<p>Play back and the parameter now follows the keyframes you placed.</p>
+<p>Stack several lanes under one track for several parameters at once. When a track is
+<em>collapsed</em>, its automation still draws as a translucent overlay on the clips.</p>
 <h2 id="shape-the-motion">Shape the motion<a class="headerlink" href="#shape-the-motion" title="Permanent link">&para;</a></h2>
-<p>The same right-click menu shapes how keyframes connect:</p>
+<p>Right-click a lane for its menu:</p>
 <ul>
-<li><strong>Automation curve ▸</strong> — <strong>Linear</strong>, <strong>Ease in</strong>, or <strong>Ease out</strong> between points.</li>
-<li><strong>Stepped automation</strong> — hold each value until the next keyframe (a stair-step)
-  instead of interpolating.</li>
-<li><strong>Clear automation</strong> — remove the lane for this parameter and start over.</li>
+<li><strong>Smooth (ramp)</strong> vs <strong>Stepped (hold)</strong> — interpolate between points, or hold each
+  value until the next (a stair-step).</li>
+<li><strong>Curve ▸</strong> — <strong>Linear</strong>, <strong>Ease in</strong>, or <strong>Ease out</strong> between points.</li>
+<li><strong>Remove lane</strong> — clear this parameter's automation.</li>
 </ul>
+<h2 id="bus-group-and-master-automation">Bus, group, and master automation<a class="headerlink" href="#bus-group-and-master-automation" title="Permanent link">&para;</a></h2>
+<p>Buses, groups, and the <strong>master</strong> don't have clips, so they get their own <strong>content-less
+rows below the tracks</strong>, carrying only automation. The master row is always present; a
+bus row appears once the bus has automation. A <strong>control group (VCA)</strong> fader is
+automatable too (<code>group/&lt;name&gt;/gain</code>) — automating it scales all its members without
+touching their own automation.</p>
+<h2 id="keyframe-at-the-playhead-the-quick-way">Keyframe at the playhead (the quick way)<a class="headerlink" href="#keyframe-at-the-playhead-the-quick-way" title="Permanent link">&para;</a></h2>
+<p>You don't have to open a lane to drop a point. From a <strong>parameter's own right-click menu</strong>
+in the mixer (a fader, pan, or effect knob) — or a macro's <strong>⋯</strong> menu in the RACK panel —
+choose <strong>Automate at playhead</strong>: it stamps <em>this value, this beat</em>. Move the playhead,
+change the value, and stamp again. Two keyframes make a ramp.</p>
+<h2 id="write-mode-perform-it-live">Write mode — perform it live<a class="headerlink" href="#write-mode-perform-it-live" title="Permanent link">&para;</a></h2>
+<p>To capture movement instead of drawing it, arm <strong>Write</strong> in the RACK panel. While the
+transport plays, your macro moves (including snapshot <strong>morphs</strong>) are recorded as
+automation. It's <em>latch</em>-style: a parameter you touch stops reading its own automation
+so your hands don't fight the playback, and the recording is revealed when you stop.</p>
 <h2 id="automation-vs-an-lfo-vs-a-knob">Automation vs. an LFO vs. a knob<a class="headerlink" href="#automation-vs-an-lfo-vs-a-knob" title="Permanent link">&para;</a></h2>
-<p>Automation is for an <strong>exact, drawn-in-time</strong> shape. If you instead want <em>hands-off
-cyclic</em> movement, or to <em>perform</em> the change live, use a different tool from the
-same right-click menu:</p>
+<p>Automation is for an <strong>exact, drawn-in-time</strong> shape. For <em>hands-off cyclic</em> movement or
+to <em>perform</em> a change live, use a different tool from the same right-click menu:</p>
 <ul>
-<li><strong>Add LFO…</strong> — a low-frequency oscillator (rate, depth, shape, tempo-sync)
-  wobbles the parameter continuously, no keyframes. That's <strong>modulation</strong>.</li>
-<li><strong>MIDI Learn</strong> — bind a hardware knob or CC to the parameter and play it by
-  hand. That's <strong>MIDI-learn</strong>; manage bindings in the <strong>Maps</strong> window.</li>
+<li><strong>Add LFO…</strong> — a low-frequency oscillator (rate, depth, shape, tempo-sync) wobbles the
+  parameter continuously, no keyframes. That's <strong>modulation</strong>.</li>
+<li><strong>MIDI Learn</strong> — bind a hardware knob or CC to the parameter and play it by hand.
+  That's <strong>MIDI-learn</strong>; manage bindings in the <strong>Maps</strong> window.</li>
 </ul>
 <p>See <a href="../../what-to-use-for-what/#automation-vs-modulation-vs-midi-learn">What to use for what</a>
 for choosing between the three.</p>

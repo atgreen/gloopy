@@ -2632,6 +2632,39 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.rename_macro" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rename_macro
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.clear_macro_mappings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        clear_macro_mappings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.remove_macro" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        remove_macro
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#gloopy.client.Gloopy.rename_track" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4707,6 +4740,39 @@
     <span class="md-ellipsis">
       
         randomize_macros
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.rename_macro" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rename_macro
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.clear_macro_mappings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        clear_macro_mappings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.remove_macro" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        remove_macro
       
     </span>
   </a>
@@ -6943,6 +7009,60 @@ each mapping stays within its authored [lo,hi] safe range.</p>
 <div class="doc doc-object doc-function">
 
 
+<h4 id="gloopy.client.Gloopy.rename_macro" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">rename_macro</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">macro</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span></code>
+
+<a href="#gloopy.client.Gloopy.rename_macro" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Rename a macro. Empty/whitespace names are rejected.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="gloopy.client.Gloopy.clear_macro_mappings" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">clear_macro_mappings</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">macro</span><span class="p">)</span></code>
+
+<a href="#gloopy.client.Gloopy.clear_macro_mappings" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Remove all of a macro's param mappings (the macro itself stays).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="gloopy.client.Gloopy.remove_macro" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">remove_macro</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">macro</span><span class="p">)</span></code>
+
+<a href="#gloopy.client.Gloopy.remove_macro" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Delete a macro from the track (later macros shift down by one index).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="gloopy.client.Gloopy.rename_track" class="doc doc-heading">
             <code class="highlight language-python"><span class="n">rename_track</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span></code>
 
@@ -7185,7 +7305,7 @@ override so the clip inherits the track's colour.</p>
 
 
 <h4 id="gloopy.client.Gloopy.regenerate_clip" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">regenerate_clip</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">script</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">lang</span><span class="o">=</span><span class="s1">&#39;common-lisp&#39;</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">regenerate_clip</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">script</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">lang</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.regenerate_clip" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -7193,8 +7313,12 @@ override so the clip inherits the track's colour.</p>
     <div class="doc doc-contents ">
 
         <p>Mark a clip as a script clip and generate its notes from the kernel.</p>
-<p>With <code>lang="python"</code> and an attached notebook kernel (<code>gloopy.attach</code>), this runs
-your registered generator; with <code>lang="common-lisp"</code> it uses Gloopy's SBCL kernel.</p>
+<p>A clip's generator is EITHER a source file (<code>script</code>, a project-relative path) OR a
+named generator (<code>generator</code>): <code>"pkg.mod:fn"</code> in Python / <code>"pkg:sym"</code> in Lisp, with
+<code>system</code> the ASDF system / import root to load. <code>lang</code> is inferred when omitted — from
+the script extension (<code>.py</code> -&gt; python, <code>.lisp</code>/<code>.cl</code> -&gt; common-lisp) or the
+generator's shape — so Python users needn't spell it out. It still routes to the matching
+kernel (SBCL for Lisp; the auto-launched or attached Python kernel for Python).</p>
 
 
     </div>
