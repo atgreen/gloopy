@@ -108,6 +108,31 @@ markers). The render path honours the map. See
 decay sustain release gain ftype cutoff reso fenvamt fattack fdecay fsustain
 frelease lfotarget lforate lfodepth`.
 
+### Macros (the rack layer)
+
+A **macro** is one perceptual encoder (a single `0..1` knob) mapped onto one or more
+underlying params. Each mapping has an authored **safe range** `[lo, hi]`; turning the
+macro sweeps every mapped param across its range (`param = lerp(lo, hi, value)`). Because a
+macro can only move a param inside that guardrail, `randomize-macros` stays musical. Macros
+live on a track and are saved with the project.
+
+| Function | Purpose |
+|----------|---------|
+| `(add-macro id &optional name)` | Add a macro to a track; returns its index. |
+| `(set-macro-value id macro value)` | Turn the macro (`0..1`); every mapped param sweeps its `[lo,hi]`. |
+| `(map-macro-synth id macro param &optional lo hi)` | Map onto a built-in synth param (names above), swept `lo..hi`. |
+| `(map-macro-effect id macro insert slot param &optional lo hi)` | Map onto a mixer insert-effect param. |
+| `(randomize-macros id)` | Roll every macro to a fresh random `0..1` and apply. |
+
+```lisp
+(let ((tr (add-synth-track "Lead")))
+  (add-macro tr "Brightness")                 ; macro 0
+  (map-macro-synth tr 0 "cutoff" 0.2 0.9)     ; open the filter as the knob turns up
+  (map-macro-synth tr 0 "reso"   0.0 0.4)     ; …and add a little resonance with it
+  (set-macro-value tr 0 0.75)                 ; 3/4 bright
+  (randomize-macros tr))                       ; or roll the dice — stays in range
+```
+
 ### Clips
 
 | Function | Purpose |

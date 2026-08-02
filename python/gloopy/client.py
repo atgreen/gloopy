@@ -253,6 +253,34 @@ class Gloopy:
         self._ack(self.stub.SetSynthParam(
             pb.SynthParamSet(track_id=track_id, name=name, value=value)))
 
+    # --- Macros (the rack layer) ------------------------------------------
+    def add_macro(self, track_id: int, name: str = "Macro") -> int:
+        """Add a perceptual macro (an encoder, 0..1) to a track. Returns its index."""
+        return self.stub.AddMacro(pb.MacroAdd(track_id=track_id, name=name)).index
+
+    def set_macro_value(self, track_id: int, macro: int, value: float) -> None:
+        """Turn a macro (0..1); every mapped param sweeps across its authored [lo,hi]."""
+        self._ack(self.stub.SetMacroValue(
+            pb.MacroValue(track_id=track_id, macro=macro, value=value)))
+
+    def map_macro_synth(self, track_id: int, macro: int, param: str,
+                        lo: float = 0.0, hi: float = 1.0) -> None:
+        """Map a macro onto a built-in synth param (see set_synth_param names), swept lo..hi."""
+        self._ack(self.stub.MapMacroSynth(
+            pb.MacroMapSynth(track_id=track_id, macro=macro, param=param, lo=lo, hi=hi)))
+
+    def map_macro_effect(self, track_id: int, macro: int, insert: int, slot: int,
+                         param: str, lo: float = 0.0, hi: float = 1.0) -> None:
+        """Map a macro onto a mixer insert-effect param (insert/slot), swept lo..hi."""
+        self._ack(self.stub.MapMacroEffect(
+            pb.MacroMapEffect(track_id=track_id, macro=macro, insert=insert, slot=slot,
+                              param=param, lo=lo, hi=hi)))
+
+    def randomize_macros(self, track_id: int) -> None:
+        """Roll every macro on the track to a fresh random 0..1 and apply — musical because
+        each mapping stays within its authored [lo,hi] safe range."""
+        self._ack(self.stub.RandomizeMacros(pb.TrackId(id=track_id)))
+
     def remove_track(self, track_id: int) -> None:
         self._ack(self.stub.RemoveTrack(pb.TrackId(id=track_id)))
 

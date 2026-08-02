@@ -6986,6 +6986,30 @@ juce::ValueTree MainComponent::toValueTree()
                 sc.setProperty ("scene", s, nullptr);
                 tr.addChild (sc, -1, nullptr);
             }
+        // Rack macros: one MACRO child per encoder, each holding its MAP targets.
+        if (! t->macros.empty())
+        {
+            juce::ValueTree ms ("MACROS");
+            for (auto& m : t->macros)
+            {
+                juce::ValueTree mv ("MACRO");
+                mv.setProperty ("name", m.name, nullptr);
+                mv.setProperty ("value", m.value, nullptr);
+                for (auto& mp : m.mappings)
+                {
+                    juce::ValueTree mt ("MAP");
+                    if (mp.synthParam.isNotEmpty()) mt.setProperty ("synth", mp.synthParam, nullptr);
+                    else { mt.setProperty ("insert", mp.insert, nullptr);
+                           mt.setProperty ("slot", mp.slot, nullptr);
+                           mt.setProperty ("effect", mp.effectParam, nullptr); }
+                    mt.setProperty ("lo", mp.lo, nullptr);
+                    mt.setProperty ("hi", mp.hi, nullptr);
+                    mv.addChild (mt, -1, nullptr);
+                }
+                ms.addChild (mv, -1, nullptr);
+            }
+            tr.addChild (ms, -1, nullptr);
+        }
         trks.addChild (tr, -1, nullptr);
     }
     root.addChild (trks, -1, nullptr);
@@ -7351,6 +7375,31 @@ std::unique_ptr<Track> MainComponent::buildTrackFromTree (const juce::ValueTree&
                 {
                     if ((int) t->sessionSlots.size() <= scene) ensureSlotCount (t->sessionSlots, scene + 1);
                     t->sessionSlots[(size_t) scene] = std::make_shared<Clip> (clipFromTree (cl));
+                }
+            }
+            else if (cl.hasType ("MACROS"))   // rack layer
+            {
+                for (int mi = 0; mi < cl.getNumChildren(); ++mi)
+                {
+                    auto mv = cl.getChild (mi);
+                    if (! mv.hasType ("MACRO")) continue;
+                    Macro m;
+                    m.name  = mv.getProperty ("name", "Macro");
+                    m.value = (float) (double) mv.getProperty ("value", 0.0);
+                    for (int ti = 0; ti < mv.getNumChildren(); ++ti)
+                    {
+                        auto mt = mv.getChild (ti);
+                        if (! mt.hasType ("MAP")) continue;
+                        MacroMapping mp;
+                        mp.synthParam  = mt.getProperty ("synth", "");
+                        mp.insert      = (int) mt.getProperty ("insert", -1);
+                        mp.slot        = (int) mt.getProperty ("slot", -1);
+                        mp.effectParam = mt.getProperty ("effect", "");
+                        mp.lo = (float) (double) mt.getProperty ("lo", 0.0);
+                        mp.hi = (float) (double) mt.getProperty ("hi", 1.0);
+                        m.mappings.push_back (std::move (mp));
+                    }
+                    t->macros.push_back (std::move (m));
                 }
             }
         }

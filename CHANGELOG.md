@@ -13,6 +13,20 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-08-01
+
+### Added
+- **Macros — a "rack" control layer you can script.** Each track can now carry *macros*:
+  perceptual encoders (a single 0..1 knob) that drive one or more underlying params at
+  once. A macro maps onto a built-in synth param and/or a mixer insert-effect param, each
+  within an authored **safe range** `[lo, hi]` — turning the macro sweeps every mapped
+  param across its own range (`param = lerp(lo, hi, value)`). Because a macro can only move
+  a param inside that guardrail, **Randomize** (roll every macro to a fresh random value)
+  stays musical. Macros are saved with the project and are drivable from the Python and
+  Common Lisp clients (`add_macro`/`add-macro`, `set_macro_value`, `map_macro_synth`,
+  `map_macro_effect`, `randomize_macros`) over gRPC. This is the foundation for the Sound
+  Browser's device panel; a desktop UI for building and turning macros follows.
+
 ## [0.1.9] - 2026-08-01
 
 ### Changed
@@ -262,7 +276,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.10...HEAD
+[0.1.10]: https://github.com/atgreen/gloopy/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/atgreen/gloopy/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/atgreen/gloopy/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/atgreen/gloopy/compare/v0.1.6...v0.1.7

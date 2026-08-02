@@ -201,6 +201,38 @@ ftype cutoff reso fenvamt fattack fdecay fsustain frelease lfotarget lforate lfo
   (%ack "SetSynthParam" (mk 'gloopy.pb::synth-param-set
                             :track-id (round id) :name (string name) :value (s value))))
 
+;;; --- macros (the rack layer) ------------------------------------------------
+;;; A macro is one perceptual encoder (0..1) mapped onto one or more params, each
+;;; within an authored [lo,hi] safe range: param = lerp(lo, hi, value).
+(defun add-macro (id &optional (name "Macro"))
+  "Add a macro (an encoder, 0..1) to track ID; returns its index."
+  (gloopy.pb::index
+   (%unary "AddMacro" (mk 'gloopy.pb::macro-add :track-id (round id) :name (string name))
+           'gloopy.pb::macro-index)))
+
+(defun set-macro-value (id macro value)
+  "Turn MACRO (index) on track ID to VALUE (0..1); every mapped param sweeps its [lo,hi]."
+  (%ack "SetMacroValue" (mk 'gloopy.pb::macro-value
+                            :track-id (round id) :macro (round macro) :value (s value))))
+
+(defun map-macro-synth (id macro param &optional (lo 0.0) (hi 1.0))
+  "Map MACRO onto a built-in synth PARAM (see set-synth-param names), swept LO..HI."
+  (%ack "MapMacroSynth" (mk 'gloopy.pb::macro-map-synth
+                            :track-id (round id) :macro (round macro)
+                            :param (string param) :lo (s lo) :hi (s hi))))
+
+(defun map-macro-effect (id macro insert slot param &optional (lo 0.0) (hi 1.0))
+  "Map MACRO onto a mixer insert-effect PARAM (INSERT/SLOT), swept LO..HI."
+  (%ack "MapMacroEffect" (mk 'gloopy.pb::macro-map-effect
+                            :track-id (round id) :macro (round macro)
+                            :insert (round insert) :slot (round slot)
+                            :param (string param) :lo (s lo) :hi (s hi))))
+
+(defun randomize-macros (id)
+  "Roll every macro on track ID to a fresh random 0..1 and apply — musical because each
+mapping stays within its authored [lo,hi] safe range."
+  (%ack "RandomizeMacros" (mk 'gloopy.pb::track-id :id (round id))))
+
 (defun remove-track (id) (%ack "RemoveTrack" (mk 'gloopy.pb::track-id :id (round id))))
 
 ;;; --- clips ------------------------------------------------------------------
