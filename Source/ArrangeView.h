@@ -145,9 +145,14 @@ private:
     int    firstAutoLane (int track) const;                    // first cached lane on a track (-1 if none)
     int    clipAt (int track, juce::Point<float> p) const;
     void   drawClip (juce::Graphics&, const Track&, const Clip&, juce::Rectangle<float>, bool selected) const;
-    void   drawAutomation (juce::Graphics&, int trackId, float top, float bot,
-                           const juce::String& onlyTarget = {}) const;   // draw a track's lanes in [top,bot]
-    juce::String focusedTargetFor (int track) const;   // the param the expanded sub-lane shows/edits
+    void   drawOneLane (juce::Graphics&, const AutoLaneView&, float top, float bot) const;   // one lane's curve
+    void   drawAutomation (juce::Graphics&, int trackId, float top, float bot) const;        // overlay all lanes (collapsed)
+
+    // Stacked sub-lanes when expanded: one band per automation lane on the track.
+    int    laneCountFor (int track) const;
+    void   trackLaneIndices (int track, std::vector<int>& out) const;   // global autoLanes indices, in order
+    void   laneBand (int track, int k, float& top, float& bot) const;   // band of the k-th sub-lane
+    int    laneAtY (int track, float y) const;                          // which sub-lane a y is in (-1 = none)
 
     // Variable row height: a track's row is trackHeight, plus laneExtra when its automation lane is
     // expanded (broken out below the clips). All track→y math goes through rowTop/rowHeight.
@@ -163,7 +168,8 @@ private:
     static constexpr int headerWidth = 190;
     static constexpr int rulerHeight  = 22;
     static constexpr int trackHeight  = 64;
-    static constexpr int laneExtra    = 58;   // extra row height when the automation lane is expanded
+    static constexpr int pickerRowH   = 22;   // "+ Lane" picker strip at the top of an expanded row
+    static constexpr int laneRowH     = 46;   // height of each stacked automation sub-lane
     double beatsPerBar = 4.0;   // refreshed from the transport's time signature on rebuild/resize/paint
 
     std::vector<std::unique_ptr<Track>>& tracks;
