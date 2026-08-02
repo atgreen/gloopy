@@ -123,6 +123,9 @@ live on a track and are saved with the project.
 | `(map-macro-synth id macro param &optional lo hi)` | Map onto a built-in synth param (names above), swept `lo..hi`. |
 | `(map-macro-effect id macro insert slot param &optional lo hi)` | Map onto a mixer insert-effect param. |
 | `(randomize-macros id)` | Roll every macro to a fresh random `0..1` and apply. |
+| `(rename-macro id macro name)` | Rename a macro (empty names rejected). |
+| `(clear-macro-mappings id macro)` | Remove all of a macro's mappings (keep the macro). |
+| `(remove-macro id macro)` | Delete a macro (later macros shift down one index). |
 
 ```lisp
 (let ((tr (add-synth-track "Lead")))

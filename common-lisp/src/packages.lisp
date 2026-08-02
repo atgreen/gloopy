@@ -33,6 +33,7 @@ Every RPC is a plain function; messages come back as plists.")
    #:remove-track
    ;; macros (the rack layer)
    #:add-macro #:set-macro-value #:map-macro-synth #:map-macro-effect #:randomize-macros
+   #:rename-macro #:clear-macro-mappings #:remove-macro
    ;; clips
    #:note #:seq #:mini #:add-clip #:remove-clip #:move-clip #:add-audio-clip
    ;; music theory (note names, durations, scales, chords)

@@ -83,6 +83,13 @@ std::vector<MainComponent::ParamDesc> MainComponent::apiListParameters()
             out.push_back (mk (base + "mute",   t->name + " Mute",   t->mute.load() ? 1.f : 0.f, 0.f, 1.f, 0.f, "", "bool"));
             out.push_back (mk (base + "solo",   t->name + " Solo",   t->solo.load() ? 1.f : 0.f, 0.f, 1.f, 0.f, "", "bool"));
 
+            // Rack macros — each is a 0..1 target, so a hardware CC can be MIDI-learned onto it
+            // (turning the macro drives all its mapped params). See applyParamValue's macro case.
+            for (size_t mi = 0; mi < t->macros.size(); ++mi)
+                out.push_back (mk (base + "macro/" + juce::String ((int) mi),
+                                   t->name + " " + t->macros[mi].name,
+                                   t->macros[mi].value, 0.f, 1.f, 0.f, "", "linear"));
+
             if (auto* sg = dynamic_cast<SynthGenerator*> (t->generator.get()))
             {
                 juce::ValueTree s ("SYNTH");
@@ -137,6 +144,14 @@ std::vector<MainComponent::ParamDesc> MainComponent::apiListParameters()
                                            ps[pi]->getValue(), 0.f, 1.f, ps[pi]->getDefaultValue(), "", "linear"));
                 }
             }
+        }
+
+        // ── control groups (VCA-lite): the group fader, automatable as a VCA offset ──
+        {
+            const juce::ScopedLock sl (engineLock);
+            for (auto& cg : controlGroups)
+                out.push_back (mk ("group/" + cg->name + "/gain", cg->name + " (VCA)",
+                                   cg->gain.load(), 0.f, 1.f, 1.f, "", "linear"));
         }
 
         return out;

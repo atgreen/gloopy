@@ -426,6 +426,114 @@ MainComponent::MainComponent (bool headless)
     };
     arrangeView->onClipSelected = [this] (int t, int c) { selectClip (t, c); };
     arrangeView->onChanged      = [this] { if (arrangeView) arrangeView->repaint(); };
+    // Automation overlay: hand the arrangement the track-owned lanes, resolved to their track id
+    // and value range so it can normalise each curve into the row. (Bus/effect lanes come later.)
+    arrangeView->getAutomation = [this]
+    {
+        std::vector<ArrangeView::AutoLaneView> out;
+        for (auto& l : apiGetAutomation())
+        {
+            if (! l.target.startsWith ("track/")) continue;   // slice 1: only track-owned params
+            const juce::String rest = l.target.substring (6);
+            const int slash = rest.indexOfChar ('/');
+            if (slash <= 0) continue;
+            ArrangeView::AutoLaneView v;
+            v.target  = l.target;
+            v.trackId = rest.substring (0, slash).getIntValue();
+            v.step    = l.step;
+            v.curve   = l.curve;
+            ParamDesc d;
+            if (apiGetParameter (l.target, d)) { v.lo = d.min; v.hi = d.max; }
+            for (auto& p : l.points) v.points.push_back ({ p.beat, p.value });
+            out.push_back (std::move (v));
+        }
+        return out;
+    };
+    // Content-less bus/master rows: the master (always) + any bus that has automation, each with
+    // its insert/effect automation lanes. (Read-only in the arrangement for now; edit via the mixer.)
+    arrangeView->getBusRows = [this] () -> std::vector<ArrangeView::BusRowView>
+    {
+        std::vector<ArrangeView::BusRowView> out;
+        auto lanes = apiGetAutomation();
+        const juce::ScopedLock sl (engineLock);
+        for (int i = 0; i < (int) mixerTracks.size(); ++i)
+        {
+            auto& mt = *mixerTracks[(size_t) i];
+            const bool isMaster = (i == 0);
+            if (! isMaster && ! mt.isBus) continue;               // per-track inserts aren't bus rows
+            ArrangeView::BusRowView br;
+            br.mixerIndex = i; br.name = mt.name; br.colour = mt.colour;
+            const juce::String insP = "insert/" + juce::String (i) + "/";
+            const juce::String fxP  = "effect/" + juce::String (i) + "/";
+            for (auto& l : lanes)
+                if (l.target.startsWith (insP) || l.target.startsWith (fxP))
+                {
+                    ArrangeView::AutoLaneView v; v.target = l.target; v.trackId = -1;
+                    v.step = l.step; v.curve = l.curve;
+                    ParamDesc d; if (apiGetParameter (l.target, d)) { v.lo = d.min; v.hi = d.max; }
+                    for (auto& pt : l.points) v.points.push_back ({ pt.beat, pt.value });
+                    br.lanes.push_back (std::move (v));
+                }
+            if (isMaster || ! br.lanes.empty()) out.push_back (std::move (br));
+        }
+        // Control-group (VCA) rows: shown once the group fader is automated (mixerIndex = -1).
+        for (auto& cg : controlGroups)
+        {
+            ArrangeView::BusRowView br; br.mixerIndex = -1; br.name = cg->name;
+            const juce::String gp = "group/" + cg->name + "/";
+            for (auto& l : lanes)
+                if (l.target.startsWith (gp))
+                {
+                    ArrangeView::AutoLaneView v; v.target = l.target; v.trackId = -1;
+                    v.step = l.step; v.curve = l.curve;
+                    ParamDesc d; if (apiGetParameter (l.target, d)) { v.lo = d.min; v.hi = d.max; }
+                    for (auto& pt : l.points) v.points.push_back ({ pt.beat, pt.value });
+                    br.lanes.push_back (std::move (v));
+                }
+            if (! br.lanes.empty()) out.push_back (std::move (br));
+        }
+        return out;
+    };
+    arrangeView->onAddAutomationPoint = [this] (const juce::String& target, double beat, float value)
+    {
+        apiAddAutomationPointById (target, beat, value);
+        if (arrangeView) arrangeView->refreshAutomation();
+    };
+    arrangeView->onSetAutomation = [this] (const juce::String& target, std::vector<std::pair<double, float>> pts)
+    {
+        std::vector<AutoPointSnap> ap;
+        for (auto& p : pts) ap.push_back ({ p.first, p.second });
+        apiSetAutomationById (target, ap);
+        if (arrangeView) arrangeView->refreshAutomation();
+    };
+    // Parameter picker for the sub-lane: this track's automatable params (id-addressed), friendly-labelled.
+    arrangeView->getTrackParams = [this] (int trackId) -> std::vector<std::pair<juce::String, juce::String>>
+    {
+        std::vector<std::pair<juce::String, juce::String>> out;
+        const juce::String prefix = "track/" + juce::String (trackId) + "/";
+        for (auto& d : apiListParameters())
+            if (d.id.startsWith (prefix)) out.push_back ({ d.name, d.id });
+        return out;
+    };
+    // Picking a param drops a keyframe at the playhead (current value) so the lane exists + shows.
+    arrangeView->onPickAutomationParam = [this] (int, const juce::String& target)
+    {
+        ParamDesc d;
+        const float v = apiGetParameter (target, d) ? d.value : 0.0f;
+        apiAddAutomationPointById (target, transport.getPlayheadBeats(), v);
+        if (arrangeView) arrangeView->refreshAutomation();
+    };
+    arrangeView->onSetAutomationStep  = [this] (const juce::String& target, bool step)
+    { apiSetAutomationStep (target, step);  if (arrangeView) arrangeView->refreshAutomation(); };
+    arrangeView->onSetAutomationCurve = [this] (const juce::String& target, float curve)
+    { apiSetAutomationCurve (target, curve); if (arrangeView) arrangeView->refreshAutomation(); };
+    // End of a write pass (transport stopped): stop latching (targets read their automation again)
+    // and reveal what was just recorded. The Write arm itself stays on for the next pass.
+    arrangeView->onPlaybackStopped = [this]
+    {
+        { const juce::ScopedLock sl (engineLock); writingTargets.clear(); }
+        if (arrangeView) arrangeView->refreshAutomation();
+    };
     arrangeView->onLoopChanged  = [this]
     {
         loopButton.setToggleState (transport.isLoopEnabled(), juce::dontSendNotification);
@@ -1014,6 +1122,22 @@ MainComponent::MainComponent (bool headless)
         apiAddMacro (rackTrack, "Macro " + juce::String (n + 1));
     };
     rackPanel.onSetValue = [this] (int macro, float v) { if (rackTrack >= 0) apiSetMacroValue (rackTrack, macro, v); };
+    rackPanel.onMacroMenu = [this] (int macro, juce::Component* anchor) { showMacroMenu (macro, anchor); };
+    rackPanel.onRandomize = [this] { if (rackTrack >= 0) { apiRandomizeMacros (rackTrack); refreshRackPanel(); } };
+    rackPanel.onSetWrite  = [this] (bool armed) { setAutomationWrite (armed); };
+    rackPanel.getSnapshots = [this]
+    {
+        std::vector<juce::String> out;
+        const juce::ScopedLock sl (engineLock);
+        if (auto* t = resolveTrack (rackTrack))
+            for (auto& s : t->macroSnapshots) out.push_back (s.name);
+        return out;
+    };
+    rackPanel.onStoreSnapshot  = [this] { if (rackTrack >= 0) apiStoreMacroSnapshot (rackTrack, {}); };   // panel refreshes itself (stable button)
+    // Recall must NOT refresh here — that would destroy the slot button mid-click. The 12 Hz timer
+    // animates the knobs to the recalled values; the panel highlights the slot via setActiveSnap.
+    rackPanel.onRecallSnapshot = [this] (int i) { if (rackTrack >= 0) apiRecallMacroSnapshot (rackTrack, i); };
+    rackPanel.onSnapshotMenu   = [this] (int i, juce::Component* anchor) { showSnapshotMenu (i, anchor); };
 
     verticalLayout.setItemLayout (0, 120.0, -0.85, -0.60);   // arrangement
     verticalLayout.setItemLayout (1, 6.0, 6.0, 6.0);         // divider
@@ -1049,8 +1173,9 @@ MainComponent::MainComponent (bool headless)
         ParamDesc d;
         const float value = apiGetParameter (target, d) ? d.value : 0.0f;
         apiAddAutomationPointById (target, transport.getPlayheadBeats(), value);
+        if (arrangeView) arrangeView->refreshAutomation();
     };
-    mixerView->onClearAutomation    = [this] (const juce::String& target) { apiSetAutomationById (target, {}); };
+    mixerView->onClearAutomation    = [this] (const juce::String& target) { apiSetAutomationById (target, {}); if (arrangeView) arrangeView->refreshAutomation(); };
     mixerView->getAutomationStep    = [this] (const juce::String& target) { return apiGetAutomationStep (target); };
     mixerView->onSetAutomationStep  = [this] (const juce::String& target, bool step) { apiSetAutomationStep (target, step); };
     mixerView->getAutomationCurve   = [this] (const juce::String& target) { return apiGetAutomationCurve (target); };
@@ -1775,8 +1900,10 @@ bool MainComponent::apiSetMacroValue (int trackId, int macro, float value)
     {
         auto* t = resolveTrack (trackId);
         if (t == nullptr || ! juce::isPositiveAndBelow (macro, (int) t->macros.size())) return false;
-        t->macros[(size_t) macro].value = juce::jlimit (0.0f, 1.0f, value);
+        const float v = juce::jlimit (0.0f, 1.0f, value);
+        t->macros[(size_t) macro].value = v;
         applyMacroMappings (t, t->macros[(size_t) macro]);
+        captureAutomationWrite ("track/" + juce::String (t->id) + "/macro/" + juce::String (macro), v);  // write mode
         return true;
     });
 }
@@ -1816,6 +1943,164 @@ bool MainComponent::apiRandomizeMacros (int trackId)
         if (t == nullptr) return false;
         auto& rng = juce::Random::getSystemRandom();
         for (auto& m : t->macros) { m.value = rng.nextFloat(); applyMacroMappings (t, m); }
+        return true;
+    });
+}
+
+bool MainComponent::apiRenameMacro (int trackId, int macro, const juce::String& name)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (macro, (int) t->macros.size()) || name.trim().isEmpty())
+            return false;
+        t->macros[(size_t) macro].name = name.trim();
+        return true;
+    });
+}
+
+bool MainComponent::apiRemoveMacro (int trackId, int macro)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (macro, (int) t->macros.size())) return false;
+        t->macros.erase (t->macros.begin() + macro);
+        return true;
+    });
+}
+
+bool MainComponent::apiClearMacroMappings (int trackId, int macro)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (macro, (int) t->macros.size())) return false;
+        t->macros[(size_t) macro].mappings.clear();
+        return true;
+    });
+}
+
+int MainComponent::apiStoreMacroSnapshot (int trackId, const juce::String& name)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr) return -1;
+        MacroSnapshot s;
+        s.name = name.trim().isNotEmpty() ? name.trim() : ("Snap " + juce::String ((int) t->macroSnapshots.size() + 1));
+        for (auto& m : t->macros) s.values.push_back (m.value);
+        t->macroSnapshots.push_back (std::move (s));
+        return (int) t->macroSnapshots.size() - 1;
+    });
+}
+
+bool MainComponent::apiRecallMacroSnapshot (int trackId, int snap)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (snap, (int) t->macroSnapshots.size())) return false;
+        auto& s = t->macroSnapshots[(size_t) snap];
+        for (size_t i = 0; i < t->macros.size() && i < s.values.size(); ++i)
+        {
+            t->macros[i].value = juce::jlimit (0.0f, 1.0f, s.values[i]);
+            applyMacroMappings (t, t->macros[i]);
+        }
+        return true;
+    });
+}
+
+bool MainComponent::apiUpdateMacroSnapshot (int trackId, int snap)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (snap, (int) t->macroSnapshots.size())) return false;
+        auto& s = t->macroSnapshots[(size_t) snap];
+        s.values.clear();
+        for (auto& m : t->macros) s.values.push_back (m.value);
+        return true;
+    });
+}
+
+bool MainComponent::apiRenameMacroSnapshot (int trackId, int snap, const juce::String& name)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (snap, (int) t->macroSnapshots.size()) || name.trim().isEmpty())
+            return false;
+        t->macroSnapshots[(size_t) snap].name = name.trim();
+        return true;
+    });
+}
+
+bool MainComponent::apiDeleteMacroSnapshot (int trackId, int snap)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (snap, (int) t->macroSnapshots.size())) return false;
+        t->macroSnapshots.erase (t->macroSnapshots.begin() + snap);
+        return true;
+    });
+}
+
+// Stamp a snapshot onto the timeline: write a breakpoint into every macro's automation lane at
+// `beat` with that snapshot's stored value. Drop two snapshots at different beats and playback
+// ramps between them = the whole rack morphs. Batched as ONE undo step (not one per macro).
+bool MainComponent::apiStampSnapshot (int trackId, int snap, double beat)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (snap, (int) t->macroSnapshots.size())) return false;
+        const auto vals = t->macroSnapshots[(size_t) snap].values;
+        const int  id   = t->id;
+        const size_t n  = juce::jmin (t->macros.size(), vals.size());
+        if (n == 0) return false;
+
+        pushUndoSnapshot();
+        const juce::ScopedLock sl (engineLock);
+        for (size_t i = 0; i < n; ++i)
+        {
+            const juce::String target = "track/" + juce::String (id) + "/macro/" + juce::String ((int) i);
+            auto it = std::find_if (automationLanes.begin(), automationLanes.end(),
+                                    [&] (const AutoLaneSnap& l) { return l.target == target; });
+            if (it == automationLanes.end())
+            {
+                automationLanes.push_back ({ -1, -1, -1, {}, { { beat, vals[i] } }, target });
+                continue;
+            }
+            auto& pts = it->points;
+            auto p = std::find_if (pts.begin(), pts.end(),
+                                   [&] (const AutoPointSnap& q) { return std::abs (q.beat - beat) < 1.0e-6; });
+            if (p != pts.end()) p->value = vals[i];                 // replace the keyframe at this beat
+            else                pts.push_back ({ beat, vals[i] });
+            std::sort (pts.begin(), pts.end(),
+                       [] (const AutoPointSnap& a, const AutoPointSnap& b) { return a.beat < b.beat; });
+        }
+        return true;
+    });
+}
+
+bool MainComponent::apiMorphToSnapshot (int trackId, int snap, double durationMs)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (snap, (int) t->macroSnapshots.size())) return false;
+        std::vector<float> from, to = t->macroSnapshots[(size_t) snap].values;
+        for (auto& m : t->macros) from.push_back (m.value);
+        if (durationMs <= 1.0)      // instant = a plain recall
+        {
+            for (size_t i = 0; i < t->macros.size() && i < to.size(); ++i)
+            { t->macros[i].value = juce::jlimit (0.0f, 1.0f, to[i]); applyMacroMappings (t, t->macros[i]); }
+            macroMorph.cancel();
+            return true;
+        }
+        macroMorph.begin (trackId, std::move (from), std::move (to), durationMs);
         return true;
     });
 }
@@ -2093,6 +2378,9 @@ void MainComponent::evaluateAutomation (double beat)
     for (auto& lane : automationLanes)
     {
         if (lane.points.empty()) continue;
+        // Write mode (Latch): a target you're actively recording stops reading its own automation,
+        // so your live moves don't fight the playback. Cleared on stop/disarm.
+        if (! writingTargets.empty() && lane.target.isNotEmpty() && writingTargets.count (lane.target) > 0) continue;
         const float v = interpAuto (lane.points, beat, lane.step, lane.curve);
         if (lane.target.isNotEmpty()) { applyParamValue (lane.target, v); continue; }   // id-addressed (unified path)
         const bool insertOk = juce::isPositiveAndBelow (lane.id, (int) mixerTracks.size());
@@ -2212,6 +2500,33 @@ float MainComponent::apiGetAutomationCurve (const juce::String& target)
 // Append (or replace, if one already sits at that beat) a single point on a target's
 // id-addressed lane — the primitive the "Automate at playhead" desktop hook uses to
 // build a curve keyframe by keyframe.
+void MainComponent::captureAutomationWrite (const juce::String& target, float value)
+{
+    if (! autoWriteArmed.load() || ! transport.isPlaying() || target.isEmpty()) return;
+    constexpr double q = 0.125;   // quantise capture to 1/8 beat so rapid moves collapse to one keyframe
+    const double beat = juce::jmax (0.0, std::round (transport.getPlayheadBeats() / q) * q);
+    const juce::ScopedLock sl (engineLock);
+    writingTargets.insert (target);   // latch: this target writes (and stops reading) until stop/disarm
+    auto it = std::find_if (automationLanes.begin(), automationLanes.end(),
+                            [&] (const AutoLaneSnap& l) { return l.target == target; });
+    if (it == automationLanes.end()) { automationLanes.push_back ({ -1, -1, -1, {}, { { beat, value } }, target }); return; }
+    auto& pts = it->points;
+    auto p = std::find_if (pts.begin(), pts.end(), [&] (const AutoPointSnap& x) { return std::abs (x.beat - beat) < 1.0e-6; });
+    if (p != pts.end()) p->value = value;
+    else { pts.push_back ({ beat, value });
+           std::sort (pts.begin(), pts.end(), [] (const AutoPointSnap& a, const AutoPointSnap& b) { return a.beat < b.beat; }); }
+}
+
+void MainComponent::setAutomationWrite (bool armed)
+{
+    autoWriteArmed.store (armed);
+    if (! armed)
+    {
+        { const juce::ScopedLock sl (engineLock); writingTargets.clear(); }
+        if (arrangeView) arrangeView->refreshAutomation();   // reveal what was just recorded
+    }
+}
+
 bool MainComponent::apiAddAutomationPointById (const juce::String& target, double beat, float value)
 {
     if (target.trim().isEmpty()) return false;
@@ -3862,6 +4177,203 @@ void MainComponent::refreshRackPanel()
         rackTrack = juce::isPositiveAndBelow (tIdx, (int) tracks.size()) ? tracks[(size_t) tIdx]->id : -1;
     }
     rackPanel.refresh();
+}
+
+// The continuous built-in-synth params a macro can be mapped to, with a sensible full-range
+// [lo,hi] default (envelope times capped to a musical range). Enum/switch params (wave, ftype,
+// lfotarget) are intentionally omitted — mapping a smooth encoder to a discrete switch is noise.
+namespace {
+struct SynthParamDesc { const char* name; float lo, hi; };
+const std::vector<SynthParamDesc>& synthParamDescs()
+{
+    static const std::vector<SynthParamDesc> v = {
+        { "cutoff", 20.0f, 20000.0f }, { "reso", 0.5f, 20.0f }, { "fenvamt", 0.0f, 8.0f },
+        { "oscmix", 0.0f, 1.0f }, { "sub", 0.0f, 1.0f }, { "osc2detune", -1200.0f, 1200.0f },
+        { "attack", 0.0f, 2.0f }, { "decay", 0.0f, 2.0f }, { "sustain", 0.0f, 1.0f }, { "release", 0.0f, 4.0f },
+        { "gain", 0.0f, 4.0f }, { "fattack", 0.0f, 2.0f }, { "fdecay", 0.0f, 2.0f }, { "fsustain", 0.0f, 1.0f },
+        { "frelease", 0.0f, 4.0f }, { "lforate", 0.01f, 40.0f }, { "lfodepth", 0.0f, 1.0f }, { "detune", -100.0f, 100.0f },
+    };
+    return v;
+}
+} // namespace
+
+// Right-click / ⋯ on a macro: rename it, map it to a synth or effect param (over that param's
+// range), clear its mappings, or remove it. All the track/synth/effect knowledge lives here, so
+// the rack panel just asks us to pop the menu anchored on the knob.
+void MainComponent::showMacroMenu (int macroIndex, juce::Component* anchor)
+{
+    if (rackTrack < 0) return;
+
+    bool hasSynth = false;
+    int  insert   = -1;
+    {
+        const juce::ScopedLock sl (engineLock);
+        auto* t = resolveTrack (rackTrack);
+        if (t == nullptr) return;
+        hasSynth = dynamic_cast<SynthGenerator*> (t->generator.get()) != nullptr;
+        insert   = juce::jlimit (0, (int) mixerTracks.size() - 1, t->mixerTrack.load());
+    }
+
+    // Enumerate the track's effect slots (name + slot), then read each slot's params outside the
+    // lock via apiGetEffectParams (which marshals + locks itself).
+    struct EffTarget { juce::String label; int insert, slot; juce::String param; float lo, hi; };
+    std::vector<EffTarget> effTargets;
+    {
+        std::vector<std::pair<juce::String, int>> slots;
+        { const juce::ScopedLock sl (engineLock);
+          if (juce::isPositiveAndBelow (insert, (int) mixerTracks.size()))
+              for (int s = 0; s < (int) mixerTracks[(size_t) insert]->effects.size(); ++s)
+                  slots.push_back ({ mixerTracks[(size_t) insert]->effects[(size_t) s]->name(), s }); }
+        const juce::String dot (juce::CharPointer_UTF8 ("\xc2\xb7"));   // ·
+        for (auto& sp : slots)
+            for (auto& p : apiGetEffectParams (insert, sp.second))
+                effTargets.push_back ({ sp.first + " " + dot + " " + p.name, insert, sp.second, p.name, p.min, p.max });
+    }
+
+    std::vector<juce::String> synthNames;
+    if (hasSynth) for (auto& d : synthParamDescs()) synthNames.push_back (d.name);
+
+    juce::PopupMenu m;
+    m.addItem (1, juce::String::fromUTF8 ("Rename\xe2\x80\xa6"));
+    m.addSeparator();
+    if (! synthNames.empty())
+    {
+        juce::PopupMenu sub;
+        for (int i = 0; i < (int) synthNames.size(); ++i) sub.addItem (1000 + i, synthNames[(size_t) i]);
+        m.addSubMenu ("Map to synth", sub);
+    }
+    if (! effTargets.empty())
+    {
+        juce::PopupMenu sub;
+        for (int i = 0; i < (int) effTargets.size(); ++i) sub.addItem (2000 + i, effTargets[(size_t) i].label);
+        m.addSubMenu ("Map to effect", sub);
+    }
+    if (synthNames.empty() && effTargets.empty()) m.addItem (9, "No mappable params on this track", false, false);
+    m.addSeparator();
+    m.addItem (5, "MIDI Learn (move a controller)");
+    m.addItem (6, "Automate at playhead");
+    m.addItem (7, "Clear automation");
+    m.addSeparator();
+    m.addItem (3, "Clear mappings");
+    m.addItem (4, "Remove macro");
+
+    const int trackForMenu = rackTrack;
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (anchor),
+        [this, macroIndex, trackForMenu, synthNames, effTargets] (int r)
+        {
+            if (r == 0) return;
+            const juce::String macroTgt = "track/" + juce::String (trackForMenu) + "/macro/" + juce::String (macroIndex);
+            if (r == 1) { promptRenameMacro (macroIndex); return; }
+            if (r == 5) { apiMidiLearn (macroTgt); return; }
+            if (r == 6)   // add an automation keyframe at the playhead with the macro's current value
+            {
+                ParamDesc d;
+                const float value = apiGetParameter (macroTgt, d) ? d.value : 0.0f;
+                apiAddAutomationPointById (macroTgt, transport.getPlayheadBeats(), value);
+                if (arrangeView) arrangeView->refreshAutomation();
+                return;
+            }
+            if (r == 7) { apiSetAutomationById (macroTgt, {}); if (arrangeView) arrangeView->refreshAutomation(); return; }
+            if (r == 3) { apiClearMacroMappings (rackTrack, macroIndex); refreshRackPanel(); return; }
+            if (r == 4) { apiRemoveMacro (rackTrack, macroIndex); refreshRackPanel(); return; }
+            if (r >= 1000 && r < 1000 + (int) synthNames.size())
+            {
+                const auto nm = synthNames[(size_t) (r - 1000)];
+                for (auto& d : synthParamDescs())
+                    if (nm == d.name) { apiMapMacroSynth (rackTrack, macroIndex, nm, d.lo, d.hi); break; }
+                refreshRackPanel();
+            }
+            else if (r >= 2000 && r < 2000 + (int) effTargets.size())
+            {
+                const auto& e = effTargets[(size_t) (r - 2000)];
+                apiMapMacroEffect (rackTrack, macroIndex, e.insert, e.slot, e.param, e.lo, e.hi);
+                refreshRackPanel();
+            }
+        });
+}
+
+void MainComponent::promptRenameMacro (int macroIndex)
+{
+    if (rackTrack < 0) return;
+    juce::String cur;
+    {
+        const juce::ScopedLock sl (engineLock);
+        auto* t = resolveTrack (rackTrack);
+        if (t != nullptr && juce::isPositiveAndBelow (macroIndex, (int) t->macros.size()))
+            cur = t->macros[(size_t) macroIndex].name;
+    }
+    auto* aw = new juce::AlertWindow ("Rename macro", "New name:", juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("name", cur);
+    aw->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, macroIndex] (int r)
+    {
+        if (r == 1)
+        {
+            const auto nm = aw->getTextEditorContents ("name").trim();
+            if (nm.isNotEmpty()) { apiRenameMacro (rackTrack, macroIndex, nm); refreshRackPanel(); }
+        }
+        delete aw;
+    }), false);
+}
+
+// Right-click a snapshot slot: overwrite it with the current knobs, rename, or delete.
+void MainComponent::showSnapshotMenu (int snap, juce::Component* anchor)
+{
+    if (rackTrack < 0) return;
+    const std::vector<double> morphBeats { 0.5, 1.0, 2.0, 4.0, 8.0 };
+    const char* morphLabels[] = { "1/2 beat", "1 beat", "2 beats", "4 beats", "8 beats" };
+
+    juce::PopupMenu m;
+    m.addItem (1, "Recall instantly");
+    juce::PopupMenu morphSub;
+    for (int i = 0; i < (int) morphBeats.size(); ++i) morphSub.addItem (100 + i, morphLabels[i]);
+    m.addSubMenu ("Morph to this over", morphSub);
+    m.addItem (5, "Insert at playhead (automation)");
+    m.addSeparator();
+    m.addItem (2, "Overwrite with current knobs");
+    m.addItem (3, juce::String::fromUTF8 ("Rename\xe2\x80\xa6"));
+    m.addItem (4, "Delete");
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (anchor),
+        [this, snap, morphBeats] (int r)
+        {
+            if      (r == 1) { apiMorphToSnapshot (rackTrack, snap, 0.0); }           // instant
+            else if (r == 5) { apiStampSnapshot (rackTrack, snap, transport.getPlayheadBeats());   // stamp into macro lanes
+                               if (arrangeView) arrangeView->refreshAutomation(); }
+            else if (r == 2) { apiUpdateMacroSnapshot (rackTrack, snap); refreshRackPanel(); }
+            else if (r == 3) { promptRenameSnapshot (snap); }
+            else if (r == 4) { apiDeleteMacroSnapshot (rackTrack, snap); refreshRackPanel(); }
+            else if (r >= 100 && r < 100 + (int) morphBeats.size())
+            {
+                const double bpm = juce::jmax (1.0, transport.getBpm());
+                apiMorphToSnapshot (rackTrack, snap, morphBeats[(size_t) (r - 100)] * 60000.0 / bpm);
+            }
+        });
+}
+
+void MainComponent::promptRenameSnapshot (int snap)
+{
+    if (rackTrack < 0) return;
+    juce::String cur;
+    {
+        const juce::ScopedLock sl (engineLock);
+        auto* t = resolveTrack (rackTrack);
+        if (t != nullptr && juce::isPositiveAndBelow (snap, (int) t->macroSnapshots.size()))
+            cur = t->macroSnapshots[(size_t) snap].name;
+    }
+    auto* aw = new juce::AlertWindow ("Rename snapshot", "New name:", juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("name", cur);
+    aw->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, snap] (int r)
+    {
+        if (r == 1)
+        {
+            const auto nm = aw->getTextEditorContents ("name").trim();
+            if (nm.isNotEmpty()) { apiRenameMacroSnapshot (rackTrack, snap, nm); refreshRackPanel(); }
+        }
+        delete aw;
+    }), false);
 }
 
 // The clip currently loaded in the editor — a session slot (if selected) or an arrangement clip.
@@ -7060,6 +7572,16 @@ juce::ValueTree MainComponent::toValueTree()
                 }
                 ms.addChild (mv, -1, nullptr);
             }
+            // Snapshots (rack variations): one SNAP per saved state, values comma-joined.
+            for (auto& sn : t->macroSnapshots)
+            {
+                juce::ValueTree sv ("SNAP");
+                sv.setProperty ("name", sn.name, nullptr);
+                juce::StringArray vs;
+                for (float f : sn.values) vs.add (juce::String (f, 4));
+                sv.setProperty ("values", vs.joinIntoString (","), nullptr);
+                ms.addChild (sv, -1, nullptr);
+            }
             tr.addChild (ms, -1, nullptr);
         }
         trks.addChild (tr, -1, nullptr);
@@ -7434,24 +7956,34 @@ std::unique_ptr<Track> MainComponent::buildTrackFromTree (const juce::ValueTree&
                 for (int mi = 0; mi < cl.getNumChildren(); ++mi)
                 {
                     auto mv = cl.getChild (mi);
-                    if (! mv.hasType ("MACRO")) continue;
-                    Macro m;
-                    m.name  = mv.getProperty ("name", "Macro");
-                    m.value = (float) (double) mv.getProperty ("value", 0.0);
-                    for (int ti = 0; ti < mv.getNumChildren(); ++ti)
+                    if (mv.hasType ("MACRO"))
                     {
-                        auto mt = mv.getChild (ti);
-                        if (! mt.hasType ("MAP")) continue;
-                        MacroMapping mp;
-                        mp.synthParam  = mt.getProperty ("synth", "");
-                        mp.insert      = (int) mt.getProperty ("insert", -1);
-                        mp.slot        = (int) mt.getProperty ("slot", -1);
-                        mp.effectParam = mt.getProperty ("effect", "");
-                        mp.lo = (float) (double) mt.getProperty ("lo", 0.0);
-                        mp.hi = (float) (double) mt.getProperty ("hi", 1.0);
-                        m.mappings.push_back (std::move (mp));
+                        Macro m;
+                        m.name  = mv.getProperty ("name", "Macro");
+                        m.value = (float) (double) mv.getProperty ("value", 0.0);
+                        for (int ti = 0; ti < mv.getNumChildren(); ++ti)
+                        {
+                            auto mt = mv.getChild (ti);
+                            if (! mt.hasType ("MAP")) continue;
+                            MacroMapping mp;
+                            mp.synthParam  = mt.getProperty ("synth", "");
+                            mp.insert      = (int) mt.getProperty ("insert", -1);
+                            mp.slot        = (int) mt.getProperty ("slot", -1);
+                            mp.effectParam = mt.getProperty ("effect", "");
+                            mp.lo = (float) (double) mt.getProperty ("lo", 0.0);
+                            mp.hi = (float) (double) mt.getProperty ("hi", 1.0);
+                            m.mappings.push_back (std::move (mp));
+                        }
+                        t->macros.push_back (std::move (m));
                     }
-                    t->macros.push_back (std::move (m));
+                    else if (mv.hasType ("SNAP"))   // rack variation
+                    {
+                        MacroSnapshot sn;
+                        sn.name = mv.getProperty ("name", "Snap");
+                        auto vs = juce::StringArray::fromTokens (mv.getProperty ("values", "").toString(), ",", "");
+                        for (auto& tok : vs) if (tok.trim().isNotEmpty()) sn.values.push_back ((float) tok.getDoubleValue());
+                        t->macroSnapshots.push_back (std::move (sn));
+                    }
                 }
             }
         }

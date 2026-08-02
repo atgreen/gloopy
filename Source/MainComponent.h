@@ -116,6 +116,17 @@ public:
     bool apiMapMacroSynth  (int trackId, int macro, const juce::String& param, float lo, float hi);
     bool apiMapMacroEffect (int trackId, int macro, int insert, int slot, const juce::String& param, float lo, float hi);
     bool apiRandomizeMacros (int trackId);   // random 0..1 for every macro, then apply
+    bool apiRenameMacro       (int trackId, int macro, const juce::String& name);
+    bool apiRemoveMacro       (int trackId, int macro);
+    bool apiClearMacroMappings (int trackId, int macro);
+    // Macro snapshots (rack variations): capture / recall the whole set of macro values.
+    int  apiStoreMacroSnapshot  (int trackId, const juce::String& name);   // capture current values; -1 on fail
+    bool apiRecallMacroSnapshot (int trackId, int snap);                    // set macros to the snapshot + apply
+    bool apiUpdateMacroSnapshot (int trackId, int snap);                    // recapture current values into it
+    bool apiRenameMacroSnapshot (int trackId, int snap, const juce::String& name);
+    bool apiDeleteMacroSnapshot (int trackId, int snap);
+    bool apiMorphToSnapshot     (int trackId, int snap, double durationMs);  // glide macros to a snapshot (0 = instant)
+    bool apiStampSnapshot       (int trackId, int snap, double beat);        // write the snapshot into every macro's automation lane at beat
     void apiSeek (double beats);
     void apiSetLoop (bool enabled, double startBeat, double endBeat);
     TransportSnap apiGetTransport();
@@ -789,6 +800,10 @@ private:
     void loadSelectedClipIntoEditor();
     void refreshDevicePanel();                          // point the device panel at the selected track's insert
     void refreshRackPanel();                            // point the rack panel at the selected track's macros
+    void showMacroMenu (int macroIndex, juce::Component* anchor);   // right-click a macro: map / rename / remove
+    void promptRenameMacro (int macroIndex);            // AlertWindow text entry -> apiRenameMacro
+    void showSnapshotMenu (int snap, juce::Component* anchor);      // recall-slot menu: overwrite / rename / delete
+    void promptRenameSnapshot (int snap);               // AlertWindow text entry -> apiRenameMacroSnapshot
 
     void setupMixer();
     void openMixer();
@@ -1196,6 +1211,43 @@ private:
     BottomMode       bottomMode { BottomMode::Clip };
     int              deviceTrack { -1 };             // mixer insert whose device chain the panel shows
     int              rackTrack { -1 };               // stable track id whose macros the rack panel shows
+
+    // Automation write (Latch): while armed + playing, live macro moves are captured as automation
+    // and those targets stop reading their own automation (writingTargets, guarded by engineLock).
+    std::atomic<bool>        autoWriteArmed { false };
+    std::set<juce::String>   writingTargets;
+    void captureAutomationWrite (const juce::String& target, float value);   // record + latch a target
+    void setAutomationWrite (bool armed);                                    // arm/disarm; disarm clears + refreshes
+
+    // Snapshot morph: glide a track's macros from their current values to a snapshot over a
+    // duration. Runs on the message thread (a Timer), lerping and re-applying each tick, so the
+    // rack knobs animate. A new begin() supersedes any morph in progress on that track.
+    struct MacroMorph : private juce::Timer
+    {
+        explicit MacroMorph (MainComponent& o) : owner (o) {}
+        void begin (int tid, std::vector<float> f, std::vector<float> t, double durationMs)
+        {
+            trackId = tid; from = std::move (f); to = std::move (t);
+            startMs = juce::Time::getMillisecondCounterHiRes();
+            durMs   = juce::jmax (1.0, durationMs);
+            timerCallback();                 // apply t=0 now
+            startTimerHz (60);
+        }
+        void cancel() { stopTimer(); trackId = -1; }
+        void timerCallback() override
+        {
+            const double t = juce::jlimit (0.0, 1.0, (juce::Time::getMillisecondCounterHiRes() - startMs) / durMs);
+            const size_t n = juce::jmin (from.size(), to.size());
+            for (size_t i = 0; i < n; ++i)
+                owner.apiSetMacroValue (trackId, (int) i, from[i] + (float) t * (to[i] - from[i]));
+            if (t >= 1.0) stopTimer();
+        }
+        MainComponent&     owner;
+        int                trackId { -1 };
+        std::vector<float> from, to;
+        double             startMs { 0.0 }, durMs { 1.0 };
+    };
+    MacroMorph macroMorph { *this };
 
     std::unique_ptr<MixerView>            mixerView;
     std::unique_ptr<BrowserSidebar>       browser;          // collapsible left browser (templates, ...)

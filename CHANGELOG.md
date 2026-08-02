@@ -13,6 +13,61 @@ tagged release.
 
 ## [Unreleased]
 
+### Added
+- **Automation lanes on the arrangement timeline.** Parameter automation (which already played
+  back but was invisible) is now a full editable surface:
+    - **Visible + editable** — draws as a curve with breakpoints over each track's row; drag a
+      point (value + grid-snapped time), double-click to delete, **Alt-click** a lane to add one.
+    - **Break-out sub-lanes** — the **▾** in a track header drops the automation into its own
+      lane below the clips; **+ Lane** with a **parameter picker** stacks several lanes (any of
+      the track's synth/macro/mix params), each with a **×** to remove.
+    - **Curve & step** — right-click a lane for **Smooth/Stepped** and a **Curve** (linear / ease
+      in / ease out); the curve is drawn and played back.
+    - **Bus / group / master rows** — content-less rows below the tracks give bus, group, and
+      master automation a home (master always shown; a bus appears once it has automation).
+    - **Write mode** — a **Write** toggle in the RACK panel: while playing, your macro moves (and
+      snapshot morphs) are captured as automation, latch-style (a target you touch stops reading
+      its own automation so it doesn't fight you). The "automate the whole rack" workflow.
+    - **VCA automation** — a control group's fader (`group/<name>/gain`) is automatable as a true
+      VCA **offset** that scales its members without touching their own automation.
+- **Insert a macro snapshot into the timeline.** A snapshot slot's right-click menu gains **Insert
+  at playhead**, which stamps that snapshot's values as an automation breakpoint into every macro's
+  lane at once. Drop one snapshot early and another later and playback **morphs the whole rack
+  between them** — the snapshot becomes ordinary, editable automation.
+
+## [0.1.12] - 2026-08-02
+
+### Added
+- **Map and name macros from the desktop — no scripting needed.** Each macro knob in the
+  RACK panel now has a **⋯** menu: **Rename…** it ("Brightness", "Drive"), **Map to synth ▸**
+  a built-in synth parameter or **Map to effect ▸** a parameter of one of the track's insert
+  effects (mapped over that parameter's range), **Clear mappings**, or **Remove macro**. Map a
+  macro onto several parameters and one knob morphs them together. The same operations are also
+  available over gRPC and from the Python (`rename_macro`, `clear_macro_mappings`,
+  `remove_macro`) and Common Lisp clients — where you can additionally set a narrower `[lo, hi]`
+  safe range per mapping.
+- **A Randomize button in the RACK panel.** Rolls every macro on the track to a fresh random
+  value at once — musical because each mapping stays inside its authored safe range. (The same
+  `randomize-macros` was already scriptable; this is the desktop control.)
+- **MIDI-learn a macro.** The ⋯ menu gains **MIDI Learn** — arm it, move a hardware knob or
+  fader, and that CC now drives the macro (and through it, every param the macro maps). Macros
+  are now addressable controller/automation targets (`track/<id>/macro/<index>`), so they also
+  show up for the OSC/gRPC controller API and persist like any other mapping.
+- **Automate a macro along the arrangement.** The ⋯ menu gains **Automate at playhead** (and
+  **Clear automation**) — drop keyframes for a macro as you move the playhead, and playback
+  morphs the macro smoothly between them (the arrangement's automation ramps linearly, with the
+  usual step/ease options). The RACK knobs animate live as automation plays. Macros were already
+  automation targets over the API; this is the desktop control.
+- **Macro snapshots (rack variations).** A strip under the RACK header saves whole knob states:
+  **+ Snapshot** captures the current macro positions as a recallable slot; click a slot to snap
+  the whole rack back to that state (the knobs animate, and the slot stays lit until you move a
+  knob). Right-click a slot to **Overwrite** it with the current knobs, **Rename**, or **Delete**
+  it. Snapshots are saved with the project.
+- **Morph between snapshots.** Right-click a snapshot slot → **Morph to this over** ½–8 beats
+  (tempo-relative) and the whole rack glides smoothly from its current state to the snapshot —
+  every macro lerps at once — instead of jumping. **Recall instantly** is still there for a hard
+  switch.
+
 ## [0.1.11] - 2026-08-02
 
 ### Added
@@ -288,7 +343,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.11...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.12...HEAD
+[0.1.12]: https://github.com/atgreen/gloopy/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/atgreen/gloopy/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/atgreen/gloopy/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/atgreen/gloopy/compare/v0.1.8...v0.1.9

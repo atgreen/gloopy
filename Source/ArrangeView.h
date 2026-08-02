@@ -7,6 +7,8 @@
 #include <vector>
 #include <memory>
 #include <functional>
+#include <set>
+#include <map>
 #include "Track.h"
 #include "Transport.h"
 
@@ -102,6 +104,32 @@ public:
     std::function<bool (double&, double&)> getPunchRange;                      // -> enabled, fills in/out
     std::function<void (bool, double, double)> onSetPunchRange;                // enabled, in, out
 
+    // --- automation lanes ---
+    // One entry per parameter automation lane the owner wants shown, already resolved to the track
+    // it belongs to plus the param's value range (so we can normalise the curve into the row).
+    struct AutoLaneView
+    {
+        juce::String target;                       // ParamModel id, e.g. "track/3/macro/0"
+        int          trackId { -1 };               // Track::id this lane draws on
+        float        lo { 0.0f }, hi { 1.0f };     // param value range, for vertical normalisation
+        bool         step { false };               // stepped (hold) vs ramped
+        float        curve { 0.0f };               // ease amount (-1..1)
+        std::vector<std::pair<double, float>> points;   // (beat, value), sorted by beat
+    };
+    std::function<std::vector<AutoLaneView>()> getAutomation;   // owner supplies track-owned lanes
+    // Content-less bus/group/master rows below the tracks: each carries only automation lanes.
+    struct BusRowView { int mixerIndex { 0 }; juce::String name; juce::Colour colour; std::vector<AutoLaneView> lanes; };
+    std::function<std::vector<BusRowView>()> getBusRows;        // master + buses that have automation
+    void refreshAutomation();                                   // re-pull + repaint (on edits / load)
+    std::function<void (const juce::String&, double, float)> onAddAutomationPoint;  // target, beat, value
+    std::function<void (const juce::String&, std::vector<std::pair<double, float>>)> onSetAutomation;  // target, points (commit)
+    // Parameter picker: the automatable params of a track, as (label, target) — for the sub-lane menu.
+    std::function<std::vector<std::pair<juce::String, juce::String>> (int trackId)> getTrackParams;
+    std::function<void (int trackId, const juce::String& target)> onPickAutomationParam;   // create/focus a lane
+    std::function<void (const juce::String&, bool)>  onSetAutomationStep;    // stepped (hold) vs ramped
+    std::function<void (const juce::String&, float)> onSetAutomationCurve;   // ease -1..0..+1
+    std::function<void ()>                           onPlaybackStopped;      // play->stop edge (end a write pass)
+
     void paint (juce::Graphics&) override;
     void resized() override;
     void mouseDown (const juce::MouseEvent&) override;
@@ -117,8 +145,26 @@ private:
     double beatForX (float x) const;
     int    trackAtY (float y) const;
     double snapToBar (double beat) const;
+    double snapToGrid (double beat) const;                     // finer (1/4-beat) snap for breakpoints
+    void   trackBand (int track, float& top, float& bot) const;   // padded content y-range of a row
+    bool   hitAutoPoint (int track, juce::Point<float> p, int& laneOut, int& pointOut) const;  // grab a breakpoint
+    int    firstAutoLane (int track) const;                    // first cached lane on a track (-1 if none)
     int    clipAt (int track, juce::Point<float> p) const;
     void   drawClip (juce::Graphics&, const Track&, const Clip&, juce::Rectangle<float>, bool selected) const;
+    void   drawOneLane (juce::Graphics&, const AutoLaneView&, float top, float bot) const;   // one lane's curve
+    void   drawAutomation (juce::Graphics&, int trackId, float top, float bot) const;        // overlay all lanes (collapsed)
+
+    // Stacked sub-lanes when expanded: one band per automation lane on the track.
+    int    laneCountFor (int track) const;
+    void   trackLaneIndices (int track, std::vector<int>& out) const;   // global autoLanes indices, in order
+    void   laneBand (int track, int k, float& top, float& bot) const;   // band of the k-th sub-lane
+    int    laneAtY (int track, float y) const;                          // which sub-lane a y is in (-1 = none)
+
+    // Variable row height: a track's row is trackHeight, plus laneExtra when its automation lane is
+    // expanded (broken out below the clips). All track→y math goes through rowTop/rowHeight.
+    bool   isExpanded (int i) const;
+    int    rowHeight (int i) const;   // trackHeight (+ laneExtra if expanded)
+    int    rowTop (int i) const;      // y of the top of track i's row (below the ruler)
     void   promptAddTempoMarker (double beat);   // AlertWindow BPM prompt -> onAddTempoMarker
     void   promptAddMarker (double beat);        // AlertWindow name prompt -> onAddMarker
     void   promptTimeSignature();                // AlertWindow num/denom prompt -> onSetTimeSignature
@@ -128,6 +174,8 @@ private:
     static constexpr int headerWidth = 190;
     static constexpr int rulerHeight  = 22;
     static constexpr int trackHeight  = 64;
+    static constexpr int pickerRowH   = 22;   // "+ Lane" picker strip at the top of an expanded row
+    static constexpr int laneRowH     = 46;   // height of each stacked automation sub-lane
     double beatsPerBar = 4.0;   // refreshed from the transport's time signature on rebuild/resize/paint
 
     std::vector<std::unique_ptr<Track>>& tracks;
@@ -140,13 +188,23 @@ private:
     std::vector<std::unique_ptr<juce::TextButton>> armButtons;    // record-arm (audio tracks only)
     std::vector<std::unique_ptr<juce::TextButton>> arpButtons;    // live arpeggiator (instrument tracks)
     std::vector<std::unique_ptr<juce::Slider>>     volSliders;
+    std::vector<std::unique_ptr<juce::TextButton>> expandButtons;   // per-track automation-lane disclosure
+    std::vector<std::unique_ptr<juce::TextButton>> paramButtons;    // per-track sub-lane parameter picker
 
     int selTrack { -1 }, selClip { -1 };
 
-    enum class Drag { none, move, resize };
+    std::vector<AutoLaneView> autoLanes;   // cached from getAutomation(); refreshed on edits/load
+    std::vector<BusRowView>   busRows;     // cached content-less bus/master rows below the tracks
+    static constexpr int      busRowH = 52;
+    std::set<int> expandedTracks;          // track ids whose automation lane is broken out below
+    std::map<int, juce::String> focusedTarget;   // track id -> the param its sub-lane shows/edits
+
+    enum class Drag { none, move, resize, point };
     Drag   drag { Drag::none };
     int    dragTrack { -1 }, dragClip { -1 };
     double dragBeatOffset { 0.0 };
+    int    dragAutoLane { -1 }, dragAutoPoint { -1 };   // automation breakpoint being dragged
+    bool   wasPlaying { false };                        // for the play->stop edge (write mode)
 
     // Ruler drag (seek / loop region; Alt = punch region).
     bool   rulerDrag { false }, loopDragged { false }, rulerAlt { false };

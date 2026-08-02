@@ -183,6 +183,21 @@ namespace
             const bool ok = main.apiRandomizeMacros (q->id());
             r->set_ok (ok); if (! ok) r->set_error ("no such track"); return Status::OK;
         }
+        Status RenameMacro (ServerContext*, const gpb::MacroRename* q, gpb::Ack* r) override
+        {
+            const bool ok = main.apiRenameMacro (q->track_id(), q->macro(), js (q->name()));
+            r->set_ok (ok); if (! ok) r->set_error ("no such track/macro, or empty name"); return Status::OK;
+        }
+        Status RemoveMacro (ServerContext*, const gpb::MacroRef* q, gpb::Ack* r) override
+        {
+            const bool ok = main.apiRemoveMacro (q->track_id(), q->macro());
+            r->set_ok (ok); if (! ok) r->set_error ("no such track/macro"); return Status::OK;
+        }
+        Status ClearMacroMappings (ServerContext*, const gpb::MacroRef* q, gpb::Ack* r) override
+        {
+            const bool ok = main.apiClearMacroMappings (q->track_id(), q->macro());
+            r->set_ok (ok); if (! ok) r->set_error ("no such track/macro"); return Status::OK;
+        }
 
         Status ListPresets (ServerContext*, const gpb::PresetCategory* q, gpb::PresetList* r) override
         { for (auto& n : main.apiListPresets (js (q->category()))) r->add_names (n.toStdString()); return Status::OK; }

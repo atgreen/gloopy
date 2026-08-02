@@ -53,6 +53,21 @@ def note(pitch, start_beat: float, length_beats,
                    length_beats=_dur(length_beats), velocity=velocity)
 
 
+def _infer_lang(script: str, generator: str) -> str:
+    """Guess the kernel language for regenerate_clip when the caller omits `lang`, so Python
+    users aren't forced to spell it out (defaulting everything to Lisp is hostile to them).
+    Extension wins; else a dotted module in the generator ("pkg.mod:fn") reads as Python."""
+    ref = (script or "").lower()
+    if ref.endswith(".py"):
+        return "python"
+    if ref.endswith((".lisp", ".cl", ".lsp")):
+        return "common-lisp"
+    if generator:
+        module = generator.split(":", 1)[0]
+        return "python" if "." in module else "common-lisp"
+    return "common-lisp"
+
+
 def _wave(w) -> int:
     return WAVEFORMS.get(w.upper(), 0) if isinstance(w, str) else int(w)
 
@@ -281,6 +296,19 @@ class Gloopy:
         each mapping stays within its authored [lo,hi] safe range."""
         self._ack(self.stub.RandomizeMacros(pb.TrackId(id=track_id)))
 
+    def rename_macro(self, track_id: int, macro: int, name: str) -> None:
+        """Rename a macro. Empty/whitespace names are rejected."""
+        self._ack(self.stub.RenameMacro(
+            pb.MacroRename(track_id=track_id, macro=macro, name=name)))
+
+    def clear_macro_mappings(self, track_id: int, macro: int) -> None:
+        """Remove all of a macro's param mappings (the macro itself stays)."""
+        self._ack(self.stub.ClearMacroMappings(pb.MacroRef(track_id=track_id, macro=macro)))
+
+    def remove_macro(self, track_id: int, macro: int) -> None:
+        """Delete a macro from the track (later macros shift down by one index)."""
+        self._ack(self.stub.RemoveMacro(pb.MacroRef(track_id=track_id, macro=macro)))
+
     def remove_track(self, track_id: int) -> None:
         self._ack(self.stub.RemoveTrack(pb.TrackId(id=track_id)))
 
@@ -382,14 +410,21 @@ class Gloopy:
         self._ack(self.stub.SetLoopToClip(pb.ClipRef(track_id=track_id, index=index)))
 
     def regenerate_clip(self, track_id: int, index: int, script: str = "",
-                        lang: str = "common-lisp", seed: int = 0) -> None:
+                        lang: str = "", seed: int = 0,
+                        generator: str = "", system: str = "") -> None:
         """Mark a clip as a script clip and generate its notes from the kernel.
 
-        With ``lang="python"`` and an attached notebook kernel (``gloopy.attach``), this runs
-        your registered generator; with ``lang="common-lisp"`` it uses Gloopy's SBCL kernel.
+        A clip's generator is EITHER a source file (``script``, a project-relative path) OR a
+        named generator (``generator``): ``"pkg.mod:fn"`` in Python / ``"pkg:sym"`` in Lisp, with
+        ``system`` the ASDF system / import root to load. ``lang`` is inferred when omitted — from
+        the script extension (``.py`` -> python, ``.lisp``/``.cl`` -> common-lisp) or the
+        generator's shape — so Python users needn't spell it out. It still routes to the matching
+        kernel (SBCL for Lisp; the auto-launched or attached Python kernel for Python).
         """
         self._ack(self.stub.RegenerateClip(pb.RegenerateRequest(
-            track_id=track_id, index=index, script=script, lang=lang, seed=seed)))
+            track_id=track_id, index=index, script=script,
+            lang=lang or _infer_lang(script, generator), seed=seed,
+            generator=generator, system=system)))
 
     def set_clip_script_live(self, track_id: int, index: int, live: bool = True) -> None:
         """Toggle a script clip's "Live" flag — auto-regenerate ~1 bar before it plays."""
