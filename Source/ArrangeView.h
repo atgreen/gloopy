@@ -8,6 +8,7 @@
 #include <memory>
 #include <functional>
 #include <set>
+#include <map>
 #include "Track.h"
 #include "Transport.h"
 
@@ -119,6 +120,9 @@ public:
     void refreshAutomation();                                   // re-pull + repaint (on edits / load)
     std::function<void (const juce::String&, double, float)> onAddAutomationPoint;  // target, beat, value
     std::function<void (const juce::String&, std::vector<std::pair<double, float>>)> onSetAutomation;  // target, points (commit)
+    // Parameter picker: the automatable params of a track, as (label, target) — for the sub-lane menu.
+    std::function<std::vector<std::pair<juce::String, juce::String>> (int trackId)> getTrackParams;
+    std::function<void (int trackId, const juce::String& target)> onPickAutomationParam;   // create/focus a lane
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -141,7 +145,9 @@ private:
     int    firstAutoLane (int track) const;                    // first cached lane on a track (-1 if none)
     int    clipAt (int track, juce::Point<float> p) const;
     void   drawClip (juce::Graphics&, const Track&, const Clip&, juce::Rectangle<float>, bool selected) const;
-    void   drawAutomation (juce::Graphics&, int trackId, float top, float bot) const;   // draw a track's lanes in [top,bot]
+    void   drawAutomation (juce::Graphics&, int trackId, float top, float bot,
+                           const juce::String& onlyTarget = {}) const;   // draw a track's lanes in [top,bot]
+    juce::String focusedTargetFor (int track) const;   // the param the expanded sub-lane shows/edits
 
     // Variable row height: a track's row is trackHeight, plus laneExtra when its automation lane is
     // expanded (broken out below the clips). All track→y math goes through rowTop/rowHeight.
@@ -171,11 +177,13 @@ private:
     std::vector<std::unique_ptr<juce::TextButton>> arpButtons;    // live arpeggiator (instrument tracks)
     std::vector<std::unique_ptr<juce::Slider>>     volSliders;
     std::vector<std::unique_ptr<juce::TextButton>> expandButtons;   // per-track automation-lane disclosure
+    std::vector<std::unique_ptr<juce::TextButton>> paramButtons;    // per-track sub-lane parameter picker
 
     int selTrack { -1 }, selClip { -1 };
 
     std::vector<AutoLaneView> autoLanes;   // cached from getAutomation(); refreshed on edits/load
     std::set<int> expandedTracks;          // track ids whose automation lane is broken out below
+    std::map<int, juce::String> focusedTarget;   // track id -> the param its sub-lane shows/edits
 
     enum class Drag { none, move, resize, point };
     Drag   drag { Drag::none };

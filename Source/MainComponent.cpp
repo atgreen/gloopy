@@ -461,6 +461,23 @@ MainComponent::MainComponent (bool headless)
         apiSetAutomationById (target, ap);
         if (arrangeView) arrangeView->refreshAutomation();
     };
+    // Parameter picker for the sub-lane: this track's automatable params (id-addressed), friendly-labelled.
+    arrangeView->getTrackParams = [this] (int trackId) -> std::vector<std::pair<juce::String, juce::String>>
+    {
+        std::vector<std::pair<juce::String, juce::String>> out;
+        const juce::String prefix = "track/" + juce::String (trackId) + "/";
+        for (auto& d : apiListParameters())
+            if (d.id.startsWith (prefix)) out.push_back ({ d.name, d.id });
+        return out;
+    };
+    // Picking a param drops a keyframe at the playhead (current value) so the lane exists + shows.
+    arrangeView->onPickAutomationParam = [this] (int, const juce::String& target)
+    {
+        ParamDesc d;
+        const float v = apiGetParameter (target, d) ? d.value : 0.0f;
+        apiAddAutomationPointById (target, transport.getPlayheadBeats(), v);
+        if (arrangeView) arrangeView->refreshAutomation();
+    };
     arrangeView->onLoopChanged  = [this]
     {
         loopButton.setToggleState (transport.isLoopEnabled(), juce::dontSendNotification);

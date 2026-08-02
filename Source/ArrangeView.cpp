@@ -50,6 +50,7 @@ void ArrangeView::rebuild()
     arpButtons.clear();
     volSliders.clear();
     expandButtons.clear();
+    paramButtons.clear();
     removeAllChildren();
 
     for (int ti = 0; ti < (int) tracks.size(); ++ti)
@@ -127,6 +128,31 @@ void ArrangeView::rebuild()
         };
         addAndMakeVisible (*exp);
         expandButtons.push_back (std::move (exp));
+
+        // Sub-lane parameter picker (visible only when the track is expanded — see resized()).
+        auto pk = std::make_unique<juce::TextButton>();
+        pk->setColour (juce::TextButton::buttonColourId, Palette::panelAlt);
+        pk->setColour (juce::TextButton::textColourOffId, Palette::text);
+        pk->setTooltip ("Choose which parameter this lane automates");
+        pk->onClick = [this, tid, b = pk.get()]
+        {
+            if (! getTrackParams) return;
+            auto params = getTrackParams (tid);
+            juce::PopupMenu m;
+            for (int k = 0; k < (int) params.size(); ++k) m.addItem (k + 1, params[(size_t) k].first);
+            if (params.empty()) m.addItem (1, "No automatable parameters", false, false);
+            m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (b),
+                [this, tid, params] (int r)
+                {
+                    if (r <= 0 || r > (int) params.size()) return;
+                    const auto target = params[(size_t) (r - 1)].second;
+                    focusedTarget[tid] = target;
+                    if (onPickAutomationParam) onPickAutomationParam (tid, target);
+                    resized(); repaint();
+                });
+        };
+        addChildComponent (*pk);
+        paramButtons.push_back (std::move (pk));
     }
 
     setSize (getWidth(), preferredHeight());
@@ -148,6 +174,21 @@ void ArrangeView::resized()
         arpButtons [(size_t) i]->setBounds (headerWidth - 34, y + 28, 28, 16);
         if (i < (int) expandButtons.size()) expandButtons[(size_t) i]->setBounds (10, y + trackHeight - 18, 16, 14);
         volSliders [(size_t) i]->setBounds (30, y + trackHeight - 18, headerWidth - 42, 12);
+
+        if (i < (int) paramButtons.size())
+        {
+            auto* pk = paramButtons[(size_t) i].get();
+            if (isExpanded (i))
+            {
+                const juce::String tgt = focusedTargetFor (i);
+                const juce::String lbl = tgt.isEmpty() ? juce::String ("Choose parameter...")
+                    : tgt.fromFirstOccurrenceOf ("/", false, false).fromFirstOccurrenceOf ("/", false, false);   // strip track/<id>/
+                pk->setButtonText (lbl);
+                pk->setBounds (12, y + trackHeight + 4, headerWidth - 24, 18);
+                pk->setVisible (true);
+            }
+            else pk->setVisible (false);
+        }
     }
 }
 
@@ -197,16 +238,29 @@ int ArrangeView::firstAutoLane (int track) const
     return -1;
 }
 
+// The parameter an expanded sub-lane shows/edits: the explicit pick if set, else the track's
+// first existing lane (so an already-automated track shows something without a pick).
+juce::String ArrangeView::focusedTargetFor (int track) const
+{
+    if (! juce::isPositiveAndBelow (track, (int) tracks.size())) return {};
+    auto it = focusedTarget.find (tracks[(size_t) track]->id);
+    if (it != focusedTarget.end() && it->second.isNotEmpty()) return it->second;
+    const int la = firstAutoLane (track);
+    return la >= 0 ? autoLanes[(size_t) la].target : juce::String();
+}
+
 // Is p within grab range of a breakpoint on this track? Fills laneOut (index into autoLanes) + pointOut.
 bool ArrangeView::hitAutoPoint (int track, juce::Point<float> p, int& laneOut, int& pointOut) const
 {
     if (! juce::isPositiveAndBelow (track, (int) tracks.size())) return false;
     const int tid = tracks[(size_t) track]->id;
+    const juce::String focus = isExpanded (track) ? focusedTargetFor (track) : juce::String();
     float top, bot; trackBand (track, top, bot);
     for (int li = 0; li < (int) autoLanes.size(); ++li)
     {
         const auto& lane = autoLanes[(size_t) li];
         if (lane.trackId != tid) continue;
+        if (focus.isNotEmpty() && lane.target != focus) continue;   // expanded: only the focused param
         const float range = juce::jmax (1.0e-6f, lane.hi - lane.lo);
         for (int pi = 0; pi < (int) lane.points.size(); ++pi)
         {
@@ -245,12 +299,14 @@ int ArrangeView::clipAt (int track, juce::Point<float> p) const
 // Stepped lanes hold-then-jump; ramped lanes interpolate linearly (curve easing comes later).
 // Draw a track's automation lanes across [top,bot] (already padded — the overlay band when
 // collapsed, or the broken-out sub-lane when expanded; both come from trackBand()).
-void ArrangeView::drawAutomation (juce::Graphics& g, int trackId, float top, float bot) const
+void ArrangeView::drawAutomation (juce::Graphics& g, int trackId, float top, float bot,
+                                  const juce::String& onlyTarget) const
 {
     const float xL = (float) headerWidth, xR = (float) getWidth();
     for (const auto& lane : autoLanes)
     {
         if (lane.trackId != trackId || lane.points.empty()) continue;
+        if (onlyTarget.isNotEmpty() && lane.target != onlyTarget) continue;
         const float range = juce::jmax (1.0e-6f, lane.hi - lane.lo);
         auto yForVal = [&] (float v)
         {
@@ -438,11 +494,6 @@ void ArrangeView::paint (juce::Graphics& g)
             g.fillRect (headerWidth, y + trackHeight, getWidth() - headerWidth, laneExtra);
             g.setColour (Palette::lineSoft);
             g.drawHorizontalLine (y + trackHeight, (float) headerWidth, (float) getWidth());
-            g.setColour (Palette::textDim);
-            g.setFont (Palette::sectionFont());
-            const int la = firstAutoLane (i);
-            const juce::String lbl = la >= 0 ? autoLanes[(size_t) la].target : juce::String ("AUTOMATION");
-            g.drawText (lbl, 12, y + trackHeight + 6, headerWidth - 20, 12, juce::Justification::centredLeft, true);
         }
 
         // Live MIDI-input LED: pulses green in the left gutter on the track receiving notes, so
@@ -485,8 +536,10 @@ void ArrangeView::paint (juce::Graphics& g)
             drawClip (g, *t, c, r, i == selTrack && ci == selClip);
         }
 
-        // Automation: overlaid on the clips when collapsed, in the sub-lane when expanded.
-        { float bt, bb; trackBand (i, bt, bb); drawAutomation (g, t->id, bt, bb); }
+        // Automation: overlaid on the clips when collapsed (all lanes), else the focused param
+        // in the broken-out sub-lane.
+        { float bt, bb; trackBand (i, bt, bb);
+          drawAutomation (g, t->id, bt, bb, isExpanded (i) ? focusedTargetFor (i) : juce::String()); }
 
         g.setColour (Palette::lineSoft);
         g.drawHorizontalLine (y + rh, 0.0f, (float) getWidth());   // row-bottom separator (incl. sub-lane)
@@ -779,9 +832,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             dragTrack = track; dragAutoLane = li; dragAutoPoint = pi; drag = Drag::point;   // start moving it
             return;
         }
-        if (e.mods.isAltDown())   // add a breakpoint to this track's lane
+        if (e.mods.isAltDown())   // add a breakpoint to the focused lane
         {
-            const int la = firstAutoLane (track);
+            const juce::String tgt = focusedTargetFor (track);
+            int la = -1;
+            for (int k = 0; k < (int) autoLanes.size(); ++k) if (autoLanes[(size_t) k].target == tgt) { la = k; break; }
             if (la >= 0)
             {
                 float top, bot; trackBand (track, top, bot);
