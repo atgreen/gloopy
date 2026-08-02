@@ -14,14 +14,22 @@ tagged release.
 ## [Unreleased]
 
 ### Added
-- **Automation is now visible and editable on the arrangement timeline.** Parameter automation
-  (which already played back but was invisible) now draws as a curve with breakpoints over each
-  track's row. Grab a breakpoint to drag it (value + grid-snapped time), double-click one to
-  delete it, and **Alt-click** a lane to add a point. Currently shows track-owned parameters
-  (synth, macros, volume/pan); effect and bus/group automation lanes are coming.
-  Click the **▾** in a track's header to **break the automation out into a sub-lane** below the
-  clips, and use the sub-lane's **parameter picker** to choose which parameter it automates (any
-  of the track's synth/macro/mix params). Multi-lane stacking, curve handles, and bus rows follow.
+- **Automation lanes on the arrangement timeline.** Parameter automation (which already played
+  back but was invisible) is now a full editable surface:
+    - **Visible + editable** — draws as a curve with breakpoints over each track's row; drag a
+      point (value + grid-snapped time), double-click to delete, **Alt-click** a lane to add one.
+    - **Break-out sub-lanes** — the **▾** in a track header drops the automation into its own
+      lane below the clips; **+ Lane** with a **parameter picker** stacks several lanes (any of
+      the track's synth/macro/mix params), each with a **×** to remove.
+    - **Curve & step** — right-click a lane for **Smooth/Stepped** and a **Curve** (linear / ease
+      in / ease out); the curve is drawn and played back.
+    - **Bus / group / master rows** — content-less rows below the tracks give bus, group, and
+      master automation a home (master always shown; a bus appears once it has automation).
+    - **Write mode** — a **Write** toggle in the RACK panel: while playing, your macro moves (and
+      snapshot morphs) are captured as automation, latch-style (a target you touch stops reading
+      its own automation so it doesn't fight you). The "automate the whole rack" workflow.
+    - **VCA automation** — a control group's fader (`group/<name>/gain`) is automatable as a true
+      VCA **offset** that scales its members without touching their own automation.
 - **Insert a macro snapshot into the timeline.** A snapshot slot's right-click menu gains **Insert
   at playhead**, which stamps that snapshot's values as an automation breakpoint into every macro's
   lane at once. Drop one snapshot early and another later and playback **morphs the whole rack
