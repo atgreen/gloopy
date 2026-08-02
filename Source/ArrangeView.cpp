@@ -14,9 +14,24 @@ ArrangeView::ArrangeView (std::vector<std::unique_ptr<Track>>& tracksRef,
 
 ArrangeView::~ArrangeView() { stopTimer(); }
 
+bool ArrangeView::isExpanded (int i) const
+{
+    return juce::isPositiveAndBelow (i, (int) tracks.size())
+             && expandedTracks.count (tracks[(size_t) i]->id) > 0;
+}
+int ArrangeView::rowHeight (int i) const { return trackHeight + (isExpanded (i) ? laneExtra : 0); }
+int ArrangeView::rowTop (int i) const
+{
+    int y = rulerHeight;
+    for (int k = 0; k < i && k < (int) tracks.size(); ++k) y += rowHeight (k);
+    return y;
+}
+
 int ArrangeView::preferredHeight() const
 {
-    return rulerHeight + juce::jmax (1, (int) tracks.size()) * trackHeight;
+    int h = rulerHeight;
+    for (int i = 0; i < (int) tracks.size(); ++i) h += rowHeight (i);
+    return juce::jmax (rulerHeight + trackHeight, h);   // always at least one row tall
 }
 
 void ArrangeView::refreshAutomation()
@@ -34,6 +49,7 @@ void ArrangeView::rebuild()
     armButtons.clear();
     arpButtons.clear();
     volSliders.clear();
+    expandButtons.clear();
     removeAllChildren();
 
     for (int ti = 0; ti < (int) tracks.size(); ++ti)
@@ -93,6 +109,24 @@ void ArrangeView::rebuild()
         addChildComponent (*arp);
         arp->setVisible (t->generator != nullptr);
         arpButtons.push_back (std::move (arp));
+
+        // Automation-lane disclosure: break the track's automation out into a sub-lane below.
+        const int tid = t->id;
+        auto exp = std::make_unique<juce::TextButton> (juce::String (juce::CharPointer_UTF8 (
+                        expandedTracks.count (tid) ? "\xe2\x96\xbe" : "\xe2\x96\xb8")));   // ▾ / ▸
+        exp->setColour (juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+        exp->setColour (juce::TextButton::textColourOffId, Palette::textDim);
+        exp->setTooltip ("Show/hide this track's automation lane");
+        exp->onClick = [this, tid, b = exp.get()]
+        {
+            if (expandedTracks.count (tid)) expandedTracks.erase (tid); else expandedTracks.insert (tid);
+            b->setButtonText (juce::String (juce::CharPointer_UTF8 (expandedTracks.count (tid) ? "\xe2\x96\xbe" : "\xe2\x96\xb8")));
+            setSize (getWidth(), preferredHeight());   // heights changed — re-layout WITHOUT rebuild (would free this button)
+            resized();
+            repaint();
+        };
+        addAndMakeVisible (*exp);
+        expandButtons.push_back (std::move (exp));
     }
 
     setSize (getWidth(), preferredHeight());
@@ -106,13 +140,14 @@ void ArrangeView::resized()
     beatsPerBar = transport.beatsPerBar();
     for (int i = 0; i < (int) tracks.size(); ++i)
     {
-        const int y = rulerHeight + i * trackHeight;
+        const int y = rowTop (i);
         soloButtons[(size_t) i]->setBounds (headerWidth - 62, y + 6, 26, 20);
         muteButtons[(size_t) i]->setBounds (headerWidth - 32, y + 6, 26, 20);
         editButtons[(size_t) i]->setBounds (headerWidth - 58, y + 28, 52, 16);
         armButtons [(size_t) i]->setBounds (headerWidth - 90, y + 6, 26, 20);
         arpButtons [(size_t) i]->setBounds (headerWidth - 34, y + 28, 28, 16);
-        volSliders [(size_t) i]->setBounds (12, y + trackHeight - 18, headerWidth - 24, 12);
+        if (i < (int) expandButtons.size()) expandButtons[(size_t) i]->setBounds (10, y + trackHeight - 18, 16, 14);
+        volSliders [(size_t) i]->setBounds (30, y + trackHeight - 18, headerWidth - 42, 12);
     }
 }
 
@@ -133,17 +168,25 @@ float  ArrangeView::xForBeat (double beat) const { return headerWidth + (float) 
 double ArrangeView::beatForX (float x) const { return (double) ((x - headerWidth) / barWidth()) * beatsPerBar; }
 int    ArrangeView::trackAtY (float y) const
 {
-    const int t = (int) ((y - rulerHeight) / trackHeight);
-    return juce::isPositiveAndBelow (t, (int) tracks.size()) ? t : -1;
+    int top = rulerHeight;
+    for (int i = 0; i < (int) tracks.size(); ++i)
+    {
+        const int h = rowHeight (i);
+        if (y >= top && y < top + h) return i;
+        top += h;
+    }
+    return -1;
 }
 double ArrangeView::snapToBar (double beat) const { return std::round (beat / beatsPerBar) * beatsPerBar; }
 double ArrangeView::snapToGrid (double beat) const { constexpr double g = 0.25; return std::round (beat / g) * g; }
 
-// Padded content y-range of a track row (matches drawAutomation's lo-bottom/hi-top mapping).
+// Padded y-range where a track's automation is drawn AND hit-tested: the broken-out sub-lane
+// below the clips when expanded, otherwise an overlay band inside the clip area.
 void ArrangeView::trackBand (int track, float& top, float& bot) const
 {
-    const float y = (float) (rulerHeight + track * trackHeight);
-    top = y + 4.0f; bot = y + (float) trackHeight - 4.0f;
+    const float y = (float) rowTop (track);
+    if (isExpanded (track)) { top = y + (float) trackHeight + 4.0f; bot = y + (float) (trackHeight + laneExtra) - 4.0f; }
+    else                    { top = y + 4.0f; bot = y + (float) trackHeight - 4.0f; }
 }
 
 int ArrangeView::firstAutoLane (int track) const
@@ -181,7 +224,7 @@ int ArrangeView::clipAt (int track, juce::Point<float> p) const
     if (! juce::isPositiveAndBelow (track, (int) tracks.size()))
         return -1;
     const auto& clips = tracks[(size_t) track]->clips;
-    const float y = rulerHeight + track * trackHeight;
+    const float y = (float) rowTop (track);
     for (int i = (int) clips.size(); --i >= 0;)
     {
         juce::Rectangle<float> r (xForBeat (clips[(size_t) i].startBeat), y + 2.0f,
@@ -200,10 +243,11 @@ int ArrangeView::clipAt (int track, juce::Point<float> p) const
 // Read-only overlay of a track's automation lanes: each lane's breakpoints normalised into the
 // row's height (lo at the bottom, hi at the top) and drawn as a warm polyline with point dots.
 // Stepped lanes hold-then-jump; ramped lanes interpolate linearly (curve easing comes later).
-void ArrangeView::drawAutomation (juce::Graphics& g, int trackId, juce::Rectangle<float> band) const
+// Draw a track's automation lanes across [top,bot] (already padded — the overlay band when
+// collapsed, or the broken-out sub-lane when expanded; both come from trackBand()).
+void ArrangeView::drawAutomation (juce::Graphics& g, int trackId, float top, float bot) const
 {
-    const float pad = 4.0f;
-    const float top = band.getY() + pad, bot = band.getBottom() - pad;
+    const float xL = (float) headerWidth, xR = (float) getWidth();
     for (const auto& lane : autoLanes)
     {
         if (lane.trackId != trackId || lane.points.empty()) continue;
@@ -215,14 +259,14 @@ void ArrangeView::drawAutomation (juce::Graphics& g, int trackId, juce::Rectangl
         };
 
         juce::Path p;
-        p.startNewSubPath (band.getX(), yForVal (lane.points[0].second));   // flat lead-in
+        p.startNewSubPath (xL, yForVal (lane.points[0].second));   // flat lead-in
         for (size_t i = 0; i < lane.points.size(); ++i)
         {
             const float x = xForBeat (lane.points[i].first);
             if (lane.step && i > 0) p.lineTo (x, yForVal (lane.points[i - 1].second));   // hold, then jump
             p.lineTo (x, yForVal (lane.points[i].second));
         }
-        p.lineTo (band.getRight(), yForVal (lane.points.back().second));    // hold out to the edge
+        p.lineTo (xR, yForVal (lane.points.back().second));    // hold out to the edge
 
         g.setColour (Palette::warm.withAlpha (0.75f));
         g.strokePath (p, juce::PathStrokeType (1.4f));
@@ -369,22 +413,37 @@ void ArrangeView::paint (juce::Graphics& g)
     for (int i = 0; i < (int) tracks.size(); ++i)
     {
         const Track* t = tracks[(size_t) i].get();
-        const int y = rulerHeight + i * trackHeight;
+        const int y = rowTop (i);
+        const int rh = rowHeight (i);
 
-        // Lane background.
+        // Lane background (whole row, incl. any expanded automation sub-lane).
         g.setColour ((i % 2 == 0) ? Palette::inset : Palette::inset.brighter (0.10f));
-        g.fillRect (headerWidth, y, getWidth() - headerWidth, trackHeight);
+        g.fillRect (headerWidth, y, getWidth() - headerWidth, rh);
 
-        // Header.
+        // Header (whole row).
         g.setColour ((i % 2 == 0) ? Palette::panel : Palette::panelAlt);
-        g.fillRect (0, y, headerWidth, trackHeight);
+        g.fillRect (0, y, headerWidth, rh);
         if (i == selTrack)
         {
             g.setColour (Palette::accent.withAlpha (0.12f));
-            g.fillRect (0, y, headerWidth, trackHeight);
+            g.fillRect (0, y, headerWidth, rh);
         }
         g.setColour (t->colour);
         g.fillRect (0, y + 3, 4, trackHeight - 6);
+
+        // Expanded automation sub-lane: a darker band below the clip area + its param label.
+        if (isExpanded (i))
+        {
+            g.setColour (Palette::bg.withAlpha (0.35f));
+            g.fillRect (headerWidth, y + trackHeight, getWidth() - headerWidth, laneExtra);
+            g.setColour (Palette::lineSoft);
+            g.drawHorizontalLine (y + trackHeight, (float) headerWidth, (float) getWidth());
+            g.setColour (Palette::textDim);
+            g.setFont (Palette::sectionFont());
+            const int la = firstAutoLane (i);
+            const juce::String lbl = la >= 0 ? autoLanes[(size_t) la].target : juce::String ("AUTOMATION");
+            g.drawText (lbl, 12, y + trackHeight + 6, headerWidth - 20, 12, juce::Justification::centredLeft, true);
+        }
 
         // Live MIDI-input LED: pulses green in the left gutter on the track receiving notes, so
         // you can see the keyboard is connected and which track will sound. Fades after each note.
@@ -426,12 +485,11 @@ void ArrangeView::paint (juce::Graphics& g)
             drawClip (g, *t, c, r, i == selTrack && ci == selClip);
         }
 
-        // Automation lanes (read-only overlay) drawn over this track's clips.
-        drawAutomation (g, t->id, { (float) headerWidth, (float) y,
-                                    (float) (getWidth() - headerWidth), (float) trackHeight });
+        // Automation: overlaid on the clips when collapsed, in the sub-lane when expanded.
+        { float bt, bb; trackBand (i, bt, bb); drawAutomation (g, t->id, bt, bb); }
 
         g.setColour (Palette::lineSoft);
-        g.drawHorizontalLine (y + trackHeight, 0.0f, (float) getWidth());
+        g.drawHorizontalLine (y + rh, 0.0f, (float) getWidth());   // row-bottom separator (incl. sub-lane)
     }
 
     // Loop region.

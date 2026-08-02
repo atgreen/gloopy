@@ -7,6 +7,7 @@
 #include <vector>
 #include <memory>
 #include <functional>
+#include <set>
 #include "Track.h"
 #include "Transport.h"
 
@@ -140,7 +141,13 @@ private:
     int    firstAutoLane (int track) const;                    // first cached lane on a track (-1 if none)
     int    clipAt (int track, juce::Point<float> p) const;
     void   drawClip (juce::Graphics&, const Track&, const Clip&, juce::Rectangle<float>, bool selected) const;
-    void   drawAutomation (juce::Graphics&, int trackId, juce::Rectangle<float> band) const;   // overlay a track's lanes
+    void   drawAutomation (juce::Graphics&, int trackId, float top, float bot) const;   // draw a track's lanes in [top,bot]
+
+    // Variable row height: a track's row is trackHeight, plus laneExtra when its automation lane is
+    // expanded (broken out below the clips). All track→y math goes through rowTop/rowHeight.
+    bool   isExpanded (int i) const;
+    int    rowHeight (int i) const;   // trackHeight (+ laneExtra if expanded)
+    int    rowTop (int i) const;      // y of the top of track i's row (below the ruler)
     void   promptAddTempoMarker (double beat);   // AlertWindow BPM prompt -> onAddTempoMarker
     void   promptAddMarker (double beat);        // AlertWindow name prompt -> onAddMarker
     void   promptTimeSignature();                // AlertWindow num/denom prompt -> onSetTimeSignature
@@ -150,6 +157,7 @@ private:
     static constexpr int headerWidth = 190;
     static constexpr int rulerHeight  = 22;
     static constexpr int trackHeight  = 64;
+    static constexpr int laneExtra    = 58;   // extra row height when the automation lane is expanded
     double beatsPerBar = 4.0;   // refreshed from the transport's time signature on rebuild/resize/paint
 
     std::vector<std::unique_ptr<Track>>& tracks;
@@ -162,10 +170,12 @@ private:
     std::vector<std::unique_ptr<juce::TextButton>> armButtons;    // record-arm (audio tracks only)
     std::vector<std::unique_ptr<juce::TextButton>> arpButtons;    // live arpeggiator (instrument tracks)
     std::vector<std::unique_ptr<juce::Slider>>     volSliders;
+    std::vector<std::unique_ptr<juce::TextButton>> expandButtons;   // per-track automation-lane disclosure
 
     int selTrack { -1 }, selClip { -1 };
 
     std::vector<AutoLaneView> autoLanes;   // cached from getAutomation(); refreshed on edits/load
+    std::set<int> expandedTracks;          // track ids whose automation lane is broken out below
 
     enum class Drag { none, move, resize, point };
     Drag   drag { Drag::none };
