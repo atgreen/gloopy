@@ -58,7 +58,20 @@ one or more of the track's synth/effect parameters at once. **+ Macro** adds one
 turn a knob (0..1) and every parameter it drives sweeps across its safe range, so a
 single knob moves a whole sound. Under each knob is the macro's name and how many
 parameters it drives, and the knobs update live when a macro changes elsewhere (for
-example a script `randomize-macros`). Mapping a macro to parameters is done from the
-[Python](../../control-scripting/reference/python/index.md) or
+example a script `randomize-macros`).
+
+The **⋯** button on each knob opens its menu:
+
+| Item | What it does |
+|------|--------------|
+| **Rename…** | Give the macro a perceptual name — "Brightness", "Drive" |
+| **Map to synth ▸** | Map the macro onto a built-in synth parameter (over that parameter's range) |
+| **Map to effect ▸** | Map it onto a parameter of one of the track's insert effects |
+| **Clear mappings** | Remove all of this macro's mappings (keep the macro) |
+| **Remove macro** | Delete the macro |
+
+Map a macro to several parameters and one knob morphs them together. The same
+operations are scriptable from the
+[Python](../../control-scripting/reference/python/index.md) and
 [Lisp](../../control-scripting/reference/lisp/index.md#macros-the-rack-layer)
-clients for now; a desktop map mode is coming.
+clients, where you can also set a narrower `[lo, hi]` safe range per mapping.

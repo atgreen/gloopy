@@ -47,6 +47,7 @@ public:
     std::function<std::vector<MacroInfo>()>  getMacros;   // one entry per macro
     std::function<void()>                    onAddMacro;  // add a macro to the track
     std::function<void (int, float)>         onSetValue;  // (macro index, value 0..1)
+    std::function<void (int, juce::Component*)> onMacroMenu; // (macro index, anchor) map/rename/remove
     std::function<void()>                    onShowClip;  // switch back to the clip editor
 
     // Standalone mode (a detached rack window): no "Clip" button, since there's no clip editor to
@@ -58,16 +59,27 @@ public:
         title.setText (getTitle ? getTitle() : "MACROS", juce::dontSendNotification);
         macros = getMacros ? getMacros() : std::vector<MacroInfo>{};
         knobs.clear();
+        menuBtns.clear();
         for (int i = 0; i < (int) macros.size(); ++i)
         {
             auto s = std::make_unique<juce::Slider> (juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::NoTextBox);
             s->setRange (0.0, 1.0, 0.0);
             s->setValue (macros[(size_t) i].value, juce::dontSendNotification);
-            s->setTooltip (macros[(size_t) i].name);
+            s->setTooltip (macros[(size_t) i].name + juce::String::fromUTF8 ("  (\xe2\x8b\xaf to map / rename / remove)"));
             auto* raw = s.get();
             s->onValueChange = [this, i, raw] { if (onSetValue) onSetValue (i, (float) raw->getValue()); };
             addAndMakeVisible (*s);
             knobs.push_back (std::move (s));
+
+            // A small "⋯" affordance in the cell's top-right opens the map/rename/remove menu.
+            auto b = std::make_unique<juce::TextButton> (juce::String (juce::CharPointer_UTF8 ("\xe2\x8b\xaf")));
+            b->setTooltip ("Map this macro to a parameter, rename, or remove it");
+            b->setColour (juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+            b->setColour (juce::TextButton::textColourOffId, Palette::textDim);
+            auto* rawB = b.get();
+            b->onClick = [this, i, rawB] { if (onMacroMenu) onMacroMenu (i, rawB); };
+            addAndMakeVisible (*b);
+            menuBtns.push_back (std::move (b));
         }
         resized();
         repaint();
@@ -112,14 +124,15 @@ public:
         title.setBounds (h.removeFromLeft (juce::jmin (240, h.getWidth() - 90)));
         addBtn.setBounds (h.removeFromRight (78));
 
-        // Encoder grid: knob + name + "N params" hint per cell.
+        // Encoder grid: a ⋯ menu button (top-right), knob, name + "N params" hint per cell.
         auto grid = a.reduced (12, 10);
         const int kw = 76, kh = 96, knobH = kh - 34;
         int x = grid.getX(), y = grid.getY();
-        for (auto& s : knobs)
+        for (int i = 0; i < (int) knobs.size(); ++i)
         {
             if (x + kw > grid.getRight()) { x = grid.getX(); y += kh; }
-            s->setBounds (x, y, kw, knobH);
+            knobs[(size_t) i]->setBounds (x, y, kw, knobH);
+            if (i < (int) menuBtns.size()) menuBtns[(size_t) i]->setBounds (x + kw - 20, y - 2, 20, 16);
             x += kw + 8;
         }
     }
@@ -144,7 +157,8 @@ private:
 
     juce::Label      title;
     juce::TextButton clipBtn, addBtn;
-    std::vector<std::unique_ptr<juce::Slider>> knobs;
+    std::vector<std::unique_ptr<juce::Slider>>     knobs;
+    std::vector<std::unique_ptr<juce::TextButton>> menuBtns;   // per-macro ⋯ map/rename/remove
     std::vector<MacroInfo> macros;
     bool standalone { false };
 };
