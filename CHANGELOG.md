@@ -13,6 +13,16 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-08-01
+
+### Changed
+- **The content browser now uses a VS Code-style activity rail.** The left browser had a
+  `☰` toggle in the toolbar *and* a wrapping grid of category tabs inside the panel. Both
+  are replaced by a thin, always-visible icon rail on the far left — one icon per category
+  (Templates, Demos, Plugins, Samples, Presets), with a tooltip on hover. Click an icon to
+  open the browser to that category; click the active icon to collapse it. One control now
+  both picks the category and shows/hides the panel.
+
 ## [0.1.7] - 2026-08-01
 
 ### Fixed
@@ -242,7 +252,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/atgreen/gloopy/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/atgreen/gloopy/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/atgreen/gloopy/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/atgreen/gloopy/compare/v0.1.4...v0.1.5
