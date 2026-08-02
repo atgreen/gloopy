@@ -13,7 +13,7 @@ tagged release.
 
 ## [Unreleased]
 
-## [0.1.10] - 2026-08-01
+## [0.1.10] - 2026-08-02
 
 ### Added
 - **Macros — a "rack" control layer you can script.** Each track can now carry *macros*:
