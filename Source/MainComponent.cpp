@@ -449,6 +449,18 @@ MainComponent::MainComponent (bool headless)
         }
         return out;
     };
+    arrangeView->onAddAutomationPoint = [this] (const juce::String& target, double beat, float value)
+    {
+        apiAddAutomationPointById (target, beat, value);
+        if (arrangeView) arrangeView->refreshAutomation();
+    };
+    arrangeView->onSetAutomation = [this] (const juce::String& target, std::vector<std::pair<double, float>> pts)
+    {
+        std::vector<AutoPointSnap> ap;
+        for (auto& p : pts) ap.push_back ({ p.first, p.second });
+        apiSetAutomationById (target, ap);
+        if (arrangeView) arrangeView->refreshAutomation();
+    };
     arrangeView->onLoopChanged  = [this]
     {
         loopButton.setToggleState (transport.isLoopEnabled(), juce::dontSendNotification);

@@ -13,6 +13,14 @@ tagged release.
 
 ## [Unreleased]
 
+### Added
+- **Automation is now visible and editable on the arrangement timeline.** Parameter automation
+  (which already played back but was invisible) now draws as a curve with breakpoints over each
+  track's row. Grab a breakpoint to drag it (value + grid-snapped time), double-click one to
+  delete it, and **Alt-click** a lane to add a point. Currently shows track-owned parameters
+  (synth, macros, volume/pan); effect and bus/group automation lanes are coming, along with
+  break-out sub-lanes, a parameter picker, and curve handles.
+
 ## [0.1.12] - 2026-08-02
 
 ### Added

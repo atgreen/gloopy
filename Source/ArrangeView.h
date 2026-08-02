@@ -116,6 +116,8 @@ public:
     };
     std::function<std::vector<AutoLaneView>()> getAutomation;   // owner supplies track-owned lanes
     void refreshAutomation();                                   // re-pull + repaint (on edits / load)
+    std::function<void (const juce::String&, double, float)> onAddAutomationPoint;  // target, beat, value
+    std::function<void (const juce::String&, std::vector<std::pair<double, float>>)> onSetAutomation;  // target, points (commit)
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -132,6 +134,10 @@ private:
     double beatForX (float x) const;
     int    trackAtY (float y) const;
     double snapToBar (double beat) const;
+    double snapToGrid (double beat) const;                     // finer (1/4-beat) snap for breakpoints
+    void   trackBand (int track, float& top, float& bot) const;   // padded content y-range of a row
+    bool   hitAutoPoint (int track, juce::Point<float> p, int& laneOut, int& pointOut) const;  // grab a breakpoint
+    int    firstAutoLane (int track) const;                    // first cached lane on a track (-1 if none)
     int    clipAt (int track, juce::Point<float> p) const;
     void   drawClip (juce::Graphics&, const Track&, const Clip&, juce::Rectangle<float>, bool selected) const;
     void   drawAutomation (juce::Graphics&, int trackId, juce::Rectangle<float> band) const;   // overlay a track's lanes
@@ -161,10 +167,11 @@ private:
 
     std::vector<AutoLaneView> autoLanes;   // cached from getAutomation(); refreshed on edits/load
 
-    enum class Drag { none, move, resize };
+    enum class Drag { none, move, resize, point };
     Drag   drag { Drag::none };
     int    dragTrack { -1 }, dragClip { -1 };
     double dragBeatOffset { 0.0 };
+    int    dragAutoLane { -1 }, dragAutoPoint { -1 };   // automation breakpoint being dragged
 
     // Ruler drag (seek / loop region; Alt = punch region).
     bool   rulerDrag { false }, loopDragged { false }, rulerAlt { false };

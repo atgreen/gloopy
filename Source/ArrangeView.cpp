@@ -137,6 +137,44 @@ int    ArrangeView::trackAtY (float y) const
     return juce::isPositiveAndBelow (t, (int) tracks.size()) ? t : -1;
 }
 double ArrangeView::snapToBar (double beat) const { return std::round (beat / beatsPerBar) * beatsPerBar; }
+double ArrangeView::snapToGrid (double beat) const { constexpr double g = 0.25; return std::round (beat / g) * g; }
+
+// Padded content y-range of a track row (matches drawAutomation's lo-bottom/hi-top mapping).
+void ArrangeView::trackBand (int track, float& top, float& bot) const
+{
+    const float y = (float) (rulerHeight + track * trackHeight);
+    top = y + 4.0f; bot = y + (float) trackHeight - 4.0f;
+}
+
+int ArrangeView::firstAutoLane (int track) const
+{
+    if (! juce::isPositiveAndBelow (track, (int) tracks.size())) return -1;
+    const int tid = tracks[(size_t) track]->id;
+    for (int i = 0; i < (int) autoLanes.size(); ++i) if (autoLanes[(size_t) i].trackId == tid) return i;
+    return -1;
+}
+
+// Is p within grab range of a breakpoint on this track? Fills laneOut (index into autoLanes) + pointOut.
+bool ArrangeView::hitAutoPoint (int track, juce::Point<float> p, int& laneOut, int& pointOut) const
+{
+    if (! juce::isPositiveAndBelow (track, (int) tracks.size())) return false;
+    const int tid = tracks[(size_t) track]->id;
+    float top, bot; trackBand (track, top, bot);
+    for (int li = 0; li < (int) autoLanes.size(); ++li)
+    {
+        const auto& lane = autoLanes[(size_t) li];
+        if (lane.trackId != tid) continue;
+        const float range = juce::jmax (1.0e-6f, lane.hi - lane.lo);
+        for (int pi = 0; pi < (int) lane.points.size(); ++pi)
+        {
+            const float x = xForBeat (lane.points[(size_t) pi].first);
+            const float n = juce::jlimit (0.0f, 1.0f, (lane.points[(size_t) pi].second - lane.lo) / range);
+            const float y = bot - n * (bot - top);
+            if (std::abs (p.x - x) <= 6.0f && std::abs (p.y - y) <= 6.0f) { laneOut = li; pointOut = pi; return true; }
+        }
+    }
+    return false;
+}
 
 int ArrangeView::clipAt (int track, juce::Point<float> p) const
 {
@@ -664,6 +702,39 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             });
         }
         return;
+    }
+
+    // Automation editing (direct manipulation over the overlay). A precise hit on a breakpoint
+    // wins over the clip beneath: single-click-drag moves it, double/right-click deletes it.
+    // Alt-click anywhere on a lane adds a point. Anything else falls through to clip editing.
+    {
+        int li = -1, pi = -1;
+        if (hitAutoPoint (track, p, li, pi))
+        {
+            if (e.getNumberOfClicks() >= 2 || e.mods.isPopupMenu())   // delete this breakpoint
+            {
+                auto pts = autoLanes[(size_t) li].points;
+                pts.erase (pts.begin() + pi);
+                if (onSetAutomation) onSetAutomation (autoLanes[(size_t) li].target, pts);
+                return;
+            }
+            dragTrack = track; dragAutoLane = li; dragAutoPoint = pi; drag = Drag::point;   // start moving it
+            return;
+        }
+        if (e.mods.isAltDown())   // add a breakpoint to this track's lane
+        {
+            const int la = firstAutoLane (track);
+            if (la >= 0)
+            {
+                float top, bot; trackBand (track, top, bot);
+                const auto& lane = autoLanes[(size_t) la];
+                const float n = juce::jlimit (0.0f, 1.0f, (bot - p.y) / juce::jmax (1.0f, bot - top));
+                const float val = lane.lo + n * (lane.hi - lane.lo);
+                const double beat = juce::jmax (0.0, snapToGrid (beatForX (p.x)));
+                if (onAddAutomationPoint) onAddAutomationPoint (lane.target, beat, val);
+                return;
+            }
+        }
     }
 
     const int hit = clipAt (track, p);
@@ -1219,6 +1290,31 @@ void ArrangeView::mouseDrag (const juce::MouseEvent& e)
         return;
     }
 
+    // Dragging an automation breakpoint: update the cached lane locally (value from y clamped to
+    // the param range, beat grid-snapped and kept between its neighbours) and repaint. The model
+    // is committed once on mouseUp — so a drag is one undo step, not one per mouse-move.
+    if (drag == Drag::point)
+    {
+        if (dragAutoLane >= 0 && dragAutoLane < (int) autoLanes.size())
+        {
+            auto& lane = autoLanes[(size_t) dragAutoLane];
+            if (dragAutoPoint >= 0 && dragAutoPoint < (int) lane.points.size())
+            {
+                float top, bot; trackBand (dragTrack, top, bot);
+                const float n   = juce::jlimit (0.0f, 1.0f, (bot - e.position.y) / juce::jmax (1.0f, bot - top));
+                const float val = lane.lo + n * (lane.hi - lane.lo);
+                double beat = juce::jmax (0.0, snapToGrid (beatForX (e.position.x)));
+                const double minB = (dragAutoPoint > 0) ? lane.points[(size_t) dragAutoPoint - 1].first + 1.0e-3 : 0.0;
+                const double maxB = (dragAutoPoint + 1 < (int) lane.points.size())
+                                        ? lane.points[(size_t) dragAutoPoint + 1].first - 1.0e-3 : 1.0e12;
+                beat = juce::jlimit (minB, maxB, beat);
+                lane.points[(size_t) dragAutoPoint] = { beat, val };
+                repaint();
+            }
+        }
+        return;
+    }
+
     if (dragTrack < 0 || dragClip < 0)
         return;
     {
@@ -1237,10 +1333,16 @@ void ArrangeView::mouseDrag (const juce::MouseEvent& e)
     repaint();
 }
 
-void ArrangeView::mouseUp (const juce::MouseEvent&)
+void ArrangeView::mouseUp (const juce::MouseEvent& e)
 {
+    // Commit a finished breakpoint drag as one undo step (only if it actually moved).
+    if (drag == Drag::point && e.mouseWasDraggedSinceMouseDown()
+          && dragAutoLane >= 0 && dragAutoLane < (int) autoLanes.size())
+        if (onSetAutomation) onSetAutomation (autoLanes[(size_t) dragAutoLane].target,
+                                              autoLanes[(size_t) dragAutoLane].points);
     drag = Drag::none;
     dragTrack = dragClip = -1;
+    dragAutoLane = dragAutoPoint = -1;
     rulerDrag = false;
     rulerAlt = false;
 }
