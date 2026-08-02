@@ -146,6 +146,14 @@ std::vector<MainComponent::ParamDesc> MainComponent::apiListParameters()
             }
         }
 
+        // ── control groups (VCA-lite): the group fader, automatable as a VCA offset ──
+        {
+            const juce::ScopedLock sl (engineLock);
+            for (auto& cg : controlGroups)
+                out.push_back (mk ("group/" + cg->name + "/gain", cg->name + " (VCA)",
+                                   cg->gain.load(), 0.f, 1.f, 1.f, "", "linear"));
+        }
+
         return out;
     });
 }

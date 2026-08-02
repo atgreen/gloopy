@@ -215,6 +215,13 @@ void MainComponent::applyParamValue (const juce::String& id, float v)
                 }
         }
     }
+    else if (ieq (seg[0], "group") && nseg == 3 && ieq (seg[2], "gain"))   // group/<name>/gain: a VCA fader
+    {
+        // VCA offset: the group gain scales its members' volume in the mix, so members keep their
+        // own automation untouched. equalsIgnoreCase(const char*) is alloc-free (audio-thread safe).
+        for (auto& cg : controlGroups)
+            if (cg->name.equalsIgnoreCase (seg[1])) { cg->gain.store (juce::jlimit (0.0f, 1.0f, v)); break; }
+    }
 }
 
 void MainComponent::evaluateModulation (double timeSeconds, double beatPos)

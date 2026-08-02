@@ -631,8 +631,8 @@ void ArrangeView::paint (juce::Graphics& g)
             g.drawText (br.name, 12, by + 4, headerWidth - 20, 16, juce::Justification::centredLeft, true);
             g.setColour (Palette::textDim);
             g.setFont (Palette::sectionFont());
-            g.drawText (br.mixerIndex == 0 ? "MASTER" : "BUS", 12, by + 22, headerWidth - 20, 12,
-                        juce::Justification::centredLeft, false);
+            g.drawText (br.mixerIndex == 0 ? "MASTER" : br.mixerIndex < 0 ? "VCA" : "BUS",
+                        12, by + 22, headerWidth - 20, 12, juce::Justification::centredLeft, false);
             for (const auto& lane : br.lanes)
                 drawOneLane (g, lane, (float) by + 4.0f, (float) (by + busRowH) - 4.0f);
             g.setColour (Palette::lineSoft);

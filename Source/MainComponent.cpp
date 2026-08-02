@@ -476,6 +476,22 @@ MainComponent::MainComponent (bool headless)
                 }
             if (isMaster || ! br.lanes.empty()) out.push_back (std::move (br));
         }
+        // Control-group (VCA) rows: shown once the group fader is automated (mixerIndex = -1).
+        for (auto& cg : controlGroups)
+        {
+            ArrangeView::BusRowView br; br.mixerIndex = -1; br.name = cg->name;
+            const juce::String gp = "group/" + cg->name + "/";
+            for (auto& l : lanes)
+                if (l.target.startsWith (gp))
+                {
+                    ArrangeView::AutoLaneView v; v.target = l.target; v.trackId = -1;
+                    v.step = l.step; v.curve = l.curve;
+                    ParamDesc d; if (apiGetParameter (l.target, d)) { v.lo = d.min; v.hi = d.max; }
+                    for (auto& pt : l.points) v.points.push_back ({ pt.beat, pt.value });
+                    br.lanes.push_back (std::move (v));
+                }
+            if (! br.lanes.empty()) out.push_back (std::move (br));
+        }
         return out;
     };
     arrangeView->onAddAutomationPoint = [this] (const juce::String& target, double beat, float value)
