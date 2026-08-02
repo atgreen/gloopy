@@ -1016,6 +1016,19 @@ MainComponent::MainComponent (bool headless)
     rackPanel.onSetValue = [this] (int macro, float v) { if (rackTrack >= 0) apiSetMacroValue (rackTrack, macro, v); };
     rackPanel.onMacroMenu = [this] (int macro, juce::Component* anchor) { showMacroMenu (macro, anchor); };
     rackPanel.onRandomize = [this] { if (rackTrack >= 0) { apiRandomizeMacros (rackTrack); refreshRackPanel(); } };
+    rackPanel.getSnapshots = [this]
+    {
+        std::vector<juce::String> out;
+        const juce::ScopedLock sl (engineLock);
+        if (auto* t = resolveTrack (rackTrack))
+            for (auto& s : t->macroSnapshots) out.push_back (s.name);
+        return out;
+    };
+    rackPanel.onStoreSnapshot  = [this] { if (rackTrack >= 0) apiStoreMacroSnapshot (rackTrack, {}); };   // panel refreshes itself (stable button)
+    // Recall must NOT refresh here — that would destroy the slot button mid-click. The 12 Hz timer
+    // animates the knobs to the recalled values; the panel highlights the slot via setActiveSnap.
+    rackPanel.onRecallSnapshot = [this] (int i) { if (rackTrack >= 0) apiRecallMacroSnapshot (rackTrack, i); };
+    rackPanel.onSnapshotMenu   = [this] (int i, juce::Component* anchor) { showSnapshotMenu (i, anchor); };
 
     verticalLayout.setItemLayout (0, 120.0, -0.85, -0.60);   // arrangement
     verticalLayout.setItemLayout (1, 6.0, 6.0, 6.0);         // divider
@@ -1852,6 +1865,72 @@ bool MainComponent::apiClearMacroMappings (int trackId, int macro)
         auto* t = resolveTrack (trackId);
         if (t == nullptr || ! juce::isPositiveAndBelow (macro, (int) t->macros.size())) return false;
         t->macros[(size_t) macro].mappings.clear();
+        return true;
+    });
+}
+
+int MainComponent::apiStoreMacroSnapshot (int trackId, const juce::String& name)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr) return -1;
+        MacroSnapshot s;
+        s.name = name.trim().isNotEmpty() ? name.trim() : ("Snap " + juce::String ((int) t->macroSnapshots.size() + 1));
+        for (auto& m : t->macros) s.values.push_back (m.value);
+        t->macroSnapshots.push_back (std::move (s));
+        return (int) t->macroSnapshots.size() - 1;
+    });
+}
+
+bool MainComponent::apiRecallMacroSnapshot (int trackId, int snap)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (snap, (int) t->macroSnapshots.size())) return false;
+        auto& s = t->macroSnapshots[(size_t) snap];
+        for (size_t i = 0; i < t->macros.size() && i < s.values.size(); ++i)
+        {
+            t->macros[i].value = juce::jlimit (0.0f, 1.0f, s.values[i]);
+            applyMacroMappings (t, t->macros[i]);
+        }
+        return true;
+    });
+}
+
+bool MainComponent::apiUpdateMacroSnapshot (int trackId, int snap)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (snap, (int) t->macroSnapshots.size())) return false;
+        auto& s = t->macroSnapshots[(size_t) snap];
+        s.values.clear();
+        for (auto& m : t->macros) s.values.push_back (m.value);
+        return true;
+    });
+}
+
+bool MainComponent::apiRenameMacroSnapshot (int trackId, int snap, const juce::String& name)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (snap, (int) t->macroSnapshots.size()) || name.trim().isEmpty())
+            return false;
+        t->macroSnapshots[(size_t) snap].name = name.trim();
+        return true;
+    });
+}
+
+bool MainComponent::apiDeleteMacroSnapshot (int trackId, int snap)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (snap, (int) t->macroSnapshots.size())) return false;
+        t->macroSnapshots.erase (t->macroSnapshots.begin() + snap);
         return true;
     });
 }
@@ -4021,6 +4100,49 @@ void MainComponent::promptRenameMacro (int macroIndex)
         {
             const auto nm = aw->getTextEditorContents ("name").trim();
             if (nm.isNotEmpty()) { apiRenameMacro (rackTrack, macroIndex, nm); refreshRackPanel(); }
+        }
+        delete aw;
+    }), false);
+}
+
+// Right-click a snapshot slot: overwrite it with the current knobs, rename, or delete.
+void MainComponent::showSnapshotMenu (int snap, juce::Component* anchor)
+{
+    if (rackTrack < 0) return;
+    juce::PopupMenu m;
+    m.addItem (1, "Overwrite with current knobs");
+    m.addItem (2, juce::String::fromUTF8 ("Rename\xe2\x80\xa6"));
+    m.addSeparator();
+    m.addItem (3, "Delete");
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (anchor),
+        [this, snap] (int r)
+        {
+            if      (r == 1) { apiUpdateMacroSnapshot (rackTrack, snap); refreshRackPanel(); }
+            else if (r == 2) { promptRenameSnapshot (snap); }
+            else if (r == 3) { apiDeleteMacroSnapshot (rackTrack, snap); refreshRackPanel(); }
+        });
+}
+
+void MainComponent::promptRenameSnapshot (int snap)
+{
+    if (rackTrack < 0) return;
+    juce::String cur;
+    {
+        const juce::ScopedLock sl (engineLock);
+        auto* t = resolveTrack (rackTrack);
+        if (t != nullptr && juce::isPositiveAndBelow (snap, (int) t->macroSnapshots.size()))
+            cur = t->macroSnapshots[(size_t) snap].name;
+    }
+    auto* aw = new juce::AlertWindow ("Rename snapshot", "New name:", juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("name", cur);
+    aw->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, snap] (int r)
+    {
+        if (r == 1)
+        {
+            const auto nm = aw->getTextEditorContents ("name").trim();
+            if (nm.isNotEmpty()) { apiRenameMacroSnapshot (rackTrack, snap, nm); refreshRackPanel(); }
         }
         delete aw;
     }), false);
@@ -7222,6 +7344,16 @@ juce::ValueTree MainComponent::toValueTree()
                 }
                 ms.addChild (mv, -1, nullptr);
             }
+            // Snapshots (rack variations): one SNAP per saved state, values comma-joined.
+            for (auto& sn : t->macroSnapshots)
+            {
+                juce::ValueTree sv ("SNAP");
+                sv.setProperty ("name", sn.name, nullptr);
+                juce::StringArray vs;
+                for (float f : sn.values) vs.add (juce::String (f, 4));
+                sv.setProperty ("values", vs.joinIntoString (","), nullptr);
+                ms.addChild (sv, -1, nullptr);
+            }
             tr.addChild (ms, -1, nullptr);
         }
         trks.addChild (tr, -1, nullptr);
@@ -7596,24 +7728,34 @@ std::unique_ptr<Track> MainComponent::buildTrackFromTree (const juce::ValueTree&
                 for (int mi = 0; mi < cl.getNumChildren(); ++mi)
                 {
                     auto mv = cl.getChild (mi);
-                    if (! mv.hasType ("MACRO")) continue;
-                    Macro m;
-                    m.name  = mv.getProperty ("name", "Macro");
-                    m.value = (float) (double) mv.getProperty ("value", 0.0);
-                    for (int ti = 0; ti < mv.getNumChildren(); ++ti)
+                    if (mv.hasType ("MACRO"))
                     {
-                        auto mt = mv.getChild (ti);
-                        if (! mt.hasType ("MAP")) continue;
-                        MacroMapping mp;
-                        mp.synthParam  = mt.getProperty ("synth", "");
-                        mp.insert      = (int) mt.getProperty ("insert", -1);
-                        mp.slot        = (int) mt.getProperty ("slot", -1);
-                        mp.effectParam = mt.getProperty ("effect", "");
-                        mp.lo = (float) (double) mt.getProperty ("lo", 0.0);
-                        mp.hi = (float) (double) mt.getProperty ("hi", 1.0);
-                        m.mappings.push_back (std::move (mp));
+                        Macro m;
+                        m.name  = mv.getProperty ("name", "Macro");
+                        m.value = (float) (double) mv.getProperty ("value", 0.0);
+                        for (int ti = 0; ti < mv.getNumChildren(); ++ti)
+                        {
+                            auto mt = mv.getChild (ti);
+                            if (! mt.hasType ("MAP")) continue;
+                            MacroMapping mp;
+                            mp.synthParam  = mt.getProperty ("synth", "");
+                            mp.insert      = (int) mt.getProperty ("insert", -1);
+                            mp.slot        = (int) mt.getProperty ("slot", -1);
+                            mp.effectParam = mt.getProperty ("effect", "");
+                            mp.lo = (float) (double) mt.getProperty ("lo", 0.0);
+                            mp.hi = (float) (double) mt.getProperty ("hi", 1.0);
+                            m.mappings.push_back (std::move (mp));
+                        }
+                        t->macros.push_back (std::move (m));
                     }
-                    t->macros.push_back (std::move (m));
+                    else if (mv.hasType ("SNAP"))   // rack variation
+                    {
+                        MacroSnapshot sn;
+                        sn.name = mv.getProperty ("name", "Snap");
+                        auto vs = juce::StringArray::fromTokens (mv.getProperty ("values", "").toString(), ",", "");
+                        for (auto& tok : vs) if (tok.trim().isNotEmpty()) sn.values.push_back ((float) tok.getDoubleValue());
+                        t->macroSnapshots.push_back (std::move (sn));
+                    }
                 }
             }
         }

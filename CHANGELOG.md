@@ -31,6 +31,11 @@ tagged release.
   fader, and that CC now drives the macro (and through it, every param the macro maps). Macros
   are now addressable controller/automation targets (`track/<id>/macro/<index>`), so they also
   show up for the OSC/gRPC controller API and persist like any other mapping.
+- **Macro snapshots (rack variations).** A strip under the RACK header saves whole knob states:
+  **+ Snapshot** captures the current macro positions as a recallable slot; click a slot to snap
+  the whole rack back to that state (the knobs animate, and the slot stays lit until you move a
+  knob). Right-click a slot to **Overwrite** it with the current knobs, **Rename**, or **Delete**
+  it. Snapshots are saved with the project.
 
 ## [0.1.11] - 2026-08-02
 

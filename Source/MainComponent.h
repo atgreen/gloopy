@@ -119,6 +119,12 @@ public:
     bool apiRenameMacro       (int trackId, int macro, const juce::String& name);
     bool apiRemoveMacro       (int trackId, int macro);
     bool apiClearMacroMappings (int trackId, int macro);
+    // Macro snapshots (rack variations): capture / recall the whole set of macro values.
+    int  apiStoreMacroSnapshot  (int trackId, const juce::String& name);   // capture current values; -1 on fail
+    bool apiRecallMacroSnapshot (int trackId, int snap);                    // set macros to the snapshot + apply
+    bool apiUpdateMacroSnapshot (int trackId, int snap);                    // recapture current values into it
+    bool apiRenameMacroSnapshot (int trackId, int snap, const juce::String& name);
+    bool apiDeleteMacroSnapshot (int trackId, int snap);
     void apiSeek (double beats);
     void apiSetLoop (bool enabled, double startBeat, double endBeat);
     TransportSnap apiGetTransport();
@@ -794,6 +800,8 @@ private:
     void refreshRackPanel();                            // point the rack panel at the selected track's macros
     void showMacroMenu (int macroIndex, juce::Component* anchor);   // right-click a macro: map / rename / remove
     void promptRenameMacro (int macroIndex);            // AlertWindow text entry -> apiRenameMacro
+    void showSnapshotMenu (int snap, juce::Component* anchor);      // recall-slot menu: overwrite / rename / delete
+    void promptRenameSnapshot (int snap);               // AlertWindow text entry -> apiRenameMacroSnapshot
 
     void setupMixer();
     void openMixer();

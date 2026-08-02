@@ -36,6 +36,14 @@ struct Macro
     std::vector<MacroMapping> mappings;
 };
 
+// A named capture of every macro's value — a "variation" / snapshot. Recall sets each macro back
+// to its stored value (and re-applies its mappings), so you can flip a rack between whole states.
+struct MacroSnapshot
+{
+    juce::String       name { "Snap" };
+    std::vector<float> values;   // one per macro at store time (0..1); index-aligned with Track::macros
+};
+
 /** A track in the linear arrangement: a sound source (for instrument tracks)
     plus a row of clips on the timeline, and its mix settings. Unifies the old
     Channel + Pattern + playlist-lane into one thing. */
@@ -90,7 +98,8 @@ struct Track
     LiveArp liveArp;
 
     std::vector<Clip>  clips;    // arrangement clips on the timeline; guarded by the engine lock
-    std::vector<Macro> macros;   // the rack layer: perceptual encoders over this track's params
+    std::vector<Macro>         macros;          // the rack layer: perceptual encoders over this track's params
+    std::vector<MacroSnapshot> macroSnapshots;  // saved knob states you can recall / switch between
 
     // Session view (clip-launch grid): one launchable slot per global scene (null = empty).
     // Kept the same length as MainComponent's scene list (see SessionModel.h). Guarded by the

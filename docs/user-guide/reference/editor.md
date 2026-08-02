@@ -72,8 +72,14 @@ The **⋯** button on each knob opens its menu:
 | **Clear mappings** | Remove all of this macro's mappings (keep the macro) |
 | **Remove macro** | Delete the macro |
 
-Map a macro to several parameters and one knob morphs them together. The same
-operations are scriptable from the
+Map a macro to several parameters and one knob morphs them together. Mapping,
+renaming, removing, and Randomize are scriptable from the
 [Python](../../control-scripting/reference/python/index.md) and
 [Lisp](../../control-scripting/reference/lisp/index.md#macros-the-rack-layer)
 clients, where you can also set a narrower `[lo, hi]` safe range per mapping.
+
+**Snapshots** (variations). The strip under the header saves whole knob states:
+**+ Snapshot** captures the current positions as a slot; click a slot to recall it
+(the knobs animate back to it and the slot highlights until you move a knob).
+Right-click a slot to **Overwrite** it with the current knobs, **Rename**, or
+**Delete** it. Snapshots are saved with the project.
