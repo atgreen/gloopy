@@ -27,6 +27,10 @@ tagged release.
 - **A Randomize button in the RACK panel.** Rolls every macro on the track to a fresh random
   value at once — musical because each mapping stays inside its authored safe range. (The same
   `randomize-macros` was already scriptable; this is the desktop control.)
+- **MIDI-learn a macro.** The ⋯ menu gains **MIDI Learn** — arm it, move a hardware knob or
+  fader, and that CC now drives the macro (and through it, every param the macro maps). Macros
+  are now addressable controller/automation targets (`track/<id>/macro/<index>`), so they also
+  show up for the OSC/gRPC controller API and persist like any other mapping.
 
 ## [0.1.11] - 2026-08-02
 

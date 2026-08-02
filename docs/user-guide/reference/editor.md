@@ -68,6 +68,7 @@ The **⋯** button on each knob opens its menu:
 | **Rename…** | Give the macro a perceptual name — "Brightness", "Drive" |
 | **Map to synth ▸** | Map the macro onto a built-in synth parameter (over that parameter's range) |
 | **Map to effect ▸** | Map it onto a parameter of one of the track's insert effects |
+| **MIDI Learn** | Arm learn, then move a hardware knob/fader — that CC now drives the macro |
 | **Clear mappings** | Remove all of this macro's mappings (keep the macro) |
 | **Remove macro** | Delete the macro |
 

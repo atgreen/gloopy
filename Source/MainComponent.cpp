@@ -3971,14 +3971,18 @@ void MainComponent::showMacroMenu (int macroIndex, juce::Component* anchor)
     }
     if (synthNames.empty() && effTargets.empty()) m.addItem (9, "No mappable params on this track", false, false);
     m.addSeparator();
+    m.addItem (5, "MIDI Learn (move a controller)");
+    m.addSeparator();
     m.addItem (3, "Clear mappings");
     m.addItem (4, "Remove macro");
 
+    const int trackForMenu = rackTrack;
     m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (anchor),
-        [this, macroIndex, synthNames, effTargets] (int r)
+        [this, macroIndex, trackForMenu, synthNames, effTargets] (int r)
         {
             if (r == 0) return;
             if (r == 1) { promptRenameMacro (macroIndex); return; }
+            if (r == 5) { apiMidiLearn ("track/" + juce::String (trackForMenu) + "/macro/" + juce::String (macroIndex)); return; }
             if (r == 3) { apiClearMacroMappings (rackTrack, macroIndex); refreshRackPanel(); return; }
             if (r == 4) { apiRemoveMacro (rackTrack, macroIndex); refreshRackPanel(); return; }
             if (r >= 1000 && r < 1000 + (int) synthNames.size())

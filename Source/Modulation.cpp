@@ -135,6 +135,35 @@ void MainComponent::applyParamValue (const juce::String& id, float v)
         {
             for (auto& t : tracks) if (t->id == tid) { applySynthParam (t.get(), seg[3], v); break; }
         }
+        else if (nseg == 4 && ieq (seg[2], "macro"))    // track/<id>/macro/<index>: a rack macro (0..1)
+        {
+            const int mi = std::atoi (seg[3]);
+            for (auto& t : tracks) if (t->id == tid)
+            {
+                if (juce::isPositiveAndBelow (mi, (int) t->macros.size()))
+                {
+                    auto& mac = t->macros[(size_t) mi];
+                    mac.value = juce::jlimit (0.0f, 1.0f, v);
+                    // Re-apply the macro's mappings using only the audio-safe writes used above
+                    // (applySynthParam / effect param.set) — never the message-thread apiSetEffectParam.
+                    for (auto& mp : mac.mappings)
+                    {
+                        const float pv = mp.lo + mac.value * (mp.hi - mp.lo);
+                        if (mp.synthParam.isNotEmpty())
+                            applySynthParam (t.get(), mp.synthParam.toRawUTF8(), pv);
+                        else if (mp.insert >= 0 && mp.slot >= 0
+                                 && juce::isPositiveAndBelow (mp.insert, (int) mixerTracks.size()))
+                        {
+                            auto& fx = mixerTracks[(size_t) mp.insert]->effects;
+                            if (juce::isPositiveAndBelow (mp.slot, (int) fx.size()))
+                                for (auto& pr : fx[(size_t) mp.slot]->parameters())
+                                    if (pr.name.equalsIgnoreCase (mp.effectParam.toRawUTF8())) { pr.set (pv); break; }
+                        }
+                    }
+                }
+                break;
+            }
+        }
         else if (nseg == 4 && ieq (seg[2], "plugin"))   // track/<id>/plugin/<index>: normalised 0..1
         {
             for (auto& t : tracks)
