@@ -1466,6 +1466,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#rack-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rack tab
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2597,6 +2608,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#rack-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rack tab
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2642,6 +2664,10 @@ two views of the <em>same</em> notes. (Keyboard shortcuts are in
 <tr>
 <td><strong>DEVICES</strong></td>
 <td>Swap the pane to the selected track's effect chain</td>
+</tr>
+<tr>
+<td><strong>RACK</strong></td>
+<td>Swap the pane to the selected track's macro rack (perceptual encoders)</td>
 </tr>
 <tr>
 <td><strong>AUDITION</strong></td>
@@ -2727,6 +2753,16 @@ per-parameter <strong>rotary knobs</strong>, and <strong>Bypass</strong> / <stro
 device. The analyzer effects — <strong>Scope</strong>, <strong>Spectrum</strong>, <strong>Vectorscope</strong> — draw a
 live display instead of knobs. The same chain is editable in the full
 <a href="../mixer-strip/">Mixer</a>.</p>
+<h2 id="rack-tab">Rack tab<a class="headerlink" href="#rack-tab" title="Permanent link">&para;</a></h2>
+<p><strong>RACK</strong> shows the selected track's <strong>macros</strong> — perceptual encoders that each drive
+one or more of the track's synth/effect parameters at once. <strong>+ Macro</strong> adds one;
+turn a knob (0..1) and every parameter it drives sweeps across its safe range, so a
+single knob moves a whole sound. Under each knob is the macro's name and how many
+parameters it drives, and the knobs update live when a macro changes elsewhere (for
+example a script <code>randomize-macros</code>). Mapping a macro to parameters is done from the
+<a href="../../../control-scripting/reference/python/">Python</a> or
+<a href="../../../control-scripting/reference/lisp/#macros-the-rack-layer">Lisp</a>
+clients for now; a desktop map mode is coming.</p>
 
 
 
