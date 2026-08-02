@@ -13,6 +13,18 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-08-02
+
+### Added
+- **The macro rack now has a desktop panel — a "RACK" button in the editor toolbar.** The
+  scriptable macros added in 0.1.10 were API-only; now the selected track's macros appear in
+  the bottom area (beside the clip editor and DEVICES views) as a row of labelled encoders.
+  Click **+ Macro** to add one, and turn a knob to sweep every param it drives across that
+  param's safe range. Each knob shows the macro's name and how many params it drives, and the
+  knobs track changes made elsewhere live — e.g. run `randomize-macros` from a script and
+  watch them move. Mapping a macro to params is still done from the Python/Common Lisp clients
+  (a desktop map-mode follows); this panel is the first user-visible piece of the Sound Browser.
+
 ## [0.1.10] - 2026-08-02
 
 ### Added
@@ -276,7 +288,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.10...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.11...HEAD
+[0.1.11]: https://github.com/atgreen/gloopy/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/atgreen/gloopy/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/atgreen/gloopy/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/atgreen/gloopy/compare/v0.1.7...v0.1.8

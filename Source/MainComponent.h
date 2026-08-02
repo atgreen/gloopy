@@ -24,6 +24,7 @@
 #include "MappingsView.h"
 #include "MixerView.h"
 #include "DevicePanel.h"
+#include "RackPanel.h"
 #include "BrowserSidebar.h"
 #include "ActivityRail.h"
 #include "Effects.h"
@@ -599,6 +600,8 @@ private:
             // Swap the whole bottom area to the selected track's effect chain (owner wires onClick).
             devicesBtn.setTooltip ("Show the selected track's device chain (effects)");
             addAndMakeVisible (devicesBtn);
+            rackBtn.setTooltip ("Show the selected track's macro rack (perceptual encoders)");
+            addAndMakeVisible (rackBtn);
             addAndMakeVisible (steps);
             addChildComponent (roll);
 
@@ -675,6 +678,7 @@ private:
             auto a = getLocalBounds();
             auto h = a.removeFromTop (26).reduced (0, 3);
             devicesBtn.setBounds (h.removeFromRight (68).reduced (2, 0));
+            rackBtn.setBounds (h.removeFromRight (52).reduced (2, 0));
             pianoBtn.setBounds (h.removeFromRight (58).reduced (2, 0));
             stepBtn .setBounds (h.removeFromRight (58).reduced (2, 0));
             chordCombo.setBounds (h.removeFromRight (74).reduced (2, 0));
@@ -692,6 +696,7 @@ private:
         juce::TextButton stepBtn  { "STEPS" };
         juce::TextButton pianoBtn { "PIANO" };
         juce::TextButton devicesBtn { "DEVICES" };
+        juce::TextButton rackBtn { "RACK" };
         juce::TextButton auditionBtn { "AUDITION" };
         juce::TextButton strumBtn { "STRUM" };
         juce::TextButton legatoBtn { "LEGATO" };
@@ -783,6 +788,7 @@ private:
     void setEditorMode (int mode);
     void loadSelectedClipIntoEditor();
     void refreshDevicePanel();                          // point the device panel at the selected track's insert
+    void refreshRackPanel();                            // point the rack panel at the selected track's macros
 
     void setupMixer();
     void openMixer();
@@ -1183,11 +1189,13 @@ private:
     juce::Component::SafePointer<juce::Component> keyListenerHost;   // top-level we listen to for Tab
     EditorPanel      editorPanel { transport };
     DevicePanel      devicePanel;                    // bottom-area effect chain for the selected track
+    RackPanel        rackPanel;                       // bottom-area macro rack for the selected track
     HelpOverlay      helpOverlay;                    // '?' keyboard-shortcut overlay (covers the window)
     void             toggleHelpOverlay();
-    enum class BottomMode { Clip, Devices };
+    enum class BottomMode { Clip, Devices, Rack };
     BottomMode       bottomMode { BottomMode::Clip };
-    int              deviceTrack { -1 };             // track whose device chain the panel shows
+    int              deviceTrack { -1 };             // mixer insert whose device chain the panel shows
+    int              rackTrack { -1 };               // stable track id whose macros the rack panel shows
 
     std::unique_ptr<MixerView>            mixerView;
     std::unique_ptr<BrowserSidebar>       browser;          // collapsible left browser (templates, ...)
