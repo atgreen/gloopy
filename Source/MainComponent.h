@@ -126,6 +126,7 @@ public:
     bool apiRenameMacroSnapshot (int trackId, int snap, const juce::String& name);
     bool apiDeleteMacroSnapshot (int trackId, int snap);
     bool apiMorphToSnapshot     (int trackId, int snap, double durationMs);  // glide macros to a snapshot (0 = instant)
+    bool apiStampSnapshot       (int trackId, int snap, double beat);        // write the snapshot into every macro's automation lane at beat
     void apiSeek (double beats);
     void apiSetLoop (bool enabled, double startBeat, double endBeat);
     TransportSnap apiGetTransport();

@@ -84,8 +84,11 @@ clients, where you can also set a narrower `[lo, hi]` safe range per mapping.
 **+ Snapshot** captures the current positions as a slot; click a slot to recall it
 (the knobs animate back to it and the slot highlights until you move a knob).
 Right-click a slot to **Morph to this over** ½–8 beats (the whole rack glides smoothly
-from where it is to the snapshot), **Recall instantly**, **Overwrite** it with the
-current knobs, **Rename**, or **Delete** it. Snapshots are saved with the project.
+from where it is to the snapshot), **Recall instantly**, **Insert at playhead**, **Overwrite**
+it with the current knobs, **Rename**, or **Delete** it. Snapshots are saved with the project.
 
-To sequence snapshot changes across a song, either morph between them live, or automate
-the individual macros (**⋯ → Automate at playhead**) so the arrangement drives them.
+**Insert at playhead** stamps the snapshot into the timeline: it writes an automation
+breakpoint into *every* macro's lane at the playhead using that snapshot's values. Insert
+one snapshot at the start and another later, and playback **morphs the whole rack between
+them** as it ramps from one set of points to the next — the snapshot becomes ordinary,
+editable automation. (To drive individual macros instead, use **⋯ → Automate at playhead**.)

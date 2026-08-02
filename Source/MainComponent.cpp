@@ -1971,6 +1971,44 @@ bool MainComponent::apiDeleteMacroSnapshot (int trackId, int snap)
     });
 }
 
+// Stamp a snapshot onto the timeline: write a breakpoint into every macro's automation lane at
+// `beat` with that snapshot's stored value. Drop two snapshots at different beats and playback
+// ramps between them = the whole rack morphs. Batched as ONE undo step (not one per macro).
+bool MainComponent::apiStampSnapshot (int trackId, int snap, double beat)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (snap, (int) t->macroSnapshots.size())) return false;
+        const auto vals = t->macroSnapshots[(size_t) snap].values;
+        const int  id   = t->id;
+        const size_t n  = juce::jmin (t->macros.size(), vals.size());
+        if (n == 0) return false;
+
+        pushUndoSnapshot();
+        const juce::ScopedLock sl (engineLock);
+        for (size_t i = 0; i < n; ++i)
+        {
+            const juce::String target = "track/" + juce::String (id) + "/macro/" + juce::String ((int) i);
+            auto it = std::find_if (automationLanes.begin(), automationLanes.end(),
+                                    [&] (const AutoLaneSnap& l) { return l.target == target; });
+            if (it == automationLanes.end())
+            {
+                automationLanes.push_back ({ -1, -1, -1, {}, { { beat, vals[i] } }, target });
+                continue;
+            }
+            auto& pts = it->points;
+            auto p = std::find_if (pts.begin(), pts.end(),
+                                   [&] (const AutoPointSnap& q) { return std::abs (q.beat - beat) < 1.0e-6; });
+            if (p != pts.end()) p->value = vals[i];                 // replace the keyframe at this beat
+            else                pts.push_back ({ beat, vals[i] });
+            std::sort (pts.begin(), pts.end(),
+                       [] (const AutoPointSnap& a, const AutoPointSnap& b) { return a.beat < b.beat; });
+        }
+        return true;
+    });
+}
+
 bool MainComponent::apiMorphToSnapshot (int trackId, int snap, double durationMs)
 {
     return callOnMessageThread ([&] () -> bool
@@ -4185,6 +4223,7 @@ void MainComponent::showSnapshotMenu (int snap, juce::Component* anchor)
     juce::PopupMenu morphSub;
     for (int i = 0; i < (int) morphBeats.size(); ++i) morphSub.addItem (100 + i, morphLabels[i]);
     m.addSubMenu ("Morph to this over", morphSub);
+    m.addItem (5, "Insert at playhead (automation)");
     m.addSeparator();
     m.addItem (2, "Overwrite with current knobs");
     m.addItem (3, juce::String::fromUTF8 ("Rename\xe2\x80\xa6"));
@@ -4193,6 +4232,8 @@ void MainComponent::showSnapshotMenu (int snap, juce::Component* anchor)
         [this, snap, morphBeats] (int r)
         {
             if      (r == 1) { apiMorphToSnapshot (rackTrack, snap, 0.0); }           // instant
+            else if (r == 5) { apiStampSnapshot (rackTrack, snap, transport.getPlayheadBeats());   // stamp into macro lanes
+                               if (arrangeView) arrangeView->refreshAutomation(); }
             else if (r == 2) { apiUpdateMacroSnapshot (rackTrack, snap); refreshRackPanel(); }
             else if (r == 3) { promptRenameSnapshot (snap); }
             else if (r == 4) { apiDeleteMacroSnapshot (rackTrack, snap); refreshRackPanel(); }

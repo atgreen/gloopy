@@ -20,6 +20,10 @@ tagged release.
   delete it, and **Alt-click** a lane to add a point. Currently shows track-owned parameters
   (synth, macros, volume/pan); effect and bus/group automation lanes are coming, along with
   break-out sub-lanes, a parameter picker, and curve handles.
+- **Insert a macro snapshot into the timeline.** A snapshot slot's right-click menu gains **Insert
+  at playhead**, which stamps that snapshot's values as an automation breakpoint into every macro's
+  lane at once. Drop one snapshot early and another later and playback **morphs the whole rack
+  between them** — the snapshot becomes ordinary, editable automation.
 
 ## [0.1.12] - 2026-08-02
 
