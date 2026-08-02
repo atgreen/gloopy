@@ -13,7 +13,12 @@ tagged release.
 
 ## [Unreleased]
 
-### Added
+## [0.2.0] - 2026-08-02
+
+The **macro / rack control layer** and full **arrangement automation** — two large feature
+systems built on top of 0.1.11.
+
+### Added — arrangement automation
 - **Automation lanes on the arrangement timeline.** Parameter automation (which already played
   back but was invisible) is now a full editable surface:
     - **Visible + editable** — draws as a curve with breakpoints over each track's row; drag a
@@ -35,9 +40,7 @@ tagged release.
   lane at once. Drop one snapshot early and another later and playback **morphs the whole rack
   between them** — the snapshot becomes ordinary, editable automation.
 
-## [0.1.12] - 2026-08-02
-
-### Added
+### Added — macro rack (desktop editing)
 - **Map and name macros from the desktop — no scripting needed.** Each macro knob in the
   RACK panel now has a **⋯** menu: **Rename…** it ("Brightness", "Drive"), **Map to synth ▸**
   a built-in synth parameter or **Map to effect ▸** a parameter of one of the track's insert
@@ -343,8 +346,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.12...HEAD
-[0.1.12]: https://github.com/atgreen/gloopy/compare/v0.1.11...v0.1.12
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/atgreen/gloopy/compare/v0.1.11...v0.2.0
 [0.1.11]: https://github.com/atgreen/gloopy/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/atgreen/gloopy/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/atgreen/gloopy/compare/v0.1.8...v0.1.9
