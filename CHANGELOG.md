@@ -13,6 +13,16 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-08-01
+
+### Changed
+- **The browser list is grouped and filterable — the preset library is navigable now.**
+  Presets arrive as a few hundred flat `Group/Name` rows (`Basses/Stone`, `Brass/Brassy`,
+  …). The browser now shows them under **collapsible category headers** (click a header to
+  fold/unfold a group) with just the patch name in each row, and adds a **live filter box**
+  at the top — type to narrow the list, and matching groups open automatically. Flat
+  categories keep their simple list and gain the filter too.
+
 ## [0.1.8] - 2026-08-01
 
 ### Changed
@@ -252,7 +262,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.8...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/atgreen/gloopy/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/atgreen/gloopy/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/atgreen/gloopy/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/atgreen/gloopy/compare/v0.1.5...v0.1.6
