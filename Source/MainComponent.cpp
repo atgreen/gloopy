@@ -345,18 +345,30 @@ MainComponent::MainComponent (bool headless)
                 if (f.label == label) return f.kind + "\t" + f.ref + "\t" + f.label;
             return juce::String();
         } });
+    browser->setTabBarVisible (false);   // the activity rail selects categories now, not internal tabs
     browser->setCategories (std::move (cats));
-    addChildComponent (*browser);   // hidden until toggled
-    browseButton.setClickingTogglesState (true);
-    browseButton.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
-    browseButton.setTooltip ("Browser: templates, demos, plugins, samples & presets (toggle the left panel)");
-    browseButton.onClick = [this]
+    addChildComponent (*browser);        // hidden until a rail item is chosen
+
+    // Far-left activity rail (VS Code style): one icon per category, always visible.
+    // Clicking an icon selects that category and opens the browser; clicking the
+    // already-active icon collapses the browser. Replaces the old ☰ toggle.
+    activityRail.setItemCount (browser->numCategories(),
+                               [this] (int i) { return browser->categoryTitle (i); });
+    activityRail.onItemClicked = [this] (int i)
     {
-        browserVisible = browseButton.getToggleState();
-        if (browserVisible) browser->refresh();
+        if (browserVisible && browserActiveCat == i)
+            browserVisible = false;                    // click the active item -> collapse
+        else
+        {
+            browserActiveCat = i;
+            browserVisible   = true;
+            browser->selectCategory (i);
+            browser->refresh();
+        }
+        activityRail.setActive (browserActiveCat, browserVisible);
         resized();
     };
-    addAndMakeVisible (browseButton);
+    addAndMakeVisible (activityRail);
 
     addAndMakeVisible (mapsButton);
     mapsButton.setTooltip ("Mappings: see and remove all MIDI/OSC controller maps and LFO routes");
@@ -6002,7 +6014,6 @@ void MainComponent::resized()
 
     // Browser toggle: first control on the left, directly above where the panel
     // docks — the conventional home for a left-sidebar toggle.
-    browseButton.setBounds (bar.removeFromLeft (30)); bar.removeFromLeft (12);
 
     fileButton.setBounds (bar.removeFromLeft (52)); bar.removeFromLeft (14);   // a little room before transport
 
@@ -6039,7 +6050,8 @@ void MainComponent::resized()
     scaleNameBox .setBounds (bar.removeFromRight (128).reduced (0, 4)); bar.removeFromRight (4);
     scaleRootBox .setBounds (bar.removeFromRight (52).reduced (0, 4));
 
-    // Collapsible browser docks on the left of the main content area.
+    // Far-left activity rail (always visible), then the collapsible browser beside it.
+    activityRail.setBounds (area.removeFromLeft (ActivityRail::kWidth));
     if (browser != nullptr)
     {
         browser->setVisible (browserVisible);

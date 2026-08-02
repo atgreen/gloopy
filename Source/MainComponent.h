@@ -25,6 +25,7 @@
 #include "MixerView.h"
 #include "DevicePanel.h"
 #include "BrowserSidebar.h"
+#include "ActivityRail.h"
 #include "Effects.h"
 #include "PluginHost.h"
 #include "PluginInstrument.h"
@@ -914,7 +915,8 @@ private:
     juce::TextButton panicButton   { "Panic" };
     juce::TextButton mixerButton   { "Mixer" };
     juce::TextButton mapsButton    { "Maps" };     // see + remove all controller/LFO mappings
-    juce::TextButton browseButton  { juce::String::fromUTF8 ("\xe2\x98\xb0") };   // hamburger: toggle the left browser sidebar
+    ActivityRail     activityRail;      // far-left icon rail: selects a browser category / toggles the panel
+    int              browserActiveCat { 0 };   // category the rail last opened
     juce::ComboBox   scaleRootBox;                 // C..B    — project scale selector
     juce::ComboBox   scaleNameBox;                 // chromatic/major/minor/...
     void applyScaleFromToolbar();                  // reads both boxes -> apiSetScale

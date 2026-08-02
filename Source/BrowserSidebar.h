@@ -39,7 +39,7 @@ public:
     {
         categories = std::move (cats);
         tabButtons.clear();
-        for (int i = 0; i < (int) categories.size(); ++i)
+        for (int i = 0; showTabBar && i < (int) categories.size(); ++i)
         {
             auto b = std::make_unique<juce::TextButton> (categories[(size_t) i].title);
             b->setClickingTogglesState (true);
@@ -57,6 +57,16 @@ public:
 
     /** Repopulate the current tab (call on show / after the model changes). */
     void refresh() { populate(); }
+
+    /** Select a category from outside (e.g. an activity rail drives the tabs). */
+    void selectCategory (int i) { setActive (i); }
+    int         numCategories()      const { return (int) categories.size(); }
+    juce::String categoryTitle (int i) const
+    { return (i >= 0 && i < (int) categories.size()) ? categories[(size_t) i].title : juce::String(); }
+
+    /** Hide the built-in tab strip (when an external rail selects categories instead).
+        Call before `setCategories`. */
+    void setTabBarVisible (bool v) { showTabBar = v; }
 
     void paint (juce::Graphics& g) override
     {
@@ -100,7 +110,7 @@ public:
     }
 
     int tabRowCount()  const { return (int) tabButtons.size() > 4 ? 2 : 1; }
-    int tabBarHeight() const { return headerH * tabRowCount(); }
+    int tabBarHeight() const { return showTabBar ? headerH * tabRowCount() : 0; }
 
 private:
     void setActive (int i)
@@ -185,6 +195,7 @@ private:
     static constexpr int rowH    = 30;
 
     std::vector<Category> categories;
+    bool showTabBar { true };
     int active { 0 };
     std::vector<std::unique_ptr<juce::TextButton>> tabButtons;
 
