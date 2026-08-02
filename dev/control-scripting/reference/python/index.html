@@ -2577,6 +2577,61 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.add_macro" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_macro
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.set_macro_value" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        set_macro_value
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.map_macro_synth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        map_macro_synth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.map_macro_effect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        map_macro_effect
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.randomize_macros" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        randomize_macros
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#gloopy.client.Gloopy.rename_track" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4597,6 +4652,61 @@
     <span class="md-ellipsis">
       
         set_synth_param
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.add_macro" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_macro
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.set_macro_value" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        set_macro_value
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.map_macro_synth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        map_macro_synth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.map_macro_effect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        map_macro_effect
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.randomize_macros" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        randomize_macros
       
     </span>
   </a>
@@ -6733,6 +6843,97 @@ seam so it has no discontinuity click. interp selects the resampling interpolati
 wave osc2wave osc2detune oscmix sub · attack decay sustain release gain ·
 ftype cutoff reso fenvamt fattack fdecay fsustain frelease ·
 lfotarget lforate lfodepth.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="gloopy.client.Gloopy.add_macro" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">add_macro</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;Macro&#39;</span><span class="p">)</span></code>
+
+<a href="#gloopy.client.Gloopy.add_macro" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Add a perceptual macro (an encoder, 0..1) to a track. Returns its index.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="gloopy.client.Gloopy.set_macro_value" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">set_macro_value</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">macro</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span></code>
+
+<a href="#gloopy.client.Gloopy.set_macro_value" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Turn a macro (0..1); every mapped param sweeps across its authored [lo,hi].</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="gloopy.client.Gloopy.map_macro_synth" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">map_macro_synth</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">macro</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">lo</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">hi</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span></code>
+
+<a href="#gloopy.client.Gloopy.map_macro_synth" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Map a macro onto a built-in synth param (see set_synth_param names), swept lo..hi.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="gloopy.client.Gloopy.map_macro_effect" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">map_macro_effect</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">macro</span><span class="p">,</span> <span class="n">insert</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">lo</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">hi</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span></code>
+
+<a href="#gloopy.client.Gloopy.map_macro_effect" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Map a macro onto a mixer insert-effect param (insert/slot), swept lo..hi.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="gloopy.client.Gloopy.randomize_macros" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">randomize_macros</span><span class="p">(</span><span class="n">track_id</span><span class="p">)</span></code>
+
+<a href="#gloopy.client.Gloopy.randomize_macros" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Roll every macro on the track to a fresh random 0..1 and apply — musical because
+each mapping stays within its authored [lo,hi] safe range.</p>
 
 
     </div>
