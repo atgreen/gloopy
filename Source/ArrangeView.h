@@ -123,6 +123,8 @@ public:
     // Parameter picker: the automatable params of a track, as (label, target) — for the sub-lane menu.
     std::function<std::vector<std::pair<juce::String, juce::String>> (int trackId)> getTrackParams;
     std::function<void (int trackId, const juce::String& target)> onPickAutomationParam;   // create/focus a lane
+    std::function<void (const juce::String&, bool)>  onSetAutomationStep;    // stepped (hold) vs ramped
+    std::function<void (const juce::String&, float)> onSetAutomationCurve;   // ease -1..0..+1
 
     void paint (juce::Graphics&) override;
     void resized() override;

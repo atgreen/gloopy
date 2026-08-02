@@ -478,6 +478,10 @@ MainComponent::MainComponent (bool headless)
         apiAddAutomationPointById (target, transport.getPlayheadBeats(), v);
         if (arrangeView) arrangeView->refreshAutomation();
     };
+    arrangeView->onSetAutomationStep  = [this] (const juce::String& target, bool step)
+    { apiSetAutomationStep (target, step);  if (arrangeView) arrangeView->refreshAutomation(); };
+    arrangeView->onSetAutomationCurve = [this] (const juce::String& target, float curve)
+    { apiSetAutomationCurve (target, curve); if (arrangeView) arrangeView->refreshAutomation(); };
     arrangeView->onLoopChanged  = [this]
     {
         loopButton.setToggleState (transport.isLoopEnabled(), juce::dontSendNotification);

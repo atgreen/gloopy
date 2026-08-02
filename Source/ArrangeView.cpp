@@ -340,13 +340,22 @@ void ArrangeView::drawOneLane (juce::Graphics& g, const AutoLaneView& lane, floa
         return bot - n * (bot - top);
     };
 
+    const float expo = std::pow (2.0f, 2.0f * juce::jlimit (-1.0f, 1.0f, lane.curve));   // matches interpAuto
     juce::Path p;
     p.startNewSubPath (xL, yForVal (lane.points[0].second));   // flat lead-in
-    for (size_t i = 0; i < lane.points.size(); ++i)
+    p.lineTo (xForBeat (lane.points[0].first), yForVal (lane.points[0].second));
+    for (size_t i = 1; i < lane.points.size(); ++i)
     {
-        const float x = xForBeat (lane.points[i].first);
-        if (lane.step && i > 0) p.lineTo (x, yForVal (lane.points[i - 1].second));   // hold, then jump
-        p.lineTo (x, yForVal (lane.points[i].second));
+        const float x0 = xForBeat (lane.points[i - 1].first), v0 = lane.points[i - 1].second;
+        const float x1 = xForBeat (lane.points[i].first),     v1 = lane.points[i].second;
+        if (lane.step) { p.lineTo (x1, yForVal (v0)); p.lineTo (x1, yForVal (v1)); }        // hold, then jump
+        else if (lane.curve != 0.0f)
+            for (int s = 1; s <= 12; ++s)   // sample the eased ramp
+            {
+                const float tt = (float) s / 12.0f;
+                p.lineTo (x0 + tt * (x1 - x0), yForVal (v0 + std::pow (tt, expo) * (v1 - v0)));
+            }
+        else p.lineTo (x1, yForVal (v1));   // linear
     }
     p.lineTo (xR, yForVal (lane.points.back().second));    // hold out to the edge
 
@@ -902,6 +911,32 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 const int bTop = subTop + pickerRowH + k * laneRowH;
                 if (p.x >= headerWidth - 24 && p.x < headerWidth - 4 && p.y <= bTop + 22)   // × removes the lane
                 { if (onSetAutomation) onSetAutomation (lane.target, {}); return; }
+                if (e.mods.isPopupMenu())   // lane menu: ramp/step + curve + remove
+                {
+                    const juce::String target = lane.target; const bool step = lane.step; const float curve = lane.curve;
+                    juce::PopupMenu m;
+                    m.addItem (1, "Smooth (ramp)",  true, ! step);
+                    m.addItem (2, "Stepped (hold)", true, step);
+                    juce::PopupMenu cs;
+                    cs.addItem (10, "Linear",   true, std::abs (curve) < 0.05f);
+                    cs.addItem (11, "Ease out", true, curve < -0.05f);
+                    cs.addItem (12, "Ease in",  true, curve >  0.05f);
+                    m.addSubMenu ("Curve", cs, ! step);
+                    m.addSeparator();
+                    m.addItem (3, "Remove lane");
+                    m.showMenuAsync (juce::PopupMenu::Options().withTargetScreenArea (
+                                         { e.getScreenPosition().x, e.getScreenPosition().y, 1, 1 }),
+                        [this, target] (int r)
+                        {
+                            if      (r == 1  && onSetAutomationStep)  onSetAutomationStep  (target, false);
+                            else if (r == 2  && onSetAutomationStep)  onSetAutomationStep  (target, true);
+                            else if (r == 10 && onSetAutomationCurve) onSetAutomationCurve (target, 0.0f);
+                            else if (r == 11 && onSetAutomationCurve) onSetAutomationCurve (target, -0.6f);
+                            else if (r == 12 && onSetAutomationCurve) onSetAutomationCurve (target, 0.6f);
+                            else if (r == 3  && onSetAutomation)      onSetAutomation (target, {});
+                        });
+                    return;
+                }
                 if (e.mods.isAltDown())   // add a point to this sub-lane
                 {
                     float top, bot; laneBand (track, k, top, bot);
