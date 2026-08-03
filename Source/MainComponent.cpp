@@ -255,23 +255,21 @@ MainComponent::MainComponent (bool headless)
         {
             const auto it = browserSurgePatches.find (label);
             if (it == browserSurgePatches.end()) return;
-            const juce::String patch = it->second;
-            // Apply to the SELECTED track (swap its instrument to Surge + this patch); if nothing is
-            // selected, fall back to adding a new track (the old behaviour).
+            const juce::String patch = it->second, name = label;
+            // HOSTED Surge (the plugin) loaded with this .fxp — applied to the SELECTED track (swap
+            // in place), or a new track if nothing is selected. Plugin instantiation is on the
+            // message thread, behind the busy overlay.
             const int ti = selTrack >= 0 ? selTrack : selSessionTrack;
-            if (juce::isPositiveAndBelow (ti, (int) tracks.size()))
-                swapTrackInstrumentAsync (tracks[(size_t) ti]->id, "Loading " + label + "…",
-                    [patch] (double sr, int bs) -> std::unique_ptr<Generator>
-                    {
-                        auto g = std::make_unique<SurgeGenerator>();
-                        g->prepare (sr, bs);
-                        juce::String err;
-                        if (patch.isNotEmpty() && ! g->loadPatch (juce::File (patch), err))
-                            std::cout << "[surge] patch load: " << err << std::endl;
-                        return g;
-                    });
-            else
-                addSurgeTrackAsync (patch, label);   // no selection -> new track
+            showBusyThen ("Loading " + name + "…", [this, patch, name, ti]
+            {
+                juce::String err;
+                auto gen = buildHostedSurge (patch, err);
+                if (gen == nullptr) { std::cout << "[surge] " << err << std::endl; return; }
+                if (juce::isPositiveAndBelow (ti, (int) tracks.size()))
+                    apiSetTrackGenerator (tracks[(size_t) ti]->id, std::move (gen));
+                else
+                    addTrack (std::make_unique<Track> (name, std::move (gen), 60, paletteColour ((int) tracks.size())));
+            });
         },
         [this] (const juce::String& label)
         {
@@ -778,13 +776,15 @@ MainComponent::MainComponent (bool headless)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
         const int tid = tracks[(size_t) trackIdx]->id;
-        if (kind == 0)   // Surge XT (init patch)
+        if (kind == 0)   // Surge XT (hosted plugin, init patch)
         {
-           #ifdef GLOOPY_WITH_SURGE
-            swapTrackInstrumentAsync (tid, "Loading Surge XT…",
-                [] (double sr, int bs) -> std::unique_ptr<Generator>
-                { auto g = std::make_unique<SurgeGenerator>(); g->prepare (sr, bs); return g; });
-           #endif
+            showBusyThen ("Loading Surge XT…", [this, tid]
+            {
+                juce::String err;
+                auto gen = buildHostedSurge ({}, err);
+                if (gen != nullptr) apiSetTrackGenerator (tid, std::move (gen));
+                else std::cout << "[surge] " << err << std::endl;
+            });
         }
         else if (kind == 1)   // Basic synth
         {
@@ -2879,6 +2879,50 @@ int MainComponent::apiAddSurgeTrack (const juce::String& name, const juce::Strin
         return raw->id;
     });
    #endif
+}
+
+// Extract the raw patch chunk from a Surge .fxp. It's a VST2 "FPCh" opaque-chunk preset: a fixed
+// 60-byte header (CcnK + size + FPCh + version + fxID 'cjs3' + fxVersion + numPrograms + prgName[28]
+// + chunkSize), then the chunk. Surge's own loadPatchByPath reads exactly that chunk and loads it
+// raw — and that raw chunk is precisely what the hosted plugin's setStateInformation expects. So no
+// Surge engine is needed host-side; this is pure byte-slicing.
+static bool surgeFxpChunk (const juce::File& fxp, juce::MemoryBlock& out)
+{
+    juce::MemoryBlock raw;
+    if (! fxp.loadFileAsData (raw)) return false;
+    constexpr int header = 60;
+    if ((int) raw.getSize() <= header) return false;
+    const char* p = static_cast<const char*> (raw.getData());
+    if (std::memcmp (p, "CcnK", 4) != 0 || std::memcmp (p + 8, "FPCh", 4) != 0) return false;   // sanity
+    out.setSize (0);
+    out.append (p + header, raw.getSize() - (size_t) header);
+    return true;
+}
+
+// Build a hosted Surge XT plugin instrument, optionally with a factory .fxp patch loaded (via the
+// chunk bridge above). MUST run on the message thread (plugin instantiation). Returns null if the
+// Surge plugin isn't installed/bundled.
+std::unique_ptr<Generator> MainComponent::buildHostedSurge (const juce::String& fxpPath, juce::String& err)
+{
+    scanPlugins();
+    juce::String id;
+    for (auto& pl : apiListPlugins())
+        if (pl.isInstrument && pl.name.containsIgnoreCase ("Surge XT"))
+        { id = pl.identifier; if (pl.format == "LV2") break; }   // prefer the bundled LV2
+    if (id.isEmpty()) { err = "Surge XT plugin not found"; return nullptr; }
+    auto* desc = pluginHost.knownList.getTypeForIdentifierString (id);
+    if (desc == nullptr) { err = "Surge XT description missing"; return nullptr; }
+    auto inst = pluginHost.create (*desc, currentSampleRate, currentBlockSize, err);
+    if (inst == nullptr) return nullptr;
+    auto gen = std::make_unique<PluginInstrument> (std::move (inst));
+    if (fxpPath.isNotEmpty())
+    {
+        juce::MemoryBlock chunk;
+        if (surgeFxpChunk (juce::File (fxpPath), chunk))
+        { if (auto* proc = gen->getPluginInstance()) proc->setStateInformation (chunk.getData(), (int) chunk.getSize()); }
+        else err = "Not a Surge .fxp: " + fxpPath;
+    }
+    return gen;
 }
 
 // Swap a track's instrument in place — the clips, mixer routing, name, colour, automation all stay;
