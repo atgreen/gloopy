@@ -831,6 +831,12 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 cm.addItem (10 + i, kColours[i].first);
             m.addSubMenu ("Colour", cm);
             m.addSeparator();
+            {
+                juce::PopupMenu inst;   // swap the sound source, keeping clips/routing (patches via the Presets browser)
+                inst.addItem (30, "Surge XT");
+                inst.addItem (31, "Basic synth");
+                m.addSubMenu ("Change instrument", inst);
+            }
             m.addItem (8, "Duplicate track");                   // clone clips + generator + inserts
             m.addItem (3, "Move up",   tk > 0);
             m.addItem (4, "Move down", tk < numTracks - 1);
@@ -852,6 +858,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                 else if (r == 6) { if (onExportTrack) onExportTrack (tk); }   // export stem
                 else if (r == 7) { if (onRemoveTrack) onRemoveTrack (tk); }   // delete track
                 else if (r == 8) { if (onDuplicateTrack) onDuplicateTrack (tk); }   // clone track
+                else if (r == 30 || r == 31) { if (onChangeInstrument) onChangeInstrument (tk, r - 30); }   // swap instrument
                 else if (r == 1)
                 {
                     auto* rw = new juce::AlertWindow ("Rename track", "New track name", juce::MessageBoxIconType::NoIcon);

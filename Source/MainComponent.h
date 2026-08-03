@@ -953,6 +953,9 @@ private:
     void refreshScaleToolbar();                    // model -> both boxes (after load)
     void showAddTrackMenu();                        // + Track: Synth/Sampler/Audio/Plugin
     void showSamplerChooser();                      // one chooser for audio files AND .sfz, dispatched by ext
+    bool apiSetTrackGenerator (int trackId, std::unique_ptr<Generator> gen);   // swap a track's instrument in place
+    void swapTrackInstrumentAsync (int trackId, const juce::String& busyLabel,  // build off-thread, then swap
+                                   std::function<std::unique_ptr<Generator> (double, int)> build);
     void loadSampleFile (const juce::File&);        // audio file -> Sampler track (off-thread)
     void loadSfzFile (const juce::File&);           // .sfz -> SfizzGenerator track (off-thread)
 

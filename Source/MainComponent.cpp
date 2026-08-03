@@ -254,8 +254,24 @@ MainComponent::MainComponent (bool headless)
         [this] (const juce::String& label)
         {
             const auto it = browserSurgePatches.find (label);
-            if (it != browserSurgePatches.end())
-                addSurgeTrackAsync (it->second, label);   // runs off-thread behind the busy overlay
+            if (it == browserSurgePatches.end()) return;
+            const juce::String patch = it->second;
+            // Apply to the SELECTED track (swap its instrument to Surge + this patch); if nothing is
+            // selected, fall back to adding a new track (the old behaviour).
+            const int ti = selTrack >= 0 ? selTrack : selSessionTrack;
+            if (juce::isPositiveAndBelow (ti, (int) tracks.size()))
+                swapTrackInstrumentAsync (tracks[(size_t) ti]->id, "Loading " + label + "…",
+                    [patch] (double sr, int bs) -> std::unique_ptr<Generator>
+                    {
+                        auto g = std::make_unique<SurgeGenerator>();
+                        g->prepare (sr, bs);
+                        juce::String err;
+                        if (patch.isNotEmpty() && ! g->loadPatch (juce::File (patch), err))
+                            std::cout << "[surge] patch load: " << err << std::endl;
+                        return g;
+                    });
+            else
+                addSurgeTrackAsync (patch, label);   // no selection -> new track
         },
         [this] (const juce::String& label)
         {
@@ -754,6 +770,28 @@ MainComponent::MainComponent (bool headless)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
         apiDuplicateTrack (tracks[(size_t) trackIdx]->id);   // map view index -> stable API id
+    };
+
+    // Swap a track's instrument in place (clips/routing preserved). Patches for Surge come from the
+    // Presets browser (which now applies to the selected track).
+    arrangeView->onChangeInstrument = [this] (int trackIdx, int kind)
+    {
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+        const int tid = tracks[(size_t) trackIdx]->id;
+        if (kind == 0)   // Surge XT (init patch)
+        {
+           #ifdef GLOOPY_WITH_SURGE
+            swapTrackInstrumentAsync (tid, "Loading Surge XT…",
+                [] (double sr, int bs) -> std::unique_ptr<Generator>
+                { auto g = std::make_unique<SurgeGenerator>(); g->prepare (sr, bs); return g; });
+           #endif
+        }
+        else if (kind == 1)   // Basic synth
+        {
+            swapTrackInstrumentAsync (tid, "Basic synth",
+                [] (double sr, int bs) -> std::unique_ptr<Generator>
+                { auto g = std::make_unique<SynthGenerator>(); g->prepare (sr, bs); return g; });
+        }
     };
 
     arrangeView->onExportTrack = [this] (int trackIdx)
@@ -2841,6 +2879,41 @@ int MainComponent::apiAddSurgeTrack (const juce::String& name, const juce::Strin
         return raw->id;
     });
    #endif
+}
+
+// Swap a track's instrument in place — the clips, mixer routing, name, colour, automation all stay;
+// only the sound source changes. Build the new generator off-thread (prepare + patch load are slow),
+// then swap the pointer under the engine lock and free the old one OUTSIDE the lock (a plugin's
+// destructor can block; we don't want that stalling the audio thread).
+bool MainComponent::apiSetTrackGenerator (int trackId, std::unique_ptr<Generator> gen)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || gen == nullptr) return false;
+        pushUndoSnapshot();
+        gen->prepare (currentSampleRate, currentBlockSize);   // ensure ready (idempotent if the builder did it)
+        std::unique_ptr<Generator> old;
+        {
+            const juce::ScopedLock sl (engineLock);
+            old = std::move (t->generator);
+            t->generator = std::move (gen);
+        }
+        old.reset();   // freed here, outside the lock
+        if (arrangeView) arrangeView->rebuild();   // header may gain/lose the plugin-edit button
+        if (mixerView)   mixerView->rebuild();
+        return true;
+    });
+}
+
+void MainComponent::swapTrackInstrumentAsync (int trackId, const juce::String& busyLabel,
+                                              std::function<std::unique_ptr<Generator> (double, int)> build)
+{
+    auto slot = std::make_shared<std::unique_ptr<Generator>>();
+    const double sr = currentSampleRate; const int bs = currentBlockSize;
+    runBackground (busyLabel,
+        [slot, build, sr, bs] { *slot = build (sr, bs); },
+        [this, trackId, slot] { if (*slot) apiSetTrackGenerator (trackId, std::move (*slot)); });
 }
 
 // Build a Surge track off the message thread (constructing the synth scans its patch
