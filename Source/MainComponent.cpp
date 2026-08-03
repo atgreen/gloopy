@@ -6558,10 +6558,13 @@ void MainComponent::paint (juce::Graphics& g)
     g.setColour (Palette::lineSoft);
     g.fillRect (toolbarBounds.getX(), toolbarBounds.getBottom() - 1, toolbarBounds.getWidth(), 1);
 
-    // Brand mark — just the accent tick now (the window title already says "Gloopy"; the wordmark
-    // was redundant and ate ~90px). Kept as a minimal identity anchor at the far left.
+    // Wordmark.
     g.setColour (Palette::accent);
     g.fillRoundedRectangle (juce::Rectangle<float> (10.0f, (float) toolbarBounds.getCentreY() - 9.0f, 4.0f, 18.0f), 2.0f);
+    g.setColour (Palette::textBright);
+    g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)).withExtraKerningFactor (0.15f));
+    g.drawText ("GLOOPY", 20, toolbarBounds.getY(), 92, toolbarBounds.getHeight(),
+                juce::Justification::centredLeft, false);
 
     // Bottom status bar.
     if (! statusBarBounds.isEmpty())
@@ -6698,7 +6701,7 @@ void MainComponent::resized()
     toolbarBounds = area.removeFromTop (56);
     statusBarBounds = area.removeFromBottom (22);   // bottom status strip: project · unsaved · git · version
     auto bar = toolbarBounds.reduced (8, 9);
-    bar.removeFromLeft (22);   // small brand mark (the accent tick), no wordmark text
+    bar.removeFromLeft (104);   // wordmark
 
     // Browser toggle: first control on the left, directly above where the panel
     // docks — the conventional home for a left-sidebar toggle.
