@@ -256,20 +256,25 @@ MainComponent::MainComponent (bool headless)
             const auto it = browserSurgePatches.find (label);
             if (it == browserSurgePatches.end()) return;
             const juce::String patch = it->second, name = label;
-            // HOSTED Surge (the plugin) loaded with this .fxp — applied to the SELECTED track (swap
-            // in place), or a new track if nothing is selected. Plugin instantiation is on the
-            // message thread, behind the busy overlay.
+            // EMBEDDED Surge loaded with this .fxp via loadPatchByPath — the only path that
+            // actually loads a factory patch (the hosted plugin's setStateInformation ignores a
+            // raw .fxp chunk). Applied to the SELECTED track (swap in place), or a new track if
+            // nothing is selected. Built off the message thread (constructing the engine + loading
+            // the patch is slow) behind the busy overlay.
             const int ti = selTrack >= 0 ? selTrack : selSessionTrack;
-            showBusyThen ("Loading " + name + "…", [this, patch, name, ti]
-            {
-                juce::String err;
-                auto gen = buildHostedSurge (patch, err);
-                if (gen == nullptr) { std::cout << "[surge] " << err << std::endl; return; }
-                if (juce::isPositiveAndBelow (ti, (int) tracks.size()))
-                    apiSetTrackGenerator (tracks[(size_t) ti]->id, std::move (gen));
-                else
-                    addTrack (std::make_unique<Track> (name, std::move (gen), 60, paletteColour ((int) tracks.size())));
-            });
+            if (juce::isPositiveAndBelow (ti, (int) tracks.size()))
+                swapTrackInstrumentAsync (tracks[(size_t) ti]->id, "Loading " + name + "…",
+                    [patch] (double sr, int bs) -> std::unique_ptr<Generator>
+                    {
+                        auto g = std::make_unique<SurgeGenerator>();
+                        g->prepare (sr, bs);
+                        juce::String err;
+                        if (! g->loadPatch (juce::File (patch), err))
+                            std::cout << "[surge] patch load: " << err << std::endl;
+                        return g;
+                    });
+            else
+                addSurgeTrackAsync (patch, name);   // embedded, off-thread, new track
         },
         [this] (const juce::String& label)
         {
@@ -2910,7 +2915,7 @@ std::unique_ptr<Generator> MainComponent::buildHostedSurge (const juce::String& 
         if (pl.isInstrument && pl.name.containsIgnoreCase ("Surge XT"))
         { id = pl.identifier; if (pl.format == "LV2") break; }   // prefer the bundled LV2
     if (id.isEmpty()) { err = "Surge XT plugin not found"; return nullptr; }
-    auto* desc = pluginHost.knownList.getTypeForIdentifierString (id);
+    auto desc = pluginHost.knownList.getTypeForIdentifierString (id);
     if (desc == nullptr) { err = "Surge XT description missing"; return nullptr; }
     auto inst = pluginHost.create (*desc, currentSampleRate, currentBlockSize, err);
     if (inst == nullptr) return nullptr;
