@@ -1966,6 +1966,30 @@ bool MainComponent::apiRemoveMacro (int trackId, int macro)
         auto* t = resolveTrack (trackId);
         if (t == nullptr || ! juce::isPositiveAndBelow (macro, (int) t->macros.size())) return false;
         t->macros.erase (t->macros.begin() + macro);
+
+        // Snapshots store values index-aligned with the macros — drop the removed slot so the
+        // remaining values still line up.
+        for (auto& s : t->macroSnapshots)
+            if (macro < (int) s.values.size()) s.values.erase (s.values.begin() + macro);
+
+        // Macro automation/controller targets are index-based (track/<id>/macro/<i>): erase the
+        // removed macro's, then renumber every higher one down by one so they keep pointing at the
+        // right macro instead of silently shifting onto its neighbour.
+        const juce::String base  = "track/" + juce::String (trackId) + "/macro/";
+        const juce::String exact = base + juce::String (macro);
+        auto renumber = [&] (juce::String& target)
+        {
+            if (! target.startsWith (base)) return;
+            const int idx = target.substring (base.length()).getIntValue();
+            if (idx > macro) target = base + juce::String (idx - 1);
+        };
+        const juce::ScopedLock sl (engineLock);
+        automationLanes.erase (std::remove_if (automationLanes.begin(), automationLanes.end(),
+            [&] (const AutoLaneSnap& l) { return l.target == exact; }), automationLanes.end());
+        controllerMaps.erase (std::remove_if (controllerMaps.begin(), controllerMaps.end(),
+            [&] (const CtrlMap& c) { return c.target == exact; }), controllerMaps.end());
+        for (auto& l : automationLanes) renumber (l.target);
+        for (auto& c : controllerMaps)  renumber (c.target);
         return true;
     });
 }
@@ -4275,7 +4299,8 @@ void MainComponent::showMacroMenu (int macroIndex, juce::Component* anchor)
             }
             if (r == 7) { apiSetAutomationById (macroTgt, {}); if (arrangeView) arrangeView->refreshAutomation(); return; }
             if (r == 3) { apiClearMacroMappings (rackTrack, macroIndex); refreshRackPanel(); return; }
-            if (r == 4) { apiRemoveMacro (rackTrack, macroIndex); refreshRackPanel(); return; }
+            if (r == 4) { apiRemoveMacro (rackTrack, macroIndex); refreshRackPanel();
+                          if (arrangeView) arrangeView->refreshAutomation(); return; }   // lanes renumbered
             if (r >= 1000 && r < 1000 + (int) synthNames.size())
             {
                 const auto nm = synthNames[(size_t) (r - 1000)];

@@ -213,6 +213,8 @@ bool MainComponent::apiSetParameter (const juce::String& id, float value)
         }
         if (tok.size() == 4 && tok[2] == "synth")
             return apiSetSynthParam (tid, tok[3], value);
+        if (tok.size() == 4 && tok[2] == "macro")   // track/<id>/macro/<index>
+            return apiSetMacroValue (tid, tok[3].getIntValue(), value);
         if (tok.size() == 4 && tok[2] == "plugin")   // track/<id>/plugin/<index>
         {
             const juce::ScopedLock sl (engineLock);
@@ -235,6 +237,9 @@ bool MainComponent::apiSetParameter (const juce::String& id, float value)
         if (field == "solo")   return apiSetInsertParams (idx, false, 0, false, 0, false, false, true, on);
         return false;
     }
+
+    if (domain == "group" && tok.size() == 3 && tok[2] == "gain")   // group/<name>/gain (VCA fader)
+        return apiSetControlGroupGain (tok[1], value);
 
     if (domain == "effect" && tok.size() == 4)
         return apiSetEffectParam (tok[1].getIntValue(), tok[2].getIntValue(), tok[3], value);
