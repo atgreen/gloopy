@@ -127,72 +127,12 @@ MainComponent::MainComponent (bool headless)
             });
     };
 
-    addChildComponent (loadSampleBtn);   // hidden — reached via the + Track menu
-    loadSampleBtn.onClick = [this]
-    {
-        fileChooser = std::make_unique<juce::FileChooser> (
-            "Load a sample", juce::File(), "*.wav;*.aif;*.aiff;*.flac");
-        fileChooser->launchAsync (juce::FileBrowserComponent::openMode
-                                    | juce::FileBrowserComponent::canSelectFiles,
-            [this] (const juce::FileChooser& fc)
-            {
-                const auto file = fc.getResult();
-                if (! file.existsAsFile()) return;
-                auto slot = std::make_shared<std::unique_ptr<Sampler>>();
-                auto ok   = std::make_shared<bool> (false);
-                const double sr = currentSampleRate; const int bs = currentBlockSize;
-                runBackground ("Loading " + file.getFileNameWithoutExtension() + "…",
-                    [this, slot, ok, file, sr, bs]
-                    {
-                        auto s = std::make_unique<Sampler>();
-                        s->prepare (sr, bs);
-                        *ok = s->loadFile (file, formatManager);
-                        *slot = std::move (s);
-                    },
-                    [this, slot, ok, file]
-                    {
-                        if (*ok && *slot)
-                            addTrack (std::make_unique<Track> (file.getFileNameWithoutExtension(),
-                                          std::move (*slot), 60, paletteColour ((int) tracks.size())));
-                    });
-            });
-    };
-
-    addChildComponent (addSfzBtn);   // hidden — reached via the + Track menu
-    addSfzBtn.onClick = [this]
-    {
-        fileChooser = std::make_unique<juce::FileChooser> (
-            "Load an SFZ instrument", juce::File(), "*.sfz");
-        fileChooser->launchAsync (juce::FileBrowserComponent::openMode
-                                    | juce::FileBrowserComponent::canSelectFiles,
-            [this] (const juce::FileChooser& fc)
-            {
-                const auto file = fc.getResult();
-                if (! file.existsAsFile()) return;
-                // sfizz parsing + sample loading can take seconds — do it off the message
-                // thread behind the busy overlay, then swap the ready generator in.
-                auto slot = std::make_shared<std::unique_ptr<SfizzGenerator>>();
-                auto ok   = std::make_shared<bool> (false);
-                auto err  = std::make_shared<juce::String>();
-                const double sr = currentSampleRate; const int bs = currentBlockSize;
-                runBackground ("Loading " + file.getFileNameWithoutExtension() + "…",
-                    [slot, ok, err, file, sr, bs]
-                    {
-                        auto g = std::make_unique<SfizzGenerator>();
-                        g->prepare (sr, bs);
-                        *ok = g->loadSfz (file, *err);
-                        *slot = std::move (g);
-                    },
-                    [this, slot, ok, err]
-                    {
-                        if (*ok && *slot)
-                            addTrack (std::make_unique<Track> ((*slot)->getName(),
-                                          std::move (*slot), 60, paletteColour ((int) tracks.size())));
-                        else
-                            std::cout << "[sfz] " << *err << std::endl;
-                    });
-            });
-    };
+    // "Sample" and "SFZ" are merged into one "Sampler" (showSamplerChooser dispatches by extension);
+    // these two remain only as hidden action holders that both open the combined chooser.
+    addChildComponent (loadSampleBtn);
+    loadSampleBtn.onClick = [this] { showSamplerChooser(); };
+    addChildComponent (addSfzBtn);
+    addSfzBtn.onClick = [this] { showSamplerChooser(); };
 
     addChildComponent (addAudioBtn);   // hidden — reached via the + Track menu
     addAudioBtn.onClick = [this]
@@ -6287,16 +6227,80 @@ void MainComponent::showAddTrackMenu()
 {
     juce::PopupMenu m;
     m.addItem (1, "Synth");
-    m.addItem (2, "Sample");
-    m.addItem (3, "SFZ");
-    m.addItem (4, "Audio");
-    m.addItem (5, "Plugin");
+    m.addItem (2, "Sampler");   // a sample file or an SFZ instrument — one chooser
+    m.addItem (3, "Audio");
+    m.addItem (4, "Plugin");
     m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (addTrackBtn),
         [this] (int r)
         {
-            juce::TextButton* b = r == 1 ? &addSynthBtn : r == 2 ? &loadSampleBtn : r == 3 ? &addSfzBtn
-                                : r == 4 ? &addAudioBtn : r == 5 ? &addPluginBtn : nullptr;
-            if (b != nullptr && b->onClick) b->onClick();
+            if      (r == 1) { if (addSynthBtn.onClick)  addSynthBtn.onClick(); }
+            else if (r == 2) showSamplerChooser();
+            else if (r == 3) { if (addAudioBtn.onClick)  addAudioBtn.onClick(); }
+            else if (r == 4) { if (addPluginBtn.onClick) addPluginBtn.onClick(); }
+        });
+}
+
+// One chooser accepting audio files AND .sfz; dispatches to the right loader by extension.
+void MainComponent::showSamplerChooser()
+{
+    fileChooser = std::make_unique<juce::FileChooser> (
+        "Load a sample or SFZ instrument", juce::File(), "*.wav;*.aif;*.aiff;*.flac;*.sfz");
+    fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+        [this] (const juce::FileChooser& fc)
+        {
+            const auto file = fc.getResult();
+            if (! file.existsAsFile()) return;
+            if (file.hasFileExtension ("sfz")) loadSfzFile (file);
+            else                               loadSampleFile (file);
+        });
+}
+
+void MainComponent::loadSampleFile (const juce::File& file)
+{
+    if (! file.existsAsFile()) return;
+    auto slot = std::make_shared<std::unique_ptr<Sampler>>();
+    auto ok   = std::make_shared<bool> (false);
+    const double sr = currentSampleRate; const int bs = currentBlockSize;
+    runBackground ("Loading " + file.getFileNameWithoutExtension() + "…",
+        [this, slot, ok, file, sr, bs]
+        {
+            auto s = std::make_unique<Sampler>();
+            s->prepare (sr, bs);
+            *ok = s->loadFile (file, formatManager);
+            *slot = std::move (s);
+        },
+        [this, slot, ok, file]
+        {
+            if (*ok && *slot)
+                addTrack (std::make_unique<Track> (file.getFileNameWithoutExtension(),
+                              std::move (*slot), 60, paletteColour ((int) tracks.size())));
+        });
+}
+
+void MainComponent::loadSfzFile (const juce::File& file)
+{
+    if (! file.existsAsFile()) return;
+    // sfizz parsing + sample loading can take seconds — do it off the message thread behind the
+    // busy overlay, then swap the ready generator in.
+    auto slot = std::make_shared<std::unique_ptr<SfizzGenerator>>();
+    auto ok   = std::make_shared<bool> (false);
+    auto err  = std::make_shared<juce::String>();
+    const double sr = currentSampleRate; const int bs = currentBlockSize;
+    runBackground ("Loading " + file.getFileNameWithoutExtension() + "…",
+        [slot, ok, err, file, sr, bs]
+        {
+            auto g = std::make_unique<SfizzGenerator>();
+            g->prepare (sr, bs);
+            *ok = g->loadSfz (file, *err);
+            *slot = std::move (g);
+        },
+        [this, slot, ok, err]
+        {
+            if (*ok && *slot)
+                addTrack (std::make_unique<Track> ((*slot)->getName(),
+                              std::move (*slot), 60, paletteColour ((int) tracks.size())));
+            else
+                std::cout << "[sfz] " << *err << std::endl;
         });
 }
 

@@ -951,7 +951,10 @@ private:
     juce::ComboBox   scaleNameBox;                 // chromatic/major/minor/...
     void applyScaleFromToolbar();                  // reads both boxes -> apiSetScale
     void refreshScaleToolbar();                    // model -> both boxes (after load)
-    void showAddTrackMenu();                        // + Track: Synth/Sample/SFZ/Audio/Plugin
+    void showAddTrackMenu();                        // + Track: Synth/Sampler/Audio/Plugin
+    void showSamplerChooser();                      // one chooser for audio files AND .sfz, dispatched by ext
+    void loadSampleFile (const juce::File&);        // audio file -> Sampler track (off-thread)
+    void loadSfzFile (const juce::File&);           // .sfz -> SfizzGenerator track (off-thread)
 
     juce::OwnedArray<juce::DocumentWindow> pluginWindows;
     bool pluginsScanned { false };
