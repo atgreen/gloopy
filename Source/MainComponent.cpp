@@ -89,7 +89,7 @@ MainComponent::MainComponent (bool headless)
     posLabel.setColour (juce::Label::textColourId, Palette::accent);
 
     // ---- add tracks ----
-    addAndMakeVisible (addSynthBtn);
+    addChildComponent (addSynthBtn);   // hidden — reached via the + Track menu
     // "+ Synth" -> a small menu: Surge XT (Gloopy's featured instrument — the hosted plugin's
     // real, editable editor via the Track/Mixer "Plugin UI" button) first as the default, plus
     // the built-in lightweight Basic synth. Other instrument types have their own toolbar buttons
@@ -127,7 +127,7 @@ MainComponent::MainComponent (bool headless)
             });
     };
 
-    addAndMakeVisible (loadSampleBtn);
+    addChildComponent (loadSampleBtn);   // hidden — reached via the + Track menu
     loadSampleBtn.onClick = [this]
     {
         fileChooser = std::make_unique<juce::FileChooser> (
@@ -158,7 +158,7 @@ MainComponent::MainComponent (bool headless)
             });
     };
 
-    addAndMakeVisible (addSfzBtn);
+    addChildComponent (addSfzBtn);   // hidden — reached via the + Track menu
     addSfzBtn.onClick = [this]
     {
         fileChooser = std::make_unique<juce::FileChooser> (
@@ -194,7 +194,7 @@ MainComponent::MainComponent (bool headless)
             });
     };
 
-    addAndMakeVisible (addAudioBtn);
+    addChildComponent (addAudioBtn);   // hidden — reached via the + Track menu
     addAudioBtn.onClick = [this]
     {
         fileChooser = std::make_unique<juce::FileChooser> (
@@ -209,8 +209,13 @@ MainComponent::MainComponent (bool headless)
             });
     };
 
-    addAndMakeVisible (addPluginBtn);
+    addChildComponent (addPluginBtn);   // hidden — reached via the + Track menu
     addPluginBtn.onClick = [this] { showAddPluginMenu(); };
+
+    // One "+ Track" entry point; the five kinds live in its menu (reclaims most of the toolbar).
+    addAndMakeVisible (addTrackBtn);
+    addTrackBtn.setTooltip ("Add a track — instrument, sample, SFZ, audio, or a hosted plugin");
+    addTrackBtn.onClick = [this] { showAddTrackMenu(); };
 
     addAndMakeVisible (loopButton);
     loopButton.setClickingTogglesState (true);
@@ -228,6 +233,7 @@ MainComponent::MainComponent (bool headless)
     panicButton.onClick = [this] { apiPanic(); };
 
     addAndMakeVisible (mixerButton);
+    mixerButton.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);   // lit while Mixer view is active
     mixerButton.onClick = [this] { setViewMode (viewMode == ViewMode::Mixer ? ViewMode::Arrange : ViewMode::Mixer); };
     addChildComponent (helpOverlay);   // '?' shortcut overlay — hidden until toggled, painted over everything
     helpOverlay.onClose = [this] { helpOverlay.setVisible (false); grabKeyboardFocus(); };
@@ -5131,6 +5137,7 @@ void MainComponent::parentHierarchyChanged()
 
 void MainComponent::applyViewMode()
 {
+    mixerButton.setToggleState (viewMode == ViewMode::Mixer, juce::dontSendNotification);   // lit while active
     arrangeViewport.setVisible (viewMode == ViewMode::Arrange);
     if (sessionPane) sessionPane->setVisible (viewMode == ViewMode::Session);
     mixerViewport  .setVisible (viewMode == ViewMode::Mixer);
@@ -6274,6 +6281,25 @@ juce::PluginDescription MainComponent::resolvePluginDescription (const juce::Plu
     return fallback != nullptr ? *fallback : saved;
 }
 
+// The single "+ Track" menu — its items just fire the (now hidden) per-type buttons' actions,
+// so all the existing add logic (Surge/basic synth, sample/SFZ/audio choosers, plugin scan) is reused.
+void MainComponent::showAddTrackMenu()
+{
+    juce::PopupMenu m;
+    m.addItem (1, "Synth");
+    m.addItem (2, "Sample");
+    m.addItem (3, "SFZ");
+    m.addItem (4, "Audio");
+    m.addItem (5, "Plugin");
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (addTrackBtn),
+        [this] (int r)
+        {
+            juce::TextButton* b = r == 1 ? &addSynthBtn : r == 2 ? &loadSampleBtn : r == 3 ? &addSfzBtn
+                                : r == 4 ? &addAudioBtn : r == 5 ? &addPluginBtn : nullptr;
+            if (b != nullptr && b->onClick) b->onClick();
+        });
+}
+
 void MainComponent::showAddPluginMenu()
 {
     scanPlugins();
@@ -6532,13 +6558,10 @@ void MainComponent::paint (juce::Graphics& g)
     g.setColour (Palette::lineSoft);
     g.fillRect (toolbarBounds.getX(), toolbarBounds.getBottom() - 1, toolbarBounds.getWidth(), 1);
 
-    // Wordmark.
+    // Brand mark — just the accent tick now (the window title already says "Gloopy"; the wordmark
+    // was redundant and ate ~90px). Kept as a minimal identity anchor at the far left.
     g.setColour (Palette::accent);
     g.fillRoundedRectangle (juce::Rectangle<float> (10.0f, (float) toolbarBounds.getCentreY() - 9.0f, 4.0f, 18.0f), 2.0f);
-    g.setColour (Palette::textBright);
-    g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)).withExtraKerningFactor (0.15f));
-    g.drawText ("GLOOPY", 20, toolbarBounds.getY(), 92, toolbarBounds.getHeight(),
-                juce::Justification::centredLeft, false);
 
     // Bottom status bar.
     if (! statusBarBounds.isEmpty())
@@ -6675,7 +6698,7 @@ void MainComponent::resized()
     toolbarBounds = area.removeFromTop (56);
     statusBarBounds = area.removeFromBottom (22);   // bottom status strip: project · unsaved · git · version
     auto bar = toolbarBounds.reduced (8, 9);
-    bar.removeFromLeft (104);   // wordmark
+    bar.removeFromLeft (22);   // small brand mark (the accent tick), no wordmark text
 
     // Browser toggle: first control on the left, directly above where the panel
     // docks — the conventional home for a left-sidebar toggle.
@@ -6702,11 +6725,7 @@ void MainComponent::resized()
     }
     bar.removeFromLeft (14);
 
-    addSynthBtn  .setBounds (bar.removeFromLeft (64)); bar.removeFromLeft (5);
-    loadSampleBtn.setBounds (bar.removeFromLeft (74)); bar.removeFromLeft (5);
-    addSfzBtn    .setBounds (bar.removeFromLeft (56)); bar.removeFromLeft (5);
-    addAudioBtn  .setBounds (bar.removeFromLeft (68)); bar.removeFromLeft (5);
-    addPluginBtn .setBounds (bar.removeFromLeft (72));
+    addTrackBtn  .setBounds (bar.removeFromLeft (84));   // one button; the five kinds are in its menu
     mixerButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (6);
     mapsButton   .setBounds (bar.removeFromRight (52)); bar.removeFromRight (6);
     loopButton   .setBounds (bar.removeFromRight (54)); bar.removeFromRight (6);

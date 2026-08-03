@@ -934,6 +934,7 @@ private:
     juce::Slider     bpmSlider;
     juce::Label      bpmLabel { {}, "BPM" };
     juce::Label      posLabel;
+    juce::TextButton addTrackBtn   { "+ Track" };   // one entry point; the five below are its menu items
     juce::TextButton addSynthBtn   { "+ Synth" };
     juce::TextButton loadSampleBtn { "+ Sample" };
     juce::TextButton addSfzBtn     { "+ SFZ" };
@@ -950,6 +951,7 @@ private:
     juce::ComboBox   scaleNameBox;                 // chromatic/major/minor/...
     void applyScaleFromToolbar();                  // reads both boxes -> apiSetScale
     void refreshScaleToolbar();                    // model -> both boxes (after load)
+    void showAddTrackMenu();                        // + Track: Synth/Sample/SFZ/Audio/Plugin
 
     juce::OwnedArray<juce::DocumentWindow> pluginWindows;
     bool pluginsScanned { false };
