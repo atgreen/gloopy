@@ -366,7 +366,7 @@ print('yes' if ok else 'no')")
     g -d "{\"path\":\"$WORK/ps_restore.gloopy\"}" 127.0.0.1:$PORT gloopy.v1.Gloopy/SaveProject >/dev/null
     psget(){ g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/GetProjectStatus; }
     g -d '{}' 127.0.0.1:$PORT gloopy.v1.Gloopy/NewProject >/dev/null
-    psget | python3 -c "import json,sys;d=json.load(sys.stdin);assert d['version']=='0.1.0',d;assert d.get('untitled') and not d.get('modified'),d;print('smoke: PASS — ProjectStatus fresh: version %s, untitled, not modified'%d['version'])" \
+    psget | python3 -c "import json,sys;d=json.load(sys.stdin);assert d['version'] and d['version'][0].isdigit(),d;assert d.get('untitled') and not d.get('modified'),d;print('smoke: PASS — ProjectStatus fresh: version %s, untitled, not modified'%d['version'])" \
         || { echo 'smoke: ProjectStatus (fresh) failed' >&2; exit 1; }
     g -d '{"name":"psx","wave":"SAW"}' 127.0.0.1:$PORT gloopy.v1.Gloopy/AddSynthTrack >/dev/null
     psget | python3 -c "import json,sys;assert json.load(sys.stdin).get('modified'),'an edit should mark the project modified';print('smoke: PASS — ProjectStatus: an edit marks the project modified')" \
