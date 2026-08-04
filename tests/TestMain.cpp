@@ -29,6 +29,7 @@
 #include "Toml.h"
 #include "TimeTypes.h"
 #include "Rational.h"
+#include "Transport.h"
 #include "HydrogenKit.h"
 #include <type_traits>
 #include <cstring>
@@ -1721,6 +1722,36 @@ struct RationalTests : juce::UnitTest
     }
 };
 
+//==============================================================================
+// Time signatures on StaticRatio: 3/4 and 6/8 are the same bar length but a
+// different signature — the notation must not collapse.
+struct TimeSignatureTests : juce::UnitTest
+{
+    TimeSignatureTests() : juce::UnitTest ("TimeSignature") {}
+
+    void runTest() override
+    {
+        using gloopy::time::StaticRatio;
+        beginTest ("3/4 vs 6/8: same beats-per-bar, distinct notation");
+        {
+            Transport t;
+            t.setTimeSignature (StaticRatio { 3, 4 });
+            expect (t.timeSignature().sameNotation ({ 3, 4 }));
+            expectWithinAbsoluteError (t.beatsPerBar(), 3.0, 1e-9);
+
+            t.setTimeSignature (StaticRatio { 6, 8 });
+            const auto ts = t.timeSignature();
+            expect (ts.num == 6 && ts.den == 8);                    // NOT reduced to 3/4
+            expect (! ts.sameNotation ({ 3, 4 }));                  // distinct signature…
+            expectWithinAbsoluteError (t.beatsPerBar(), 3.0, 1e-9); // …same bar length (3 quarters)
+
+            t.setTimeSignature (StaticRatio { 7, 8 });
+            expectWithinAbsoluteError (t.beatsPerBar(), 3.5, 1e-9);
+        }
+    }
+};
+
+static TimeSignatureTests timeSignatureTests;
 static RationalTests     rationalTests;
 static HydrogenKitTests  hydrogenKitTests;
 static FadeShapeTests    fadeShapeTests;

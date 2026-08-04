@@ -7,6 +7,7 @@
 #include <atomic>
 #include <cmath>
 #include "TimeTypes.h"
+#include "Rational.h"
 
 /** Owns the musical clock: tempo, loop length, play state and the playhead.
     All fields are atomic so the GUI thread can read/write them while the audio
@@ -37,6 +38,18 @@ public:
     }
     int    getTimeSigNumerator()   const noexcept { return timeSigNum.load(); }
     int    getTimeSigDenominator() const noexcept { return timeSigDenom.load(); }
+
+    // The time signature as a notational ratio. 3/4 and 6/8 have the same beatsPerBar (3) but are
+    // a DIFFERENT signature — StaticRatio is never reduced, so it keeps them distinct (unlike a
+    // plain number). Backed by the two atomics, so the audio thread still reads it lock-free.
+    gloopy::time::StaticRatio timeSignature() const noexcept
+    {
+        return { timeSigNum.load(), timeSigDenom.load() };
+    }
+    void setTimeSignature (gloopy::time::StaticRatio ts) noexcept
+    {
+        setTimeSignature ((int) ts.num, (int) ts.den);
+    }
     double beatsPerBar() const noexcept
     {
         return (double) timeSigNum.load() * 4.0 / (double) juce::jmax (1, timeSigDenom.load());
