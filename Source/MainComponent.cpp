@@ -4122,10 +4122,13 @@ juce::File MainComponent::demosDir() const
 {
     auto base = juce::SystemStats::getEnvironmentVariable ("GLOOPY_EXAMPLES_PATH", {});
     if (base.isNotEmpty()) return juce::File (base);
+    const auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
     const juce::File cands[] = {
         juce::File::getCurrentWorkingDirectory().getChildFile ("examples"),
-        juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory().getChildFile ("examples"),
-        juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory().getParentDirectory().getChildFile ("examples"),
+        exeDir.getChildFile ("examples"),
+        exeDir.getParentDirectory().getChildFile ("examples"),
+        // Installed FHS layout: <prefix>/share/gloopy/examples (the exe lives at <prefix>/bin).
+        exeDir.getParentDirectory().getChildFile ("share").getChildFile ("gloopy").getChildFile ("examples"),
     };
     for (auto& c : cands) if (c.isDirectory()) return c;
     return cands[0];
