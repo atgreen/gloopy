@@ -1145,8 +1145,8 @@ namespace
             for (auto& n : main.apiGetClipNotes (q->track_id(), q->index()))
             {
                 auto* o = r->add_notes();
-                o->set_pitch (n.pitch); o->set_start_beat (n.startBeat);
-                o->set_length_beats (n.lengthBeats); o->set_velocity (n.velocity);
+                o->set_pitch (n.pitch); o->set_start_beat (n.startBeat.toBeats());
+                o->set_length_beats (n.lengthBeats.toBeats()); o->set_velocity (n.velocity);
                 o->set_probability (n.probability);
             }
             return Status::OK;

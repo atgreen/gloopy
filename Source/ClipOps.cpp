@@ -254,7 +254,7 @@ bool MainComponent::apiReverseClip (int trackId, int index)
                 // Mirror each note within the clip's content window.
                 const double span = c.contentLenBeats > 0.0 ? c.contentLenBeats : c.lengthBeats;
                 for (auto& n : c.notes)
-                    n.startBeat = juce::jmax (0.0, span - (n.startBeat + n.lengthBeats));
+                    n.startBeat = juce::jmax (0.0, span - (n.startBeat + n.lengthBeats).toBeats());
             }
             ok = true;
         }
@@ -320,12 +320,12 @@ bool MainComponent::apiCropClip (int trackId, int index, double startBeat, doubl
                 std::vector<Note> kept;
                 for (auto& n : c.notes)
                 {
-                    const double onsetRel = n.startBeat - head;
-                    const double endRel   = onsetRel + n.lengthBeats;
+                    const double onsetRel = n.startBeat.toBeats() - head;
+                    const double endRel   = onsetRel + n.lengthBeats.toBeats();
                     if (endRel <= 0.0 || onsetRel >= newLen) continue;   // note doesn't sound in the window
                     Note nn = n;
                     nn.startBeat   = juce::jmax (0.0, onsetRel);
-                    nn.lengthBeats = juce::jmax (0.0625, juce::jmin (newLen, endRel) - nn.startBeat);
+                    nn.lengthBeats = juce::jmax (0.0625, juce::jmin (newLen, endRel) - nn.startBeat.toBeats());
                     kept.push_back (nn);
                 }
                 c.notes           = std::move (kept);
@@ -390,11 +390,11 @@ bool MainComponent::apiConsolidateClip (int trackId, int index)
                 for (double off = 0.0; off < c.lengthBeats - 1.0e-9; off += content)
                     for (auto& n : c.notes)
                     {
-                        const double onset = off + n.startBeat;
+                        const double onset = off + n.startBeat.toBeats();
                         if (onset >= c.lengthBeats - 1.0e-9) continue;   // starts at/after the clip end
                         Note nn = n;
                         nn.startBeat   = onset;
-                        nn.lengthBeats = juce::jmin (n.lengthBeats, c.lengthBeats - onset);   // don't ring past the clip
+                        nn.lengthBeats = juce::jmin (n.lengthBeats.toBeats(), c.lengthBeats - onset);   // don't ring past the clip
                         flat.push_back (nn);
                     }
                 c.notes = std::move (flat);
@@ -750,7 +750,7 @@ int MainComponent::apiImportClipNotesJson (int trackId, double startBeat, const 
     const auto notes = notesFromJson (json);
     if (notes.empty()) return -1;
     double len = 0.0;
-    for (const auto& n : notes) len = juce::jmax (len, n.startBeat + n.lengthBeats);
+    for (const auto& n : notes) len = juce::jmax (len, (n.startBeat + n.lengthBeats).toBeats());
     if (len <= 0.0) len = 1.0;
     return apiAddClip (trackId, startBeat, len, len, false, notes, "pasted");
 }

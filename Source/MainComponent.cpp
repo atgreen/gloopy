@@ -1687,7 +1687,7 @@ void MainComponent::finalizeRecording()
 
     pushUndoSnapshot();
     double maxEnd = 0.0;
-    for (auto& n : notes) maxEnd = juce::jmax (maxEnd, n.startBeat + n.lengthBeats);
+    for (auto& n : notes) maxEnd = juce::jmax (maxEnd, (n.startBeat + n.lengthBeats).toBeats());
 
     if (srScene >= 0 && juce::isPositiveAndBelow (srTrack, (int) tracks.size()))
     {
@@ -3301,8 +3301,8 @@ bool MainComponent::apiStartDriver (int trackId, int index, const juce::String& 
                 lastPh = ph;
                 for (size_t i = 0; i < notes.size(); ++i)
                 {
-                    const double onB  = clipStart + notes[i].startBeat;
-                    const double offB = onB + notes[i].lengthBeats;
+                    const double onB  = clipStart + notes[i].startBeat.toBeats();
+                    const double offB = onB + notes[i].lengthBeats.toBeats();
                     if (! on[i] && ph >= onB)
                     { on[i] = 1; drivenTrack->liveMidi.addMessageToQueue (juce::MidiMessage::noteOn (1, notes[i].pitch,
                           (juce::uint8) juce::jlimit (1, 127, (int) (notes[i].velocity * 127.0f)))); }
@@ -4630,7 +4630,7 @@ void MainComponent::loadSelectedClipIntoEditor()
                             if (gc.isAudio()) continue;
                             for (const auto& gn : gc.notes)
                             {
-                                const double rel = (gc.startBeat + gn.startBeat) - selStart;
+                                const double rel = (gc.startBeat + gn.startBeat.toBeats()) - selStart;
                                 if (rel >= 0.0 && rel < contentLen)
                                     ghosts.push_back ({ gn.pitch, rel, gn.lengthBeats, gn.velocity });
                             }
@@ -7717,8 +7717,8 @@ juce::ValueTree MainComponent::clipToTree (const Clip& c, const juce::Identifier
         {
             juce::ValueTree nt ("NOTE");
             nt.setProperty ("pitch", n.pitch, nullptr);
-            nt.setProperty ("start", n.startBeat, nullptr);
-            nt.setProperty ("nlen", n.lengthBeats, nullptr);
+            nt.setProperty ("start", n.startBeat.toBeats(), nullptr);
+            nt.setProperty ("nlen", n.lengthBeats.toBeats(), nullptr);
             nt.setProperty ("vel", n.velocity, nullptr);
             if (n.probability < 1.0f) nt.setProperty ("prob", n.probability, nullptr);
             cl.addChild (nt, -1, nullptr);

@@ -206,8 +206,8 @@ int PianoRoll::velNoteAt (float x) const
     for (int i = 0; i < (int) notes.size(); ++i)
     {
         const auto& n = notes[(size_t) i];
-        const float x0 = xForBeat (n.startBeat);
-        const float x1 = xForBeat (n.startBeat + n.lengthBeats);
+        const float x0 = xForBeat (n.startBeat.toBeats());
+        const float x1 = xForBeat ((n.startBeat + n.lengthBeats).toBeats());
         if (x >= x0 && x <= x1) return i;              // inside a note's span → exact
         const float d = juce::jmin (std::abs (x - x0), std::abs (x - x1));
         if (d < bestDist) { bestDist = d; best = i; }
@@ -239,7 +239,7 @@ void PianoRoll::applyVelRamp (juce::Point<float> a, juce::Point<float> b)
     const float span = juce::jmax (1.0f, x1 - x0);
     for (auto& n : notes)
     {
-        const float nx = xForBeat (n.startBeat);
+        const float nx = xForBeat (n.startBeat.toBeats());
         if (nx < x0 - 1.0f || nx > x1 + 1.0f) continue;
         const float f = juce::jlimit (0.0f, 1.0f, (nx - x0) / span);
         n.velocity = juce::jlimit (0.05f, 1.0f, v0 + (v1 - v0) * f);
@@ -252,9 +252,9 @@ int PianoRoll::noteIndexAt (juce::Point<float> p) const
     for (int i = (int) notes.size(); --i >= 0;)
     {
         const auto& n = notes[(size_t) i];
-        juce::Rectangle<float> r (xForBeat (n.startBeat),
+        juce::Rectangle<float> r (xForBeat (n.startBeat.toBeats()),
                                   yForPitch (n.pitch),
-                                  xForBeat (n.startBeat + n.lengthBeats) - xForBeat (n.startBeat),
+                                  xForBeat ((n.startBeat + n.lengthBeats).toBeats()) - xForBeat (n.startBeat.toBeats()),
                                   (float) rowHeight());
         if (r.contains (p))
             return i;
@@ -315,8 +315,8 @@ void PianoRoll::paint (juce::Graphics& g)
     // Ghost notes (other tracks' notes in this time range) — dim, behind the real notes.
     for (const auto& n : ghostNotes)
     {
-        auto r = juce::Rectangle<float> (xForBeat (n.startBeat), yForPitch (n.pitch),
-                                         xForBeat (n.startBeat + n.lengthBeats) - xForBeat (n.startBeat), rh)
+        auto r = juce::Rectangle<float> (xForBeat (n.startBeat.toBeats()), yForPitch (n.pitch),
+                                         xForBeat ((n.startBeat + n.lengthBeats).toBeats()) - xForBeat (n.startBeat.toBeats()), rh)
                      .reduced (0.5f);
         g.setColour (juce::Colours::white.withAlpha (0.13f));
         g.fillRoundedRectangle (r, 2.0f);
@@ -326,9 +326,9 @@ void PianoRoll::paint (juce::Graphics& g)
     for (int i = 0; i < (int) notes.size(); ++i)
     {
         const auto& n = notes[(size_t) i];
-        juce::Rectangle<float> r (xForBeat (n.startBeat),
+        juce::Rectangle<float> r (xForBeat (n.startBeat.toBeats()),
                                   yForPitch (n.pitch),
-                                  xForBeat (n.startBeat + n.lengthBeats) - xForBeat (n.startBeat),
+                                  xForBeat ((n.startBeat + n.lengthBeats).toBeats()) - xForBeat (n.startBeat.toBeats()),
                                   rh);
         r = r.reduced (0.5f);
 
@@ -367,7 +367,7 @@ void PianoRoll::paint (juce::Graphics& g)
         for (int i = 0; i < (int) notes.size(); ++i)
         {
             const auto& n = notes[(size_t) i];
-            const float x = xForBeat (n.startBeat);
+            const float x = xForBeat (n.startBeat.toBeats());
             const float bh = (barBot - barTop) * juce::jlimit (0.0f, 1.0f, n.velocity);
             juce::Rectangle<float> bar (x + 1.0f, barBot - bh, 4.0f, bh);
             g.setColour (i == selectedNote ? Palette::accent.brighter (0.25f)
@@ -545,7 +545,7 @@ void PianoRoll::mouseDown (const juce::MouseEvent& e)
     {
         activeNote = selectedNote = hit;
         const auto& n = notes[(size_t) hit];
-        const float rightX = xForBeat (n.startBeat + n.lengthBeats);
+        const float rightX = xForBeat ((n.startBeat + n.lengthBeats).toBeats());
 
         if (std::abs (p.x - rightX) <= 5.0f)
         {
@@ -555,13 +555,13 @@ void PianoRoll::mouseDown (const juce::MouseEvent& e)
         else
         {
             drag = Drag::move;
-            dragBeatOffset  = beatForX (p.x) - n.startBeat;
+            dragBeatOffset  = beatForX (p.x) - n.startBeat.toBeats();
             dragPitchOffset = pitchForY (p.y) - n.pitch;
             if (! selection.count (hit)) { selection.clear(); selection.insert (hit); }  // clicked outside selection → select just this
             dragOrigins.clear();                        // snapshot the group for a rigid move
             for (int idx : selection)
                 if (idx >= 0 && idx < (int) notes.size())
-                    dragOrigins.emplace_back (idx, notes[(size_t) idx].startBeat, notes[(size_t) idx].pitch);
+                    dragOrigins.emplace_back (idx, notes[(size_t) idx].startBeat.toBeats(), notes[(size_t) idx].pitch);
             startAudition (n.pitch, n.velocity);   // hear the note you grabbed
         }
     }
@@ -649,11 +649,11 @@ void PianoRoll::mouseDrag (const juce::MouseEvent& e)
     if (drag == Drag::move)
     {
         // Compute the active note's snapped delta, then move the whole selected group rigidly.
-        double origActiveStart = n.startBeat; int origActivePitch = n.pitch;
+        double origActiveStart = n.startBeat.toBeats(); int origActivePitch = n.pitch;
         for (auto& o : dragOrigins) if (std::get<0> (o) == activeNote)
             { origActiveStart = std::get<1> (o); origActivePitch = std::get<2> (o); }
 
-        const double newStart = juce::jlimit (0.0, (double) loopBeats - n.lengthBeats,
+        const double newStart = juce::jlimit (0.0, (double) loopBeats - n.lengthBeats.toBeats(),
                                               snapBeat (beatForX (p.x) - dragBeatOffset));
         const int    newPitch = snapPitchToScaleRoll (juce::jlimit (pitchLow, pitchHigh,
                                                                     pitchForY (p.y) - dragPitchOffset));
@@ -669,16 +669,16 @@ void PianoRoll::mouseDrag (const juce::MouseEvent& e)
             const int idx = std::get<0> (o);
             if (idx < 0 || idx >= (int) notes.size()) continue;
             auto& m = notes[(size_t) idx];
-            m.startBeat = juce::jlimit (0.0, (double) loopBeats - m.lengthBeats, std::get<1> (o) + dBeat);
+            m.startBeat = juce::jlimit (0.0, (double) loopBeats - m.lengthBeats.toBeats(), std::get<1> (o) + dBeat);
             m.pitch     = juce::jlimit (pitchLow, pitchHigh, std::get<2> (o) + dPitch);
         }
         startAudition (n.pitch, n.velocity);   // re-trigger as the note is dragged in pitch
     }
     else if (drag == Drag::resize)
     {
-        const double end = juce::jlimit (n.startBeat + gridSnap, (double) loopBeats,
+        const double end = juce::jlimit (n.startBeat.toBeats() + gridSnap, (double) loopBeats,
                                          snapBeat (beatForX (p.x)));
-        n.lengthBeats = end - n.startBeat;
+        n.lengthBeats = end - n.startBeat.toBeats();
     }
 
     if (onNotesChanged) onNotesChanged();
@@ -694,8 +694,8 @@ void PianoRoll::mouseUp (const juce::MouseEvent&)
         for (int i = 0; i < (int) notes.size(); ++i)
         {
             const auto& n = notes[(size_t) i];
-            juce::Rectangle<float> r (xForBeat (n.startBeat), yForPitch (n.pitch),
-                                      xForBeat (n.startBeat + n.lengthBeats) - xForBeat (n.startBeat), rh);
+            juce::Rectangle<float> r (xForBeat (n.startBeat.toBeats()), yForPitch (n.pitch),
+                                      xForBeat ((n.startBeat + n.lengthBeats).toBeats()) - xForBeat (n.startBeat.toBeats()), rh);
             if (marqueeRect.intersects (r)) selection.insert (i);
         }
         marqueeing = false;

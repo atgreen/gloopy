@@ -107,10 +107,10 @@ inline void collectNotes (const std::vector<Note>& notes, juce::MidiBuffer& midi
 {
     for (const auto& n : notes)
     {
-        if (! noteFires (n.pitch, n.startBeat, repStartBeat, n.probability)) continue;   // generative gate
-        const double startSw = swingBeat (n.startBeat, swing);
+        if (! noteFires (n.pitch, n.startBeat.toBeats(), repStartBeat, n.probability)) continue;   // generative gate
+        const double startSw = swingBeat (n.startBeat.toBeats(), swing);
         const juce::int64 on  = tc.beatToSample (repStartBeat + startSw);
-        const juce::int64 off = tc.beatToSample (repStartBeat + startSw + n.lengthBeats);
+        const juce::int64 off = tc.beatToSample (repStartBeat + startSw + n.lengthBeats.toBeats());
         const int pitch = juce::jlimit (0, 127, n.pitch + transpose);   // non-destructive clip transpose
         const float vel = juce::jlimit (0.0f, 1.0f, n.velocity * velocityScale);   // non-destructive clip velocity scale
 

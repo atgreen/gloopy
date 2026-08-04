@@ -414,8 +414,8 @@ void ArrangeView::drawClip (juce::Graphics& g, const Track& t, const Clip& c,
         {
             for (auto& n : c.notes)
             {
-                const float nx = (float) (repX + (n.startBeat / c.contentLenBeats) * repW);
-                const float nw = juce::jmax (2.0f, (float) ((n.lengthBeats / c.contentLenBeats) * repW));
+                const float nx = (float) (repX + (n.startBeat.toBeats() / c.contentLenBeats) * repW);
+                const float nw = juce::jmax (2.0f, (float) ((n.lengthBeats.toBeats() / c.contentLenBeats) * repW));
                 const float ny = notesArea.getBottom() - ((n.pitch - lo) / span) * notesArea.getHeight();
                 g.fillRect (juce::jlimit (r.getX(), r.getRight() - 1.0f, nx), ny - 1.5f,
                             juce::jmin (nw, r.getRight() - nx), 2.2f);

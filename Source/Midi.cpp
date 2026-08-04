@@ -70,15 +70,15 @@ bool MainComponent::apiExportMidi (const juce::String& path)
                         for (double off = 0.0; off < c.lengthBeats - 1.0e-6; off += c.contentLenBeats)
                             for (auto& n : c.notes)
                             {
-                                const double localOn = off + n.startBeat;
+                                const double localOn = off + n.startBeat.toBeats();
                                 if (localOn >= c.lengthBeats - 1.0e-6) continue;   // starts at/after the clip end
                                 emit (c.startBeat + localOn, n.pitch, n.velocity,
-                                      juce::jmin (n.lengthBeats, c.lengthBeats - localOn));
+                                      juce::jmin (n.lengthBeats.toBeats(), c.lengthBeats - localOn));
                             }
                     }
                     else
                         for (auto& n : c.notes)
-                            emit (c.startBeat + n.startBeat, n.pitch, n.velocity, n.lengthBeats);
+                            emit (c.startBeat + n.startBeat.toBeats(), n.pitch, n.velocity, n.lengthBeats.toBeats());
                 }
                 seq.updateMatchedPairs();
                 mf.addTrack (seq);
