@@ -17,13 +17,13 @@ struct Clip
 {
     ClipType     type { ClipType::Midi };
     juce::String name;
-    double startBeat   { 0.0 };
-    double lengthBeats { 4.0 };
+    gloopy::time::BeatRatio startBeat   {};      // timeline position (beats), exact
+    gloopy::time::BeatRatio lengthBeats { 4, 1 }; // length on the timeline (beats), exact
 
     // MIDI content.
     std::vector<Note> notes;
     std::vector<Note> arpNotes;    // transient: live-arp expansion of `notes`, played when the track's arp is on
-    double contentLenBeats { 4.0 };
+    gloopy::time::BeatRatio contentLenBeats { 4, 1 };   // loop-content window (beats), exact
     bool   looped          { true };
     int    transpose       { 0 };    // non-destructive playback pitch offset (semitones)
     float  velocityScale   { 1.0f };  // non-destructive playback velocity multiplier (0..2)
@@ -59,7 +59,7 @@ struct Clip
 
     bool   muted { false };      // take-lane: inactive alternate takes are muted
     juce::Colour colour;         // per-clip colour override; ARGB 0 (default) = inherit the track colour
-    double endBeat() const noexcept { return startBeat + lengthBeats; }
+    double endBeat() const noexcept { return (startBeat + lengthBeats).toBeats(); }
     bool   isAudio() const noexcept { return type == ClipType::Audio; }
 };
 

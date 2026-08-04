@@ -725,9 +725,9 @@ MainComponent::MainComponent (bool headless)
               auto& cl = tracks[(size_t) trackIdx]->clips;
               if (juce::isPositiveAndBelow (clip, (int) cl.size()))
               {
-                  const double anchor = cl[(size_t) clip].startBeat;
+                  const double anchor = cl[(size_t) clip].startBeat.toBeats();
                   for (auto& c : cl)
-                      if (c.takeId.isNotEmpty() && std::abs (c.startBeat - anchor) < 1e-6)
+                      if (c.takeId.isNotEmpty() && std::abs (c.startBeat.toBeats() - anchor) < 1e-6)
                           c.muted = (&c != &cl[(size_t) clip]);
               } }
             emitChange ("clip_changed", id);
@@ -1687,7 +1687,7 @@ void MainComponent::finalizeRecording()
 
     pushUndoSnapshot();
     double maxEnd = 0.0;
-    for (auto& n : notes) maxEnd = juce::jmax (maxEnd, n.startBeat + n.lengthBeats);
+    for (auto& n : notes) maxEnd = juce::jmax (maxEnd, (n.startBeat + n.lengthBeats).toBeats());
 
     if (srScene >= 0 && juce::isPositiveAndBelow (srTrack, (int) tracks.size()))
     {
@@ -1696,7 +1696,7 @@ void MainComponent::finalizeRecording()
         Clip c;
         c.name = "Rec";
         c.contentLenBeats = juce::jmax (bar, std::ceil (maxEnd / bar) * bar);
-        c.lengthBeats = c.contentLenBeats;
+        c.lengthBeats = c.contentLenBeats.toBeats();
         c.looped = true;
         c.notes = std::move (notes);
         {
@@ -3277,8 +3277,8 @@ bool MainComponent::apiStartDriver (int trackId, int index, const juce::String& 
         if (t == nullptr) return false;
         const juce::ScopedLock sl (engineLock);
         if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
-        p.clipLenBeats = t->clips[(size_t) index].contentLenBeats;
-        clipStart      = t->clips[(size_t) index].startBeat;
+        p.clipLenBeats = t->clips[(size_t) index].contentLenBeats.toBeats();
+        clipStart      = t->clips[(size_t) index].startBeat.toBeats();
         drivenTrack    = t;
         return true;
     });
@@ -3301,8 +3301,8 @@ bool MainComponent::apiStartDriver (int trackId, int index, const juce::String& 
                 lastPh = ph;
                 for (size_t i = 0; i < notes.size(); ++i)
                 {
-                    const double onB  = clipStart + notes[i].startBeat;
-                    const double offB = onB + notes[i].lengthBeats;
+                    const double onB  = clipStart + notes[i].startBeat.toBeats();
+                    const double offB = onB + notes[i].lengthBeats.toBeats();
                     if (! on[i] && ph >= onB)
                     { on[i] = 1; drivenTrack->liveMidi.addMessageToQueue (juce::MidiMessage::noteOn (1, notes[i].pitch,
                           (juce::uint8) juce::jlimit (1, 127, (int) (notes[i].velocity * 127.0f)))); }
@@ -3336,7 +3336,7 @@ bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::Strin
         if (t == nullptr) return false;
         const juce::ScopedLock sl (engineLock);
         if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
-        p.clipLenBeats = t->clips[(size_t) index].contentLenBeats;
+        p.clipLenBeats = t->clips[(size_t) index].contentLenBeats.toBeats();
         return true;
     });
     if (! found) { error = "regenerate: no such clip"; return false; }
@@ -3652,7 +3652,7 @@ void MainComponent::autoRegenScriptClip (int trackId, int clipIndex)
         p.source = resolveScriptFile (c.scriptSource).getFullPathName(); p.trackId = trackId; p.clipIndex = clipIndex; p.seed = c.scriptSeed;
         p.generator = c.scriptGenerator; p.system = c.scriptSystem;
         p.lang = c.scriptLang.isNotEmpty() ? c.scriptLang : juce::String ("common-lisp");
-        p.clipLenBeats = c.contentLenBeats;
+        p.clipLenBeats = c.contentLenBeats.toBeats();
     }
     p.tempoBpm = transport.getBpm();
 
@@ -4613,7 +4613,7 @@ void MainComponent::loadSelectedClipIntoEditor()
             else
             {
                 notes = c.notes;
-                contentLen = c.looped ? c.contentLenBeats : c.lengthBeats;
+                contentLen = c.looped ? c.contentLenBeats.toBeats() : c.lengthBeats.toBeats();
                 pitch = tracks[(size_t) et]->defaultPitch;
                 valid = true;
 
@@ -4621,7 +4621,7 @@ void MainComponent::loadSelectedClipIntoEditor()
                 // session clip is a free-floating loop, so it gets none.
                 if (selSessionScene < 0)
                 {
-                    const double selStart = c.startBeat;
+                    const double selStart = c.startBeat.toBeats();
                     for (int ti = 0; ti < (int) tracks.size(); ++ti)
                     {
                         if (ti == et || tracks[(size_t) ti]->generator == nullptr) continue;
@@ -4630,7 +4630,7 @@ void MainComponent::loadSelectedClipIntoEditor()
                             if (gc.isAudio()) continue;
                             for (const auto& gn : gc.notes)
                             {
-                                const double rel = (gc.startBeat + gn.startBeat) - selStart;
+                                const double rel = (gc.startBeat.toBeats() + gn.startBeat.toBeats()) - selStart;
                                 if (rel >= 0.0 && rel < contentLen)
                                     ghosts.push_back ({ gn.pitch, rel, gn.lengthBeats, gn.velocity });
                             }
@@ -4823,7 +4823,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         // Live arp: play the precomputed expansion instead of the raw chord (both under the lock).
         const std::vector<Note>& src = (useArp && ! clip.arpNotes.empty()) ? clip.arpNotes : clip.notes;
         const juce::int64 songEnd   = songStart + chunk;
-        const juce::int64 clipStart = tc.beatToSample (clip.startBeat);
+        const juce::int64 clipStart = tc.beatToSample (clip.startBeat.toBeats());
         const juce::int64 clipEnd   = tc.beatToSample (clip.endBeat());
 
         const juce::int64 lo = juce::jmax (songStart, clipStart);
@@ -4832,21 +4832,21 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
 
         // Repetitions tile the clip in BEAT space from clip.startBeat, so each rep's
         // sample stride follows the tempo map (it's constant only when the map is).
-        const double repBeats = clip.looped ? clip.contentLenBeats : clip.lengthBeats;
+        const double repBeats = clip.looped ? clip.contentLenBeats.toBeats() : clip.lengthBeats.toBeats();
         const bool   tiled    = repBeats > 0.0
-                                && tc.beatToSample (clip.startBeat + repBeats) - clipStart >= 1;
+                                && tc.beatToSample (clip.startBeat.toBeats() + repBeats) - clipStart >= 1;
         if (! tiled)   // single pass over the whole clip window (degenerate/one-shot)
         {
-            collectNotes (src, midi, tc, clip.startBeat, songStart, tsOffset, lo, hi, swing, clip.transpose, clip.velocityScale);
+            collectNotes (src, midi, tc, clip.startBeat.toBeats(), songStart, tsOffset, lo, hi, swing, clip.transpose, clip.velocityScale);
             return;
         }
 
         // First repetition whose beat span can reach 'lo'; walk forward until past 'hi'.
-        int repK = (int) std::floor ((tc.sampleToBeat (lo) - clip.startBeat) / repBeats);
+        int repK = (int) std::floor ((tc.sampleToBeat (lo) - clip.startBeat.toBeats()) / repBeats);
         if (repK < 0) repK = 0;
         for (;; ++repK)
         {
-            const double     repStartBeat = clip.startBeat + repK * repBeats;
+            const double     repStartBeat = clip.startBeat.toBeats() + repK * repBeats;
             const juce::int64 repStart = tc.beatToSample (repStartBeat);
             if (repStart >= hi) break;
             const juce::int64 repEnd = tc.beatToSample (repStartBeat + repBeats);
@@ -4869,11 +4869,11 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         const int nchSrc = ab.getNumChannels();
         const double ratio = clip.audioSourceRate / deviceRate;
         // Audio plays at natural speed; only its start/end anchors follow the tempo map.
-        const juce::int64 clipStart = tc.beatToSample (clip.startBeat);
+        const juce::int64 clipStart = tc.beatToSample (clip.startBeat.toBeats());
         const juce::int64 clipEnd   = tc.beatToSample (clip.endBeat());
         const juce::int64 clipLen   = clipEnd - clipStart;
         // Shaped fade edges (tempo-aware lengths). Silent at the very start/end.
-        const juce::int64 fadeInS  = clip.fadeInBeats  > 0.0 ? tc.beatToSample (clip.startBeat + clip.fadeInBeats) - clipStart : 0;
+        const juce::int64 fadeInS  = clip.fadeInBeats  > 0.0 ? tc.beatToSample (clip.startBeat.toBeats() + clip.fadeInBeats) - clipStart : 0;
         const juce::int64 fadeOutS = clip.fadeOutBeats > 0.0 ? clipEnd - tc.beatToSample (clip.endBeat() - clip.fadeOutBeats) : 0;
 
         for (int i = 0; i < chunk; ++i)
@@ -4970,7 +4970,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
                 {
                     if (auto clip = slotClip (t->sessionSlots, sessionSlot))
                     {
-                        const double loopLen = clip->looped ? clip->contentLenBeats : clip->lengthBeats;
+                        const double loopLen = clip->looped ? clip->contentLenBeats.toBeats() : clip->lengthBeats.toBeats();
                         collectSessionClip (clip->notes, midi, sessionTc, spb,
                                             sessionLauncher.launchBeat (ti), blockStartSessionBeat,
                                             0, num, loopLen, clip->transpose, clip->velocityScale);
@@ -7670,9 +7670,9 @@ juce::ValueTree MainComponent::clipToTree (const Clip& c, const juce::Identifier
     juce::ValueTree cl (type);
     cl.setProperty ("ctype", (int) c.type, nullptr);
     cl.setProperty ("name", c.name, nullptr);
-    cl.setProperty ("start", c.startBeat, nullptr);
-    cl.setProperty ("len", c.lengthBeats, nullptr);
-    cl.setProperty ("content", c.contentLenBeats, nullptr);
+    cl.setProperty ("start", c.startBeat.toBeats(), nullptr);
+    cl.setProperty ("len", c.lengthBeats.toBeats(), nullptr);
+    cl.setProperty ("content", c.contentLenBeats.toBeats(), nullptr);
     cl.setProperty ("looped", c.looped, nullptr);
     if (c.transpose != 0) cl.setProperty ("transpose", c.transpose, nullptr);
     if (c.velocityScale != 1.0f) cl.setProperty ("velscale", c.velocityScale, nullptr);
@@ -7717,8 +7717,8 @@ juce::ValueTree MainComponent::clipToTree (const Clip& c, const juce::Identifier
         {
             juce::ValueTree nt ("NOTE");
             nt.setProperty ("pitch", n.pitch, nullptr);
-            nt.setProperty ("start", n.startBeat, nullptr);
-            nt.setProperty ("nlen", n.lengthBeats, nullptr);
+            nt.setProperty ("start", n.startBeat.toBeats(), nullptr);
+            nt.setProperty ("nlen", n.lengthBeats.toBeats(), nullptr);
             nt.setProperty ("vel", n.velocity, nullptr);
             if (n.probability < 1.0f) nt.setProperty ("prob", n.probability, nullptr);
             cl.addChild (nt, -1, nullptr);

@@ -67,18 +67,18 @@ bool MainComponent::apiExportMidi (const juce::String& path)
                     // clamped so they don't ring past the clip end. A one-shot clip emits once.
                     if (c.looped && c.contentLenBeats > 0.0 && c.contentLenBeats < c.lengthBeats - 1.0e-6)
                     {
-                        for (double off = 0.0; off < c.lengthBeats - 1.0e-6; off += c.contentLenBeats)
+                        for (double off = 0.0; off < c.lengthBeats - 1.0e-6; off += c.contentLenBeats.toBeats())
                             for (auto& n : c.notes)
                             {
-                                const double localOn = off + n.startBeat;
+                                const double localOn = off + n.startBeat.toBeats();
                                 if (localOn >= c.lengthBeats - 1.0e-6) continue;   // starts at/after the clip end
-                                emit (c.startBeat + localOn, n.pitch, n.velocity,
-                                      juce::jmin (n.lengthBeats, c.lengthBeats - localOn));
+                                emit (c.startBeat.toBeats() + localOn, n.pitch, n.velocity,
+                                      juce::jmin (n.lengthBeats.toBeats(), c.lengthBeats.toBeats() - localOn));
                             }
                     }
                     else
                         for (auto& n : c.notes)
-                            emit (c.startBeat + n.startBeat, n.pitch, n.velocity, n.lengthBeats);
+                            emit (c.startBeat.toBeats() + n.startBeat.toBeats(), n.pitch, n.velocity, n.lengthBeats.toBeats());
                 }
                 seq.updateMatchedPairs();
                 mf.addTrack (seq);

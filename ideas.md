@@ -579,19 +579,19 @@ For Gloopy:
 
 ### 2. Exact rational time in the stored model — costlier to defer
 
-> **Status: foundation landed.** `Source/Rational.h` adds `BeatRatio` (gcd-reduced,
-> signed int64 — arithmetic time that doesn't drift; thirds sum to exactly 1) and
-> `StaticRatio` (deliberately non-reduced — keeps 3/4 distinct from 6/8), with unit
-> tests. Remaining work is the incremental field migration below.
+> **Status: DONE.** `Source/Rational.h` provides `BeatRatio` (gcd-reduced, signed int64;
+> thirds sum to exactly 1) and `StaticRatio` (non-reduced — keeps 3/4 distinct from 6/8).
+> `BeatRatio::fromBeats` uses continued-fraction recovery, so a stored `double` reloads as
+> its exact minimal fraction (0.665 → 133/200, 0.333… → 1/3).
+> - **Note::startBeat / lengthBeats** and **Clip::startBeat / lengthBeats / contentLenBeats**
+>   are now `BeatRatio` — exact in memory; `.toBeats()` converts at the DSP/UI boundary.
+> - **Exact quantize** snaps on rational grid math (idempotent, drift-free).
+> - **Serialization** stays double-valued but round-trips the exact fraction via the CF
+>   recovery (verified by the round-trip unit test), so no separate num/den format is needed.
+> - Validated: full unit suite + smoke green.
 >
-> Migration slices (each its own commit + round-trip test, per the roadmap's Wave 7 #21):
-> 1. Store `Note::startBeat`/`lengthBeats` and `Clip` positions as `BeatRatio`; convert
->    to `double` at the render/scheduler boundary (`beatToSamples`/`TempoConv`).
-> 2. Edit-time math on `BeatRatio` — quantize, snap, loop points, equality — so "on the
->    bar?" is exact.
-> 3. Serialize the rational form (num/den) in the ValueTree + composition TOML, with a
->    read path for the old `double` fields and a per-version round-trip test.
-> 4. Time signatures / grid divisions on `StaticRatio` so `3/4` and `6/8` stay distinct.
+> Still open (small, optional): time signatures / grid divisions on `StaticRatio` (they're
+> still doubles), so `3/4` and `6/8` stay notationally distinct.
 
 
 `Source/TimeTypes.h` wraps a bare `double` for stored positions. Doubles are right for DSP

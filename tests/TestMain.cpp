@@ -281,9 +281,9 @@ struct NoteEditTests : juce::UnitTest
             std::vector<Note> ns { {60,0,1,0.8f}, {64,0,1,0.8f}, {67,0,1,0.8f} };
             strumNotes (ns, 0.1, true);                       // down = high->low
             std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b) { return a.pitch > b.pitch; });
-            expectWithinAbsoluteError (ns[0].startBeat, 0.0, 1e-9);
-            expectWithinAbsoluteError (ns[1].startBeat, 0.1, 1e-9);
-            expectWithinAbsoluteError (ns[2].startBeat, 0.2, 1e-9);
+            expectWithinAbsoluteError (ns[0].startBeat.toBeats(), 0.0, 1e-9);
+            expectWithinAbsoluteError (ns[1].startBeat.toBeats(), 0.1, 1e-9);
+            expectWithinAbsoluteError (ns[2].startBeat.toBeats(), 0.2, 1e-9);
         }
 
         beginTest ("onset detection finds transient starts");
@@ -315,36 +315,36 @@ struct NoteEditTests : juce::UnitTest
             std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b)
                        { return a.pitch != b.pitch ? a.pitch < b.pitch : a.startBeat < b.startBeat; });
             // pitch 60 -> two halves
-            expectWithinAbsoluteError (ns[0].startBeat, 0.0, 1e-9);
-            expectWithinAbsoluteError (ns[0].lengthBeats, 1.0, 1e-9);
-            expectWithinAbsoluteError (ns[1].startBeat, 1.0, 1e-9);
-            expectWithinAbsoluteError (ns[1].lengthBeats, 1.0, 1e-9);
+            expectWithinAbsoluteError (ns[0].startBeat.toBeats(), 0.0, 1e-9);
+            expectWithinAbsoluteError (ns[0].lengthBeats.toBeats(), 1.0, 1e-9);
+            expectWithinAbsoluteError (ns[1].startBeat.toBeats(), 1.0, 1e-9);
+            expectWithinAbsoluteError (ns[1].lengthBeats.toBeats(), 1.0, 1e-9);
             expect (ns[0].velocity == 0.8f && ns[1].velocity == 0.8f);   // velocity preserved
             // the boundary note (62@1) and the after note (64@3) are untouched
             expect (ns[2].pitch == 62 && ns[3].pitch == 64);
-            expectWithinAbsoluteError (ns[2].lengthBeats, 1.0, 1e-9);
+            expectWithinAbsoluteError (ns[2].lengthBeats.toBeats(), 1.0, 1e-9);
         }
 
         beginTest ("legato stretches each note to the next onset; last unchanged");
         {
             std::vector<Note> ns { {60,0,1,0.8f}, {62,2,1,0.7f}, {64,4,1,0.6f} };
             legatoNotes (ns, 1.0f);
-            expectWithinAbsoluteError (ns[0].lengthBeats, 2.0, 1e-9);   // 0->2
-            expectWithinAbsoluteError (ns[1].lengthBeats, 2.0, 1e-9);   // 2->4
-            expectWithinAbsoluteError (ns[2].lengthBeats, 1.0, 1e-9);   // last: unchanged
+            expectWithinAbsoluteError (ns[0].lengthBeats.toBeats(), 2.0, 1e-9);   // 0->2
+            expectWithinAbsoluteError (ns[1].lengthBeats.toBeats(), 2.0, 1e-9);   // 2->4
+            expectWithinAbsoluteError (ns[2].lengthBeats.toBeats(), 1.0, 1e-9);   // last: unchanged
             expect (ns.size() == 3 && ns[0].pitch == 60 && ns[2].pitch == 64);   // size + order preserved
         }
         beginTest ("legato amount blends length; chords extend together");
         {
             std::vector<Note> ns { {60,0,1,0.8f}, {62,2,1,0.7f} };
             legatoNotes (ns, 0.5f);                                     // halfway from 1 -> 2
-            expectWithinAbsoluteError (ns[0].lengthBeats, 1.5, 1e-9);
+            expectWithinAbsoluteError (ns[0].lengthBeats.toBeats(), 1.5, 1e-9);
             // a two-note chord at 0, next onset at 2 -> both extend to length 2
             std::vector<Note> ch { {60,0,1,0.8f}, {64,0,1,0.8f}, {67,2,1,0.7f} };
             legatoNotes (ch, 1.0f);
-            expectWithinAbsoluteError (ch[0].lengthBeats, 2.0, 1e-9);
-            expectWithinAbsoluteError (ch[1].lengthBeats, 2.0, 1e-9);
-            expectWithinAbsoluteError (ch[2].lengthBeats, 1.0, 1e-9);   // last onset: unchanged
+            expectWithinAbsoluteError (ch[0].lengthBeats.toBeats(), 2.0, 1e-9);
+            expectWithinAbsoluteError (ch[1].lengthBeats.toBeats(), 2.0, 1e-9);
+            expectWithinAbsoluteError (ch[2].lengthBeats.toBeats(), 1.0, 1e-9);   // last onset: unchanged
         }
 
         beginTest ("velocity ramp crescendos linearly by onset; last unchanged position gets `to`");
@@ -372,15 +372,15 @@ struct NoteEditTests : juce::UnitTest
         {
             std::vector<Note> ns { {60,0,1,0.7f}, {64,2,1,0.8f}, {67,3,0.5f,0.9f} };
             scaleNoteTimes (ns, 0.5);                        // double-time (twice as fast)
-            expectWithinAbsoluteError (ns[0].startBeat, 0.0, 1e-9);
-            expectWithinAbsoluteError (ns[1].startBeat, 1.0, 1e-9);
-            expectWithinAbsoluteError (ns[1].lengthBeats, 0.5, 1e-9);
-            expectWithinAbsoluteError (ns[2].startBeat, 1.5, 1e-9);
-            expectWithinAbsoluteError (ns[2].lengthBeats, 0.25, 1e-9);
+            expectWithinAbsoluteError (ns[0].startBeat.toBeats(), 0.0, 1e-9);
+            expectWithinAbsoluteError (ns[1].startBeat.toBeats(), 1.0, 1e-9);
+            expectWithinAbsoluteError (ns[1].lengthBeats.toBeats(), 0.5, 1e-9);
+            expectWithinAbsoluteError (ns[2].startBeat.toBeats(), 1.5, 1e-9);
+            expectWithinAbsoluteError (ns[2].lengthBeats.toBeats(), 0.25, 1e-9);
             expect (ns[1].pitch == 64 && ns[1].velocity == 0.8f);   // pitch/velocity untouched
             scaleNoteTimes (ns, 2.0);                        // scale back -> original
-            expectWithinAbsoluteError (ns[1].startBeat, 2.0, 1e-9);
-            expectWithinAbsoluteError (ns[2].lengthBeats, 0.5, 1e-9);
+            expectWithinAbsoluteError (ns[1].startBeat.toBeats(), 2.0, 1e-9);
+            expectWithinAbsoluteError (ns[2].lengthBeats.toBeats(), 0.5, 1e-9);
         }
 
         beginTest ("ratchet subdivides each note into equal same-pitch hits");
@@ -391,8 +391,8 @@ struct NoteEditTests : juce::UnitTest
             std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b) { return a.startBeat < b.startBeat; });
             for (int k = 0; k < 4; ++k)
             {
-                expectWithinAbsoluteError (ns[(size_t) k].startBeat, k * 0.25, 1e-9);
-                expectWithinAbsoluteError (ns[(size_t) k].lengthBeats, 0.25, 1e-9);
+                expectWithinAbsoluteError (ns[(size_t) k].startBeat.toBeats(), k * 0.25, 1e-9);
+                expectWithinAbsoluteError (ns[(size_t) k].lengthBeats.toBeats(), 0.25, 1e-9);
                 expect (ns[(size_t) k].pitch == 60 && ns[(size_t) k].velocity == 0.8f);
             }
             // a chord (two notes) ratcheted x2 -> 4 hits (2 per note).
@@ -407,7 +407,7 @@ struct NoteEditTests : juce::UnitTest
             flattenVelocities (ns, 0.5f);
             for (auto& n : ns) expectWithinAbsoluteError (n.velocity, 0.5f, 1e-6f);
             expect (ns[0].pitch == 60 && ns[1].pitch == 64 && ns[2].pitch == 67);   // pitch untouched
-            expectWithinAbsoluteError (ns[1].startBeat, 1.0, 1e-9);                  // timing untouched
+            expectWithinAbsoluteError (ns[1].startBeat.toBeats(), 1.0, 1e-9);                  // timing untouched
             expect (ns[1].lengthBeats == 0.5f);
             // out-of-range value is clamped to 0..1.
             std::vector<Note> hi { {60,0,1,0.5f} };
@@ -419,15 +419,15 @@ struct NoteEditTests : juce::UnitTest
         {
             std::vector<Note> ns { {60,0.0,1.0f,0.8f}, {62,1.0,0.5f,0.7f} };
             gateNotes (ns, 0.5);                             // staccato: halve lengths
-            expectWithinAbsoluteError (ns[0].lengthBeats, 0.5, 1e-6);
-            expectWithinAbsoluteError (ns[1].lengthBeats, 0.25, 1e-6);
-            expectWithinAbsoluteError (ns[0].startBeat, 0.0, 1e-9);   // starts untouched
-            expectWithinAbsoluteError (ns[1].startBeat, 1.0, 1e-9);
+            expectWithinAbsoluteError (ns[0].lengthBeats.toBeats(), 0.5, 1e-6);
+            expectWithinAbsoluteError (ns[1].lengthBeats.toBeats(), 0.25, 1e-6);
+            expectWithinAbsoluteError (ns[0].startBeat.toBeats(), 0.0, 1e-9);   // starts untouched
+            expectWithinAbsoluteError (ns[1].startBeat.toBeats(), 1.0, 1e-9);
             expect (ns[0].pitch == 60 && ns[1].pitch == 62);
             // tenuto: lengthen; and the 0.01 floor holds for a tiny factor.
             std::vector<Note> tn { {60,0.0,1.0f,0.8f} };
             gateNotes (tn, 1.5);
-            expectWithinAbsoluteError (tn[0].lengthBeats, 1.5, 1e-6);
+            expectWithinAbsoluteError (tn[0].lengthBeats.toBeats(), 1.5, 1e-6);
         }
 
         beginTest ("partial quantize moves note starts toward the grid by strength");
@@ -435,15 +435,15 @@ struct NoteEditTests : juce::UnitTest
             std::vector<Note> ns { {60,0.10,1.0f,0.8f}, {62,0.40,1.0f,0.8f} };
             quantizeNotes (ns, 0.25, 0.5);                   // grid 0.25, halfway
             // 0.10 -> nearest 0.0, halfway = 0.05; 0.40 -> nearest 0.5, halfway = 0.45.
-            expectWithinAbsoluteError (ns[0].startBeat, 0.05, 1e-9);
-            expectWithinAbsoluteError (ns[1].startBeat, 0.45, 1e-9);
+            expectWithinAbsoluteError (ns[0].startBeat.toBeats(), 0.05, 1e-9);
+            expectWithinAbsoluteError (ns[1].startBeat.toBeats(), 0.45, 1e-9);
             // strength 1.0 = full snap; strength 0.0 = no move.
             std::vector<Note> full { {60,0.10,1.0f,0.8f} };
             quantizeNotes (full, 0.25, 1.0);
-            expectWithinAbsoluteError (full[0].startBeat, 0.0, 1e-9);
+            expectWithinAbsoluteError (full[0].startBeat.toBeats(), 0.0, 1e-9);
             std::vector<Note> none { {60,0.10,1.0f,0.8f} };
             quantizeNotes (none, 0.25, 0.0);
-            expectWithinAbsoluteError (none[0].startBeat, 0.10, 1e-9);
+            expectWithinAbsoluteError (none[0].startBeat.toBeats(), 0.10, 1e-9);
         }
 
         beginTest ("harmonize adds a parallel interval voice, keeping the originals");
@@ -455,7 +455,7 @@ struct NoteEditTests : juce::UnitTest
             std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b) { return a.pitch < b.pitch; });
             expect (ns[0].pitch == 60 && ns[1].pitch == 64 && ns[2].pitch == 67 && ns[3].pitch == 71);
             // the +7 of the first note keeps its timing/velocity.
-            for (auto& n : ns) if (n.pitch == 67) { expectWithinAbsoluteError (n.startBeat, 0.0, 1e-9);
+            for (auto& n : ns) if (n.pitch == 67) { expectWithinAbsoluteError (n.startBeat.toBeats(), 0.0, 1e-9);
                                                     expect (n.lengthBeats == 1.0f && n.velocity == 0.8f); }
             // a voice that would fall off the keyboard is dropped, not folded.
             std::vector<Note> hi { {125,0,1,0.5f} };
@@ -469,15 +469,15 @@ struct NoteEditTests : juce::UnitTest
             std::vector<Note> ns { {60,0.0,0.5f,0.8f}, {62,0.5,0.5f,0.8f}, {64,1.0,0.5f,0.8f}, {65,1.5,0.5f,0.8f} };
             swingNotes (ns, 0.5, 0.33f);
             std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b) { return a.startBeat < b.startBeat; });
-            expectWithinAbsoluteError (ns[0].startBeat, 0.0, 1e-9);      // on-beat: unmoved
-            expectWithinAbsoluteError (ns[1].startBeat, 0.665, 1e-6);    // 0.5 + 0.165
-            expectWithinAbsoluteError (ns[2].startBeat, 1.0, 1e-9);      // on-beat: unmoved
-            expectWithinAbsoluteError (ns[3].startBeat, 1.665, 1e-6);    // 1.5 + 0.165
+            expectWithinAbsoluteError (ns[0].startBeat.toBeats(), 0.0, 1e-9);      // on-beat: unmoved
+            expectWithinAbsoluteError (ns[1].startBeat.toBeats(), 0.665, 1e-6);    // 0.5 + 0.165
+            expectWithinAbsoluteError (ns[2].startBeat.toBeats(), 1.0, 1e-9);      // on-beat: unmoved
+            expectWithinAbsoluteError (ns[3].startBeat.toBeats(), 1.665, 1e-6);    // 1.5 + 0.165
             for (auto& n : ns) expect (n.lengthBeats == 0.5f);           // length preserved
             // amount 0 = straight (no move).
             std::vector<Note> st { {60,0.5,0.5f,0.8f} };
             swingNotes (st, 0.5, 0.0f);
-            expectWithinAbsoluteError (st[0].startBeat, 0.5, 1e-9);
+            expectWithinAbsoluteError (st[0].startBeat.toBeats(), 0.5, 1e-9);
         }
 
         beginTest ("chordify builds a named chord from each root, keeping the root");
@@ -488,7 +488,7 @@ struct NoteEditTests : juce::UnitTest
             expect (ns.size() == 3);
             std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b) { return a.pitch < b.pitch; });
             expect (ns[0].pitch == 60 && ns[1].pitch == 64 && ns[2].pitch == 67);
-            for (auto& n : ns) { expectWithinAbsoluteError (n.startBeat, 0.0, 1e-9);
+            for (auto& n : ns) { expectWithinAbsoluteError (n.startBeat.toBeats(), 0.0, 1e-9);
                                  expect (n.lengthBeats == 1.0f && n.velocity == 0.8f); }
             // dominant 7th {+4,+7,+10} -> 4 voices.
             std::vector<Note> d7 { {50,0,1,0.6f} };
@@ -505,7 +505,7 @@ struct NoteEditTests : juce::UnitTest
             std::vector<Note> ns { {60,0,1,0.8f}, {64,1,1,0.7f}, {67,2,0.5f,0.6f} };
             invertNotes (ns);                               // pivot = 60 (earliest) -> 60, 56, 53
             expect (ns[0].pitch == 60 && ns[1].pitch == 56 && ns[2].pitch == 53);
-            expectWithinAbsoluteError (ns[1].startBeat, 1.0, 1e-9);   // timing untouched
+            expectWithinAbsoluteError (ns[1].startBeat.toBeats(), 1.0, 1e-9);   // timing untouched
             expect (ns[1].lengthBeats == 1.0f && ns[1].velocity == 0.7f);
             invertNotes (ns);                               // inverting twice restores (pivot still 60)
             expect (ns[0].pitch == 60 && ns[1].pitch == 64 && ns[2].pitch == 67);
@@ -517,10 +517,10 @@ struct NoteEditTests : juce::UnitTest
             echoNotes (ns, 0.5, 3, 0.5f);                   // vels 0.4/0.2/0.1 at 0.5/1.0/1.5
             expect (ns.size() == 4);
             std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b) { return a.startBeat < b.startBeat; });
-            expectWithinAbsoluteError (ns[0].startBeat, 0.0, 1e-9); expectWithinAbsoluteError (ns[0].velocity, 0.8f, 1e-5f);
-            expectWithinAbsoluteError (ns[1].startBeat, 0.5, 1e-9); expectWithinAbsoluteError (ns[1].velocity, 0.4f, 1e-5f);
-            expectWithinAbsoluteError (ns[2].startBeat, 1.0, 1e-9); expectWithinAbsoluteError (ns[2].velocity, 0.2f, 1e-5f);
-            expectWithinAbsoluteError (ns[3].startBeat, 1.5, 1e-9); expectWithinAbsoluteError (ns[3].velocity, 0.1f, 1e-5f);
+            expectWithinAbsoluteError (ns[0].startBeat.toBeats(), 0.0, 1e-9); expectWithinAbsoluteError (ns[0].velocity, 0.8f, 1e-5f);
+            expectWithinAbsoluteError (ns[1].startBeat.toBeats(), 0.5, 1e-9); expectWithinAbsoluteError (ns[1].velocity, 0.4f, 1e-5f);
+            expectWithinAbsoluteError (ns[2].startBeat.toBeats(), 1.0, 1e-9); expectWithinAbsoluteError (ns[2].velocity, 0.2f, 1e-5f);
+            expectWithinAbsoluteError (ns[3].startBeat.toBeats(), 1.5, 1e-9); expectWithinAbsoluteError (ns[3].velocity, 0.1f, 1e-5f);
             expect (ns[1].pitch == 60 && ns[1].lengthBeats == 0.5f);   // pitch/length preserved
             // a low feedback drops copies once they fade below ~1%.
             std::vector<Note> few { {64,0,1,0.2f} };
@@ -535,7 +535,7 @@ struct NoteEditTests : juce::UnitTest
             expect ((int) ns.size() == 3);
             std::sort (ns.begin(), ns.end(), [] (auto& a, auto& b) { return a.startBeat < b.startBeat; });
             expect (ns[0].pitch == 60 && ns[1].pitch == 64 && ns[2].pitch == 67);
-            expectWithinAbsoluteError (ns[2].startBeat, 0.5, 1e-9);
+            expectWithinAbsoluteError (ns[2].startBeat.toBeats(), 0.5, 1e-9);
         }
 
         beginTest ("expandArp repeats a held chord over its duration");
@@ -545,8 +545,8 @@ struct NoteEditTests : juce::UnitTest
             auto a = expandArp (chord, 0.25, 1, 0.5f, 0);
             expect ((int) a.size() == 8);
             expect (a[0].pitch == 60 && a[1].pitch == 64 && a[2].pitch == 67 && a[3].pitch == 60);
-            expectWithinAbsoluteError (a[1].startBeat, 0.25, 1e-9);
-            expectWithinAbsoluteError (a[0].lengthBeats, 0.125, 1e-9);   // 0.25 * gate 0.5
+            expectWithinAbsoluteError (a[1].startBeat.toBeats(), 0.25, 1e-9);
+            expectWithinAbsoluteError (a[0].lengthBeats.toBeats(), 0.125, 1e-9);   // 0.25 * gate 0.5
         }
 
         beginTest ("expandArp octaves widen the pattern");
@@ -563,7 +563,7 @@ struct NoteEditTests : juce::UnitTest
             auto a = expandArp (one, 0.25, 1, 1.0f, 0);
             expect ((int) a.size() == 4);
             for (auto& n : a) expect (n.pitch == 60);
-            expectWithinAbsoluteError (a[3].startBeat, 0.75, 1e-9);
+            expectWithinAbsoluteError (a[3].startBeat.toBeats(), 0.75, 1e-9);
         }
 
         beginTest ("expandArp cycles octaves on a single note");
@@ -611,10 +611,10 @@ struct NoteEditTests : juce::UnitTest
             std::vector<Note> chord { {60,0,1,0.8f}, {64,0,1,0.8f} };   // 1 beat, rate 1/4 = 4 steps
             auto a = expandArp (chord, 0.25, 1, 1.0f, 0, 0.4f);          // swing 0.4 -> odd steps +0.05
             expect ((int) a.size() == 4);
-            expectWithinAbsoluteError (a[0].startBeat, 0.0,  1e-9);      // even: on grid
-            expectWithinAbsoluteError (a[1].startBeat, 0.30, 1e-9);      // odd: 0.25 + 0.4*0.5*0.25
-            expectWithinAbsoluteError (a[2].startBeat, 0.50, 1e-9);
-            expectWithinAbsoluteError (a[3].startBeat, 0.80, 1e-9);
+            expectWithinAbsoluteError (a[0].startBeat.toBeats(), 0.0,  1e-9);      // even: on grid
+            expectWithinAbsoluteError (a[1].startBeat.toBeats(), 0.30, 1e-9);      // odd: 0.25 + 0.4*0.5*0.25
+            expectWithinAbsoluteError (a[2].startBeat.toBeats(), 0.50, 1e-9);
+            expectWithinAbsoluteError (a[3].startBeat.toBeats(), 0.80, 1e-9);
         }
 
         beginTest ("expandArp hold latches the chord to fill the clip");
@@ -1285,8 +1285,8 @@ struct NotesJsonTests : juce::UnitTest
             for (size_t i = 0; i < back.size(); ++i)
             {
                 expectEquals (back[i].pitch, ns[i].pitch);
-                expectWithinAbsoluteError (back[i].startBeat, ns[i].startBeat, 1e-9);
-                expectWithinAbsoluteError (back[i].lengthBeats, ns[i].lengthBeats, 1e-9);
+                expectWithinAbsoluteError (back[i].startBeat.toBeats(), ns[i].startBeat.toBeats(), 1e-9);
+                expectWithinAbsoluteError (back[i].lengthBeats.toBeats(), ns[i].lengthBeats.toBeats(), 1e-9);
                 expectWithinAbsoluteError ((double) back[i].velocity, (double) ns[i].velocity, 1e-6);
             }
         }
@@ -1295,7 +1295,7 @@ struct NotesJsonTests : juce::UnitTest
             const auto a = notesFromJson ("[{\"pitch\":72}]");   // defaults for start/length/velocity
             expectEquals ((int) a.size(), 1);
             expectEquals (a[0].pitch, 72);
-            expectWithinAbsoluteError (a[0].lengthBeats, 1.0, 1e-9);   // default
+            expectWithinAbsoluteError (a[0].lengthBeats.toBeats(), 1.0, 1e-9);   // default
             const auto b = notesFromJson ("{\"notes\":[{\"pitch\":200,\"velocity\":9}]}");
             expectEquals ((int) b.size(), 1);
             expectEquals (b[0].pitch, 127);                            // clamped 0..127
@@ -1698,9 +1698,9 @@ struct RationalTests : juce::UnitTest
                 { 64, 0.34, 0.25, 0.8f, 1.0f },   // near 1/3
             };
             quantizeNotes (notes, 1.0 / 3.0, 1.0);
-            expectWithinAbsoluteError (notes[0].startBeat, 2.0 / 3.0, 1e-12);
+            expectWithinAbsoluteError (notes[0].startBeat.toBeats(), 2.0 / 3.0, 1e-12);
             expect (notes[1].startBeat == 1.0);   // EXACTLY 1.0 (the double path gives 0.9999999999999999)
-            expectWithinAbsoluteError (notes[2].startBeat, 1.0 / 3.0, 1e-12);
+            expectWithinAbsoluteError (notes[2].startBeat.toBeats(), 1.0 / 3.0, 1e-12);
 
             // Full-strength quantize is idempotent — a second pass moves nothing (drift-free).
             auto before = notes;

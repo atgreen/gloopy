@@ -20,8 +20,8 @@ inline juce::String notesToJson (const std::vector<Note>& notes)
     {
         auto* o = new juce::DynamicObject();
         o->setProperty ("pitch",    n.pitch);
-        o->setProperty ("start",    n.startBeat);
-        o->setProperty ("length",   n.lengthBeats);
+        o->setProperty ("start",    n.startBeat.toBeats());
+        o->setProperty ("length",   n.lengthBeats.toBeats());
         o->setProperty ("velocity", (double) n.velocity);
         if (n.probability < 1.0f) o->setProperty ("probability", (double) n.probability);
         arr.add (juce::var (o));

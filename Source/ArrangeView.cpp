@@ -314,8 +314,8 @@ int ArrangeView::clipAt (int track, juce::Point<float> p) const
     const float y = (float) rowTop (track);
     for (int i = (int) clips.size(); --i >= 0;)
     {
-        juce::Rectangle<float> r (xForBeat (clips[(size_t) i].startBeat), y + 2.0f,
-                                  xForBeat (clips[(size_t) i].endBeat()) - xForBeat (clips[(size_t) i].startBeat),
+        juce::Rectangle<float> r (xForBeat (clips[(size_t) i].startBeat.toBeats()), y + 2.0f,
+                                  xForBeat (clips[(size_t) i].endBeat()) - xForBeat (clips[(size_t) i].startBeat.toBeats()),
                                   (float) trackHeight - 4.0f);
         if (r.contains (p))
             return i;
@@ -407,15 +407,15 @@ void ArrangeView::drawClip (juce::Graphics& g, const Track& t, const Clip& c,
         int lo = 127, hi = 0;
         for (auto& n : c.notes) { lo = juce::jmin (lo, n.pitch); hi = juce::jmax (hi, n.pitch); }
         const float span = (float) juce::jmax (2, hi - lo);
-        const double repW = c.contentLenBeats / beatsPerBar * barWidth();
+        const double repW = c.contentLenBeats.toBeats() / beatsPerBar * barWidth();
 
         g.setColour (juce::Colours::black.withAlpha (0.55f));
         for (double repX = r.getX(); repX < r.getRight() - 0.5; repX += repW)
         {
             for (auto& n : c.notes)
             {
-                const float nx = (float) (repX + (n.startBeat / c.contentLenBeats) * repW);
-                const float nw = juce::jmax (2.0f, (float) ((n.lengthBeats / c.contentLenBeats) * repW));
+                const float nx = (float) (repX + (n.startBeat.toBeats() / c.contentLenBeats.toBeats()) * repW);
+                const float nw = juce::jmax (2.0f, (float) ((n.lengthBeats.toBeats() / c.contentLenBeats.toBeats()) * repW));
                 const float ny = notesArea.getBottom() - ((n.pitch - lo) / span) * notesArea.getHeight();
                 g.fillRect (juce::jlimit (r.getX(), r.getRight() - 1.0f, nx), ny - 1.5f,
                             juce::jmin (nw, r.getRight() - nx), 2.2f);
@@ -602,8 +602,8 @@ void ArrangeView::paint (juce::Graphics& g)
         for (int ci = 0; ci < (int) t->clips.size(); ++ci)
         {
             const auto& c = t->clips[(size_t) ci];
-            juce::Rectangle<float> r (xForBeat (c.startBeat), (float) y + 2.0f,
-                                      xForBeat (c.endBeat()) - xForBeat (c.startBeat),
+            juce::Rectangle<float> r (xForBeat (c.startBeat.toBeats()), (float) y + 2.0f,
+                                      xForBeat (c.endBeat()) - xForBeat (c.startBeat.toBeats()),
                                       (float) trackHeight - 4.0f);
             drawClip (g, *t, c, r, i == selTrack && ci == selClip);
         }
@@ -1024,8 +1024,8 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                                && cl.contentLenBeats < cl.lengthBeats - 1.0e-9;   // actually tiles
                 isScript = cl.isScript();
                 isScriptLive = cl.scriptLive;
-                clipStart = cl.startBeat;
-                clipEnd   = cl.startBeat + cl.lengthBeats;
+                clipStart = cl.startBeat.toBeats();
+                clipEnd   = (cl.startBeat + cl.lengthBeats).toBeats();
             }
         }
 
@@ -1399,7 +1399,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         const float rightX = xForBeat (c.endBeat());
         if (std::abs (p.x - rightX) <= 6.0f)
             drag = Drag::resize;
-        else { drag = Drag::move; dragBeatOffset = beatForX (p.x) - c.startBeat; }
+        else { drag = Drag::move; dragBeatOffset = beatForX (p.x) - c.startBeat.toBeats(); }
     }
     else if (tracks[(size_t) track]->type != TrackType::Instrument)
     {
@@ -1595,7 +1595,7 @@ void ArrangeView::mouseDrag (const juce::MouseEvent& e)
         if (drag == Drag::move)
             c.startBeat = juce::jmax (0.0, snapToBar (beatForX (e.position.x) - dragBeatOffset));
         else if (drag == Drag::resize)
-            c.lengthBeats = juce::jmax (beatsPerBar, snapToBar (beatForX (e.position.x)) - c.startBeat);
+            c.lengthBeats = juce::jmax (beatsPerBar, snapToBar (beatForX (e.position.x)) - c.startBeat.toBeats());
     }
     if (onChanged) onChanged();
     repaint();

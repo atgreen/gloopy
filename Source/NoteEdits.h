@@ -14,6 +14,11 @@
 
 // Pure piano-roll note transforms, shared by the control API (apiQuantizeClip etc.,
 // ClipOps.cpp) and the PianoRoll UI so both do exactly the same edit.
+//
+// Note positions are exact rationals (Note::startBeat / lengthBeats are BeatRatio). These
+// transforms read a position with .toBeats() (a double at the math boundary) and assign the
+// result straight back — the implicit double→BeatRatio ctor snaps it to the exact grid, so
+// positions stay drift-free. Quantize is the exception: it snaps on exact rational grid math.
 
 /** Snap each note's start toward the nearest multiple of `grid` beats (e.g. 0.25 = 16ths).
     `strength` 0..1 is how far to move it: 1 = full snap (the default), 0.5 = halfway to the
@@ -29,9 +34,10 @@ inline void quantizeNotes (std::vector<Note>& notes, double grid, double strengt
     if (gridR.isZero()) return;
     for (auto& n : notes)
     {
-        const auto  k      = (std::int64_t) std::llround (n.startBeat / grid);   // nearest grid line
-        const double target = (gridR * k).toBeats();                            // exact k·grid
-        n.startBeat = juce::jmax (0.0, s >= 1.0 ? target : n.startBeat + (target - n.startBeat) * s);
+        const double sb     = n.startBeat.toBeats();
+        const auto   k      = (std::int64_t) std::llround (sb / grid);   // nearest grid line
+        const double target = (gridR * k).toBeats();                     // exact k·grid
+        n.startBeat = juce::jmax (0.0, s >= 1.0 ? target : sb + (target - sb) * s);
     }
 }
 
@@ -48,10 +54,10 @@ inline void swingNotes (std::vector<Note>& notes, double grid, float amount)
     const double delay = amt * grid;
     for (auto& n : notes)
     {
-        const double pos = n.startBeat / grid;
+        const double pos = n.startBeat.toBeats() / grid;
         const long   idx = (long) std::llround (pos);
         if (std::abs (pos - (double) idx) < 1e-6 && (idx & 1L))   // on an odd grid line -> off-beat
-            n.startBeat += delay;
+            n.startBeat = n.startBeat.toBeats() + delay;
     }
 }
 
@@ -67,7 +73,7 @@ inline void humanizeNotes (std::vector<Note>& notes, double timing, double veloc
 {
     for (auto& n : notes)
     {
-        if (timing > 0.0)   n.startBeat = juce::jmax (0.0, n.startBeat + (rng.nextDouble() * 2.0 - 1.0) * timing);
+        if (timing > 0.0)   n.startBeat = juce::jmax (0.0, n.startBeat.toBeats() + (rng.nextDouble() * 2.0 - 1.0) * timing);
         if (velocity > 0.0) n.velocity  = juce::jlimit (0.0f, 1.0f, n.velocity + (float) ((rng.nextDouble() * 2.0 - 1.0) * velocity));
     }
 }
@@ -82,10 +88,11 @@ inline void splitNotesAtBeat (std::vector<Note>& notes, double beat)
     out.reserve (notes.size() + 4);
     for (const auto& n : notes)
     {
-        const double end = n.startBeat + n.lengthBeats;
-        if (n.startBeat + eps < beat && beat < end - eps)   // strictly inside the note
+        const double sb  = n.startBeat.toBeats();
+        const double end = sb + n.lengthBeats.toBeats();
+        if (sb + eps < beat && beat < end - eps)   // strictly inside the note
         {
-            Note left = n;  left.lengthBeats  = beat - n.startBeat;
+            Note left = n;  left.lengthBeats  = beat - sb;
             Note right = n; right.startBeat = beat; right.lengthBeats = end - beat;
             out.push_back (left);
             out.push_back (right);
@@ -104,7 +111,7 @@ inline void strumNotes (std::vector<Note>& notes, double stepBeats, bool down)
     if (stepBeats <= 0.0 || notes.size() < 2) return;
     std::map<long long, std::vector<int>> clusters;           // key = start beat (ms-quantised)
     for (int i = 0; i < (int) notes.size(); ++i)
-        clusters[(long long) std::llround (notes[(size_t) i].startBeat * 1000.0)].push_back (i);
+        clusters[(long long) std::llround (notes[(size_t) i].startBeat.toBeats() * 1000.0)].push_back (i);
 
     for (auto& cl : clusters)
     {
@@ -115,7 +122,7 @@ inline void strumNotes (std::vector<Note>& notes, double stepBeats, bool down)
             return down ? notes[(size_t) a].pitch > notes[(size_t) b].pitch
                         : notes[(size_t) a].pitch < notes[(size_t) b].pitch;
         });
-        const double base = notes[(size_t) idx[0]].startBeat;
+        const double base = notes[(size_t) idx[0]].startBeat.toBeats();
         for (int k = 0; k < (int) idx.size(); ++k)
             notes[(size_t) idx[k]].startBeat = juce::jmax (0.0, base + k * stepBeats);
     }
@@ -131,17 +138,18 @@ inline void legatoNotes (std::vector<Note>& notes, float amount)
     if (notes.size() < 2) return;
     const double a = juce::jlimit (0.0f, 1.0f, amount);
     std::vector<double> starts;                            // distinct onsets, ascending
-    for (const auto& n : notes) starts.push_back (n.startBeat);
+    for (const auto& n : notes) starts.push_back (n.startBeat.toBeats());
     std::sort (starts.begin(), starts.end());
     starts.erase (std::unique (starts.begin(), starts.end(),
                     [] (double x, double y) { return std::abs (x - y) < 1e-6; }), starts.end());
     for (auto& n : notes)
     {
+        const double sb = n.startBeat.toBeats();
         double next = -1.0;                                // next onset strictly after this note
-        for (double s : starts) if (s > n.startBeat + 1e-6) { next = s; break; }
+        for (double s : starts) if (s > sb + 1e-6) { next = s; break; }
         if (next < 0.0) continue;                          // last onset group: length unchanged
-        const double target = next - n.startBeat;          // length that just reaches the next onset
-        n.lengthBeats = juce::jmax (0.01, n.lengthBeats + a * (target - n.lengthBeats));
+        const double target = next - sb;                   // length that just reaches the next onset
+        n.lengthBeats = juce::jmax (0.01, n.lengthBeats.toBeats() + a * (target - n.lengthBeats.toBeats()));
     }
 }
 
@@ -153,12 +161,12 @@ inline void rampVelocities (std::vector<Note>& notes, float fromVel, float toVel
 {
     if (notes.empty()) return;
     const float a = juce::jlimit (0.0f, 1.0f, fromVel), b = juce::jlimit (0.0f, 1.0f, toVel);
-    double lo = notes[0].startBeat, hi = notes[0].startBeat;
-    for (const auto& n : notes) { lo = juce::jmin (lo, n.startBeat); hi = juce::jmax (hi, n.startBeat); }
+    double lo = notes[0].startBeat.toBeats(), hi = notes[0].startBeat.toBeats();
+    for (const auto& n : notes) { lo = juce::jmin (lo, n.startBeat.toBeats()); hi = juce::jmax (hi, n.startBeat.toBeats()); }
     const double span = hi - lo;
     for (auto& n : notes)
     {
-        const double t = span > 1e-9 ? (n.startBeat - lo) / span : 1.0;
+        const double t = span > 1e-9 ? (n.startBeat.toBeats() - lo) / span : 1.0;
         n.velocity = juce::jlimit (0.0f, 1.0f, a + (float) t * (b - a));
     }
 }
@@ -180,7 +188,7 @@ inline void flattenVelocities (std::vector<Note>& notes, float value)
 inline void scaleNoteTimes (std::vector<Note>& notes, double factor)
 {
     const double f = juce::jlimit (0.125, 8.0, factor);
-    for (auto& n : notes) { n.startBeat *= f; n.lengthBeats = juce::jmax (0.01, n.lengthBeats * f); }
+    for (auto& n : notes) { n.startBeat = n.startBeat.toBeats() * f; n.lengthBeats = juce::jmax (0.01, n.lengthBeats.toBeats() * f); }
 }
 
 /** Gate / articulation: scale every note's LENGTH by `factor`, keeping its start (so the
@@ -190,7 +198,7 @@ inline void scaleNoteTimes (std::vector<Note>& notes, double factor)
 inline void gateNotes (std::vector<Note>& notes, double factor)
 {
     const double f = juce::jlimit (0.05, 8.0, factor);
-    for (auto& n : notes) n.lengthBeats = juce::jmax (0.01, n.lengthBeats * f);
+    for (auto& n : notes) n.lengthBeats = juce::jmax (0.01, n.lengthBeats.toBeats() * f);
 }
 
 /** Ratchet / roll: subdivide every note into `subdivisions` equal same-pitch hits filling
@@ -203,11 +211,12 @@ inline void ratchetNotes (std::vector<Note>& notes, int subdivisions)
     std::vector<Note> out;
     for (const auto& note : notes)
     {
-        const double step = note.lengthBeats / n;
+        const double base = note.startBeat.toBeats();
+        const double step = note.lengthBeats.toBeats() / n;
         for (int k = 0; k < n; ++k)
         {
             Note h = note;
-            h.startBeat   = note.startBeat + (double) k * step;
+            h.startBeat   = base + (double) k * step;
             h.lengthBeats = juce::jmax (0.01, step);
             out.push_back (h);
         }
@@ -222,8 +231,8 @@ inline void ratchetNotes (std::vector<Note>& notes, int subdivisions)
 inline void invertNotes (std::vector<Note>& notes)
 {
     if (notes.empty()) return;
-    int pivot = notes[0].pitch; double earliest = notes[0].startBeat;
-    for (const auto& n : notes) if (n.startBeat < earliest) { earliest = n.startBeat; pivot = n.pitch; }
+    int pivot = notes[0].pitch; double earliest = notes[0].startBeat.toBeats();
+    for (const auto& n : notes) if (n.startBeat.toBeats() < earliest) { earliest = n.startBeat.toBeats(); pivot = n.pitch; }
     for (auto& n : notes) n.pitch = juce::jlimit (0, 127, 2 * pivot - n.pitch);
 }
 
@@ -280,13 +289,14 @@ inline void echoNotes (std::vector<Note>& notes, double delayBeats, int repeats,
     const std::vector<Note> src (notes);                    // snapshot the originals (we append)
     for (const auto& n : src)
     {
+        const double sb = n.startBeat.toBeats();
         float vel = n.velocity;
         for (int k = 1; k <= reps; ++k)
         {
             vel *= fb;
             if (vel < 0.01f) break;                         // faded out
             Note e = n;
-            e.startBeat = n.startBeat + (double) k * delayBeats;
+            e.startBeat = sb + (double) k * delayBeats;
             e.velocity  = juce::jlimit (0.0f, 1.0f, vel);
             notes.push_back (e);
         }
@@ -301,7 +311,7 @@ inline void arpeggiateNotes (std::vector<Note>& notes, double stepBeats, int mod
     if (stepBeats <= 0.0 || notes.empty()) return;
     std::map<long long, std::vector<int>> clusters;           // key = start beat (ms-quantised)
     for (int i = 0; i < (int) notes.size(); ++i)
-        clusters[(long long) std::llround (notes[(size_t) i].startBeat * 1000.0)].push_back (i);
+        clusters[(long long) std::llround (notes[(size_t) i].startBeat.toBeats() * 1000.0)].push_back (i);
 
     std::vector<Note> out;
     for (auto& cl : clusters)                                  // std::map → ascending start order
@@ -323,7 +333,7 @@ inline void arpeggiateNotes (std::vector<Note>& notes, double stepBeats, int mod
         }
         else seq = pitches;                                    // up
 
-        const double base = notes[(size_t) idx[0]].startBeat;
+        const double base = notes[(size_t) idx[0]].startBeat.toBeats();
         const float  vel  = notes[(size_t) idx[0]].velocity;
         for (int k = 0; k < (int) seq.size(); ++k)
             out.push_back ({ seq[(size_t) k], juce::jmax (0.0, base + k * stepBeats),
@@ -371,11 +381,11 @@ inline std::vector<Note> expandArp (const std::vector<Note>& notes, double rateB
     const float sw   = juce::jlimit (0.0f, 0.9f, swing);
     const double eps = 1e-6;
 
-    double tStart = notes[0].startBeat, tEnd = notes[0].startBeat;
+    double tStart = notes[0].startBeat.toBeats(), tEnd = notes[0].startBeat.toBeats();
     for (const auto& n : notes)
     {
-        tStart = juce::jmin (tStart, n.startBeat);
-        tEnd   = juce::jmax (tEnd, n.startBeat + n.lengthBeats);
+        tStart = juce::jmin (tStart, n.startBeat.toBeats());
+        tEnd   = juce::jmax (tEnd, n.startBeat.toBeats() + n.lengthBeats.toBeats());
     }
     if (hold && holdLenBeats > 0.0) tEnd = juce::jmax (tEnd, tStart + holdLenBeats);
     if (tEnd <= tStart + eps) return notes;
@@ -391,8 +401,11 @@ inline std::vector<Note> expandArp (const std::vector<Note>& notes, double rateB
         // Notes sounding at this step's start.
         std::vector<int> held; float vel = 0.0f;
         for (const auto& n : notes)
-            if (n.startBeat <= t + eps && t + eps < n.startBeat + n.lengthBeats)
+        {
+            const double sb = n.startBeat.toBeats();
+            if (sb <= t + eps && t + eps < sb + n.lengthBeats.toBeats())
                 { held.push_back (n.pitch); vel = juce::jmax (vel, n.velocity); }
+        }
         std::sort (held.begin(), held.end());
         held.erase (std::unique (held.begin(), held.end()), held.end());
 

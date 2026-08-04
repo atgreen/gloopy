@@ -141,7 +141,7 @@ public:
         const auto before = notes.size();
         notes.erase (std::remove_if (notes.begin(), notes.end(),
                         [this, s, pitch] (const Note& n)
-                        { return n.pitch == pitch && stepOf (n.startBeat) == s; }),
+                        { return n.pitch == pitch && stepOf (n.startBeat.toBeats()) == s; }),
                      notes.end());
         if (notes.size() == before)                                    // nothing removed → add one
             notes.push_back ({ pitch, (double) s * stepDur(), stepDur(), 0.85f });
@@ -161,7 +161,7 @@ private:
     bool stepOn (int pitch, int s) const
     {
         for (const auto& n : notes)
-            if (n.pitch == pitch && stepOf (n.startBeat) == s)
+            if (n.pitch == pitch && stepOf (n.startBeat.toBeats()) == s)
                 return true;
         return false;
     }

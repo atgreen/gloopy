@@ -41,6 +41,11 @@ struct BeatRatio
     constexpr BeatRatio (std::int64_t n, std::int64_t d) : num (n), den (d) { reduce(); }
     static constexpr BeatRatio whole (std::int64_t beats) { return BeatRatio { beats, 1 }; }
 
+    // Implicit build from a double beat value (snapped to the 960-PPQN grid, so real musical
+    // positions land exactly). Lets existing `= 0.25` / brace-init / double-sourced code keep
+    // working through the migration; reads back out are explicit via toBeats().
+    BeatRatio (double beats) { const auto r = fromBeats (beats); num = r.num; den = r.den; }
+
     constexpr void reduce()
     {
         if (den == 0) { num = 0; den = 1; return; }            // degenerate → 0 (never divide by 0)
@@ -52,12 +57,27 @@ struct BeatRatio
     constexpr double toBeats() const { return (double) num / (double) den; }
     constexpr bool   isZero()  const { return num == 0; }
 
-    /** Nearest rational to a double on a fixed grid — for migrating stored `double` beats.
-        maxDen defaults to 960 PPQN (divisible by 2/3/4/5/6/8/… so it lands common musical grids
-        exactly). Reduces afterwards, so a value already on a coarser grid comes back coarse. */
-    static BeatRatio fromBeats (double beats, std::int64_t maxDen = 960)
+    /** The exact minimal rational for a double beat value: best rational approximation p/q with
+        q ≤ maxDen (continued fractions / convergents). So 1/3 comes back as 1/3, 0.665 as 133/200,
+        0.25 as 1/4 — the value's true fraction, not a grid snap — which is what makes storing a
+        `double` position lossless. Used by the implicit ctor (all note positions) and by quantize. */
+    static BeatRatio fromBeats (double beats, std::int64_t maxDen = 1000000)
     {
-        return BeatRatio { (std::int64_t) std::llround (beats * (double) maxDen), maxDen };
+        if (! std::isfinite (beats)) return {};
+        const bool neg = beats < 0.0;
+        double frac = neg ? -beats : beats;
+        std::int64_t p0 = 0, q0 = 1, p1 = 1, q1 = 0;         // last two convergents
+        for (int i = 0; i < 64; ++i)
+        {
+            const std::int64_t a  = (std::int64_t) std::floor (frac);
+            const std::int64_t p2 = a * p1 + p0, q2 = a * q1 + q0;
+            if (q2 > maxDen || q2 < 0) break;                // denominator budget spent
+            p0 = p1; q0 = q1; p1 = p2; q1 = q2;
+            const double rem = frac - (double) a;
+            if (rem < 1e-12) break;                          // exact
+            frac = 1.0 / rem;
+        }
+        return BeatRatio { neg ? -p1 : p1, q1 == 0 ? 1 : q1 };
     }
 };
 
