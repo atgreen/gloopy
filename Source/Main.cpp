@@ -6,6 +6,7 @@
 #include <iostream>
 #include <sstream>
 #include "MainComponent.h"
+#include "Log.h"
 #include "PluginHost.h"
 #include "SurgePatchName.h"
 
@@ -50,7 +51,21 @@ public:
     {
         auto args = getCommandLineParameterArray();
 
-        if (args.contains ("--version") || args.contains ("-v"))
+        // Verbosity: -v, -vv, -vvv… (repeatable; --verbose counts as one) raise the log level,
+        // so path resolution and lifecycle steps print to stderr (GLOG). Parsed first, before the
+        // early-exit flags and the headless commands, so everything below can log.
+        {
+            int level = 0;
+            for (const auto& a : args)
+            {
+                if (a == "--verbose") ++level;
+                else if (a.length() >= 2 && a[0] == '-' && a.substring (1).containsOnly ("v"))
+                    level += a.length() - 1;
+            }
+            if (level > 0) { gloopy::setVerbosity (level); GLOG(1) << "verbosity level " << level; }
+        }
+
+        if (args.contains ("--version") || args.contains ("-V"))
         {
            #ifdef JUCE_APPLICATION_VERSION_STRING
             std::cout << "gloopy " << JUCE_APPLICATION_VERSION_STRING << std::endl;
@@ -72,8 +87,9 @@ public:
                 "  gloopy <project.gloopy | dir>   Launch the GUI, opening a project\n"
                 "  gloopy --safe-mode              Launch without audio/MIDI/control ports\n"
                 "  gloopy --force-gdi              Force the Windows GDI/software renderer\n"
-                "  gloopy --version                Print the version\n"
-                "  gloopy --help                   Show this help\n"
+                "  gloopy -v | -vv | -vvv          Increase log verbosity (paths, lifecycle) on stderr\n"
+                "  gloopy --version | -V           Print the version\n"
+                "  gloopy --help | -h              Show this help\n"
                 "\n"
                 "Headless commands (no GUI; results on stdout):\n"
                 "  gloopy render <project> [out.wav] [--range <startBeat> <endBeat>]\n"

@@ -35,6 +35,9 @@
 #include "GrpcServer.h"
 #include "Palette.h"
 #include "GloopyLookAndFeel.h"
+
+class DrumKit;   // Source/DrumKit.h (multi-pad kit generator; used by the Hydrogen-kit loader)
+
 #include <unordered_map>
 #include <map>
 #include <set>
@@ -793,6 +796,8 @@ private:
     void buildTemplate (const juce::String& name);          // seed a built-in template into the current project
     juce::StringArray builtinTemplateNames() const;
     juce::File findPianoSfz() const;                        // installed piano SFZ for the Piano template, if any
+    juce::File findBundledDrumkit (const juce::String& kitName) const;  // a bundled Hydrogen kit's drumkit.xml, if present
+    std::unique_ptr<DrumKit> buildHydrogenDrumKit (const juce::File& drumkitXml);  // load a Hydrogen kit into a DrumKit
     void selectClip (int track, int clip);
     void selectSessionClip (int trackIndex, int scene);   // load a session slot's clip into the editor
     void writeBackEditor();
@@ -951,8 +956,11 @@ private:
     juce::ComboBox   scaleNameBox;                 // chromatic/major/minor/...
     void applyScaleFromToolbar();                  // reads both boxes -> apiSetScale
     void refreshScaleToolbar();                    // model -> both boxes (after load)
-    void showAddTrackMenu();                        // + Track: Synth/Sampler/Audio/Plugin
+    void showAddTrackMenu();                        // + Track: Synth/Sampler/Audio/Plugin/Drum Kit
     void showSamplerChooser();                      // one chooser for audio files AND .sfz, dispatched by ext
+    void addBundledDrumKitTrack (const juce::String& kitName);   // a vendored Hydrogen kit -> DrumKit track
+    void showHydrogenKitChooser();                  // choose a .h2drumkit / drumkit.xml / kit folder to import
+    void addHydrogenKitTrack (const juce::File& chosen);         // load a Hydrogen kit path -> DrumKit track
     bool apiSetTrackGenerator (int trackId, std::unique_ptr<Generator> gen);   // swap a track's instrument in place
     std::unique_ptr<Generator> buildHostedSurge (const juce::String& fxpPath, juce::String& err);  // hosted Surge + .fxp (message thread)
     void swapTrackInstrumentAsync (int trackId, const juce::String& busyLabel,  // build off-thread, then swap

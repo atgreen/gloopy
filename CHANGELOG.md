@@ -13,6 +13,25 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-04
+
+Real sampled drums, a diagnostic verbosity flag, and a packaging fix.
+
+### Added
+- **Hydrogen drum kits.** A drum kit can now be real sampled drums. The built-in drum kit
+  loads the bundled **GMRockKit** (an 18-piece sampled acoustic kit), and **+ Track → Drum
+  Kit** offers GMRockKit / TR-808 plus **Load Hydrogen kit…**, which imports any
+  `.h2drumkit` archive, `drumkit.xml`, or kit folder. Each kit voice becomes a lane in the
+  step editor.
+- **Verbosity flag** — `-v` / `-vv` / `-vvv` raise log detail (data-file path resolution,
+  lifecycle) on stderr, so problems like a missing bundled asset are a one-line diagnosis.
+  (`-v` is now verbosity; the version flag is `--version` / `-V`.)
+
+### Fixed
+- **Demo compositions now ship in the packages.** They had no install rule, so the RPM/DEB
+  showed an empty Demos tab; they are now installed and resolved from the standard
+  system location.
+
 ## [0.3.0] - 2026-08-04
 
 Instrument-workflow improvements and a **drum kit with a step sequencer**.
@@ -370,7 +389,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/atgreen/gloopy/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/atgreen/gloopy/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/atgreen/gloopy/compare/v0.1.11...v0.2.0
 [0.1.11]: https://github.com/atgreen/gloopy/compare/v0.1.10...v0.1.11

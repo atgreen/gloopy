@@ -107,6 +107,20 @@ Drums** template:
   are data, not linked code, so they place no license obligation on Gloopy's own
   source.
 
+Gloopy also vendors two **Hydrogen** drumkits, used by the built-in drum kit (the
+default sounds) and loadable via *Load Hydrogen kit…*:
+
+| Component | License | Attribution | In-tree |
+|-----------|---------|-------------|---------|
+| **GMRockKit** (sampled 5-piece acoustic kit) | GPL | Glen MacArthur / Sebastian Moors | `third_party/drumkits/GMRockKit/` (see its `drumkit.xml`) |
+| **TR808EmulationKit** (analog 808 emulation) | GPL | ArtemioLabs (<http://artemiolabs.com>) | `third_party/drumkits/TR808EmulationKit/` (see its `drumkit.xml`) |
+
+- Both kits ship from the [Hydrogen](https://github.com/hydrogen-music/hydrogen)
+  project under the **GNU General Public License**. GPL is one-way compatible into this
+  AGPL-3.0 work, so bundling them is permitted; the copyright/GPL notices in each kit's
+  `drumkit.xml` and the attribution above are preserved. The samples are data, not
+  linked code.
+
 ## Control-API libraries (gRPC / Protobuf / Abseil)
 
 | Component | License | Notes |

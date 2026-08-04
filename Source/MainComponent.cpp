@@ -12,6 +12,8 @@
 #include "SynthGenerator.h"
 #include "DrumSynth.h"
 #include "DrumKit.h"
+#include "HydrogenKit.h"
+#include "Log.h"
 #include <array>
 #include <cmath>
 #include <algorithm>
@@ -314,6 +316,19 @@ MainComponent::MainComponent (bool headless)
     browser->setTabBarVisible (false);   // the activity rail selects categories now, not internal tabs
     browser->setCategories (std::move (cats));
     addChildComponent (*browser);        // hidden until a rail item is chosen
+
+    // With -v on, dump where the bundled data resolved at startup, so "the Demos/Presets tab is
+    // empty" is a one-line diagnosis instead of a guess (the per-candidate probing prints at -vv).
+    if (gloopy::verbosity() > 0)
+    {
+        const auto demos = demosDir(), surge = SurgeGenerator::dataDir(), piano = findPianoSfz();
+        const auto kit = findBundledDrumkit ("GMRockKit");
+        GLOG(1) << "paths: exe        " << juce::File::getSpecialLocation (juce::File::currentExecutableFile).getFullPathName();
+        GLOG(1) << "paths: demos      " << demos.getFullPathName() << (demos.isDirectory() ? "" : "  [missing]");
+        GLOG(1) << "paths: surge-data " << surge.getFullPathName() << (surge.getChildFile ("patches_factory").isDirectory() ? "" : "  [no patches_factory]");
+        GLOG(1) << "paths: piano-sfz  " << (piano.existsAsFile() ? piano.getFullPathName() : juce::String ("(none)"));
+        GLOG(1) << "paths: drumkit    " << (kit.existsAsFile() ? kit.getParentDirectory().getFullPathName() : juce::String ("(none — synth fallback)"));
+    }
 
     // Far-left activity rail (VS Code style): one icon per category, always visible.
     // Clicking an icon selects that category and opens the browser; clicking the
@@ -3001,6 +3016,7 @@ std::vector<juce::String> MainComponent::listSurgePatches() const
 {
     std::vector<juce::String> out;
     const auto root = SurgeGenerator::dataDir().getChildFile ("patches_factory");
+    GLOG(1) << "presets: scanning " << root.getFullPathName() << (root.isDirectory() ? "" : "  [missing]");
     if (! root.isDirectory()) return out;
     for (const auto& e : juce::RangedDirectoryIterator (root, true, "*.fxp", juce::File::findFiles))
     {
@@ -3010,6 +3026,7 @@ std::vector<juce::String> MainComponent::listSurgePatches() const
         out.push_back (label);
     }
     std::sort (out.begin(), out.end());
+    GLOG(1) << "presets: " << (int) out.size() << " Surge factory patches";
     return out;
 }
 
@@ -3976,18 +3993,66 @@ juce::File MainComponent::findPianoSfz() const
     return {};
 }
 
+// A bundled Hydrogen kit's drumkit.xml (third_party/drumkits/<name>/), resolved like the piano:
+// dev asset tree, then next to the exe, then the installed FHS <prefix>/share/gloopy layout.
+juce::File MainComponent::findBundledDrumkit (const juce::String& kitName) const
+{
+    const juce::String rel = "drumkits/" + kitName + "/drumkit.xml";
+   #ifdef GLOOPY_ASSETS_DIR
+    if (auto f = juce::File (GLOOPY_ASSETS_DIR).getChildFile (rel); f.existsAsFile()) return f;
+   #endif
+    const auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
+    if (auto f = exeDir.getChildFile ("assets").getChildFile (rel); f.existsAsFile()) return f;
+    if (auto f = exeDir.getParentDirectory().getChildFile ("share").getChildFile ("gloopy").getChildFile (rel); f.existsAsFile()) return f;
+    return {};
+}
+
+// Parse a Hydrogen drumkit.xml and load each instrument's loudest layer into a DrumKit pad.
+// Returns null if the kit can't be parsed or none of its samples load.
+std::unique_ptr<DrumKit> MainComponent::buildHydrogenDrumKit (const juce::File& drumkitXml)
+{
+    const auto kit = HydrogenKit::parse (drumkitXml);
+    if (! kit.valid())
+    {
+        GLOG(1) << "hydrogen kit: no instruments in " << drumkitXml.getFullPathName();
+        return nullptr;
+    }
+    auto dk = std::make_unique<DrumKit>();
+    dk->prepare (currentSampleRate, currentBlockSize);
+    int loaded = 0;
+    for (const auto& p : kit.pieces)
+    {
+        if (dk->addPadFromFile (p.name, p.colour, p.note, p.sample, formatManager))
+            ++loaded;
+        else
+            GLOG(1) << "hydrogen kit: sample missing " << p.sample.getFullPathName();
+    }
+    GLOG(1) << "hydrogen kit '" << kit.name << "': loaded " << loaded << "/" << (int) kit.pieces.size()
+            << " pads from " << drumkitXml.getParentDirectory().getFullPathName();
+    if (loaded == 0) return nullptr;
+    return dk;
+}
+
 void MainComponent::buildTemplate (const juce::String& name)
 {
-    // A drum kit is ONE track: a multi-pad DrumKit whose pads are the kit voices.
-    // GM-ish pad notes so the step grid reads Kick/Snare/Hat/Clap as distinct lanes.
+    // A drum kit is ONE track. Prefer the bundled GMRockKit (real sampled drums, GM notes so the
+    // step grid reads Kick/Snare/Hat/Clap as distinct lanes); fall back to the tiny synthesized kit
+    // when the bundle is absent (dev/headless builds without the data).
     auto buildDrumKit = [this]
     {
-        auto kit = std::make_unique<DrumKit>();
-        kit->prepare (currentSampleRate, currentBlockSize);
-        kit->addPad ("Kick",  juce::Colours::orangered,  36, DrumSynth::makeKick(),  DrumSynth::kRate);
-        kit->addPad ("Snare", juce::Colours::gold,       38, DrumSynth::makeSnare(), DrumSynth::kRate);
-        kit->addPad ("Hat",   juce::Colours::aquamarine, 42, DrumSynth::makeHat(),   DrumSynth::kRate);
-        kit->addPad ("Clap",  juce::Colours::violet,     39, DrumSynth::makeClap(),  DrumSynth::kRate);
+        std::unique_ptr<Generator> kit;
+        if (auto xml = findBundledDrumkit ("GMRockKit"); xml.existsAsFile())
+            kit = buildHydrogenDrumKit (xml);
+        if (kit == nullptr)
+        {
+            auto dk = std::make_unique<DrumKit>();
+            dk->prepare (currentSampleRate, currentBlockSize);
+            dk->addPad ("Kick",  juce::Colours::orangered,  36, DrumSynth::makeKick(),  DrumSynth::kRate);
+            dk->addPad ("Snare", juce::Colours::gold,       38, DrumSynth::makeSnare(), DrumSynth::kRate);
+            dk->addPad ("Hat",   juce::Colours::aquamarine, 42, DrumSynth::makeHat(),   DrumSynth::kRate);
+            dk->addPad ("Clap",  juce::Colours::violet,     39, DrumSynth::makeClap(),  DrumSynth::kRate);
+            kit = std::move (dk);
+        }
         addTrack (std::make_unique<Track> ("Drums", std::move (kit), 36, juce::Colours::orangered));
     };
     auto synth = [this] (const juce::String& n, int wave, float release, int pitch, juce::Colour col)
@@ -4121,13 +4186,21 @@ juce::File MainComponent::templatesDir() const
 juce::File MainComponent::demosDir() const
 {
     auto base = juce::SystemStats::getEnvironmentVariable ("GLOOPY_EXAMPLES_PATH", {});
-    if (base.isNotEmpty()) return juce::File (base);
+    if (base.isNotEmpty()) { GLOG(1) << "demos: GLOOPY_EXAMPLES_PATH=" << base; return juce::File (base); }
+    const auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
     const juce::File cands[] = {
         juce::File::getCurrentWorkingDirectory().getChildFile ("examples"),
-        juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory().getChildFile ("examples"),
-        juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory().getParentDirectory().getChildFile ("examples"),
+        exeDir.getChildFile ("examples"),
+        exeDir.getParentDirectory().getChildFile ("examples"),
+        // Installed FHS layout: <prefix>/share/gloopy/examples (the exe lives at <prefix>/bin).
+        exeDir.getParentDirectory().getChildFile ("share").getChildFile ("gloopy").getChildFile ("examples"),
     };
-    for (auto& c : cands) if (c.isDirectory()) return c;
+    for (auto& c : cands)
+    {
+        GLOG(2) << "demos: try " << c.getFullPathName() << (c.isDirectory() ? "  [ok]" : "  [miss]");
+        if (c.isDirectory()) return c;
+    }
+    GLOG(1) << "demos: NOT FOUND — Demos tab will be empty";
     return cands[0];
 }
 
@@ -6373,14 +6446,90 @@ void MainComponent::showAddTrackMenu()
     m.addItem (2, "Sampler");   // a sample file or an SFZ instrument — one chooser
     m.addItem (3, "Audio");
     m.addItem (4, "Plugin");
+
+    // Drum Kit: the bundled Hydrogen kits, plus an importer for any .h2drumkit / drumkit.xml.
+    juce::PopupMenu drums;
+    drums.addItem (10, "GMRockKit (bundled)");
+    drums.addItem (11, "TR-808 Emulation (bundled)");
+    drums.addSeparator();
+    drums.addItem (12, "Load Hydrogen kit\xe2\x80\xa6");
+    m.addSubMenu ("Drum Kit", drums);
+
     m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (addTrackBtn),
         [this] (int r)
         {
-            if      (r == 1) { if (addSynthBtn.onClick)  addSynthBtn.onClick(); }
-            else if (r == 2) showSamplerChooser();
-            else if (r == 3) { if (addAudioBtn.onClick)  addAudioBtn.onClick(); }
-            else if (r == 4) { if (addPluginBtn.onClick) addPluginBtn.onClick(); }
+            if      (r == 1)  { if (addSynthBtn.onClick)  addSynthBtn.onClick(); }
+            else if (r == 2)  showSamplerChooser();
+            else if (r == 3)  { if (addAudioBtn.onClick)  addAudioBtn.onClick(); }
+            else if (r == 4)  { if (addPluginBtn.onClick) addPluginBtn.onClick(); }
+            else if (r == 10) addBundledDrumKitTrack ("GMRockKit");
+            else if (r == 11) addBundledDrumKitTrack ("TR808EmulationKit");
+            else if (r == 12) showHydrogenKitChooser();
         });
+}
+
+void MainComponent::addBundledDrumKitTrack (const juce::String& kitName)
+{
+    const auto xml = findBundledDrumkit (kitName);
+    if (! xml.existsAsFile())
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+            "Drum kit not found", "The bundled kit \"" + kitName + "\" is not installed.");
+        return;
+    }
+    if (auto kit = buildHydrogenDrumKit (xml))
+        addTrack (std::make_unique<Track> (kitName, std::move (kit), 36, juce::Colours::orangered));
+}
+
+// Import a Hydrogen kit the user has: a .h2drumkit archive, a drumkit.xml, or a kit folder.
+void MainComponent::showHydrogenKitChooser()
+{
+    fileChooser = std::make_unique<juce::FileChooser> (
+        "Import a Hydrogen drum kit (.h2drumkit or drumkit.xml)", juce::File(), "*.h2drumkit;*.xml");
+    fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+        [this] (const juce::FileChooser& fc)
+        {
+            const auto f = fc.getResult();
+            if (f != juce::File()) addHydrogenKitTrack (f);
+        });
+}
+
+void MainComponent::addHydrogenKitTrack (const juce::File& chosen)
+{
+    juce::File   xml;
+    juce::String kitName;
+    if (chosen.hasFileExtension ("h2drumkit"))
+    {
+        // Extract to temp; the Sampler reads each sample fully into memory, so the files
+        // aren't needed after loading (and the kit serialises its PCM into the project).
+        auto dest = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                        .getChildFile ("gloopy-drumkits").getChildFile (chosen.getFileNameWithoutExtension());
+        xml     = HydrogenKit::extractArchive (chosen, dest);
+        kitName = chosen.getFileNameWithoutExtension();
+    }
+    else if (chosen.isDirectory())
+    {
+        xml = chosen.getChildFile ("drumkit.xml");
+        kitName = chosen.getFileName();
+    }
+    else if (chosen.getFileName().equalsIgnoreCase ("drumkit.xml"))
+    {
+        xml = chosen;
+        kitName = chosen.getParentDirectory().getFileName();
+    }
+
+    if (! xml.existsAsFile())
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+            "Not a drum kit", "No drumkit.xml was found in the selection.");
+        return;
+    }
+    if (auto kit = buildHydrogenDrumKit (xml))
+        addTrack (std::make_unique<Track> (kitName.isNotEmpty() ? kitName : "Drums",
+                                           std::move (kit), 36, juce::Colours::orangered));
+    else
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+            "Kit load failed", "Could not load samples from " + xml.getParentDirectory().getFileName() + ".");
 }
 
 // One chooser accepting audio files AND .sfz; dispatches to the right loader by extension.

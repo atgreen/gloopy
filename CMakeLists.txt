@@ -287,6 +287,22 @@ install(TARGETS Gloopy
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/SalamanderGrandPiano
     DESTINATION ${CMAKE_INSTALL_DATADIR}/gloopy
     COMPONENT gloopy)
+# Bundled GPL Hydrogen drumkits (the default DrumKit sounds + importable extras). Found at
+# runtime under <datadir>/gloopy/drumkits (see findBundledDrumkit); GPL, attributed in
+# THIRD-PARTY-LICENSES.md.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/drumkits")
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/drumkits
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/gloopy
+        COMPONENT gloopy)
+endif()
+# Bundled example compositions for the browser's Demos tab. Without this rule they only
+# resolved from the source tree, so an installed build (RPM/DEB) showed no demos. Found at
+# runtime under <datadir>/gloopy/examples (see demosDir).
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/examples")
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/examples
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/gloopy
+        COMPONENT gloopy)
+endif()
 if(GLOOPY_WITH_SURGE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-data")
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/surge-data
         DESTINATION ${CMAKE_INSTALL_DATADIR}/gloopy

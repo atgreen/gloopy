@@ -52,6 +52,20 @@ public:
         return ref;
     }
 
+    /** Add a pad by loading a sample file (WAV/FLAC/…) via @p fm. Plays at its natural
+        pitch (root note = @p note). Returns false if the file could not be read. */
+    bool addPadFromFile (juce::String name, juce::Colour colour, int note,
+                         const juce::File& file, juce::AudioFormatManager& fm)
+    {
+        auto s = std::make_unique<Sampler>();
+        s->prepare (deviceRate, blockSize);
+        if (! s->loadFile (file, fm))
+            return false;
+        s->setRootNote (note);
+        pads.push_back ({ std::move (name), colour, note, std::move (s) });
+        return true;
+    }
+
     void render (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi,
                  int startSample, int numSamples) override
     {
