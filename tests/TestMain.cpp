@@ -1690,6 +1690,25 @@ struct RationalTests : juce::UnitTest
             expectWithinAbsoluteError (BeatRatio { 7, 16 }.toBeats(), 0.4375, 1e-12);
         }
 
+        beginTest ("quantize snaps exactly on a triplet grid (no drift)");
+        {
+            std::vector<Note> notes = {
+                { 60, 0.66, 0.25, 0.8f, 1.0f },   // near 2/3
+                { 62, 0.98, 0.25, 0.8f, 1.0f },   // near 1.0 — the drift case
+                { 64, 0.34, 0.25, 0.8f, 1.0f },   // near 1/3
+            };
+            quantizeNotes (notes, 1.0 / 3.0, 1.0);
+            expectWithinAbsoluteError (notes[0].startBeat, 2.0 / 3.0, 1e-12);
+            expect (notes[1].startBeat == 1.0);   // EXACTLY 1.0 (the double path gives 0.9999999999999999)
+            expectWithinAbsoluteError (notes[2].startBeat, 1.0 / 3.0, 1e-12);
+
+            // Full-strength quantize is idempotent — a second pass moves nothing (drift-free).
+            auto before = notes;
+            quantizeNotes (notes, 1.0 / 3.0, 1.0);
+            for (size_t i = 0; i < notes.size(); ++i)
+                expect (notes[i].startBeat == before[i].startBeat);
+        }
+
         beginTest ("StaticRatio keeps 3/4 distinct from 6/8 (notation, not number)");
         {
             StaticRatio threeFour { 3, 4 }, sixEight { 6, 8 };
