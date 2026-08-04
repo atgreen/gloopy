@@ -7,6 +7,7 @@
 // behind the PIMPL so the rest of Gloopy remains C++17.
 
 #include "SurgeGenerator.h"
+#include "Log.h"
 
 #ifdef GLOOPY_WITH_SURGE
 
@@ -47,18 +48,22 @@ SurgeGenerator::~SurgeGenerator() = default;
 juce::File SurgeGenerator::dataDir()
 {
     auto env = juce::SystemStats::getEnvironmentVariable ("GLOOPY_SURGE_DATA", {});
-    if (env.isNotEmpty()) return juce::File (env);
+    if (env.isNotEmpty()) { GLOG(1) << "surge-data: GLOOPY_SURGE_DATA=" << env; return juce::File (env); }
    #ifdef GLOOPY_ASSETS_DIR
     auto bundled = juce::File (GLOOPY_ASSETS_DIR).getChildFile ("surge-data");   // vendored factory data (dev tree)
+    GLOG(2) << "surge-data: try assets  " << bundled.getFullPathName() << (bundled.isDirectory() ? "  [ok]" : "  [miss]");
     if (bundled.isDirectory()) return bundled;
    #endif
     // Portable layout: <exeDir>/assets/surge-data (next to the exe, e.g. the Windows zip).
     auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
     auto exeAdj = exeDir.getChildFile ("assets").getChildFile ("surge-data");
+    GLOG(2) << "surge-data: try exe     " << exeAdj.getFullPathName() << (exeAdj.isDirectory() ? "  [ok]" : "  [miss]");
     if (exeAdj.isDirectory()) return exeAdj;
     // Installed FHS layout: <prefix>/share/gloopy/surge-data (exe at <prefix>/bin).
     auto fhs = exeDir.getParentDirectory().getChildFile ("share").getChildFile ("gloopy").getChildFile ("surge-data");
+    GLOG(2) << "surge-data: try fhs     " << fhs.getFullPathName() << (fhs.isDirectory() ? "  [ok]" : "  [miss]");
     if (fhs.isDirectory()) return fhs;
+    GLOG(1) << "surge-data: NOT FOUND — Surge presets will be empty";
     return {};
 }
 

@@ -12,6 +12,7 @@
 #include "SynthGenerator.h"
 #include "DrumSynth.h"
 #include "DrumKit.h"
+#include "Log.h"
 #include <array>
 #include <cmath>
 #include <algorithm>
@@ -314,6 +315,17 @@ MainComponent::MainComponent (bool headless)
     browser->setTabBarVisible (false);   // the activity rail selects categories now, not internal tabs
     browser->setCategories (std::move (cats));
     addChildComponent (*browser);        // hidden until a rail item is chosen
+
+    // With -v on, dump where the bundled data resolved at startup, so "the Demos/Presets tab is
+    // empty" is a one-line diagnosis instead of a guess (the per-candidate probing prints at -vv).
+    if (gloopy::verbosity() > 0)
+    {
+        const auto demos = demosDir(), surge = SurgeGenerator::dataDir(), piano = findPianoSfz();
+        GLOG(1) << "paths: exe        " << juce::File::getSpecialLocation (juce::File::currentExecutableFile).getFullPathName();
+        GLOG(1) << "paths: demos      " << demos.getFullPathName() << (demos.isDirectory() ? "" : "  [missing]");
+        GLOG(1) << "paths: surge-data " << surge.getFullPathName() << (surge.getChildFile ("patches_factory").isDirectory() ? "" : "  [no patches_factory]");
+        GLOG(1) << "paths: piano-sfz  " << (piano.existsAsFile() ? piano.getFullPathName() : juce::String ("(none)"));
+    }
 
     // Far-left activity rail (VS Code style): one icon per category, always visible.
     // Clicking an icon selects that category and opens the browser; clicking the
@@ -3001,6 +3013,7 @@ std::vector<juce::String> MainComponent::listSurgePatches() const
 {
     std::vector<juce::String> out;
     const auto root = SurgeGenerator::dataDir().getChildFile ("patches_factory");
+    GLOG(1) << "presets: scanning " << root.getFullPathName() << (root.isDirectory() ? "" : "  [missing]");
     if (! root.isDirectory()) return out;
     for (const auto& e : juce::RangedDirectoryIterator (root, true, "*.fxp", juce::File::findFiles))
     {
@@ -3010,6 +3023,7 @@ std::vector<juce::String> MainComponent::listSurgePatches() const
         out.push_back (label);
     }
     std::sort (out.begin(), out.end());
+    GLOG(1) << "presets: " << (int) out.size() << " Surge factory patches";
     return out;
 }
 
@@ -4121,7 +4135,7 @@ juce::File MainComponent::templatesDir() const
 juce::File MainComponent::demosDir() const
 {
     auto base = juce::SystemStats::getEnvironmentVariable ("GLOOPY_EXAMPLES_PATH", {});
-    if (base.isNotEmpty()) return juce::File (base);
+    if (base.isNotEmpty()) { GLOG(1) << "demos: GLOOPY_EXAMPLES_PATH=" << base; return juce::File (base); }
     const auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
     const juce::File cands[] = {
         juce::File::getCurrentWorkingDirectory().getChildFile ("examples"),
@@ -4130,7 +4144,12 @@ juce::File MainComponent::demosDir() const
         // Installed FHS layout: <prefix>/share/gloopy/examples (the exe lives at <prefix>/bin).
         exeDir.getParentDirectory().getChildFile ("share").getChildFile ("gloopy").getChildFile ("examples"),
     };
-    for (auto& c : cands) if (c.isDirectory()) return c;
+    for (auto& c : cands)
+    {
+        GLOG(2) << "demos: try " << c.getFullPathName() << (c.isDirectory() ? "  [ok]" : "  [miss]");
+        if (c.isDirectory()) return c;
+    }
+    GLOG(1) << "demos: NOT FOUND — Demos tab will be empty";
     return cands[0];
 }
 
