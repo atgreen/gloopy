@@ -13,6 +13,26 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-04
+
+Plugin crash resilience and an exact-rational time model.
+
+### Added
+- **Plugin crash resilience.** Hosting VST3/LV2 in-process no longer risks a crash-loop.
+  *Blacklist-before-load* persists a plugin's id before instantiating it and clears it on
+  success, so a plugin that crashes while loading is skipped on the next launch (with a
+  "crashed last time" note and a **Reset plugin blacklist** action to retry). Plugin scanning
+  gains a dead-man's-pedal, so a scan-time crash auto-blacklists the offender next run.
+- **Exact rational time.** Note and clip positions are now stored as exact rationals
+  (`BeatRatio`) instead of doubles, so quantize, loop boundaries, and "is it exactly on the
+  bar?" no longer drift. Quantize snaps on exact grid math and is idempotent — a note
+  quantized to a triplet grid lands on exactly 2/3 or 1.0, not 0.6667/0.9999. Time signatures
+  keep 3/4 distinct from 6/8.
+
+### Changed
+- **The drum-kit demos now play real sampled drums** — the bundled GMRockKit (acoustic) and
+  TR-808 (electronic) Hydrogen kits — instead of the synthesized sounds.
+
 ## [0.4.0] - 2026-08-04
 
 Real sampled drums, a diagnostic verbosity flag, and a packaging fix.
@@ -392,7 +412,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/atgreen/gloopy/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/atgreen/gloopy/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/atgreen/gloopy/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/atgreen/gloopy/compare/v0.1.11...v0.2.0
