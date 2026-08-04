@@ -293,7 +293,7 @@ void MainComponent::finalizeTake (int trackId, const juce::File& take, double st
               << "channels = " << (int) r->numChannels << "\n"
               << "sample_rate = " << (int) r->sampleRate << "\n"
               << "start_beat = " << juce::String (startBeat, 6) << "\n"
-              << "length_beats = " << juce::String (lenBeats, 6) << "\n"
+              << "length_beats = " << juce::String (lenBeats.toBeats(), 6) << "\n"
               << "latency_compensation_seconds = " << juce::String (latSec, 6) << "\n";
         tf.appendText (block);
     }

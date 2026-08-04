@@ -57,8 +57,8 @@ int MainComponent::apiSliceClipAtTransients (int trackId, int index, float sensi
                 mono[(size_t) i] = s / (float) nch;
             }
             srcRate      = c.audioSourceRate;
-            clipStart    = c.startBeat;
-            clipLenBeats = c.lengthBeats;
+            clipStart    = c.startBeat.toBeats();
+            clipLenBeats = c.lengthBeats.toBeats();
         }
 
         const auto onsetSamples = detectOnsets (mono.data(), (int) mono.size(), srcRate, juce::jmax (0.0f, sensitivity));
@@ -100,7 +100,7 @@ int MainComponent::apiSplitClip (int trackId, int index, double beat)
             const juce::ScopedLock sl (engineLock);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
             const Clip& c = t->clips[(size_t) index];
-            const double local = beat - c.startBeat;
+            const double local = beat - c.startBeat.toBeats();
             if (local <= 0.0 || local >= c.lengthBeats) return -1;
         }
         pushUndoSnapshot();
@@ -109,7 +109,7 @@ int MainComponent::apiSplitClip (int trackId, int index, double beat)
             const juce::ScopedLock sl (engineLock);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
             Clip& a = t->clips[(size_t) index];
-            const double local = beat - a.startBeat;                 // split offset within the clip
+            const double local = beat - a.startBeat.toBeats();                 // split offset within the clip
             if (local <= 0.0 || local >= a.lengthBeats) return -1;   // split point outside the clip
 
             Clip b = a;                                              // copies type/audio/gain/name/etc.
@@ -147,8 +147,8 @@ int MainComponent::apiSplitClip (int trackId, int index, double beat)
             {
                 const int    frames  = a.audio->getNumSamples();
                 const int    nch     = a.audio->getNumChannels();
-                const double secBase = apiBeatsToSeconds (b.startBeat - local);   // == original clip start
-                const juce::int64 splitSrc = (juce::int64) std::llround ((apiBeatsToSeconds (b.startBeat) - secBase) * a.audioSourceRate);
+                const double secBase = apiBeatsToSeconds (b.startBeat.toBeats() - local);   // == original clip start
+                const juce::int64 splitSrc = (juce::int64) std::llround ((apiBeatsToSeconds (b.startBeat.toBeats()) - secBase) * a.audioSourceRate);
                 const juce::int64 cut = juce::jlimit ((juce::int64) 0, (juce::int64) frames, splitSrc);
                 const int leftFrames  = (int) cut;
                 const int rightFrames = frames - (int) cut;
@@ -191,8 +191,8 @@ int MainComponent::apiSplitClipEqual (int trackId, int index, int pieces)
             const juce::ScopedLock sl (engineLock);
             Track* t = resolveTrack (trackId);
             if (t == nullptr || ! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
-            start = t->clips[(size_t) index].startBeat;
-            len   = t->clips[(size_t) index].lengthBeats;
+            start = t->clips[(size_t) index].startBeat.toBeats();
+            len   = t->clips[(size_t) index].lengthBeats.toBeats();
         }
         if (len <= 0.0) return -1;
         const double piece = len / n;
@@ -252,7 +252,7 @@ bool MainComponent::apiReverseClip (int trackId, int index)
             else
             {
                 // Mirror each note within the clip's content window.
-                const double span = c.contentLenBeats > 0.0 ? c.contentLenBeats : c.lengthBeats;
+                const double span = c.contentLenBeats.toBeats() > 0.0 ? c.contentLenBeats.toBeats() : c.lengthBeats.toBeats();
                 for (auto& n : c.notes)
                     n.startBeat = juce::jmax (0.0, span - (n.startBeat + n.lengthBeats).toBeats());
             }
@@ -279,8 +279,8 @@ bool MainComponent::apiCropClip (int trackId, int index, double startBeat, doubl
             const juce::ScopedLock sl (engineLock);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             Clip& c = t->clips[(size_t) index];
-            const double clipEnd = c.startBeat + c.lengthBeats;
-            const double s = juce::jmax (startBeat, c.startBeat);
+            const double clipEnd = (c.startBeat + c.lengthBeats).toBeats();
+            const double s = juce::jmax (startBeat, c.startBeat.toBeats());
             const double e = juce::jmin (endBeat,   clipEnd);
             if (e - s < 1.0e-6) return false;                    // empty intersection
             const double newLen = e - s;
@@ -291,7 +291,7 @@ bool MainComponent::apiCropClip (int trackId, int index, double startBeat, doubl
                 // Audio plays at natural speed, so map the [s,e) beat window to
                 // source-sample offsets via wall-clock seconds (tempo-map aware) and
                 // trim the buffer to that sub-range.
-                const double secStart = apiBeatsToSeconds (c.startBeat);
+                const double secStart = apiBeatsToSeconds (c.startBeat.toBeats());
                 const juce::int64 headSrc = (juce::int64) std::llround ((apiBeatsToSeconds (s) - secStart) * c.audioSourceRate);
                 const juce::int64 tailSrc = (juce::int64) std::llround ((apiBeatsToSeconds (e) - secStart) * c.audioSourceRate);
                 const int frames = c.audio->getNumSamples();
@@ -316,7 +316,7 @@ bool MainComponent::apiCropClip (int trackId, int index, double startBeat, doubl
             }
             else
             {
-                const double head = s - c.startBeat;             // clip-relative beats dropped from the front
+                const double head = s - c.startBeat.toBeats();             // clip-relative beats dropped from the front
                 std::vector<Note> kept;
                 for (auto& n : c.notes)
                 {
@@ -361,8 +361,8 @@ bool MainComponent::apiScaleClipTime (int trackId, int index, double factor)
             if (c.isAudio()) return false;                       // MIDI clips only
             const double f = juce::jlimit (0.125, 8.0, factor);
             scaleNoteTimes (c.notes, f);                         // stretch/compress the note rhythm
-            c.contentLenBeats = juce::jmax (0.25, c.contentLenBeats * f);   // content window follows
-            c.lengthBeats     = juce::jmax (0.25, c.lengthBeats * f);       // and the arrangement slot
+            c.contentLenBeats = juce::jmax (0.25, c.contentLenBeats.toBeats() * f);   // content window follows
+            c.lengthBeats     = juce::jmax (0.25, c.lengthBeats.toBeats() * f);       // and the arrangement slot
         }
         if (t->arp.enabled) applyArpToTrack (*t);
         emitChange ("clip_changed", trackId);
@@ -383,7 +383,7 @@ bool MainComponent::apiConsolidateClip (int trackId, int index)
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             Clip& c = t->clips[(size_t) index];
             if (c.isAudio()) return false;                       // MIDI clips only
-            const double content = c.contentLenBeats > 0.0 ? c.contentLenBeats : c.lengthBeats;
+            const double content = c.contentLenBeats.toBeats() > 0.0 ? c.contentLenBeats.toBeats() : c.lengthBeats.toBeats();
             if (c.looped && content > 0.0 && content < c.lengthBeats - 1.0e-9)
             {
                 std::vector<Note> flat;
@@ -394,12 +394,12 @@ bool MainComponent::apiConsolidateClip (int trackId, int index)
                         if (onset >= c.lengthBeats - 1.0e-9) continue;   // starts at/after the clip end
                         Note nn = n;
                         nn.startBeat   = onset;
-                        nn.lengthBeats = juce::jmin (n.lengthBeats.toBeats(), c.lengthBeats - onset);   // don't ring past the clip
+                        nn.lengthBeats = juce::jmin (n.lengthBeats.toBeats(), c.lengthBeats.toBeats() - onset);   // don't ring past the clip
                         flat.push_back (nn);
                     }
                 c.notes = std::move (flat);
             }
-            c.contentLenBeats = c.lengthBeats;
+            c.contentLenBeats = c.lengthBeats.toBeats();
             c.looped          = false;
         }
         if (t->arp.enabled) applyArpToTrack (*t);
@@ -421,8 +421,8 @@ bool MainComponent::apiSetLoopToClip (int trackId, int index)
             Track* t = resolveTrack (trackId);
             if (t == nullptr || ! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             const Clip& c = t->clips[(size_t) index];
-            s = c.startBeat;
-            e = c.startBeat + c.lengthBeats;
+            s = c.startBeat.toBeats();
+            e = (c.startBeat + c.lengthBeats).toBeats();
         }
         if (e <= s) return false;
         apiSetLoop (true, s, e);
@@ -446,7 +446,7 @@ int MainComponent::apiRepeatClip (int trackId, int index, int copies)
             const juce::ScopedLock sl (engineLock);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
             const Clip base = t->clips[(size_t) index];   // copy before the vector grows/reallocates
-            const double len = juce::jmax (0.0625, base.lengthBeats);
+            const double len = juce::jmax (0.0625, base.lengthBeats.toBeats());
             for (int k = 1; k <= copies; ++k)
             {
                 Clip c = base;
@@ -536,8 +536,8 @@ int MainComponent::apiBounceClip (int trackId, int index)
             Track* t = resolveTrack (trackId);
             if (t == nullptr || ! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
             const Clip& c = t->clips[(size_t) index];
-            startBeat = c.startBeat;
-            endBeat   = c.startBeat + c.lengthBeats;
+            startBeat = c.startBeat.toBeats();
+            endBeat   = (c.startBeat + c.lengthBeats).toBeats();
             srcName   = t->name;
         }
         if (endBeat <= startBeat) return -1;
@@ -841,7 +841,7 @@ void MainComponent::applyArpToTrack (Track& t)
     {
         if (t.arp.enabled && c.type == ClipType::Midi)
         {
-            const double len = c.contentLenBeats > 0.0 ? c.contentLenBeats : c.lengthBeats;
+            const double len = c.contentLenBeats.toBeats() > 0.0 ? c.contentLenBeats.toBeats() : c.lengthBeats.toBeats();
             c.arpNotes = expandArp (c.notes, t.arp.rate, t.arp.octaves, t.arp.gate, t.arp.mode,
                                     t.arp.swing, t.arp.hold, len, t.arp.probability);
         }
