@@ -11,6 +11,7 @@
 #include "SurgeGenerator.h"
 #include "SynthGenerator.h"
 #include "DrumSynth.h"
+#include "DrumKit.h"
 #include <array>
 #include <cmath>
 #include <algorithm>
@@ -89,7 +90,7 @@ MainComponent::MainComponent (bool headless)
     posLabel.setColour (juce::Label::textColourId, Palette::accent);
 
     // ---- add tracks ----
-    addAndMakeVisible (addSynthBtn);
+    addChildComponent (addSynthBtn);   // hidden — reached via the + Track menu
     // "+ Synth" -> a small menu: Surge XT (Gloopy's featured instrument — the hosted plugin's
     // real, editable editor via the Track/Mixer "Plugin UI" button) first as the default, plus
     // the built-in lightweight Basic synth. Other instrument types have their own toolbar buttons
@@ -127,74 +128,14 @@ MainComponent::MainComponent (bool headless)
             });
     };
 
-    addAndMakeVisible (loadSampleBtn);
-    loadSampleBtn.onClick = [this]
-    {
-        fileChooser = std::make_unique<juce::FileChooser> (
-            "Load a sample", juce::File(), "*.wav;*.aif;*.aiff;*.flac");
-        fileChooser->launchAsync (juce::FileBrowserComponent::openMode
-                                    | juce::FileBrowserComponent::canSelectFiles,
-            [this] (const juce::FileChooser& fc)
-            {
-                const auto file = fc.getResult();
-                if (! file.existsAsFile()) return;
-                auto slot = std::make_shared<std::unique_ptr<Sampler>>();
-                auto ok   = std::make_shared<bool> (false);
-                const double sr = currentSampleRate; const int bs = currentBlockSize;
-                runBackground ("Loading " + file.getFileNameWithoutExtension() + "…",
-                    [this, slot, ok, file, sr, bs]
-                    {
-                        auto s = std::make_unique<Sampler>();
-                        s->prepare (sr, bs);
-                        *ok = s->loadFile (file, formatManager);
-                        *slot = std::move (s);
-                    },
-                    [this, slot, ok, file]
-                    {
-                        if (*ok && *slot)
-                            addTrack (std::make_unique<Track> (file.getFileNameWithoutExtension(),
-                                          std::move (*slot), 60, paletteColour ((int) tracks.size())));
-                    });
-            });
-    };
+    // "Sample" and "SFZ" are merged into one "Sampler" (showSamplerChooser dispatches by extension);
+    // these two remain only as hidden action holders that both open the combined chooser.
+    addChildComponent (loadSampleBtn);
+    loadSampleBtn.onClick = [this] { showSamplerChooser(); };
+    addChildComponent (addSfzBtn);
+    addSfzBtn.onClick = [this] { showSamplerChooser(); };
 
-    addAndMakeVisible (addSfzBtn);
-    addSfzBtn.onClick = [this]
-    {
-        fileChooser = std::make_unique<juce::FileChooser> (
-            "Load an SFZ instrument", juce::File(), "*.sfz");
-        fileChooser->launchAsync (juce::FileBrowserComponent::openMode
-                                    | juce::FileBrowserComponent::canSelectFiles,
-            [this] (const juce::FileChooser& fc)
-            {
-                const auto file = fc.getResult();
-                if (! file.existsAsFile()) return;
-                // sfizz parsing + sample loading can take seconds — do it off the message
-                // thread behind the busy overlay, then swap the ready generator in.
-                auto slot = std::make_shared<std::unique_ptr<SfizzGenerator>>();
-                auto ok   = std::make_shared<bool> (false);
-                auto err  = std::make_shared<juce::String>();
-                const double sr = currentSampleRate; const int bs = currentBlockSize;
-                runBackground ("Loading " + file.getFileNameWithoutExtension() + "…",
-                    [slot, ok, err, file, sr, bs]
-                    {
-                        auto g = std::make_unique<SfizzGenerator>();
-                        g->prepare (sr, bs);
-                        *ok = g->loadSfz (file, *err);
-                        *slot = std::move (g);
-                    },
-                    [this, slot, ok, err]
-                    {
-                        if (*ok && *slot)
-                            addTrack (std::make_unique<Track> ((*slot)->getName(),
-                                          std::move (*slot), 60, paletteColour ((int) tracks.size())));
-                        else
-                            std::cout << "[sfz] " << *err << std::endl;
-                    });
-            });
-    };
-
-    addAndMakeVisible (addAudioBtn);
+    addChildComponent (addAudioBtn);   // hidden — reached via the + Track menu
     addAudioBtn.onClick = [this]
     {
         fileChooser = std::make_unique<juce::FileChooser> (
@@ -209,8 +150,13 @@ MainComponent::MainComponent (bool headless)
             });
     };
 
-    addAndMakeVisible (addPluginBtn);
+    addChildComponent (addPluginBtn);   // hidden — reached via the + Track menu
     addPluginBtn.onClick = [this] { showAddPluginMenu(); };
+
+    // One "+ Track" entry point; the five kinds live in its menu (reclaims most of the toolbar).
+    addAndMakeVisible (addTrackBtn);
+    addTrackBtn.setTooltip ("Add a track — instrument, sample, SFZ, audio, or a hosted plugin");
+    addTrackBtn.onClick = [this] { showAddTrackMenu(); };
 
     addAndMakeVisible (loopButton);
     loopButton.setClickingTogglesState (true);
@@ -228,6 +174,7 @@ MainComponent::MainComponent (bool headless)
     panicButton.onClick = [this] { apiPanic(); };
 
     addAndMakeVisible (mixerButton);
+    mixerButton.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);   // lit while Mixer view is active
     mixerButton.onClick = [this] { setViewMode (viewMode == ViewMode::Mixer ? ViewMode::Arrange : ViewMode::Mixer); };
     addChildComponent (helpOverlay);   // '?' shortcut overlay — hidden until toggled, painted over everything
     helpOverlay.onClose = [this] { helpOverlay.setVisible (false); grabKeyboardFocus(); };
@@ -308,8 +255,27 @@ MainComponent::MainComponent (bool headless)
         [this] (const juce::String& label)
         {
             const auto it = browserSurgePatches.find (label);
-            if (it != browserSurgePatches.end())
-                addSurgeTrackAsync (it->second, label);   // runs off-thread behind the busy overlay
+            if (it == browserSurgePatches.end()) return;
+            const juce::String patch = it->second, name = label;
+            // EMBEDDED Surge loaded with this .fxp via loadPatchByPath — the only path that
+            // actually loads a factory patch (the hosted plugin's setStateInformation ignores a
+            // raw .fxp chunk). Applied to the SELECTED track (swap in place), or a new track if
+            // nothing is selected. Built off the message thread (constructing the engine + loading
+            // the patch is slow) behind the busy overlay.
+            const int ti = selTrack >= 0 ? selTrack : selSessionTrack;
+            if (juce::isPositiveAndBelow (ti, (int) tracks.size()))
+                swapTrackInstrumentAsync (tracks[(size_t) ti]->id, "Loading " + name + "…",
+                    [patch] (double sr, int bs) -> std::unique_ptr<Generator>
+                    {
+                        auto g = std::make_unique<SurgeGenerator>();
+                        g->prepare (sr, bs);
+                        juce::String err;
+                        if (! g->loadPatch (juce::File (patch), err))
+                            std::cout << "[surge] patch load: " << err << std::endl;
+                        return g;
+                    });
+            else
+                addSurgeTrackAsync (patch, name);   // embedded, off-thread, new track
         },
         [this] (const juce::String& label)
         {
@@ -808,6 +774,30 @@ MainComponent::MainComponent (bool headless)
     {
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
         apiDuplicateTrack (tracks[(size_t) trackIdx]->id);   // map view index -> stable API id
+    };
+
+    // Swap a track's instrument in place (clips/routing preserved). Patches for Surge come from the
+    // Presets browser (which now applies to the selected track).
+    arrangeView->onChangeInstrument = [this] (int trackIdx, int kind)
+    {
+        if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
+        const int tid = tracks[(size_t) trackIdx]->id;
+        if (kind == 0)   // Surge XT (hosted plugin, init patch)
+        {
+            showBusyThen ("Loading Surge XT…", [this, tid]
+            {
+                juce::String err;
+                auto gen = buildHostedSurge ({}, err);
+                if (gen != nullptr) apiSetTrackGenerator (tid, std::move (gen));
+                else std::cout << "[surge] " << err << std::endl;
+            });
+        }
+        else if (kind == 1)   // Basic synth
+        {
+            swapTrackInstrumentAsync (tid, "Basic synth",
+                [] (double sr, int bs) -> std::unique_ptr<Generator>
+                { auto g = std::make_unique<SynthGenerator>(); g->prepare (sr, bs); return g; });
+        }
     };
 
     arrangeView->onExportTrack = [this] (int trackIdx)
@@ -2897,6 +2887,85 @@ int MainComponent::apiAddSurgeTrack (const juce::String& name, const juce::Strin
    #endif
 }
 
+// Extract the raw patch chunk from a Surge .fxp. It's a VST2 "FPCh" opaque-chunk preset: a fixed
+// 60-byte header (CcnK + size + FPCh + version + fxID 'cjs3' + fxVersion + numPrograms + prgName[28]
+// + chunkSize), then the chunk. Surge's own loadPatchByPath reads exactly that chunk and loads it
+// raw — and that raw chunk is precisely what the hosted plugin's setStateInformation expects. So no
+// Surge engine is needed host-side; this is pure byte-slicing.
+static bool surgeFxpChunk (const juce::File& fxp, juce::MemoryBlock& out)
+{
+    juce::MemoryBlock raw;
+    if (! fxp.loadFileAsData (raw)) return false;
+    constexpr int header = 60;
+    if ((int) raw.getSize() <= header) return false;
+    const char* p = static_cast<const char*> (raw.getData());
+    if (std::memcmp (p, "CcnK", 4) != 0 || std::memcmp (p + 8, "FPCh", 4) != 0) return false;   // sanity
+    out.setSize (0);
+    out.append (p + header, raw.getSize() - (size_t) header);
+    return true;
+}
+
+// Build a hosted Surge XT plugin instrument, optionally with a factory .fxp patch loaded (via the
+// chunk bridge above). MUST run on the message thread (plugin instantiation). Returns null if the
+// Surge plugin isn't installed/bundled.
+std::unique_ptr<Generator> MainComponent::buildHostedSurge (const juce::String& fxpPath, juce::String& err)
+{
+    scanPlugins();
+    juce::String id;
+    for (auto& pl : apiListPlugins())
+        if (pl.isInstrument && pl.name.containsIgnoreCase ("Surge XT"))
+        { id = pl.identifier; if (pl.format == "LV2") break; }   // prefer the bundled LV2
+    if (id.isEmpty()) { err = "Surge XT plugin not found"; return nullptr; }
+    auto desc = pluginHost.knownList.getTypeForIdentifierString (id);
+    if (desc == nullptr) { err = "Surge XT description missing"; return nullptr; }
+    auto inst = pluginHost.create (*desc, currentSampleRate, currentBlockSize, err);
+    if (inst == nullptr) return nullptr;
+    auto gen = std::make_unique<PluginInstrument> (std::move (inst));
+    if (fxpPath.isNotEmpty())
+    {
+        juce::MemoryBlock chunk;
+        if (surgeFxpChunk (juce::File (fxpPath), chunk))
+        { if (auto* proc = gen->getPluginInstance()) proc->setStateInformation (chunk.getData(), (int) chunk.getSize()); }
+        else err = "Not a Surge .fxp: " + fxpPath;
+    }
+    return gen;
+}
+
+// Swap a track's instrument in place — the clips, mixer routing, name, colour, automation all stay;
+// only the sound source changes. Build the new generator off-thread (prepare + patch load are slow),
+// then swap the pointer under the engine lock and free the old one OUTSIDE the lock (a plugin's
+// destructor can block; we don't want that stalling the audio thread).
+bool MainComponent::apiSetTrackGenerator (int trackId, std::unique_ptr<Generator> gen)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || gen == nullptr) return false;
+        pushUndoSnapshot();
+        gen->prepare (currentSampleRate, currentBlockSize);   // ensure ready (idempotent if the builder did it)
+        std::unique_ptr<Generator> old;
+        {
+            const juce::ScopedLock sl (engineLock);
+            old = std::move (t->generator);
+            t->generator = std::move (gen);
+        }
+        old.reset();   // freed here, outside the lock
+        if (arrangeView) arrangeView->rebuild();   // header may gain/lose the plugin-edit button
+        if (mixerView)   mixerView->rebuild();
+        return true;
+    });
+}
+
+void MainComponent::swapTrackInstrumentAsync (int trackId, const juce::String& busyLabel,
+                                              std::function<std::unique_ptr<Generator> (double, int)> build)
+{
+    auto slot = std::make_shared<std::unique_ptr<Generator>>();
+    const double sr = currentSampleRate; const int bs = currentBlockSize;
+    runBackground (busyLabel,
+        [slot, build, sr, bs] { *slot = build (sr, bs); },
+        [this, trackId, slot] { if (*slot) apiSetTrackGenerator (trackId, std::move (*slot)); });
+}
+
 // Build a Surge track off the message thread (constructing the synth scans its patch
 // library, and loading a patch is not instant) behind the busy overlay, then install it.
 // Shared by the "+ Synth -> Surge XT" menu and the Presets browser tab.
@@ -3909,12 +3978,17 @@ juce::File MainComponent::findPianoSfz() const
 
 void MainComponent::buildTemplate (const juce::String& name)
 {
-    auto drum = [this] (const juce::String& n, juce::AudioBuffer<float> buf, juce::Colour col)
+    // A drum kit is ONE track: a multi-pad DrumKit whose pads are the kit voices.
+    // GM-ish pad notes so the step grid reads Kick/Snare/Hat/Clap as distinct lanes.
+    auto buildDrumKit = [this]
     {
-        auto sampler = std::make_unique<Sampler>();
-        sampler->prepare (currentSampleRate, currentBlockSize);
-        sampler->setSample (std::move (buf), DrumSynth::kRate, n);
-        addTrack (std::make_unique<Track> (n, std::move (sampler), 60, col));
+        auto kit = std::make_unique<DrumKit>();
+        kit->prepare (currentSampleRate, currentBlockSize);
+        kit->addPad ("Kick",  juce::Colours::orangered,  36, DrumSynth::makeKick(),  DrumSynth::kRate);
+        kit->addPad ("Snare", juce::Colours::gold,       38, DrumSynth::makeSnare(), DrumSynth::kRate);
+        kit->addPad ("Hat",   juce::Colours::aquamarine, 42, DrumSynth::makeHat(),   DrumSynth::kRate);
+        kit->addPad ("Clap",  juce::Colours::violet,     39, DrumSynth::makeClap(),  DrumSynth::kRate);
+        addTrack (std::make_unique<Track> ("Drums", std::move (kit), 36, juce::Colours::orangered));
     };
     auto synth = [this] (const juce::String& n, int wave, float release, int pitch, juce::Colour col)
     {
@@ -3962,39 +4036,43 @@ void MainComponent::buildTemplate (const juce::String& name)
         if (! loaded) synthPiano();
 
         synth ("Bass", 1, 0.15f, 36, juce::Colours::skyblue);
-        drum ("Kick",  DrumSynth::makeKick(),  juce::Colours::orangered);
-        drum ("Snare", DrumSynth::makeSnare(), juce::Colours::gold);
-        drum ("Hat",   DrumSynth::makeHat(),   juce::Colours::aquamarine);
-        drum ("Clap",  DrumSynth::makeClap(),  juce::Colours::violet);
+        buildDrumKit();
         return;
     }
 
     // "Starter Beat" and "Drum Kit" both build the kit; only Starter Beat seeds a groove.
-    drum ("Kick",  DrumSynth::makeKick(),  juce::Colours::orangered);
-    drum ("Snare", DrumSynth::makeSnare(), juce::Colours::gold);
-    drum ("Hat",   DrumSynth::makeHat(),   juce::Colours::aquamarine);
-    drum ("Clap",  DrumSynth::makeClap(),  juce::Colours::violet);
-    synth ("Bass", 1, 0.15f, 36, juce::Colours::skyblue);
+    buildDrumKit();                                                 // track 0 = Drums
+    synth ("Bass", 1, 0.15f, 36, juce::Colours::skyblue);           // track 1 = Bass
 
     if (name != "Starter Beat") return;
 
-    // Seed a 2-bar clip on each track containing a 1-bar looping groove.
+    // Seed a 2-bar looping groove: one drum clip (each pad on its own note) plus a
+    // bass line. The kit is one track, so all the drum hits live in a single clip.
     const juce::ScopedLock sl (engineLock);
-    auto seed = [this] (int ti, std::initializer_list<int> steps)
+    if (tracks.size() < 2) return;
+
+    auto add = [] (Clip& c, int pitch, std::initializer_list<int> steps)
     {
-        if (! juce::isPositiveAndBelow (ti, (int) tracks.size())) return;
-        Clip c;
-        c.startBeat = 0.0; c.lengthBeats = 8.0; c.contentLenBeats = 4.0; c.looped = true;
-        c.name = tracks[(size_t) ti]->name;
         for (int s : steps)
-            c.notes.push_back ({ tracks[(size_t) ti]->defaultPitch, s * 0.25, 0.25, 0.85f });
-        tracks[(size_t) ti]->clips.push_back (std::move (c));
+            c.notes.push_back ({ pitch, s * 0.25, 0.25, 0.85f });
     };
-    seed (0, { 0, 4, 8, 12 });
-    seed (1, { 4, 12 });
-    seed (2, { 0, 2, 4, 6, 8, 10, 12, 14 });
-    seed (3, { 8 });
-    seed (4, { 0, 3, 6, 8, 11, 14 });
+    auto newClip = [] (const juce::String& nm)
+    {
+        Clip c;
+        c.startBeat = 0.0; c.lengthBeats = 8.0; c.contentLenBeats = 4.0; c.looped = true; c.name = nm;
+        return c;
+    };
+
+    Clip drums = newClip (tracks[0]->name);
+    add (drums, 36, { 0, 4, 8, 12 });                    // kick
+    add (drums, 38, { 4, 12 });                          // snare
+    add (drums, 42, { 0, 2, 4, 6, 8, 10, 12, 14 });      // hat
+    add (drums, 39, { 8 });                              // clap
+    tracks[0]->clips.push_back (std::move (drums));
+
+    Clip bass = newClip (tracks[1]->name);
+    add (bass, tracks[1]->defaultPitch, { 0, 3, 6, 8, 11, 14 });
+    tracks[1]->clips.push_back (std::move (bass));
 }
 
 // Show the busy overlay and defer message-thread-bound `work` by one timer tick, so the
@@ -4434,6 +4512,7 @@ void MainComponent::loadSelectedClipIntoEditor()
     bool valid = false, isAudio = false;
     std::vector<Note> notes;
     std::vector<Note> ghosts;
+    std::vector<StepEditor::Voice> stepVoices;
     double contentLen = 4.0;
     int pitch = 60;
     juce::String trackName;
@@ -4473,6 +4552,17 @@ void MainComponent::loadSelectedClipIntoEditor()
                         }
                     }
                 }
+
+                // Step-grid voices: one lane per voice. A kit track supplies its pads via
+                // Generator::voices() so the whole groove reads at once; a single-voice
+                // (melodic) track gets one lane at its default pitch. Every lane edits this
+                // one clip's note list at its own pitch.
+                if (auto* gen = tracks[(size_t) et]->generator.get())
+                    for (const auto& v : gen->voices())
+                        stepVoices.push_back ({ v.name, v.colour, v.note });
+                if (stepVoices.empty())
+                    stepVoices.push_back ({ tracks[(size_t) et]->name,
+                                            tracks[(size_t) et]->colour, pitch });
             }
         }
     }
@@ -4481,8 +4571,7 @@ void MainComponent::loadSelectedClipIntoEditor()
     editorPanel.roll.setGhostNotes (std::move (ghosts));
     editorPanel.roll.loadNotes (notes);
     editorPanel.roll.setEnabledEditing (valid);
-    editorPanel.steps.setContent (contentLen, pitch);
-    editorPanel.steps.loadNotes (notes);
+    editorPanel.steps.setVoices (std::move (stepVoices), notes, contentLen);
     editorPanel.steps.setEnabledEditing (valid);
 
     const juce::String dot = "  " + juce::String (juce::CharPointer_UTF8 ("\xe2\x80\xa2")) + "  ";   // UTF-8 bullet
@@ -5131,6 +5220,7 @@ void MainComponent::parentHierarchyChanged()
 
 void MainComponent::applyViewMode()
 {
+    mixerButton.setToggleState (viewMode == ViewMode::Mixer, juce::dontSendNotification);   // lit while active
     arrangeViewport.setVisible (viewMode == ViewMode::Arrange);
     if (sessionPane) sessionPane->setVisible (viewMode == ViewMode::Session);
     mixerViewport  .setVisible (viewMode == ViewMode::Mixer);
@@ -6274,6 +6364,89 @@ juce::PluginDescription MainComponent::resolvePluginDescription (const juce::Plu
     return fallback != nullptr ? *fallback : saved;
 }
 
+// The single "+ Track" menu — its items just fire the (now hidden) per-type buttons' actions,
+// so all the existing add logic (Surge/basic synth, sample/SFZ/audio choosers, plugin scan) is reused.
+void MainComponent::showAddTrackMenu()
+{
+    juce::PopupMenu m;
+    m.addItem (1, "Synth");
+    m.addItem (2, "Sampler");   // a sample file or an SFZ instrument — one chooser
+    m.addItem (3, "Audio");
+    m.addItem (4, "Plugin");
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (addTrackBtn),
+        [this] (int r)
+        {
+            if      (r == 1) { if (addSynthBtn.onClick)  addSynthBtn.onClick(); }
+            else if (r == 2) showSamplerChooser();
+            else if (r == 3) { if (addAudioBtn.onClick)  addAudioBtn.onClick(); }
+            else if (r == 4) { if (addPluginBtn.onClick) addPluginBtn.onClick(); }
+        });
+}
+
+// One chooser accepting audio files AND .sfz; dispatches to the right loader by extension.
+void MainComponent::showSamplerChooser()
+{
+    fileChooser = std::make_unique<juce::FileChooser> (
+        "Load a sample or SFZ instrument", juce::File(), "*.wav;*.aif;*.aiff;*.flac;*.sfz");
+    fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+        [this] (const juce::FileChooser& fc)
+        {
+            const auto file = fc.getResult();
+            if (! file.existsAsFile()) return;
+            if (file.hasFileExtension ("sfz")) loadSfzFile (file);
+            else                               loadSampleFile (file);
+        });
+}
+
+void MainComponent::loadSampleFile (const juce::File& file)
+{
+    if (! file.existsAsFile()) return;
+    auto slot = std::make_shared<std::unique_ptr<Sampler>>();
+    auto ok   = std::make_shared<bool> (false);
+    const double sr = currentSampleRate; const int bs = currentBlockSize;
+    runBackground ("Loading " + file.getFileNameWithoutExtension() + "…",
+        [this, slot, ok, file, sr, bs]
+        {
+            auto s = std::make_unique<Sampler>();
+            s->prepare (sr, bs);
+            *ok = s->loadFile (file, formatManager);
+            *slot = std::move (s);
+        },
+        [this, slot, ok, file]
+        {
+            if (*ok && *slot)
+                addTrack (std::make_unique<Track> (file.getFileNameWithoutExtension(),
+                              std::move (*slot), 60, paletteColour ((int) tracks.size())));
+        });
+}
+
+void MainComponent::loadSfzFile (const juce::File& file)
+{
+    if (! file.existsAsFile()) return;
+    // sfizz parsing + sample loading can take seconds — do it off the message thread behind the
+    // busy overlay, then swap the ready generator in.
+    auto slot = std::make_shared<std::unique_ptr<SfizzGenerator>>();
+    auto ok   = std::make_shared<bool> (false);
+    auto err  = std::make_shared<juce::String>();
+    const double sr = currentSampleRate; const int bs = currentBlockSize;
+    runBackground ("Loading " + file.getFileNameWithoutExtension() + "…",
+        [slot, ok, err, file, sr, bs]
+        {
+            auto g = std::make_unique<SfizzGenerator>();
+            g->prepare (sr, bs);
+            *ok = g->loadSfz (file, *err);
+            *slot = std::move (g);
+        },
+        [this, slot, ok, err]
+        {
+            if (*ok && *slot)
+                addTrack (std::make_unique<Track> ((*slot)->getName(),
+                              std::move (*slot), 60, paletteColour ((int) tracks.size())));
+            else
+                std::cout << "[sfz] " << *err << std::endl;
+        });
+}
+
 void MainComponent::showAddPluginMenu()
 {
     scanPlugins();
@@ -6702,11 +6875,7 @@ void MainComponent::resized()
     }
     bar.removeFromLeft (14);
 
-    addSynthBtn  .setBounds (bar.removeFromLeft (64)); bar.removeFromLeft (5);
-    loadSampleBtn.setBounds (bar.removeFromLeft (74)); bar.removeFromLeft (5);
-    addSfzBtn    .setBounds (bar.removeFromLeft (56)); bar.removeFromLeft (5);
-    addAudioBtn  .setBounds (bar.removeFromLeft (68)); bar.removeFromLeft (5);
-    addPluginBtn .setBounds (bar.removeFromLeft (72));
+    addTrackBtn  .setBounds (bar.removeFromLeft (84));   // one button; the five kinds are in its menu
     mixerButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (6);
     mapsButton   .setBounds (bar.removeFromRight (52)); bar.removeFromRight (6);
     loopButton   .setBounds (bar.removeFromRight (54)); bar.removeFromRight (6);
@@ -7543,6 +7712,44 @@ juce::ValueTree MainComponent::toValueTree()
             s.setProperty ("data", juce::Base64::toBase64 (mb.getData(), mb.getSize()), nullptr);
             tr.addChild (s, -1, nullptr);
         }
+        else if (auto* kit = dynamic_cast<DrumKit*> (t->generator.get()))
+        {
+            // One KIT node with a PAD child per voice; each PAD stores its own sample
+            // (base64 PCM) plus the same playback params a standalone Sampler saves.
+            juce::ValueTree k ("KIT");
+            for (const auto& pad : kit->getPads())
+            {
+                const auto* sm = pad.sampler.get();
+                if (sm == nullptr) continue;
+                juce::ValueTree p ("PAD");
+                p.setProperty ("padname", pad.name, nullptr);
+                p.setProperty ("padcol", (int) pad.colour.getARGB(), nullptr);
+                p.setProperty ("note", pad.note, nullptr);
+                const auto& buf = sm->getSampleBuffer();
+                p.setProperty ("rate", sm->getSourceRate(), nullptr);
+                p.setProperty ("channels", buf.getNumChannels(), nullptr);
+                p.setProperty ("frames", buf.getNumSamples(), nullptr);
+                p.setProperty ("root", sm->getRootNote(), nullptr);
+                p.setProperty ("sstart", sm->getStartFrac(), nullptr);
+                p.setProperty ("send", sm->getEndFrac(), nullptr);
+                p.setProperty ("srev", sm->getReverse(), nullptr);
+                p.setProperty ("sfadein", sm->getFadeIn(), nullptr);
+                p.setProperty ("sfadeout", sm->getFadeOut(), nullptr);
+                p.setProperty ("sloop", sm->getLoop(), nullptr);
+                if (sm->getMono()) p.setProperty ("smono", true, nullptr);
+                if (sm->getLoopXfade() > 0.0f) p.setProperty ("sloopxf", sm->getLoopXfade(), nullptr);
+                if (sm->getInterp() != 0) p.setProperty ("sinterp", sm->getInterp(), nullptr);
+                p.setProperty ("sname", sm->getName(), nullptr);
+                juce::MemoryBlock mb ((size_t) buf.getNumChannels() * (size_t) buf.getNumSamples() * sizeof (float));
+                auto* dst = (float*) mb.getData();
+                for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+                    for (int i = 0; i < buf.getNumSamples(); ++i)
+                        *dst++ = buf.getSample (ch, i);
+                p.setProperty ("data", juce::Base64::toBase64 (mb.getData(), mb.getSize()), nullptr);
+                k.addChild (p, -1, nullptr);
+            }
+            tr.addChild (k, -1, nullptr);
+        }
         else if (auto* sf = dynamic_cast<SfizzGenerator*> (t->generator.get()))
         {
             // Store the .sfz path in portable (relative-to-sample-root) form when
@@ -7909,6 +8116,47 @@ std::unique_ptr<Track> MainComponent::buildTrackFromTree (const juce::ValueTree&
             else
                 std::cout << "[load] SFZ load failed: " << err << std::endl;
         }
+        else if (genType == "DrumKit")
+        {
+            auto kit = std::make_unique<DrumKit>();
+            kit->prepare (currentSampleRate, currentBlockSize);
+            auto k = tr.getChildWithName ("KIT");
+            for (int pi = 0; pi < k.getNumChildren(); ++pi)
+            {
+                auto p = k.getChild (pi);
+                if (! p.hasType ("PAD")) continue;
+                const int nch = juce::jmax (1, (int) p.getProperty ("channels", 1));
+                const int fr  = juce::jmax (0, (int) p.getProperty ("frames", 0));
+                juce::AudioBuffer<float> buf (nch, fr);
+                buf.clear();
+                juce::MemoryOutputStream os;
+                juce::Base64::convertFromBase64 (os, p.getProperty ("data", "").toString());
+                const auto mb = os.getMemoryBlock();
+                const auto* src = (const float*) mb.getData();
+                const size_t count = mb.getSize() / sizeof (float);
+                size_t idx = 0;
+                for (int ch = 0; ch < nch; ++ch)
+                    for (int j = 0; j < fr; ++j)
+                        if (idx < count) buf.setSample (ch, j, src[idx++]);
+
+                const int note = (int) p.getProperty ("note", 36);
+                const juce::Colour col ((juce::uint32) (int) p.getProperty ("padcol",
+                                            (int) juce::Colours::orangered.getARGB()));
+                auto& sm = kit->addPad (p.getProperty ("padname", "Pad").toString(), col, note,
+                                        std::move (buf), (double) p.getProperty ("rate", 44100.0));
+                sm.setRootNote ((int) p.getProperty ("root", note));
+                sm.setPlaybackWindow ((float) (double) p.getProperty ("sstart", 0.0),
+                                      (float) (double) p.getProperty ("send", 1.0),
+                                      (bool) p.getProperty ("srev", false));
+                sm.setFades ((float) (double) p.getProperty ("sfadein", 0.0),
+                             (float) (double) p.getProperty ("sfadeout", 0.0));
+                sm.setLoop ((bool) p.getProperty ("sloop", false));
+                sm.setMono ((bool) p.getProperty ("smono", false));
+                sm.setLoopXfade ((float) (double) p.getProperty ("sloopxf", 0.0));
+                sm.setInterp ((int) p.getProperty ("sinterp", 0));
+            }
+            gen = std::move (kit);
+        }
         else
         {
             auto sm = std::make_unique<Sampler>();
@@ -8271,7 +8519,7 @@ void MainComponent::refreshUiAfterLoad()
     editorPanel.roll.setEnabledEditing (false);
     editorPanel.roll.loadNotes ({});
     editorPanel.steps.setEnabledEditing (false);
-    editorPanel.steps.loadNotes ({});
+    editorPanel.steps.setVoices ({}, {}, 4.0);
     editorPanel.title.setText ("EDITOR", juce::dontSendNotification);
 
     if (arrangeView) { arrangeView->setSelection (-1, -1); arrangeView->rebuild(); }

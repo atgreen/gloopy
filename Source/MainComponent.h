@@ -934,6 +934,7 @@ private:
     juce::Slider     bpmSlider;
     juce::Label      bpmLabel { {}, "BPM" };
     juce::Label      posLabel;
+    juce::TextButton addTrackBtn   { "+ Track" };   // one entry point; the five below are its menu items
     juce::TextButton addSynthBtn   { "+ Synth" };
     juce::TextButton loadSampleBtn { "+ Sample" };
     juce::TextButton addSfzBtn     { "+ SFZ" };
@@ -950,6 +951,14 @@ private:
     juce::ComboBox   scaleNameBox;                 // chromatic/major/minor/...
     void applyScaleFromToolbar();                  // reads both boxes -> apiSetScale
     void refreshScaleToolbar();                    // model -> both boxes (after load)
+    void showAddTrackMenu();                        // + Track: Synth/Sampler/Audio/Plugin
+    void showSamplerChooser();                      // one chooser for audio files AND .sfz, dispatched by ext
+    bool apiSetTrackGenerator (int trackId, std::unique_ptr<Generator> gen);   // swap a track's instrument in place
+    std::unique_ptr<Generator> buildHostedSurge (const juce::String& fxpPath, juce::String& err);  // hosted Surge + .fxp (message thread)
+    void swapTrackInstrumentAsync (int trackId, const juce::String& busyLabel,  // build off-thread, then swap
+                                   std::function<std::unique_ptr<Generator> (double, int)> build);
+    void loadSampleFile (const juce::File&);        // audio file -> Sampler track (off-thread)
+    void loadSfzFile (const juce::File&);           // .sfz -> SfizzGenerator track (off-thread)
 
     juce::OwnedArray<juce::DocumentWindow> pluginWindows;
     bool pluginsScanned { false };

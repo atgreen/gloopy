@@ -13,6 +13,30 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-04
+
+Instrument-workflow improvements and a **drum kit with a step sequencer**.
+
+### Added
+- **Multi-voice drum kit.** A drum kit is now a *single* track. The new **DrumKit**
+  instrument holds one pad per voice (Kick / Snare / Hat / Clap) and routes each note to
+  its pad, so a whole groove lives in one clip instead of one track per drum.
+- **Step editor (Hydrogen-style).** The clip editor's **Steps** mode draws one lane per
+  kit voice — click cells to place hits, watch the playhead sweep the columns. It's a pure
+  view over the clip's notes, so the piano roll and the grid always agree.
+- **In-place instrument swap** — change a track's instrument without losing its clips, and
+  applying a preset now targets the selected track.
+- **Surge `.fxp` factory patches** load into the hosted Surge XT plugin.
+
+### Changed
+- **Sample and SFZ are now one "Sampler" track type** — one track kind for all one-shot and
+  multisample playback.
+- **Streamlined the top bar** to a single **+ Track** menu.
+
+### Fixed
+- Surge factory presets load through the engine correctly.
+- Stable macro removal, and a generic `SetParameter` for macro / group ids.
+
 ## [0.2.0] - 2026-08-02
 
 The **macro / rack control layer** and full **arrangement automation** — two large feature
@@ -346,7 +370,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/atgreen/gloopy/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/atgreen/gloopy/compare/v0.1.11...v0.2.0
 [0.1.11]: https://github.com/atgreen/gloopy/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/atgreen/gloopy/compare/v0.1.9...v0.1.10
