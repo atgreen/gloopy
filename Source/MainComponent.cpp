@@ -6621,11 +6621,15 @@ void MainComponent::showAddPluginMenu()
             menu.addItem (100 + i, instruments[i].name + "  (" + instruments[i].pluginFormatName + ")");
     menu.addSeparator();
     menu.addItem (2, "Rescan plugins");
+    const int skipped = pluginHost.blacklistedIds().size();
+    if (skipped > 0)   // a plugin that crashed us last time is being skipped — let the user retry
+        menu.addItem (3, "Reset plugin blacklist (" + juce::String (skipped) + " skipped)");
 
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (addPluginBtn),
         [this, instruments] (int r)
         {
             if (r == 2) { scanPlugins (true); }
+            else if (r == 3) { pluginHost.clearBlacklist(); scanPlugins (true); }
             else if (r >= 100 && r - 100 < instruments.size())
                 createInstrumentTrack (instruments[r - 100]);
         });
@@ -6635,7 +6639,12 @@ void MainComponent::createInstrumentTrack (const juce::PluginDescription& desc)
 {
     juce::String err;
     auto inst = pluginHost.create (desc, currentSampleRate, currentBlockSize, err);
-    if (inst == nullptr) return;
+    if (inst == nullptr)
+    {
+        if (err.isNotEmpty())
+            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Plugin", err);
+        return;
+    }
     auto gen = std::make_unique<PluginInstrument> (std::move (inst));
     addTrack (std::make_unique<Track> (desc.name, std::move (gen), 60,
                                        paletteColour ((int) tracks.size())));

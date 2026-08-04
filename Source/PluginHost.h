@@ -5,6 +5,7 @@
 
 #include <JuceHeader.h>
 #include <functional>
+#include <set>
 #include <cstdlib>   // setenv / _putenv_s
 
 /** Owns the plugin format manager (VST3 + LV2) and the scanned plugin list.
@@ -17,6 +18,7 @@ public:
         addBundledDirsToLV2Path();                        // must precede format construction
         setBundledSurgeDataHome();                        // so the hosted Surge XT finds its patches
         juce::addDefaultFormatsToManager (formatManager); // VST3 + LV2
+        loadBlacklist();                                  // plugins that crashed us last time
     }
 
     juce::AudioPluginFormatManager formatManager;
@@ -117,12 +119,17 @@ public:
     /** Scan the default locations for every enabled format, then cache the list. */
     void scanAll (std::function<void (const juce::String&)> onProgress = {})
     {
+        // The dead-man's-pedal file makes scanning crash-resilient: the scanner records the plugin
+        // it's about to probe before loading it, and on the next launch blacklists anything left
+        // behind by a crash — so one bad plugin can't wedge startup on every run.
+        auto pedal = scanPedalFile();
+        pedal.getParentDirectory().createDirectory();
         for (auto* fmt : formatManager.getFormats())
         {
             auto paths = fmt->getDefaultLocationsToSearch();
             for (auto& d : bundledPluginDirs())
                 if (d.isDirectory()) paths.addIfNotAlreadyThere (d);   // bundled Surge XT.lv2 etc.
-            juce::PluginDirectoryScanner scanner (knownList, *fmt, paths, true, juce::File());
+            juce::PluginDirectoryScanner scanner (knownList, *fmt, paths, true, pedal);
             juce::String name;
             while (scanner.scanNextFile (true, name))
                 if (onProgress) onProgress (name);
@@ -155,11 +162,56 @@ public:
             xml->writeTo (f);
     }
 
+    // --- Crash resilience: blacklist-before-load ----------------------------------------
+    // A plugin can segfault while being instantiated in-process, taking Gloopy down. There's
+    // no watchdog; instead we persist the plugin's id to disk *before* the risky call and clear
+    // it *after* a successful load. If the load crashes the app, the id survives the crash, so
+    // the next launch skips that plugin (with a "crashed last time" note) instead of crashing on
+    // every startup. (Radium's trick.) The scan phase is protected separately by the scanner's
+    // dead-man's-pedal file below.
+    juce::File appDataDir()     const { return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory).getChildFile ("Gloopy"); }
+    juce::File blacklistFile()  const { return appDataDir().getChildFile ("plugin-blacklist.txt"); }
+    juce::File scanPedalFile()  const { return appDataDir().getChildFile ("plugin-scan-pedal.txt"); }
+
+    void loadBlacklist()
+    {
+        blacklist.clear();
+        for (auto& line : juce::StringArray::fromLines (blacklistFile().loadFileAsString()))
+            if (line.trim().isNotEmpty()) blacklist.insert (line.trim());
+    }
+    void writeBlacklist (const std::set<juce::String>& ids) const
+    {
+        auto f = blacklistFile();
+        f.getParentDirectory().createDirectory();
+        juce::StringArray lines;
+        for (auto& id : ids) lines.add (id);
+        f.replaceWithText (lines.joinIntoString ("\n"));   // synchronous — flushed before we return
+    }
+    bool isBlacklisted (const juce::String& id) const { return blacklist.find (id) != blacklist.end(); }
+    juce::StringArray blacklistedIds() const { juce::StringArray a; for (auto& id : blacklist) a.add (id); return a; }
+    void clearBlacklist()                        { blacklist.clear();   writeBlacklist (blacklist); }
+    void removeFromBlacklist (const juce::String& id) { blacklist.erase (id); writeBlacklist (blacklist); }
+
     std::unique_ptr<juce::AudioPluginInstance> create (const juce::PluginDescription& desc,
                                                        double sampleRate, int blockSize,
                                                        juce::String& error)
     {
-        return formatManager.createPluginInstance (desc, sampleRate, blockSize, error);
+        const auto id = desc.createIdentifierString();
+        if (isBlacklisted (id))
+        {
+            error = desc.name + " crashed the last time it was opened, so it was skipped. "
+                    "Reset the plugin blacklist to try it again.";
+            return nullptr;
+        }
+        // Persist the intent (blacklist ∪ {id}) to disk before the load; a crash leaves it behind.
+        auto pending = blacklist;
+        pending.insert (id);
+        writeBlacklist (pending);
+
+        auto inst = formatManager.createPluginInstance (desc, sampleRate, blockSize, error);
+
+        writeBlacklist (blacklist);   // reached only if the load didn't crash — clear the intent
+        return inst;
     }
 
     juce::Array<juce::PluginDescription> plugins (bool instrumentsOnly) const
@@ -170,4 +222,7 @@ public:
                 out.add (d);
         return out;
     }
+
+private:
+    std::set<juce::String> blacklist;   // plugin ids that crashed us on load; skipped until reset
 };
