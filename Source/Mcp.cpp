@@ -10,6 +10,7 @@
 // Slice 1: initialize + tools/list + tools/call for a read-only handful
 // (session/get_info, tracks/list, transport/set_tempo). Mutating/generative tools follow.
 #include "MainComponent.h"
+#include "Paths.h"
 #include <iostream>
 #include <string>
 
@@ -59,8 +60,7 @@ namespace {
     juce::String modelDoc() {
         juce::File f = juce::File::getCurrentWorkingDirectory().getChildFile ("docs/control-scripting/concepts/model.md");
         if (! f.existsAsFile())
-            f = juce::File::getSpecialLocation (juce::File::currentExecutableFile)
-                    .getParentDirectory().getChildFile ("docs/control-scripting/concepts/model.md");
+            f = gloopy::executableDir().getChildFile ("docs/control-scripting/concepts/model.md");
         if (f.existsAsFile()) return f.loadFileAsString();
         return "# The Gloopy model\n\nA project has tracks; each track holds clips (MIDI notes or "
                "audio). Tracks feed mixer inserts (volume/pan/effects) that sum to master. Positions "

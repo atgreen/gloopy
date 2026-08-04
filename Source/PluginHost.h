@@ -4,6 +4,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "Paths.h"
 #include <functional>
 #include <set>
 #include <cstdlib>   // setenv / _putenv_s
@@ -44,7 +45,7 @@ public:
        #ifdef GLOOPY_ASSETS_DIR
         dirs.add (juce::File (GLOOPY_ASSETS_DIR).getChildFile ("surge-plugin"));
        #endif
-        auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
+        auto exeDir = gloopy::executableDir();
         dirs.add (exeDir.getChildFile ("plugins"));   // portable: <exeDir>/plugins (e.g. the Windows zip)
         // Installed FHS layout: <prefix>/lib(64)/gloopy/plugins (exe at <prefix>/bin). Check both
         // because Fedora uses lib64 and Debian uses lib for the arch-specific plugin bundle.

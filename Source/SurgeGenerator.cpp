@@ -8,6 +8,7 @@
 
 #include "SurgeGenerator.h"
 #include "Log.h"
+#include "Paths.h"
 
 #ifdef GLOOPY_WITH_SURGE
 
@@ -55,7 +56,7 @@ juce::File SurgeGenerator::dataDir()
     if (bundled.isDirectory()) return bundled;
    #endif
     // Portable layout: <exeDir>/assets/surge-data (next to the exe, e.g. the Windows zip).
-    auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
+    auto exeDir = gloopy::executableDir();
     auto exeAdj = exeDir.getChildFile ("assets").getChildFile ("surge-data");
     GLOG(2) << "surge-data: try exe     " << exeAdj.getFullPathName() << (exeAdj.isDirectory() ? "  [ok]" : "  [miss]");
     if (exeAdj.isDirectory()) return exeAdj;

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "KernelHost.h"
+#include "Paths.h"
 #include <cstdlib>   // setenv / _putenv_s
 
 namespace
@@ -167,7 +168,7 @@ juce::File KernelHost::findFile (const juce::String& relPath)
 {
     juce::Array<juce::File> roots;
     roots.add (juce::File::getCurrentWorkingDirectory());
-    roots.add (juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory());
+    roots.add (gloopy::executableDir());
     for (auto base : roots)
         for (int up = 0; up < 6 && base != juce::File(); ++up, base = base.getParentDirectory())
         {

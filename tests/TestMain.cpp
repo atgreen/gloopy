@@ -31,6 +31,7 @@
 #include "Rational.h"
 #include "Transport.h"
 #include "HydrogenKit.h"
+#include "Paths.h"
 #include <type_traits>
 #include <cstring>
 #include <cstdio>
@@ -1751,6 +1752,35 @@ struct TimeSignatureTests : juce::UnitTest
     }
 };
 
+// The executable-path helper underpins every <exeDir>/../share data lookup. If it ever falls
+// back to JUCE's argv[0]-relative resolution, launching by a bare $PATH name (typing `gloopy`)
+// resolves data against the cwd and demos/presets come up empty — so pin the invariant here.
+struct PathsTests : juce::UnitTest
+{
+    PathsTests() : juce::UnitTest ("Paths") {}
+    void runTest() override
+    {
+        beginTest ("executableFile is an absolute path to an existing file");
+        const auto exe = gloopy::executableFile();
+        expect (exe.getFullPathName().isNotEmpty());
+        expect (juce::File::isAbsolutePath (exe.getFullPathName()));
+        expect (exe.existsAsFile());
+
+        beginTest ("executableDir is that file's parent directory");
+        expect (gloopy::executableDir() == exe.getParentDirectory());
+        expect (gloopy::executableDir().isDirectory());
+
+       #if JUCE_LINUX
+        beginTest ("on Linux it matches /proc/self/exe, not argv[0]");
+        char buf[PATH_MAX + 1];
+        const auto n = ::readlink ("/proc/self/exe", buf, sizeof (buf) - 1);
+        expect (n > 0);
+        if (n > 0) { buf[(size_t) n] = '\0'; expect (exe == juce::File (juce::CharPointer_UTF8 (buf))); }
+       #endif
+    }
+};
+
+static PathsTests        pathsTests;
 static TimeSignatureTests timeSignatureTests;
 static RationalTests     rationalTests;
 static HydrogenKitTests  hydrogenKitTests;
