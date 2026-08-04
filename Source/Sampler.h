@@ -118,6 +118,8 @@ public:
                 const auto msg = (*midiIt).getMessage();
                 if (msg.isNoteOn() && msg.getFloatVelocity() > 0.0f)
                     startVoice (msg.getNoteNumber(), msg.getFloatVelocity());
+                else if (msg.isAllSoundOff() || msg.isAllNotesOff())      // choke — cut every ringing
+                    for (auto& v : voices) v.active = false;              // voice (piano-roll audition retrigger)
                 else if (loop && (msg.isNoteOff() || msg.isNoteOn()))     // note-on vel 0 == note-off
                     for (auto& v : voices)
                         if (v.active && v.note == msg.getNoteNumber() && ! v.releasing)
