@@ -543,3 +543,66 @@ Slices (one green commit each):
 5. **Control API** — OSC + gRPC launch clip/scene, stop, query session state.
 6. **Polish** — clip colours, follow-actions, capture, quantize menu, "Guit
    Magic ••▶" style launch-mode indicators from the mockup.
+
+# Ideas Borrowed From Radium
+
+Distilled from studying the [radium](https://github.com/kmatheussen/radium) DAW/tracker
+(Kjetil Matheussen, ~20 years, ~5000 files). Radium independently confirmed several Gloopy
+choices (zero-alloc audio thread, name/path-addressed params, content-addressed versioned
+project format). Full notes with file pointers into a local checkout live in `FOR-GLOOPY.md`.
+
+## Highest Leverage
+
+### 1. Plugin crash resilience — cheapest high-value win
+
+Gloopy hosts VST3/LV2 in-process via JUCE; a misbehaving plugin can crash on *scan*
+(killing startup) or on *load*, with no persistent record. Radium protects the host two
+ways that cost little.
+
+For Gloopy:
+
+- **Out-of-process scanning + on-disk description cache.** Scan plugins in a
+  `juce::ChildProcess` (JUCE's own scanner supports out-of-process via a dead-man's-pedal
+  file); persist the `KnownPluginList` XML; rescan only on change. A segfault while probing
+  takes down the scanner child, not the app.
+- **Blacklist-before-load (no watchdog needed).** Write the plugin to a persistent
+  blacklist file (e.g. `~/.config/gloopy/plugin-blacklist.txt`) *before*
+  `createPluginInstance`, and clear it only *after* a successful open. A load-time crash
+  leaves the entry behind, so the next launch skips it and shows "crashed last time —
+  try again / remove" instead of an infinite crash loop.
+- Target files: `Source/PluginHost.h` + wherever plugin instantiation happens.
+- Scope note: protects *scan* and *first load*, NOT a running plugin mid-session. Full
+  per-plugin process isolation is a much bigger project — defer unless hosting untrusted
+  plugins becomes a goal.
+- Scars to copy: keep host chrome/meters/atomics in a side-struct, not a plugin god-object;
+  persist plugin state as chunk AND flat params together with a per-type `version` field.
+
+### 2. Exact rational time in the stored model — costlier to defer
+
+`Source/TimeTypes.h` wraps a bare `double` for stored positions. Doubles are right for DSP
+and scheduling, but as the *stored* representation they drift (quantize, loop boundaries,
+"is this exactly on the bar?"). Foundational, painful to retrofit once every clip/note/
+marker position and `beatToSamples` site is a `double` — so decide the direction now, while
+the `TimeTypes` migration is still incremental.
+
+For Gloopy:
+
+- Introduce a rational (or int64 PPQ-tick) type for the **stored** model — clip/note/marker
+  positions and edit-time math (quantize, snap, loop points, equality). Radium uses
+  gcd-reduced `Ratio { int64 num, den }`.
+- Keep `double` beats/seconds for DSP and the scheduler; convert rational → double at the
+  engine boundary (the existing `beatToSamples`/`TempoConv` layer is the natural seam).
+- Add a **separate, deliberately non-reduced** rational for time signatures / grid divisions
+  so `3/4 ≠ 6/8` stays notationally distinct (radium's `StaticRatio`).
+- Use **signed** integer components (radium's own logged scar: an unsigned counter was
+  flagged "extremely dangerous").
+- Keep integer project-format versions (already true) and add a round-trip migration test
+  per version bump so old time-format read paths stay exercised.
+
+## Priority
+
+**#1 (plugin crash resilience)** first — cheap, self-contained, immediate robustness; it
+also refines Ardour idea #15 (plugin scanning / metadata cache) above. **#2 (rational time)**
+is the strategic one — decide the direction now even if the migration lands incrementally,
+before every position field is a `double`. (See also Ardour idea #13, tempo map / time
+domains.)

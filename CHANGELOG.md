@@ -31,6 +31,9 @@ Real sampled drums, a diagnostic verbosity flag, and a packaging fix.
 - **Demo compositions now ship in the packages.** They had no install rule, so the RPM/DEB
   showed an empty Demos tab; they are now installed and resolved from the standard
   system location.
+- **Dragging a note in the piano roll no longer piles up sound.** One-shot drum samples
+  ignore note-off, so dragging a note across pitches sprayed overlapping hits into noise;
+  auditioning now chokes the previous voice.
 
 ## [0.3.0] - 2026-08-04
 

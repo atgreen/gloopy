@@ -80,7 +80,8 @@ public:
             for (const auto meta : midi)
             {
                 const auto m = meta.getMessage();
-                if ((m.isNoteOn() || m.isNoteOff()) && m.getNoteNumber() == p.note)
+                // Notes go to their own pad; controllers (e.g. all-sound-off choke) broadcast to all.
+                if (((m.isNoteOn() || m.isNoteOff()) && m.getNoteNumber() == p.note) || m.isController())
                     scratch.addEvent (m, meta.samplePosition);
             }
             p.sampler->render (buffer, scratch, startSample, numSamples);   // adds into buffer

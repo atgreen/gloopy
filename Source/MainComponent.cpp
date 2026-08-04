@@ -1552,9 +1552,21 @@ void MainComponent::apiAuditionNote (int pitch, float velocity, bool noteOn)
     Track* t = resolveTrack (id);
     if (t == nullptr || t->generator == nullptr) return;
 
+    const double ts = juce::Time::getMillisecondCounterHiRes() * 0.001;   // collector wants seconds
+
+    // Choke the previous audition first, so dragging a note across pitches doesn't pile up sounds
+    // — one-shot drum samples ignore note-off (they ring out), which turned a drag into noise.
+    // Only when stopped: while playing, the same buffer carries sequenced notes we must not cut.
+    if (noteOn && ! transport.isPlaying())
+    {
+        auto off = juce::MidiMessage::allSoundOff (1);
+        off.setTimeStamp (ts - 0.0005);   // just before the note-on, so it chokes then re-triggers
+        t->liveMidi.addMessageToQueue (off);
+    }
+
     auto m = noteOn ? juce::MidiMessage::noteOn  (1, juce::jlimit (0, 127, pitch), (juce::uint8) juce::jlimit (1, 127, (int) (velocity * 127.0f)))
                     : juce::MidiMessage::noteOff (1, juce::jlimit (0, 127, pitch));
-    m.setTimeStamp (juce::Time::getMillisecondCounterHiRes() * 0.001);   // collector wants seconds
+    m.setTimeStamp (ts);
     t->liveMidi.addMessageToQueue (m);
 }
 
