@@ -28,6 +28,7 @@
 #include "FadeShape.h"
 #include "Toml.h"
 #include "TimeTypes.h"
+#include "Rational.h"
 #include "HydrogenKit.h"
 #include <type_traits>
 #include <cstring>
@@ -1629,6 +1630,98 @@ struct HydrogenKitTests : juce::UnitTest
     }
 };
 
+//==============================================================================
+// Exact musical time (radium #2 foundation): reduced BeatRatio arithmetic that
+// doesn't drift, and non-reduced StaticRatio that keeps 3/4 distinct from 6/8.
+struct RationalTests : juce::UnitTest
+{
+    RationalTests() : juce::UnitTest ("Rational") {}
+
+    void runTest() override
+    {
+        using gloopy::time::BeatRatio;
+        using gloopy::time::StaticRatio;
+
+        beginTest ("BeatRatio reduces and normalises sign on construction");
+        {
+            BeatRatio a { 2, 4 };
+            expect (a.num == 1 && a.den == 2);
+            BeatRatio b { 6, 8 };
+            expect (b.num == 3 && b.den == 4);
+            BeatRatio neg { 1, -2 };                 // sign moves to the numerator, den stays > 0
+            expect (neg.num == -1 && neg.den == 2);
+            BeatRatio z { 0, 5 };
+            expect (z.num == 0 && z.den == 1 && z.isZero());
+            BeatRatio degenerate { 3, 0 };           // never divide by zero → 0
+            expect (degenerate.num == 0 && degenerate.den == 1);
+        }
+
+        beginTest ("thirds sum to exactly one (the whole point — no float drift)");
+        {
+            BeatRatio third { 1, 3 };
+            BeatRatio sum = third + third + third;
+            expect (sum == BeatRatio::whole (1));
+            expect (sum.num == 1 && sum.den == 1);
+        }
+
+        beginTest ("arithmetic stays exact and reduced");
+        {
+            expect ((BeatRatio { 1, 2 } + BeatRatio { 1, 4 }) == BeatRatio (3, 4));
+            expect ((BeatRatio { 3, 4 } - BeatRatio { 1, 4 }) == BeatRatio (1, 2));
+            expect ((BeatRatio { 1, 8 } * 4) == BeatRatio (1, 2));
+            expect ((-BeatRatio { 1, 4 }) == BeatRatio (-1, 4));
+        }
+
+        beginTest ("ordering is exact");
+        {
+            expect (BeatRatio (1, 3) < BeatRatio (1, 2));
+            expect (BeatRatio (2, 4) <= BeatRatio (1, 2));
+            expect (BeatRatio (5, 4) > BeatRatio (1, 1));
+            expect (! (BeatRatio (1, 3) == BeatRatio (1, 2)));
+            expect (BeatRatio (6, 8) == BeatRatio (3, 4));   // equal position, reduced the same
+        }
+
+        beginTest ("fromBeats round-trips musical grid values");
+        {
+            expect (BeatRatio::fromBeats (0.25)  == BeatRatio (1, 4));
+            expect (BeatRatio::fromBeats (0.5)   == BeatRatio (1, 2));
+            expect (BeatRatio::fromBeats (1.0)   == BeatRatio (1, 1));
+            expect (BeatRatio::fromBeats (2.0/3) == BeatRatio (2, 3));   // a triplet, exact on 960 PPQN
+            expectWithinAbsoluteError (BeatRatio { 7, 16 }.toBeats(), 0.4375, 1e-12);
+        }
+
+        beginTest ("quantize snaps exactly on a triplet grid (no drift)");
+        {
+            std::vector<Note> notes = {
+                { 60, 0.66, 0.25, 0.8f, 1.0f },   // near 2/3
+                { 62, 0.98, 0.25, 0.8f, 1.0f },   // near 1.0 — the drift case
+                { 64, 0.34, 0.25, 0.8f, 1.0f },   // near 1/3
+            };
+            quantizeNotes (notes, 1.0 / 3.0, 1.0);
+            expectWithinAbsoluteError (notes[0].startBeat, 2.0 / 3.0, 1e-12);
+            expect (notes[1].startBeat == 1.0);   // EXACTLY 1.0 (the double path gives 0.9999999999999999)
+            expectWithinAbsoluteError (notes[2].startBeat, 1.0 / 3.0, 1e-12);
+
+            // Full-strength quantize is idempotent — a second pass moves nothing (drift-free).
+            auto before = notes;
+            quantizeNotes (notes, 1.0 / 3.0, 1.0);
+            for (size_t i = 0; i < notes.size(); ++i)
+                expect (notes[i].startBeat == before[i].startBeat);
+        }
+
+        beginTest ("StaticRatio keeps 3/4 distinct from 6/8 (notation, not number)");
+        {
+            StaticRatio threeFour { 3, 4 }, sixEight { 6, 8 };
+            expect (! threeFour.sameNotation (sixEight));                 // different meaning…
+            expectWithinAbsoluteError (threeFour.toDouble(), sixEight.toDouble(), 1e-12);  // …same number
+            expect (threeFour.sameNotation (StaticRatio { 3, 4 }));
+            StaticRatio unset {};                                         // den 0 allowed, guarded
+            expectWithinAbsoluteError (unset.toDouble(), 0.0, 1e-12);
+        }
+    }
+};
+
+static RationalTests     rationalTests;
 static HydrogenKitTests  hydrogenKitTests;
 static FadeShapeTests    fadeShapeTests;
 static EffectSyncTests   effectSyncTests;

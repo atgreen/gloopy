@@ -579,6 +579,21 @@ For Gloopy:
 
 ### 2. Exact rational time in the stored model — costlier to defer
 
+> **Status: foundation landed.** `Source/Rational.h` adds `BeatRatio` (gcd-reduced,
+> signed int64 — arithmetic time that doesn't drift; thirds sum to exactly 1) and
+> `StaticRatio` (deliberately non-reduced — keeps 3/4 distinct from 6/8), with unit
+> tests. Remaining work is the incremental field migration below.
+>
+> Migration slices (each its own commit + round-trip test, per the roadmap's Wave 7 #21):
+> 1. Store `Note::startBeat`/`lengthBeats` and `Clip` positions as `BeatRatio`; convert
+>    to `double` at the render/scheduler boundary (`beatToSamples`/`TempoConv`).
+> 2. Edit-time math on `BeatRatio` — quantize, snap, loop points, equality — so "on the
+>    bar?" is exact.
+> 3. Serialize the rational form (num/den) in the ValueTree + composition TOML, with a
+>    read path for the old `double` fields and a per-version round-trip test.
+> 4. Time signatures / grid divisions on `StaticRatio` so `3/4` and `6/8` stay distinct.
+
+
 `Source/TimeTypes.h` wraps a bare `double` for stored positions. Doubles are right for DSP
 and scheduling, but as the *stored* representation they drift (quantize, loop boundaries,
 "is this exactly on the bar?"). Foundational, painful to retrofit once every clip/note/

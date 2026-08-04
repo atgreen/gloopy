@@ -8,7 +8,9 @@
 #include <map>
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include "Note.h"
+#include "Rational.h"
 
 // Pure piano-roll note transforms, shared by the control API (apiQuantizeClip etc.,
 // ClipOps.cpp) and the PianoRoll UI so both do exactly the same edit.
@@ -20,10 +22,16 @@ inline void quantizeNotes (std::vector<Note>& notes, double grid, double strengt
 {
     if (grid <= 0.0) return;
     const double s = juce::jlimit (0.0, 1.0, strength);
+    // Snap on EXACT rational grid math (radium #2): the target grid line is k · grid computed as a
+    // reduced fraction, so a triplet grid (1/3) lands a note on exactly 2/3 or 1.0 instead of
+    // 0.6666…/0.9999…. Repeated full-strength quantizes are then idempotent — no accumulating drift.
+    const auto gridR = gloopy::time::BeatRatio::fromBeats (grid);
+    if (gridR.isZero()) return;
     for (auto& n : notes)
     {
-        const double target = std::round (n.startBeat / grid) * grid;
-        n.startBeat = juce::jmax (0.0, n.startBeat + (target - n.startBeat) * s);
+        const auto  k      = (std::int64_t) std::llround (n.startBeat / grid);   // nearest grid line
+        const double target = (gridR * k).toBeats();                            // exact k·grid
+        n.startBeat = juce::jmax (0.0, s >= 1.0 ? target : n.startBeat + (target - n.startBeat) * s);
     }
 }
 
