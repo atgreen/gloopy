@@ -28,7 +28,10 @@
 #include "FadeShape.h"
 #include "Toml.h"
 #include "TimeTypes.h"
+#include "HydrogenKit.h"
 #include <type_traits>
+#include <cstring>
+#include <cstdio>
 
 //==============================================================================
 struct NoteSchedulerTests : juce::UnitTest
@@ -1532,6 +1535,101 @@ struct TimeTypesTests : juce::UnitTest
     }
 };
 
+//==============================================================================
+// Hydrogen drumkit import: parse drumkit.xml into pads, and unpack a .h2drumkit
+// (gzip'd tar). Pure logic (no audio), so it lives here rather than in the app.
+struct HydrogenKitTests : juce::UnitTest
+{
+    HydrogenKitTests() : juce::UnitTest ("HydrogenKit") {}
+
+    void runTest() override
+    {
+        beginTest ("parse: instruments -> pads with notes and loudest-layer samples");
+        {
+            auto dir = juce::File::createTempFile ("_hkit");
+            dir.deleteFile(); dir.createDirectory();
+            auto xml = dir.getChildFile ("drumkit.xml");
+            xml.replaceWithText (
+                "<drumkit_info><name>TestKit</name><author>me</author><license>GPL</license>"
+                "<instrumentList>"
+                "<instrument><name>Kick</name><midiOutNote>36</midiOutNote>"
+                "<instrumentComponent><layer><filename>Kick.wav</filename><min>0</min><max>1</max></layer>"
+                "</instrumentComponent></instrument>"
+                "<instrument><name>Snare</name><midiOutNote>38</midiOutNote>"
+                "<instrumentComponent>"
+                "<layer><filename>Snare-soft.wav</filename><min>0</min><max>0.4</max></layer>"
+                "<layer><filename>Snare-hard.wav</filename><min>0.4</min><max>1</max></layer>"
+                "</instrumentComponent></instrument>"
+                "</instrumentList></drumkit_info>");
+
+            auto kit = HydrogenKit::parse (xml);
+            expect (kit.valid());
+            expectEquals (kit.name, juce::String ("TestKit"));
+            expectEquals (kit.license, juce::String ("GPL"));
+            expect (kit.pieces.size() == 2);
+            expectEquals (kit.pieces[0].name, juce::String ("Kick"));
+            expect (kit.pieces[0].note == 36);
+            expectEquals (kit.pieces[0].sample.getFileName(), juce::String ("Kick.wav"));
+            expect (kit.pieces[1].note == 38);
+            // The louder layer (max=1) wins over the softer (max=0.4).
+            expectEquals (kit.pieces[1].sample.getFileName(), juce::String ("Snare-hard.wav"));
+            dir.deleteRecursively();
+        }
+
+        beginTest ("parse: duplicate/invalid notes are bumped to free slots");
+        {
+            auto dir = juce::File::createTempFile ("_hkit2");
+            dir.deleteFile(); dir.createDirectory();
+            auto xml = dir.getChildFile ("drumkit.xml");
+            xml.replaceWithText (
+                "<drumkit_info><name>K</name><instrumentList>"
+                "<instrument><name>A</name><midiOutNote>40</midiOutNote>"
+                "<instrumentComponent><layer><filename>a.wav</filename></layer></instrumentComponent></instrument>"
+                "<instrument><name>B</name><midiOutNote>40</midiOutNote>"
+                "<instrumentComponent><layer><filename>b.wav</filename></layer></instrumentComponent></instrument>"
+                "</instrumentList></drumkit_info>");
+            auto kit = HydrogenKit::parse (xml);
+            expect (kit.pieces.size() == 2);
+            expect (kit.pieces[0].note != kit.pieces[1].note);   // second bumped off 40
+            dir.deleteRecursively();
+        }
+
+        beginTest ("extractArchive: unpacks a gzip'd tar and returns its drumkit.xml");
+        {
+            const juce::String content = "<drumkit_info><name>TK</name></drumkit_info>";
+            const size_t n = content.getNumBytesAsUTF8();
+
+            // Minimal ustar tar: one header + payload (padded), then two zero end-blocks.
+            juce::MemoryOutputStream tar;
+            char h[512]; std::memset (h, 0, sizeof (h));
+            std::strncpy (h, "TestKit/drumkit.xml", 99);
+            std::snprintf (h + 124, 12, "%011o", (unsigned) n);   // size, octal
+            h[156] = '0';                                         // regular file
+            std::memset (h + 148, ' ', 8);                        // checksum field (reader ignores)
+            tar.write (h, 512);
+            tar.write (content.toRawUTF8(), n);
+            for (size_t i = 0, pad = (512 - (n % 512)) % 512; i < pad; ++i) tar.writeByte (0);
+            char zero[1024]; std::memset (zero, 0, sizeof (zero)); tar.write (zero, 1024);
+
+            auto arc = juce::File::createTempFile (".h2drumkit");
+            {
+                juce::FileOutputStream fos (arc);
+                juce::GZIPCompressorOutputStream gz (fos, 6, juce::GZIPCompressorOutputStream::windowBitsGZIP);
+                gz.write (tar.getData(), tar.getDataSize());
+            }
+            auto dest = juce::File::createTempFile ("_hx"); dest.deleteFile(); dest.createDirectory();
+
+            auto found = HydrogenKit::extractArchive (arc, dest);
+            expect (found.existsAsFile(), "drumkit.xml should be extracted");
+            expectEquals (found.getFileName(), juce::String ("drumkit.xml"));
+            expectEquals (found.loadFileAsString(), content);
+
+            arc.deleteFile(); dest.deleteRecursively();
+        }
+    }
+};
+
+static HydrogenKitTests  hydrogenKitTests;
 static FadeShapeTests    fadeShapeTests;
 static EffectSyncTests   effectSyncTests;
 static BiquadEqTests     biquadEqTests;
