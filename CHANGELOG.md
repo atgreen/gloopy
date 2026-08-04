@@ -13,6 +13,13 @@ tagged release.
 
 ## [Unreleased]
 
+### Fixed
+- **Demos and presets are no longer empty when Gloopy is launched by name.** The executable
+  path was resolved from `argv[0]` relative to the working directory, so typing `gloopy`
+  (found on `$PATH`) made it look for its data under `<cwd>/../share/gloopy` instead of the
+  install prefix — everything came up "NOT FOUND" unless you ran it by absolute path. It now
+  reads `/proc/self/exe` on Linux, so the data lookups work regardless of how it was invoked.
+
 ## [0.5.0] - 2026-08-04
 
 Plugin crash resilience and an exact-rational time model.

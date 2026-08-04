@@ -14,6 +14,7 @@
 #include "DrumKit.h"
 #include "HydrogenKit.h"
 #include "Log.h"
+#include "Paths.h"
 #include <array>
 #include <cmath>
 #include <algorithm>
@@ -323,7 +324,7 @@ MainComponent::MainComponent (bool headless)
     {
         const auto demos = demosDir(), surge = SurgeGenerator::dataDir(), piano = findPianoSfz();
         const auto kit = findBundledDrumkit ("GMRockKit");
-        GLOG(1) << "paths: exe        " << juce::File::getSpecialLocation (juce::File::currentExecutableFile).getFullPathName();
+        GLOG(1) << "paths: exe        " << gloopy::executableFile().getFullPathName();
         GLOG(1) << "paths: demos      " << demos.getFullPathName() << (demos.isDirectory() ? "" : "  [missing]");
         GLOG(1) << "paths: surge-data " << surge.getFullPathName() << (surge.getChildFile ("patches_factory").isDirectory() ? "" : "  [no patches_factory]");
         GLOG(1) << "paths: piano-sfz  " << (piano.existsAsFile() ? piano.getFullPathName() : juce::String ("(none)"));
@@ -3982,7 +3983,7 @@ juce::File MainComponent::findPianoSfz() const
    #endif
     // Next to the executable (portable / relocated builds: <exeDir>/assets/...).
     {
-        auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
+        auto exeDir = gloopy::executableDir();
         auto f = exeDir.getChildFile ("assets").getChildFile (vendored);
         if (f.existsAsFile()) return f;
         // Installed FHS layout: <prefix>/share/gloopy/... (the exe lives at <prefix>/bin).
@@ -4013,7 +4014,7 @@ juce::File MainComponent::findBundledDrumkit (const juce::String& kitName) const
    #ifdef GLOOPY_ASSETS_DIR
     if (auto f = juce::File (GLOOPY_ASSETS_DIR).getChildFile (rel); f.existsAsFile()) return f;
    #endif
-    const auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
+    const auto exeDir = gloopy::executableDir();
     if (auto f = exeDir.getChildFile ("assets").getChildFile (rel); f.existsAsFile()) return f;
     if (auto f = exeDir.getParentDirectory().getChildFile ("share").getChildFile ("gloopy").getChildFile (rel); f.existsAsFile()) return f;
     return {};
@@ -4199,7 +4200,7 @@ juce::File MainComponent::demosDir() const
 {
     auto base = juce::SystemStats::getEnvironmentVariable ("GLOOPY_EXAMPLES_PATH", {});
     if (base.isNotEmpty()) { GLOG(1) << "demos: GLOOPY_EXAMPLES_PATH=" << base; return juce::File (base); }
-    const auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
+    const auto exeDir = gloopy::executableDir();
     const juce::File cands[] = {
         juce::File::getCurrentWorkingDirectory().getChildFile ("examples"),
         exeDir.getChildFile ("examples"),
