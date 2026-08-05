@@ -32,6 +32,7 @@
 #include "Transport.h"
 #include "HydrogenKit.h"
 #include "Paths.h"
+#include "MeterMap.h"
 #include <type_traits>
 #include <cstring>
 #include <cstdio>
@@ -1780,6 +1781,84 @@ struct PathsTests : juce::UnitTest
     }
 };
 
+// Mid-song time-signature changes: the bar grid, bar numbering, snapping and downbeat accents
+// all derive from the meter map, so pin its walking math across a change.
+struct MeterMapTests : juce::UnitTest
+{
+    MeterMapTests() : juce::UnitTest ("MeterMap") {}
+    void runTest() override
+    {
+        using gloopy::time::MeterMap;
+        using gloopy::time::MeterConv;
+        using gloopy::time::MeterChange;
+
+        beginTest ("constant 4/4: bars are 4 beats, 1-based");
+        {
+            MeterMap m (4, 4);
+            int bar; double bib;
+            m.beatToBarBeat (0.0, bar, bib);  expect (bar == 1 && std::abs (bib - 1.0) < 1e-9);
+            m.beatToBarBeat (4.0, bar, bib);  expect (bar == 2 && std::abs (bib - 1.0) < 1e-9);
+            m.beatToBarBeat (5.5, bar, bib);  expect (bar == 2 && std::abs (bib - 2.5) < 1e-9);
+            expect (std::abs (m.barBeatToBeats (3, 1.0) - 8.0) < 1e-9);
+            expect (std::abs (m.snapToBar (2.1) - 4.0) < 1e-9);
+            expect (std::abs (m.snapToBar (1.9) - 0.0) < 1e-9);
+            expect (std::abs (m.beatsPerBarAt (2.0) - 4.0) < 1e-9);
+        }
+
+        beginTest ("6/8 keeps 3 beats/bar but a distinct signature");
+        {
+            MeterMap m (6, 8);
+            expect (std::abs (m.beatsPerBarAt (0.0) - 3.0) < 1e-9);
+            int n, d; m.signatureAt (0.0, n, d); expect (n == 6 && d == 8);
+        }
+
+        beginTest ("mid-song 4/4 -> 3/4 at bar 3 (beat 8) renumbers bars past the change");
+        {
+            MeterMap m (4, 4, { { 8.0, 3, 4 } });
+            int bar; double bib;
+            m.beatToBarBeat (8.0,  bar, bib); expect (bar == 3 && std::abs (bib - 1.0) < 1e-9);
+            m.beatToBarBeat (9.5,  bar, bib); expect (bar == 3 && std::abs (bib - 2.5) < 1e-9);
+            m.beatToBarBeat (11.0, bar, bib); expect (bar == 4 && std::abs (bib - 1.0) < 1e-9);
+            expect (std::abs (m.barBeatToBeats (4, 1.0) - 11.0) < 1e-9);
+            expect (std::abs (m.beatsPerBarAt (7.9) - 4.0) < 1e-9);
+            expect (std::abs (m.beatsPerBarAt (8.0) - 3.0) < 1e-9);
+            expect (std::abs (m.snapToBar (10.4) - 11.0) < 1e-9);   // nearer bar 4 (11) than bar 3 (8)
+        }
+
+        beginTest ("forEachBarLine walks continuous bar numbers across the change");
+        {
+            MeterMap m (4, 4, { { 8.0, 3, 4 } });
+            std::vector<std::pair<int,double>> lines;
+            m.forEachBarLine (14.0, [&] (int b, double x) { lines.push_back ({ b, x }); });
+            // bars at 0,4,8,11,14
+            expect (lines.size() >= 5);
+            expect (lines[0] == std::make_pair (1, 0.0));
+            expect (lines[1] == std::make_pair (2, 4.0));
+            expect (lines[2] == std::make_pair (3, 8.0));
+            expect (lines[3] == std::make_pair (4, 11.0));
+        }
+
+        beginTest ("a change at beat 0 overrides the initial signature");
+        {
+            MeterMap m (4, 4, { { 0.0, 3, 4 } });
+            expect (std::abs (m.beatsPerBarAt (0.0) - 3.0) < 1e-9);
+            int bar; double bib; m.beatToBarBeat (3.0, bar, bib);
+            expect (bar == 2 && std::abs (bib - 1.0) < 1e-9);
+        }
+
+        beginTest ("MeterConv downbeat detection matches the map");
+        {
+            MeterChange ch[] = { { 8.0, 3, 4 } };
+            MeterConv mc; mc.set (4, 4, ch, 1);
+            expect (mc.isDownbeat (0.0));   expect (! mc.isDownbeat (1.0));
+            expect (mc.isDownbeat (4.0));   expect (mc.isDownbeat (8.0));
+            expect (mc.isDownbeat (11.0));  expect (! mc.isDownbeat (9.0));
+            expect (! mc.isDownbeat (12.0));
+        }
+    }
+};
+
+static MeterMapTests     meterMapTests;
 static PathsTests        pathsTests;
 static TimeSignatureTests timeSignatureTests;
 static RationalTests     rationalTests;

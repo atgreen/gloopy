@@ -25,7 +25,7 @@ change touches only what it needs to (a no-op re-save writes nothing). You'll se
 | `clips/…/*.notes` | Each clip's notes, as readable text |
 | `mixer/` | Inserts, effects, sends, groups |
 | `automation/*.points` | Automation lanes |
-| `tempo.toml`, `scenes.toml`, `session.toml`, `locations.toml`, … | Tempo map, scenes, the session grid, markers, and other settings |
+| `tempo.toml`, `timesig.toml`, `scenes.toml`, `session.toml`, `locations.toml`, … | Tempo map, time-signature changes, scenes, the session grid, markers, and other settings |
 | `assets/` | Binary sidecars — recorded/imported audio, plugin state |
 | `.gitignore` | So git tracks the right files |
 

@@ -575,6 +575,17 @@ MainComponent::MainComponent (bool headless)
         if (arrangeView) arrangeView->repaint();
     };
     arrangeView->onSetTimeSignature = [this] (int num, int denom) { apiSetTimeSignature (num, denom); };
+    arrangeView->getMeterMap = [this] { return meterMap(); };
+    arrangeView->onAddTimeSigMarker = [this] (double beat, int num, int denom)
+    {
+        apiAddTimeSigMarker (beat, num, denom);
+        if (arrangeView) arrangeView->repaint();
+    };
+    arrangeView->onRemoveTimeSigMarker = [this] (double beat)
+    {
+        apiRemoveTimeSigMarker (beat);
+        if (arrangeView) arrangeView->repaint();
+    };
     arrangeView->getSwing   = [this] { return transport.getSwing(); };
     arrangeView->onSetSwing = [this] (double s) { apiSetSwing (s); };
     arrangeView->getMetronomeLevel   = [this] { return apiGetMetronomeLevel(); };
@@ -4752,6 +4763,16 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         }
     }
 
+    // Meter snapshot for the metronome downbeat accent — mirrors the tempo snapshot above and is
+    // allocation-free (renderBlock holds engineLock, so timeSigMap is safe to read here).
+    gloopy::time::MeterConv mc;
+    {
+        gloopy::time::MeterChange ch[gloopy::time::MeterConv::kMaxSegs];
+        const int nc = juce::jmin ((int) timeSigMap.size(), gloopy::time::MeterConv::kMaxSegs);
+        for (int i = 0; i < nc; ++i) ch[i] = { timeSigMap[(size_t) i].beat.inBeats(), timeSigMap[(size_t) i].num, timeSigMap[(size_t) i].den };
+        mc.set (transport.getTimeSigNumerator(), transport.getTimeSigDenominator(), ch, nc);
+    }
+
     if (playing && ! automationLanes.empty())
         evaluateAutomation (tc.sampleToBeat (blockStartPlayhead));
 
@@ -5141,7 +5162,6 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     {
         const double rate = juce::jmax (1.0, currentSampleRate);
         const int    clickLen = (int) (0.03 * rate);   // 30 ms
-        const int    bpb = juce::jmax (1, (int) std::llround (transport.beatsPerBar()));
         int k = (int) std::ceil (tc.sampleToBeat (blockStartPlayhead) - 1.0e-6);
         if (k < 0) k = 0;
         juce::int64 nextBeat = tc.beatToSample (k);   // re-evaluated once per beat, not per sample
@@ -5149,7 +5169,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         {
             if (blockStartPlayhead + i >= nextBeat)
             {
-                const bool accent = (k % bpb) == 0;
+                const bool accent = mc.isDownbeat ((double) k);   // bar downbeat in the effective meter
                 metroSamplesLeft = clickLen; metroPhase = 0.0;
                 metroInc = 2.0 * juce::MathConstants<double>::pi * (accent ? 1600.0 : 1000.0) / rate;
                 metroAmp = (accent ? 0.6f : 0.4f) * metronomeLevel.load();
@@ -6828,9 +6848,9 @@ void MainComponent::timerCallback()
 
     const double beats = transport.getPlayheadBeats();
     scheduleLiveClips (beats);   // auto-regenerate "live" script clips a bar ahead of playback
-    const double bpb   = juce::jmax (1.0, transport.beatsPerBar());   // time-signature aware
-    const int bar  = (int) (beats / bpb) + 1;
-    const int beat = (int) std::fmod (beats, bpb) + 1;
+    int bar; double beatInBar;                                        // meter-aware (mid-song sig changes)
+    apiBeatsToBarBeat (beats, bar, beatInBar);
+    const int beat = (int) beatInBar;
     const int tick = (int) (std::fmod (beats, 1.0) * 100.0);
     posLabel.setText (juce::String::formatted ("%d . %d . %02d", bar, beat, tick),
                       juce::dontSendNotification);
@@ -7453,6 +7473,7 @@ void MainComponent::newProject()
         mixerScenes.clear();
         modulations.clear();
         tempoMap.clear();
+        timeSigMap.clear();
         controllerMaps.clear();
         automationLanes.clear();
         scenes.clear();
@@ -8155,6 +8176,17 @@ juce::ValueTree MainComponent::toValueTree()
     }
     root.addChild (tm, -1, nullptr);
 
+    juce::ValueTree tsm ("TIMESIGMAP");
+    for (auto& mk : timeSigMap)
+    {
+        juce::ValueTree v ("TS");
+        v.setProperty ("beat", mk.beat.inBeats(), nullptr);
+        v.setProperty ("num", mk.num, nullptr);
+        v.setProperty ("den", mk.den, nullptr);
+        tsm.addChild (v, -1, nullptr);
+    }
+    root.addChild (tsm, -1, nullptr);
+
     juce::ValueTree ctl ("CONTROLLERS");
     for (auto& m : controllerMaps)
     {
@@ -8449,6 +8481,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     mixerScenes.clear();
     modulations.clear();
     tempoMap.clear();
+    timeSigMap.clear();
     controllerMaps.clear();
     automationLanes.clear();
     scenes.clear();
@@ -8644,6 +8677,16 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     // The render snapshot integrates the tempo map assuming beat-ascending order; a
     // hand-edited project may not be, so enforce the invariant here.
     std::sort (tempoMap.begin(), tempoMap.end(), [] (auto& a, auto& b) { return a.beat < b.beat; });
+
+    timeSigMap.clear();
+    auto tsm = root.getChildWithName ("TIMESIGMAP");
+    for (int i = 0; i < tsm.getNumChildren(); ++i)
+    {
+        auto v = tsm.getChild (i);
+        timeSigMap.push_back ({ gloopy::time::BeatPosition { (double) v.getProperty ("beat", 0.0) },
+                                (int) v.getProperty ("num", 4), (int) v.getProperty ("den", 4) });
+    }
+    std::sort (timeSigMap.begin(), timeSigMap.end(), [] (auto& a, auto& b) { return a.beat < b.beat; });
 
     auto ctl = root.getChildWithName ("CONTROLLERS");
     for (int i = 0; i < ctl.getNumChildren(); ++i)

@@ -57,7 +57,7 @@ void ArrangeView::refreshAutomation()
 
 void ArrangeView::rebuild()
 {
-    beatsPerBar = transport.beatsPerBar();   // follow the project time signature
+    refreshMeter();
     muteButtons.clear();
     soloButtons.clear();
     editButtons.clear();
@@ -178,7 +178,7 @@ void ArrangeView::rebuild()
 
 void ArrangeView::resized()
 {
-    beatsPerBar = transport.beatsPerBar();
+    refreshMeter();
     for (int i = 0; i < (int) tracks.size(); ++i)
     {
         const int y = rowTop (i);
@@ -207,18 +207,33 @@ void ArrangeView::resized()
 // ---------------------------------------------------------------------------
 // Coordinates
 // ---------------------------------------------------------------------------
-int ArrangeView::numBars() const
+// The beat span shown across the width: at least ~8 bars, always extended to a whole bar past
+// the last clip. The horizontal scale is beats-per-pixel over this span, so a quarter note is
+// always the same width regardless of meter — only bar *lines* move with the time signature.
+double ArrangeView::spanBeats() const
 {
     double maxEnd = 0.0;
     for (auto& t : tracks)
         for (auto& c : t->clips)
             maxEnd = juce::jmax (maxEnd, c.endBeat());
-    return juce::jmax (8, (int) std::ceil (maxEnd / beatsPerBar) + 1);
+    const double span = juce::jmax (meter.barBeatToBeats (9, 1.0), maxEnd);
+    int bar; double bib; meter.beatToBarBeat (span, bar, bib);
+    return juce::jmax (1.0, meter.barBeatToBeats (bar + 1, 1.0));   // round up to the next whole bar
 }
 
-float  ArrangeView::barWidth() const { return (float) (getWidth() - headerWidth) / (float) numBars(); }
-float  ArrangeView::xForBeat (double beat) const { return headerWidth + (float) (beat / beatsPerBar) * barWidth(); }
-double ArrangeView::beatForX (float x) const { return (double) ((x - headerWidth) / barWidth()) * beatsPerBar; }
+int ArrangeView::numBars() const { int bar; double bib; meter.beatToBarBeat (spanBeats() - 1.0e-6, bar, bib); return bar; }
+
+float  ArrangeView::pixelsPerBeat() const { return (float) (getWidth() - headerWidth) / (float) juce::jmax (1.0, spanBeats()); }
+float  ArrangeView::barWidth() const { return pixelsPerBeat() * (float) juce::jmax (0.001, beatsPerBar); }
+float  ArrangeView::xForBeat (double beat) const { return (float) headerWidth + (float) beat * pixelsPerBeat(); }
+double ArrangeView::beatForX (float x) const { return (double) (x - (float) headerWidth) / (double) juce::jmax (1.0e-6f, pixelsPerBeat()); }
+
+void ArrangeView::refreshMeter()
+{
+    meter = getMeterMap ? getMeterMap()
+                        : gloopy::time::MeterMap (transport.getTimeSigNumerator(), transport.getTimeSigDenominator());
+    beatsPerBar = meter.beatsPerBarAt (0.0);
+}
 int    ArrangeView::trackAtY (float y) const
 {
     int top = rulerHeight;
@@ -230,7 +245,7 @@ int    ArrangeView::trackAtY (float y) const
     }
     return -1;
 }
-double ArrangeView::snapToBar (double beat) const { return std::round (beat / beatsPerBar) * beatsPerBar; }
+double ArrangeView::snapToBar (double beat) const { return meter.snapToBar (beat); }
 double ArrangeView::snapToGrid (double beat) const { constexpr double g = 0.25; return std::round (beat / g) * g; }
 
 // Collapsed overlay band: automation drawn/hit-tested inside the clip area.
@@ -407,7 +422,7 @@ void ArrangeView::drawClip (juce::Graphics& g, const Track& t, const Clip& c,
         int lo = 127, hi = 0;
         for (auto& n : c.notes) { lo = juce::jmin (lo, n.pitch); hi = juce::jmax (hi, n.pitch); }
         const float span = (float) juce::jmax (2, hi - lo);
-        const double repW = c.contentLenBeats.toBeats() / beatsPerBar * barWidth();
+        const double repW = c.contentLenBeats.toBeats() * pixelsPerBeat();
 
         g.setColour (juce::Colours::black.withAlpha (0.55f));
         for (double repX = r.getX(); repX < r.getRight() - 0.5; repX += repW)
@@ -447,29 +462,29 @@ void ArrangeView::drawClip (juce::Graphics& g, const Track& t, const Clip& c,
 
 void ArrangeView::paint (juce::Graphics& g)
 {
-    beatsPerBar = transport.beatsPerBar();   // keep the bar grid current with the time signature
+    refreshMeter();
     g.fillAll (Palette::inset);
-    const int bars = numBars();
-    const float bw = barWidth();
+    const double span = spanBeats();
     const auto h = (float) getHeight();
 
     // Header column background.
     g.setColour (Palette::panel);
     g.fillRect (0, 0, headerWidth, getHeight());
 
-    // Ruler.
+    // Ruler + bar grid. Bar lines come from the meter map, so their spacing changes at each
+    // mid-song time-signature change; bars are numbered continuously across the changes.
     g.setColour (Palette::header);
     g.fillRect (0, 0, getWidth(), rulerHeight);
-    for (int b = 0; b <= bars; ++b)
+    meter.forEachBarLine (span, [&] (int barNum, double beatAtStart)
     {
-        const float x = xForBeat ((double) b * beatsPerBar);
+        const float x = xForBeat (beatAtStart);
         g.setColour (Palette::line);
         g.drawVerticalLine ((int) x, 0.0f, h);
         g.setColour (Palette::textDim);
         g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
-        g.drawText (juce::String (b + 1), (int) x + 4, 2, 30, rulerHeight - 3,
+        g.drawText (juce::String (barNum), (int) x + 4, 2, 30, rulerHeight - 3,
                     juce::Justification::centredLeft, false);
-    }
+    });
 
     // Tempo markers — a small flag + BPM at each marker beat on the ruler.
     if (getTempoMarkers)
@@ -488,6 +503,19 @@ void ArrangeView::paint (juce::Graphics& g)
                         (int) x + 3, rulerHeight - 11, 44, 10,
                         juce::Justification::centredLeft, false);
         }
+    }
+
+    // Time-signature changes — a label ("6/8") at each change beat on the ruler, in a warm
+    // amber to read distinctly from tempo (accent) and named (cyan) flags.
+    for (auto& c : meter.changes)
+    {
+        const float x = xForBeat (c.beat);
+        if (x < headerWidth - 1.0f) continue;
+        g.setColour (juce::Colour (0xffe6a23c));
+        g.drawVerticalLine ((int) x, 0.0f, (float) rulerHeight);
+        g.setFont (juce::FontOptions (9.0f, juce::Font::bold));
+        g.drawText (juce::String (c.num) + "/" + juce::String (c.den),
+                    (int) x + 3, 1, 34, 10, juce::Justification::centredLeft, false);
     }
 
     // Named timeline markers — a cyan flag + label at each marker beat (distinct from the
@@ -661,7 +689,7 @@ void ArrangeView::paint (juce::Graphics& g)
         double pin = 0.0, pout = 0.0;
         if (getPunchRange (pin, pout))
         {
-            const double viewEnd = (double) bars * beatsPerBar;
+            const double viewEnd = spanBeats();
             const float x0 = juce::jmax ((float) headerWidth, xForBeat (pin));
             const float x1 = juce::jmax ((float) headerWidth, xForBeat (juce::jmin (pout, viewEnd)));
             if (x1 > x0)
@@ -723,16 +751,26 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             for (auto& mk : getMarkers())
                 if (std::abs (mk.second - beat) < 1e-6) { nearMarker = mk.first; break; }
 
+        // Is there a time-signature change near this bar (for Remove)?
+        double nearTs = -1.0; int nearTsNum = 4, nearTsDen = 4;
+        for (auto& c : meter.changes)
+            if (std::abs (c.beat - beat) < 1e-6) { nearTs = c.beat; nearTsNum = c.num; nearTsDen = c.den; break; }
+
         juce::PopupMenu m;
-        m.addSectionHeader ("Bar " + juce::String ((int) (beat / beatsPerBar) + 1));
+        int hdrBar; double hdrBib; meter.beatToBarBeat (beat, hdrBar, hdrBib);
+        m.addSectionHeader ("Bar " + juce::String (hdrBar));
         m.addItem (1, "Add tempo marker...");
         m.addItem (2, "Remove tempo marker", nearBeat >= 0.0);
         m.addSeparator();
         m.addItem (4, "Add marker...");                                   // named timeline marker
         m.addItem (5, "Remove marker" + (nearMarker.isNotEmpty() ? " (" + nearMarker + ")" : juce::String()), nearMarker.isNotEmpty());
         m.addSeparator();
-        m.addItem (3, "Time signature... (" + juce::String (transport.getTimeSigNumerator())
+        m.addItem (3, "Initial time signature... (" + juce::String (transport.getTimeSigNumerator())
                         + "/" + juce::String (transport.getTimeSigDenominator()) + ")");
+        if (beat > 1.0e-6)
+            m.addItem (6, "Add time-signature change here... (bar " + juce::String (hdrBar) + ")");
+        if (nearTs >= 0.0)
+            m.addItem (7, "Remove time-signature change (" + juce::String (nearTsNum) + "/" + juce::String (nearTsDen) + ")");
         // Swing (groove): shift every other 1/8 note later. Presets, ticked at the current value.
         const double curSwing = getSwing ? getSwing() : 0.5;
         const std::pair<const char*, double> swingPresets[] = {
@@ -749,13 +787,15 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         for (int i = 0; i < 4; ++i)
             mm.addItem (60 + i, metroLvls[i].first, true, std::abs (curMetro - metroLvls[i].second) < 0.01f);
         m.addSubMenu ("Metronome level", mm);
-        m.showMenuAsync (juce::PopupMenu::Options(), [this, beat, nearBeat, nearMarker] (int r)
+        m.showMenuAsync (juce::PopupMenu::Options(), [this, beat, nearBeat, nearMarker, nearTs] (int r)
         {
             if (r == 1) promptAddTempoMarker (beat);
             else if (r == 2 && nearBeat >= 0.0 && onRemoveTempoMarker) onRemoveTempoMarker (nearBeat);
             else if (r == 4) promptAddMarker (beat);
             else if (r == 5 && nearMarker.isNotEmpty() && onRemoveMarker) onRemoveMarker (nearMarker);
             else if (r == 3) promptTimeSignature();
+            else if (r == 6) promptTimeSigChange (beat);
+            else if (r == 7 && nearTs >= 0.0 && onRemoveTimeSigMarker) onRemoveTimeSigMarker (nearTs);
             else if (r >= 30 && r <= 34 && onSetSwing)
             {
                 const double vals[] = { 0.50, 0.56, 0.62, 0.68, 0.667 };
@@ -1414,9 +1454,11 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         Clip c;
         // Land the clip in the bar the cursor is IN — floor, not snap-to-nearest, so a click in
         // the second half of a bar doesn't jump the new clip into the next bar (feels misplaced).
-        c.startBeat      = juce::jmax (0.0, std::floor (beatForX (p.x) / beatsPerBar) * beatsPerBar);
-        c.lengthBeats    = beatsPerBar;
-        c.contentLenBeats = beatsPerBar;
+        const double sb  = juce::jmax (0.0, meter.barStart (juce::jmax (0.0, beatForX (p.x))));
+        const double blen = meter.beatsPerBarAt (sb);   // one bar in the meter at that point
+        c.startBeat      = sb;
+        c.lengthBeats    = blen;
+        c.contentLenBeats = blen;
         c.looped         = true;
         {
             const juce::ScopedLock sl (engineLock);
@@ -1483,10 +1525,33 @@ void ArrangeView::promptTimeSignature()
     }), false);
 }
 
+void ArrangeView::promptTimeSigChange (double beat)
+{
+    int barNo; double bib; meter.beatToBarBeat (beat, barNo, bib);
+    int curNum, curDen; meter.signatureAt (beat, curNum, curDen);   // seed with the meter in effect here
+    auto* aw = new juce::AlertWindow ("Time-signature change",
+                                      "New signature from bar " + juce::String (barNo) + ":",
+                                      juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("num", juce::String (curNum), "Numerator");
+    aw->addTextEditor ("den", juce::String (curDen), "Denominator");
+    aw->addButton ("Set",    1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, beat] (int r)
+    {
+        if (r == 1 && onAddTimeSigMarker)
+        {
+            const int n = aw->getTextEditorContents ("num").getIntValue();
+            const int d = aw->getTextEditorContents ("den").getIntValue();
+            if (n >= 1 && d >= 1) onAddTimeSigMarker (beat, n, d);
+        }
+        delete aw;
+    }), false);
+}
+
 void ArrangeView::promptAddTempoMarker (double beat)
 {
     auto* aw = new juce::AlertWindow ("Tempo marker",
-                                      "BPM at bar " + juce::String ((int) (beat / beatsPerBar) + 1),
+                                      "BPM at bar " + juce::String ([&]{ int bn; double bb; meter.beatToBarBeat (beat, bn, bb); return bn; }()),
                                       juce::MessageBoxIconType::NoIcon);
     aw->addTextEditor ("bpm", juce::String (transport.getBpm(), 1));
     aw->addButton ("Add",    1, juce::KeyPress (juce::KeyPress::returnKey));
@@ -1505,7 +1570,7 @@ void ArrangeView::promptAddTempoMarker (double beat)
 void ArrangeView::promptAddMarker (double beat)
 {
     auto* aw = new juce::AlertWindow ("Marker",
-                                      "Name for the marker at bar " + juce::String ((int) (beat / beatsPerBar) + 1),
+                                      "Name for the marker at bar " + juce::String ([&]{ int bn; double bb; meter.beatToBarBeat (beat, bn, bb); return bn; }()),
                                       juce::MessageBoxIconType::NoIcon);
     aw->addTextEditor ("name", "Marker");
     aw->addButton ("Add",    1, juce::KeyPress (juce::KeyPress::returnKey));
@@ -1530,7 +1595,8 @@ void ArrangeView::mouseDrag (const juce::MouseEvent& e)
         {
             double s = snapToBar (juce::jmin (rulerStartBeat, b));
             double f = snapToBar (juce::jmax (rulerStartBeat, b));
-            if (f - s < beatsPerBar) f = s + beatsPerBar;
+            const double oneBar = meter.beatsPerBarAt (s);
+            if (f - s < oneBar) f = s + oneBar;
             if (rulerAlt)                          // Alt → punch region
             {
                 if (onSetPunchRange) onSetPunchRange (true, s, f);
@@ -1595,7 +1661,8 @@ void ArrangeView::mouseDrag (const juce::MouseEvent& e)
         if (drag == Drag::move)
             c.startBeat = juce::jmax (0.0, snapToBar (beatForX (e.position.x) - dragBeatOffset));
         else if (drag == Drag::resize)
-            c.lengthBeats = juce::jmax (beatsPerBar, snapToBar (beatForX (e.position.x)) - c.startBeat.toBeats());
+            c.lengthBeats = juce::jmax (meter.beatsPerBarAt (c.startBeat.toBeats()),
+                                        snapToBar (beatForX (e.position.x)) - c.startBeat.toBeats());
     }
     if (onChanged) onChanged();
     repaint();

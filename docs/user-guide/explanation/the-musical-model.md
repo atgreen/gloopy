@@ -48,6 +48,14 @@ and 4/4 both count in quarter notes; they differ only in where the barlines fall
 That's why the position display and the underlying beat numbers can be reasoned
 about separately.
 
+A piece can also **change meter partway through** — a 4/4 verse into a 6/8 bridge.
+Like the tempo map, this is a sorted list of changes, each taking effect at a bar
+line; the ruler renumbers the bars and spaces the barlines accordingly from that
+point on, and the metronome accents the new downbeats. Right-click the arrangement
+ruler to add or remove a change (or set the initial, bar-1 signature). Because clip
+and note positions are stored in beats — not bars — inserting a meter change never
+moves your existing material; only the barlines drawn over it move.
+
 ## Scales and tuning
 
 Two more layers sit on top of the beat grid, both optional:

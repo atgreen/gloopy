@@ -13,6 +13,15 @@ tagged release.
 
 ## [Unreleased]
 
+### Added
+- **Mid-song time-signature changes.** A piece is no longer locked to one meter: right-click the
+  arrangement ruler to add a time-signature change at a bar (or set the initial, bar-1
+  signature), e.g. a 4/4 verse into a 6/8 bridge. The bar ruler renumbers and re-spaces its
+  barlines from the change onward, the metronome accents the new downbeats, and the
+  `bar . beat . tick` readout follows. Changes are stored in the project (`timesig.toml`) and are
+  undoable. Because clips and notes are positioned in beats, inserting a change never moves
+  existing material — only the barlines drawn over it.
+
 ## [0.5.1] - 2026-08-04
 
 ### Fixed

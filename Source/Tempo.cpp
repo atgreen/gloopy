@@ -105,19 +105,75 @@ void MainComponent::apiGetTimeSignature (int& num, int& denom)
     denom = transport.getTimeSigDenominator();
 }
 
+// The project's meter map: the transport's initial (bar-1) signature plus the mid-song
+// time-signature markers. Every bar-grid / bar-number / snap query goes through this so a
+// mid-song change is honoured everywhere. engineLock is reentrant, so callers may hold it.
+gloopy::time::MeterMap MainComponent::meterMap()
+{
+    const juce::ScopedLock sl (engineLock);
+    std::vector<gloopy::time::MeterChange> ch;
+    ch.reserve (timeSigMap.size());
+    for (auto& m : timeSigMap) ch.push_back ({ m.beat.inBeats(), m.num, m.den });
+    return { transport.getTimeSigNumerator(), transport.getTimeSigDenominator(), std::move (ch) };
+}
+
 // Absolute beat -> (bar, beat-in-bar), both 1-based to match the "1.1.00" readout.
 void MainComponent::apiBeatsToBarBeat (double beat, int& bar, double& beatInBar)
 {
-    const double bpb = juce::jmax (0.001, transport.beatsPerBar());
-    const double b   = juce::jmax (0.0, beat);
-    const int    b0  = (int) std::floor (b / bpb);
-    bar       = b0 + 1;
-    beatInBar = (b - (double) b0 * bpb) + 1.0;
+    meterMap().beatToBarBeat (beat, bar, beatInBar);
 }
 
 double MainComponent::apiBarBeatToBeats (int bar, double beatInBar)
 {
-    return (double) (bar - 1) * transport.beatsPerBar() + (beatInBar - 1.0);
+    return meterMap().barBeatToBeats (bar, beatInBar);
+}
+
+bool MainComponent::apiAddTimeSigMarker (double beat, int num, int denom)
+{
+    if (beat < 0.0 || num < 1 || num > 32 || denom < 1 || denom > 32) return false;
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        const double snapped = meterMap().snapToBar (beat);   // land the change on a bar boundary
+        const juce::ScopedLock sl (engineLock);
+        if (snapped <= kEps)                                  // a change at bar 1 IS the initial signature
+        {
+            transport.setTimeSignature (num, denom);
+        }
+        else
+        {
+            auto it = std::find_if (timeSigMap.begin(), timeSigMap.end(),
+                        [&] (const TimeSigMarker& m) { return std::abs (m.beat.inBeats() - snapped) < kEps; });
+            if (it != timeSigMap.end()) { it->num = num; it->den = denom; }      // upsert
+            else timeSigMap.push_back ({ BeatPosition { snapped }, num, denom });
+            std::sort (timeSigMap.begin(), timeSigMap.end(), [] (auto& a, auto& b) { return a.beat < b.beat; });
+        }
+        if (arrangeView) arrangeView->rebuild();
+        emitChange ("time_signature");
+        std::cout << "[timesig] marker beat=" << snapped << " " << num << "/" << denom << std::endl;
+        return true;
+    });
+}
+
+bool MainComponent::apiRemoveTimeSigMarker (double beat)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        pushUndoSnapshot();
+        const juce::ScopedLock sl (engineLock);
+        const auto before = timeSigMap.size();
+        timeSigMap.erase (std::remove_if (timeSigMap.begin(), timeSigMap.end(),
+                            [&] (const TimeSigMarker& m) { return std::abs (m.beat.inBeats() - beat) < kEps; }),
+                          timeSigMap.end());
+        const bool changed = timeSigMap.size() != before;
+        if (changed) { if (arrangeView) arrangeView->rebuild(); emitChange ("time_signature"); }
+        return changed;
+    });
+}
+
+std::vector<MainComponent::TimeSigMarker> MainComponent::apiListTimeSigMarkers()
+{
+    return callOnMessageThread ([&] { const juce::ScopedLock sl (engineLock); return timeSigMap; });
 }
 
 bool MainComponent::apiAddTempoMarker (double beat, double bpm)

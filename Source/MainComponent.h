@@ -14,6 +14,7 @@
 #include "BrowserDrag.h"
 #include "Clip.h"
 #include "TimeTypes.h"
+#include "MeterMap.h"
 #include "ArrangeView.h"
 #include "BusyOverlay.h"
 #include "KernelHost.h"
@@ -352,10 +353,17 @@ public:
     double apiSecondsToBeats (double seconds);
     double tempoAtBeat (double beat);                   // effective bpm (map or transport)
     // Time signature + bars<->beats conversion (bars/beat-in-bar are 1-based, "1.1").
+    // The initial (bar-1) signature lives on the transport; mid-song changes are markers in
+    // timeSigMap. meterMap() combines them; every bar-grid/bar-number/snap query flows through it.
     bool apiSetTimeSignature (int num, int denom);
     void apiGetTimeSignature (int& num, int& denom);
     void apiBeatsToBarBeat (double beat, int& bar, double& beatInBar);
     double apiBarBeatToBeats (int bar, double beatInBar);
+    struct TimeSigMarker { gloopy::time::BeatPosition beat; int num, den; };
+    bool apiAddTimeSigMarker (double beat, int num, int denom);   // upsert; snapped to the bar grid
+    bool apiRemoveTimeSigMarker (double beat);
+    std::vector<TimeSigMarker> apiListTimeSigMarkers();
+    gloopy::time::MeterMap meterMap();                            // transport initial sig + timeSigMap
     // Tempo-aware sample<->beat conversion (the foundation for the render-path
     // integration). Byte-identical to beat*spb / samples/spb when the map is empty.
     // engineLock is recursive, so these are safe to call from renderBlock.
@@ -1074,6 +1082,7 @@ private:
     // NOT yet vary tempo across the map (see the checkpoint in the grind skill).
     // (TempoMarker struct is declared with its api methods, above.)
     std::vector<TempoMarker> tempoMap;            // guarded by engineLock, sorted by beat
+    std::vector<TimeSigMarker> timeSigMap;        // mid-song time-sig changes; engineLock, sorted by beat
     // Controller mappings (CtrlMap declared with its api methods, above).
     std::vector<CtrlMap> controllerMaps;          // guarded by engineLock
     juce::String learnTarget;                     // non-empty => next controller binds to it
