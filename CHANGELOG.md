@@ -13,6 +13,21 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-08-05
+
+### Fixed
+- **Demo drum tracks are usable in the step/pattern editor again.** The 0.5.2 DrumKit
+  conversion stored each demo's drums as one long non-looped clip spanning the whole song, so
+  the step grid (which slices a clip's `content_length` at 16th-note resolution, capped at 64
+  steps) showed 64 coarse two-beat cells that read as solid walls. The demo drums are now
+  looped one-bar pattern clips, so the grid shows a clean 16-step bar again; the audio is
+  unchanged.
+- **Third-party license texts now install under `/usr/share/licenses/gloopy/` in the RPM.**
+  Previously only Gloopy's own AGPL `LICENSE` was placed there; the bundled third-party notices
+  (sfizz, Surge XT, JUCE, the Salamander piano, the Hydrogen drumkits, …) shipped under
+  `/usr/share/doc/gloopy/` instead. The RPM now keeps every notice in the license directory
+  (the Fedora convention). The `.deb` and Windows zip are unchanged.
+
 ## [0.5.2] - 2026-08-05
 
 ### Added
@@ -444,7 +459,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/atgreen/gloopy/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/atgreen/gloopy/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/atgreen/gloopy/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/atgreen/gloopy/compare/v0.4.0...v0.5.0
