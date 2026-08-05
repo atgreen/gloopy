@@ -438,8 +438,18 @@ void ArrangeView::drawClip (juce::Graphics& g, const Track& t, const Clip& c,
         }
     }
 
-    g.setColour (selected ? juce::Colours::white : juce::Colours::black.withAlpha (0.5f));
-    g.drawRoundedRectangle (r, 3.0f, selected ? 2.0f : 1.0f);
+    // Linked-clip hover: when the pointer is over any clip in this link group, tie the
+    // related clips together with a blue tint + outline so they read at a glance.
+    const bool linkHover = c.isLinked() && ! hoveredLinkId.isEmpty() && c.linkId == hoveredLinkId;
+    if (linkHover)
+    {
+        g.setColour (juce::Colour (0xff6ab0ff).withAlpha (0.13f));
+        g.fillRoundedRectangle (r, 3.0f);
+    }
+    g.setColour (selected     ? juce::Colours::white
+                 : linkHover  ? juce::Colour (0xff6ab0ff)
+                              : juce::Colours::black.withAlpha (0.5f));
+    g.drawRoundedRectangle (r, 3.0f, (selected || linkHover) ? 2.0f : 1.0f);
 
     g.setColour (juce::Colours::black.withAlpha (0.85f));
     g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
@@ -1600,6 +1610,29 @@ void ArrangeView::promptAddMarker (double beat)
         }
         delete aw;
     }), false);
+}
+
+// Hovering a linked clip highlights its whole group (across tracks). Cheap: resolve the clip
+// under the pointer, remember its link id, and only repaint when that id changes.
+void ArrangeView::mouseMove (const juce::MouseEvent& e)
+{
+    const auto p = e.position;
+    juce::String link;
+    if (p.x >= headerWidth && p.y >= rulerHeight)
+        if (const int track = trackAtY (p.y); track >= 0)
+            if (const int hit = clipAt (track, p); hit >= 0)
+            {
+                const juce::ScopedLock sl (engineLock);
+                if (juce::isPositiveAndBelow (track, (int) tracks.size())
+                      && juce::isPositiveAndBelow (hit, (int) tracks[(size_t) track]->clips.size()))
+                    link = tracks[(size_t) track]->clips[(size_t) hit].linkId;
+            }
+    if (link != hoveredLinkId) { hoveredLinkId = link; repaint(); }
+}
+
+void ArrangeView::mouseExit (const juce::MouseEvent&)
+{
+    if (hoveredLinkId.isNotEmpty()) { hoveredLinkId.clear(); repaint(); }
 }
 
 void ArrangeView::mouseDrag (const juce::MouseEvent& e)

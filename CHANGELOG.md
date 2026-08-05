@@ -18,7 +18,8 @@ tagged release.
   clip menu's "Duplicate linked") and the copies share one pattern — editing the notes of any
   one (piano roll, step grid, or a note-transform tool) updates them all. Placement stays
   per-instance (position, length, loop, transpose, velocity, colour), a chain badge marks linked
-  clips, "Make unique" detaches one, and shape ops (split/crop/stretch/consolidate) detach
+  clips and hovering one highlights the whole group, "Make unique" detaches one, and shape ops
+  (split/crop/stretch/consolidate) detach
   automatically. Saved with the project. A point of difference from Ableton/Bitwig, which lack it.
 
 ## [0.5.3] - 2026-08-05
