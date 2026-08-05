@@ -179,6 +179,14 @@ void ArrangeView::rebuild()
 void ArrangeView::resized()
 {
     refreshMeter();
+    // rebuild() sizes the per-track header widgets to tracks.size(). A resize can arrive before
+    // that sync — e.g. mid project-load, when setViewState reflows for the restored zoom — with
+    // the widget vectors still holding the previous project's count. Skip the header layout then
+    // rather than index stale vectors out of bounds (rebuild() lays them out once it has synced).
+    const size_t n = tracks.size();
+    if (soloButtons.size() < n || muteButtons.size() < n || editButtons.size() < n
+        || armButtons.size() < n || arpButtons.size() < n || volSliders.size() < n)
+        return;
     for (int i = 0; i < (int) tracks.size(); ++i)
     {
         const int y = rowTop (i);
