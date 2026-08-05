@@ -110,6 +110,10 @@ nav:
           - Add insert effects and balance a mix: user-guide/how-to/effects-and-mixing.md
           - Route to a bus and shared reverb send: user-guide/how-to/bus-and-reverb-send.md
           - Automate a parameter: user-guide/how-to/automate-a-parameter.md
+          - Zoom and navigate the timeline: user-guide/how-to/zoom-and-navigate.md
+          - Link clips to edit them together: user-guide/how-to/link-clips.md
+          - Play real drums with a DrumKit: user-guide/how-to/play-drums-with-a-drumkit.md
+          - Change time signature mid-song: user-guide/how-to/change-time-signature.md
           - Generate a clip's notes from code: user-guide/how-to/generate-notes-from-code.md
           - Export mix, range, track, or stems: user-guide/how-to/export-audio.md
           - Browse content and pin favorites: user-guide/how-to/browse-and-favorites.md

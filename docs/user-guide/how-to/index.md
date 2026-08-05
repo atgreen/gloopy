@@ -20,6 +20,17 @@ assumes you've done [Your first track](../tutorials/first-track.md).
   aux sends and submix groups.
 - **[Automate a parameter](automate-a-parameter.md)** — keyframes, curves, and
   when to use an LFO or MIDI-learn instead.
+- **[Zoom and navigate the timeline](zoom-and-navigate.md)** — multi-axis zoom,
+  scrollbars, marquee, and presets.
+- **[Link clips to edit them together](link-clips.md)** — shared patterns, so one
+  edit updates every repeat.
+- **[Change time signature mid-song](change-time-signature.md)** — meter changes at
+  any bar, without moving your notes.
+
+## Instruments and drums
+
+- **[Play real drums with a DrumKit](play-drums-with-a-drumkit.md)** — a sampled,
+  multi-pad kit on one track, edited in the step grid.
 
 ## Generating content
 
