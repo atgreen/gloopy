@@ -25,8 +25,9 @@ tagged release.
   it for pointer users. All of it — horizontal, vertical, and waveform — is saved with the project.
   The **piano roll** shares the same vocabulary — **Cmd/Ctrl+scroll** to zoom horizontally,
   **Shift+scroll** to scroll, **Alt+scroll** for pitch zoom, and **`W`** / **`F`** / **`E`** to fit,
-  frame the notes, and toggle. **Cmd/Ctrl+drag** a box to zoom to it (marquee), and **`1`–`5`**
-  recall zoom presets (**Shift+digit** stores one).
+  frame the notes, and toggle, plus its own horizontal (timeline) and vertical (pitch) scrollbars.
+  **Cmd/Ctrl+drag** a box to zoom to it (marquee), and **`1`–`5`** recall zoom presets
+  (**Shift+digit** stores one).
 - **Linked / pooled clips.** Duplicate a clip as a *linked* copy (**Cmd/Ctrl+Shift+D**, or the
   clip menu's "Duplicate linked") and the copies share one pattern — editing the notes of any
   one (piano roll, step grid, or a note-transform tool) updates them all. Placement stays
