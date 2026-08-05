@@ -420,6 +420,10 @@ For Gloopy:
 - Add split at playhead, split at markers, crop to selection, duplicate to grid,
   consolidate, reverse audio, and bounce-in-place.
 - Add per-clip fades for audio clips.
+- **Linked / pooled clips** — several placements sharing one pattern so an edit to
+  one updates all (aliases / shared copies / pooled MIDI; a point of differentiation
+  from Ableton/Bitwig, which lack it). Full data-model + serialization design in
+  `linked-clips.md`.
 - Expose these operations through the control API and future MCP surface.
 
 ## More Specialized
