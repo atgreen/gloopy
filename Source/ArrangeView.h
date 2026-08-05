@@ -11,6 +11,7 @@
 #include <map>
 #include "Track.h"
 #include "Transport.h"
+#include "MeterMap.h"
 
 /** The linear arrangement: track headers on the left, a timeline of clips on
     the right, one playhead. Create/move/resize/delete clips; selecting a clip
@@ -94,7 +95,13 @@ public:
     std::function<void (double)>         onRemoveTempoMarker;                  // beat
     std::function<void (const juce::String&, double)> onAddMarker;             // named timeline marker: name, beat
     std::function<void (const juce::String&)>         onRemoveMarker;          // remove a named marker
-    std::function<void (int, int)>       onSetTimeSignature;                   // numerator, denominator
+    std::function<void (int, int)>       onSetTimeSignature;                   // numerator, denominator (bar 1)
+    /** Mid-song time-signature changes. getMeterMap supplies the current map (for the bar grid,
+        bar numbering, snapping and the ruler flags); the callbacks add/remove a change at a beat
+        (snapped to the bar grid by the owner). */
+    std::function<gloopy::time::MeterMap()> getMeterMap;
+    std::function<void (double, int, int)>  onAddTimeSigMarker;                 // beat, numerator, denominator
+    std::function<void (double)>            onRemoveTimeSigMarker;             // beat
     std::function<double()>              getSwing;                             // current swing (0.5 = straight)
     std::function<float()>               getMetronomeLevel;                    // current click volume (0..1)
     std::function<void (float)>          onSetMetronomeLevel;                  // set click volume
@@ -141,9 +148,12 @@ private:
     void timerCallback() override;
 
     int    numBars() const;
+    double spanBeats() const;                                  // total beats shown across the width
+    float  pixelsPerBeat() const;                             // meter-independent horizontal scale
     float  barWidth() const;
     float  xForBeat (double beat) const;
     double beatForX (float x) const;
+    void   refreshMeter();                                    // pull the current meter map from the owner
     int    trackAtY (float y) const;
     double snapToBar (double beat) const;
     double snapToGrid (double beat) const;                     // finer (1/4-beat) snap for breakpoints
@@ -168,7 +178,8 @@ private:
     int    rowTop (int i) const;      // y of the top of track i's row (below the ruler)
     void   promptAddTempoMarker (double beat);   // AlertWindow BPM prompt -> onAddTempoMarker
     void   promptAddMarker (double beat);        // AlertWindow name prompt -> onAddMarker
-    void   promptTimeSignature();                // AlertWindow num/denom prompt -> onSetTimeSignature
+    void   promptTimeSignature();                // AlertWindow num/denom prompt -> onSetTimeSignature (bar 1)
+    void   promptTimeSigChange (double beat);    // AlertWindow num/denom prompt -> onAddTimeSigMarker
     void   promptClipGain (int track, int clip); // AlertWindow dB prompt -> onClipGain
     void   promptClipFades (int track, int clip); // AlertWindow in/out prompt -> onClipFades
 
@@ -177,7 +188,8 @@ private:
     static constexpr int trackHeight  = 64;
     static constexpr int pickerRowH   = 22;   // "+ Lane" picker strip at the top of an expanded row
     static constexpr int laneRowH     = 46;   // height of each stacked automation sub-lane
-    double beatsPerBar = 4.0;   // refreshed from the transport's time signature on rebuild/resize/paint
+    double beatsPerBar = 4.0;   // bar-1 bar length (meter.beatsPerBarAt(0)); default clip/loop length
+    gloopy::time::MeterMap meter;   // refreshed from the owner on rebuild/resize/paint; drives the bar grid
 
     std::vector<std::unique_ptr<Track>>& tracks;
     Transport&             transport;

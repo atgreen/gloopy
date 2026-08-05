@@ -288,6 +288,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
     man.blank().table ("params").str ("file", "params.toml");
     man.blank().table ("mods").str ("file", "mods.toml");
     man.blank().table ("tempo").str ("file", "tempo.toml");
+    man.blank().table ("timesig").str ("file", "timesig.toml");
     man.blank().table ("controllers").str ("file", "controllers.toml");
     man.blank().table ("notes").str ("file", "notes.md");
     ctx.writeText ("gloopy.toml", man.str());
@@ -701,6 +702,19 @@ bool MainComponent::saveComposition (const juce::File& dir)
           .number ("bpm", v.getProperty ("bpm", 120.0)).blank();
     }
     ctx.writeText ("tempo.toml", tw.str());
+
+    // --- time-signature map (mid-song changes) ---
+    toml::Writer tsw;
+    auto tsmap = root.getChildWithName ("TIMESIGMAP");
+    for (int i = 0; i < tsmap.getNumChildren(); ++i)
+    {
+        auto v = tsmap.getChild (i);
+        if (! v.hasType ("TS")) continue;
+        tsw.arrayItem ("markers").number ("beat", v.getProperty ("beat", 0.0))
+           .number ("num", (int) v.getProperty ("num", 4))
+           .number ("den", (int) v.getProperty ("den", 4)).blank();
+    }
+    ctx.writeText ("timesig.toml", tsw.str());
 
     // --- controller mappings (source -> ParamModel target) ---
     toml::Writer cw;
@@ -1188,6 +1202,19 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
             tempoTree.addChild (v, -1, nullptr);
         }
 
+    // Time-signature map (mid-song changes).
+    juce::ValueTree timeSigTree ("TIMESIGMAP");
+    if (auto tsDoc = toml::parse (dir.getChildFile ("timesig.toml").loadFileAsString());
+        auto* ms = tsDoc.array ("markers"))
+        for (auto& md : *ms)
+        {
+            juce::ValueTree v ("TS");
+            v.setProperty ("beat", md.getDouble ("beat", 0.0), nullptr);
+            v.setProperty ("num", (int) md.getDouble ("num", 4.0), nullptr);
+            v.setProperty ("den", (int) md.getDouble ("den", 4.0), nullptr);
+            timeSigTree.addChild (v, -1, nullptr);
+        }
+
     root.addChild (sceneTree, -1, nullptr);
     root.addChild (sessionScenes, -1, nullptr);
     // Control groups (VCA-lite).
@@ -1221,6 +1248,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
 
     root.addChild (modTree, -1, nullptr);
     root.addChild (tempoTree, -1, nullptr);
+    root.addChild (timeSigTree, -1, nullptr);
     root.addChild (ctlTree, -1, nullptr);
 
     currentProjectFile = manifest;   // so relative sample/SFZ paths resolve against the dir
