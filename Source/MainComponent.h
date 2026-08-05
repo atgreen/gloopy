@@ -970,6 +970,7 @@ private:
     std::atomic<double>      diagLastCallbackUs { 0.0 };
     std::atomic<double>      diagMaxCallbackUs  { 0.0 };
     std::atomic<juce::int64> diagDropouts       { 0 };
+    float cpuLoadSmoothed { 0.0f };   // status-bar CPU (DSP-load) meter: smoothed callback/budget fraction
     std::atomic<double>      diagRenderSpeedX   { 0.0 };   // last offline bounce, x realtime
     juce::AudioBuffer<float> mixBuffer;
     // Reused per-instrument-track MIDI scratch in renderBlock — cleared each track, never

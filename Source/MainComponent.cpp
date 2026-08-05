@@ -6873,6 +6873,15 @@ void MainComponent::timerCallback()
 
     if (! deviceWindows.isEmpty()) pruneDeviceWindows();   // close any whose insert was deleted
 
+    // CPU (DSP-load) meter: smooth the last callback's fraction-of-budget, refresh the status bar.
+    {
+        const double budgetUs = (currentBlockSize > 0 && currentSampleRate > 0)
+                                  ? (double) currentBlockSize / currentSampleRate * 1.0e6 : 0.0;
+        const float load = budgetUs > 0.0 ? (float) ((double) diagLastCallbackUs.load (std::memory_order_relaxed) / budgetUs) : 0.0f;
+        cpuLoadSmoothed += 0.25f * (juce::jlimit (0.0f, 2.0f, load) - cpuLoadSmoothed);
+        if (! statusBarBounds.isEmpty()) repaint (statusBarBounds);
+    }
+
     if (renderFinished.load())
     {
         renderFinished = false;
@@ -7002,6 +7011,26 @@ void MainComponent::paintStatusBar (juce::Graphics& g)
         const int w = measure (k) + 4;
         g.setColour (Palette::green);
         g.drawText (k, row.removeFromRight (w), juce::Justification::centredRight, false);
+        row.removeFromRight (14);
+    }
+
+    // --- CPU (DSP) load meter: a mini bar + percentage, green/amber/red by level ---
+    {
+        const float load = juce::jlimit (0.0f, 1.0f, cpuLoadSmoothed);
+        const juce::String txt = "CPU " + juce::String (juce::roundToInt (load * 100.0f)) + "%";
+        const int   tw   = measure (txt) + 4;
+        const float barW = 34.0f;
+        auto seg = row.removeFromRight (tw + (int) barW + 8);
+        juce::Rectangle<float> bar ((float) seg.getX() + 2.0f, cy - 4.0f, barW, 8.0f);
+        g.setColour (Palette::inset);
+        g.fillRoundedRectangle (bar, 2.0f);
+        const juce::Colour lc = load < 0.6f ? Palette::green
+                              : load < 0.85f ? juce::Colour (0xffe6a23c)
+                                             : juce::Colour (0xffe05561);
+        g.setColour (lc);
+        g.fillRoundedRectangle (bar.withWidth (juce::jmax (2.0f, barW * load)), 2.0f);
+        g.setColour (Palette::textDim);
+        g.drawText (txt, seg.withTrimmedLeft ((int) barW + 6), juce::Justification::centredRight, false);
         row.removeFromRight (14);
     }
 
