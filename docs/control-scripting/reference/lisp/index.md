@@ -193,7 +193,7 @@ insert's chain, addressed by `slot`.
 |----------|---------|
 | `(new-project)` | Reset to a fresh project. |
 | `(load-project path)` / `(save-project path)` | Load / save the single-file project. |
-| `(load-composition path)` / `(save-composition path)` | Load / save the directory ["composition as repo"](../../concepts/model.md#on-disk-two-forms) format. |
+| `(load-composition path)` / `(save-composition path)` | Load / save the directory ["composition as code"](../../concepts/model.md#on-disk-two-forms) format. |
 | `(render path &key (tail-seconds 2.0))` | Bounce the whole song to a server-side WAV; blocks until done. |
 
 ### Events (server stream)

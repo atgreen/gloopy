@@ -24,7 +24,7 @@
 
 ## Goal
 
-Gloopy project files should support a "composition as repo" workflow: a song is
+Gloopy project files should support a "composition as code" workflow: a song is
 a directory of small, human-readable text files plus referenced assets, designed
 to be edited, reviewed, branched, merged, zipped, and shared with normal source
 control tools.

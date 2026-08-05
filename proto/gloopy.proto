@@ -738,7 +738,7 @@ service Gloopy {
   rpc Redo       (Empty)    returns (Ack);
   rpc LoadProject(FilePath) returns (Ack);
   rpc SaveProject(FilePath) returns (Ack);
-  rpc SaveComposition(FilePath) returns (Ack);   // directory "composition as repo" format
+  rpc SaveComposition(FilePath) returns (Ack);   // directory "composition as code" format
   rpc LoadComposition(FilePath) returns (Ack);
   rpc RenderToFile(RenderRequest) returns (RenderResult);   // offline bounce (+ optional loudness report)
   rpc ExportMidi (FilePath) returns (Ack);         // all instrument tracks -> Type-1 SMF

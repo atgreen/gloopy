@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Anthony Green <green@moxielogic.com>
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Phase 1 of the "composition as repo" format (docs: gloop-compositions.md).
+// Phase 1 of the "composition as code" format (docs: gloop-compositions.md).
 // A composition directory is an alternative *serialisation* of the same ValueTree
 // that toValueTree()/loadFromTree() already use, so this file only implements the
 // ValueTree <-> directory mapping and leaves the runtime<->tree mapping untouched:

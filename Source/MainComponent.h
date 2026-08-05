@@ -208,7 +208,7 @@ public:
     bool apiRemoveFavorite (const juce::String& kind, const juce::String& ref);
     bool apiLoadProject (const juce::String& path);
     bool apiSaveProject (const juce::String& path);
-    bool apiSaveComposition (const juce::String& path);   // directory "composition as repo" format
+    bool apiSaveComposition (const juce::String& path);   // directory "composition as code" format
     bool apiLoadComposition (const juce::String& path);
 
     // --- headless CLI utilities (Cli.cpp) ---
