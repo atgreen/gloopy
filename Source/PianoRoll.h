@@ -24,6 +24,7 @@
     The PianoRoll holds the authoritative note list; after every edit it calls
     @c onNotesChanged so the owner can push a copy into the (audio-thread) Sequencer. */
 class PianoRoll : public juce::Component,
+                  public juce::ScrollBar::Listener,   // horizontal (timeline) + vertical (pitch) scrollbars
                   private juce::Timer
 {
 public:
@@ -91,6 +92,9 @@ public:
     void splitRollNotesAt (double beat);   // cut notes at a clip-relative beat, fire onNotesChanged
 
     void paint (juce::Graphics&) override;
+    void resized() override;
+    void scrollBarMoved (juce::ScrollBar*, double newRangeStart) override;
+    void updateScrollbars();   // sync both scrollbars to the current zoom/scroll
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp   (const juce::MouseEvent&) override;
@@ -159,6 +163,9 @@ private:
     static constexpr double gridSnap = 0.25; // sixteenth-note grid
     static constexpr int   keyGutter = 34;   // left piano-key strip (px)
     static constexpr int   velStripH = 46;   // bottom velocity-editing strip (px)
+    static constexpr int   hScrollH  = 12;   // bottom horizontal (timeline) scrollbar
+    static constexpr int   vScrollW  = 12;   // right vertical (pitch) scrollbar
+    juce::ScrollBar        hScroll { false }, vScroll { true };
 
     float noteAreaWidth() const;
 

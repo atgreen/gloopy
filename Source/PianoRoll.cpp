@@ -8,6 +8,7 @@ PianoRoll::PianoRoll (Transport& transportToUse) : transport (transportToUse)
 {
     setWantsKeyboardFocus (true);   // catch note-edit shortcuts (Q/H/arrows)
     startTimerHz (60); // playhead animation
+    for (auto* sb : { &hScroll, &vScroll }) { addAndMakeVisible (*sb); sb->addListener (this); sb->setAutoHide (false); }
 }
 
 void PianoRoll::setScale (int root, const std::vector<int>& intervals)
@@ -128,7 +129,7 @@ bool PianoRoll::hasVelStrip() const
 
 float PianoRoll::gridBottom() const
 {
-    return (float) getHeight() - (hasVelStrip() ? (float) velStripH : 0.0f);
+    return (float) getHeight() - (float) hScrollH - (hasVelStrip() ? (float) velStripH : 0.0f);
 }
 
 double PianoRoll::rowHeight() const
@@ -140,6 +141,7 @@ void PianoRoll::clampView()
 {
     viewRows = juce::jlimit (8, pitchHigh - pitchLow + 1, viewRows);
     viewTop  = juce::jlimit (pitchLow + viewRows - 1, pitchHigh, viewTop);
+    updateScrollbars();
 }
 
 void PianoRoll::centerViewOnNotes()
@@ -154,7 +156,7 @@ void PianoRoll::centerViewOnNotes()
 
 float PianoRoll::noteAreaWidth() const
 {
-    return (float) juce::jmax (1, getWidth() - keyGutter);
+    return (float) juce::jmax (1, getWidth() - keyGutter - vScrollW);
 }
 
 float  PianoRoll::fitPxPerBeat() const { return noteAreaWidth() / (float) juce::jmax (0.25, editLength); }
@@ -176,6 +178,7 @@ void PianoRoll::clampViewH()
 {
     const double vis = (double) noteAreaWidth() / (double) juce::jmax (1.0e-6f, pxPerBeat());
     viewStartBeatH = juce::jlimit (0.0, juce::jmax (0.0, editLength - vis), viewStartBeatH);
+    updateScrollbars();
 }
 
 void PianoRoll::zoomHAround (float anchorX, double factor)
@@ -193,7 +196,33 @@ void PianoRoll::zoomHAround (float anchorX, double factor)
 
 void PianoRoll::scrollBeatsH (double dBeats) { viewStartBeatH += dBeats; clampViewH(); repaint(); }
 
-void PianoRoll::fitWidthH() { pxPerBeatH = 0.0; viewStartBeatH = 0.0; zoomToggledH = false; repaint(); }
+void PianoRoll::fitWidthH() { pxPerBeatH = 0.0; viewStartBeatH = 0.0; zoomToggledH = false; updateScrollbars(); repaint(); }
+
+void PianoRoll::resized()
+{
+    hScroll.setBounds (keyGutter, getHeight() - hScrollH, juce::jmax (1, getWidth() - keyGutter - vScrollW), hScrollH);
+    vScroll.setBounds (getWidth() - vScrollW, 0, vScrollW, juce::jmax (1, (int) gridBottom()));
+    updateScrollbars();
+}
+
+void PianoRoll::updateScrollbars()
+{
+    // Horizontal: the clip's content length is the range, the visible beats are the thumb.
+    const double span = juce::jmax (0.25, editLength);
+    const double vis  = juce::jmin ((double) noteAreaWidth() / (double) juce::jmax (1.0e-6f, pxPerBeat()), span);
+    hScroll.setRangeLimits  (0.0, span, juce::dontSendNotification);
+    hScroll.setCurrentRange (viewStartBeatH, vis, juce::dontSendNotification);
+    // Vertical (pitch): full range is pitchLow..pitchHigh, viewRows is the thumb. The scrollbar
+    // runs top-down (0 = highest pitch), so its value is viewTop's distance below pitchHigh.
+    vScroll.setRangeLimits  (0.0, (double) (pitchHigh - pitchLow + 1), juce::dontSendNotification);
+    vScroll.setCurrentRange ((double) (pitchHigh - viewTop), (double) viewRows, juce::dontSendNotification);
+}
+
+void PianoRoll::scrollBarMoved (juce::ScrollBar* sb, double newStart)
+{
+    if (sb == &hScroll)      { viewStartBeatH = juce::jmax (0.0, newStart); clampViewH(); repaint(); }
+    else if (sb == &vScroll) { viewTop = pitchHigh - (int) std::llround (newStart); clampView(); repaint(); }
+}
 
 void PianoRoll::zoomToNotes()
 {
