@@ -151,12 +151,17 @@ public:
     // Timeline zoom / scroll (horizontal). View state is a stored px-per-beat + left edge;
     // 0 px-per-beat means "derive fit-to-width" (the old behaviour), so old projects open unchanged.
     void   fitWidth();          // fit the whole song to the width
+    void   fitHeight();         // fit all tracks into the viewport height
     void   zoomToSelection();   // frame the selected clip
     void   zoomToggle();        // jump to the selection; press again to restore
-    void   zoomHCentered (double factor);   // zoom around the view centre (keyboard +/-)
+    void   zoomHCentered (double factor);   // horizontal zoom around the view centre (keyboard +/-)
+    void   zoomVCentered (double factor);   // vertical (row height) zoom
+    void   nudgeWaveAmp (double factor);    // audio-clip waveform amplitude zoom
     double getPxPerBeat() const { return pxPerBeatStore; }       // 0 = fit-to-width
     double getViewStartBeat() const { return viewStartBeat; }
-    void   setViewState (double pxPerBeat, double startBeat);    // restore persisted zoom/scroll
+    double getTrackHeightScale() const { return trackHeightScale; }
+    double getWaveAmpScale() const { return (double) waveAmpScale; }
+    void   setViewState (double pxPerBeat, double startBeat, double trackHScale, double waveAmp);   // restore persisted view
 
 private:
     void timerCallback() override;
@@ -193,6 +198,7 @@ private:
     // expanded (broken out below the clips). All track→y math goes through rowTop/rowHeight.
     bool   isExpanded (int i) const;
     int    rowHeight (int i) const;   // trackHeight (+ laneExtra if expanded)
+    int    th() const { return juce::roundToInt ((double) trackHeight * trackHeightScale); }   // scaled base track height (vertical zoom)
     int    rowTop (int i) const;      // y of the top of track i's row (below the ruler)
     void   promptAddTempoMarker (double beat);   // AlertWindow BPM prompt -> onAddTempoMarker
     void   promptAddMarker (double beat);        // AlertWindow name prompt -> onAddMarker
@@ -243,6 +249,8 @@ private:
     juce::String hoveredLinkId;       // link id under the pointer; its clips highlight together
     double pxPerBeatStore { 0.0 };    // horizontal zoom; 0 => derive fit-to-width
     double viewStartBeat  { 0.0 };    // left edge of the timeline, in beats
+    double trackHeightScale { 1.0 };  // vertical (row height) zoom; multiplies the base trackHeight
+    float  waveAmpScale     { 1.0f };  // audio-clip waveform amplitude zoom [1..16]
     double togglePrevPxPerBeat { 0.0 }, togglePrevStart { 0.0 };   // zoom-toggle memory
     bool   zoomToggled { false };
     double rulerStartBeat { 0.0 };
