@@ -16,7 +16,8 @@ tagged release.
 ### Added
 - **Timeline zoom & scroll.** The arrangement no longer squeezes the whole song into the width
   (so a long song stops shrinking to unreadable slivers). Zoom the timeline with
-  **Cmd/Ctrl+scroll** (or trackpad pinch) around the pointer, scroll with **Shift+scroll**, and
+  **Cmd/Ctrl+scroll** (or trackpad pinch) around the pointer, scroll with **Shift+scroll** or the
+  pinned scrollbar under the arrangement, and
   use **`=`/`-`** to zoom, **`W`** to fit the song, **`F`** to frame the selected clip, and **`E`**
   to toggle between the selection and your previous view. Track rows resize too (**Alt+scroll**,
   **`H`** to fit all tracks to the height), and audio waveforms have their own amplitude zoom
