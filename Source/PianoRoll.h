@@ -34,7 +34,7 @@ public:
 
     /** Load notes for display/editing WITHOUT firing onNotesChanged (used when
         switching which channel/pattern the roll is showing). */
-    void loadNotes (std::vector<Note> newNotes) { notes = std::move (newNotes); selection.clear(); centerViewOnNotes(); repaint(); }
+    void loadNotes (std::vector<Note> newNotes) { notes = std::move (newNotes); selection.clear(); pxPerBeatH = 0.0; viewStartBeatH = 0.0; zoomToggledH = false; centerViewOnNotes(); repaint(); }
 
     const std::vector<Note>& getNotes() const noexcept { return notes; }
 
@@ -55,7 +55,7 @@ public:
     juce::String getChordType() const { return chordType; }
 
     /** The visible/editable length in beats (a clip's content length). */
-    void setLength (double beats) { editLength = juce::jmax (0.25, beats); repaint(); }
+    void setLength (double beats) { editLength = juce::jmax (0.25, beats); pxPerBeatH = 0.0; viewStartBeatH = 0.0; repaint(); }
     void setShowPlayhead (bool s) { showPlayhead = s; }
 
     std::function<void()> onNotesChanged;
@@ -108,6 +108,14 @@ private:
     bool   hasVelStrip()        const;
     float  xForBeat (double b)  const;
     double beatForX (float x)   const;
+    float  pxPerBeat()    const;   // horizontal zoom scale (0 store => fit-to-width)
+    float  fitPxPerBeat() const;
+    void   clampViewH();           // keep viewStartBeatH within the clip
+    void   zoomHAround (float anchorX, double factor);   // horizontal zoom keeping the anchor beat fixed
+    void   scrollBeatsH (double dBeats);
+    void   fitWidthH();            // W: reset horizontal to fit
+    void   zoomToNotes();          // F: frame the notes (selection if any, else all)
+    void   zoomToggleH();          // E: toggle to the notes and back
     float  yForPitch (int p)    const;
     int    pitchForY (float y)  const;
     int    snapPitchToScaleRoll (int pitch) const;   // nearest in-scale pitch (if snap on)
@@ -137,6 +145,10 @@ private:
     bool  scaleActive { false };          // a non-chromatic scale is highlighted
     bool editable { true };
     double editLength { 4.0 };     // visible length in beats (clip content length)
+    double pxPerBeatH { 0.0 };     // horizontal zoom; 0 => fit-to-width
+    double viewStartBeatH { 0.0 }; // left edge of the visible beat range
+    double togglePrevPxH { 0.0 }, togglePrevStartH { 0.0 };
+    bool   zoomToggledH { false };
     bool   showPlayhead { false };
 
     // Addressable pitch range (full clamp bounds); the visible window is viewTop..viewTop-viewRows+1.

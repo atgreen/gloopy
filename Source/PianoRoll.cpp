@@ -21,7 +21,12 @@ void PianoRoll::setScale (int root, const std::vector<int>& intervals)
 
 bool PianoRoll::keyPressed (const juce::KeyPress& key)
 {
-    if (! editable || notes.empty()) return false;
+    if (! editable) return false;
+    // Zoom vocabulary shared with the arrange view (works even on an empty clip).
+    if (key == juce::KeyPress ('w', 0, 0)) { fitWidthH();   return true; }
+    if (key == juce::KeyPress ('f', 0, 0)) { zoomToNotes(); return true; }
+    if (key == juce::KeyPress ('e', 0, 0)) { zoomToggleH(); return true; }
+    if (notes.empty()) return false;
     const bool shift = key.getModifiers().isShiftDown();
     bool changed = false;
 
@@ -152,14 +157,64 @@ float PianoRoll::noteAreaWidth() const
     return (float) juce::jmax (1, getWidth() - keyGutter);
 }
 
+float  PianoRoll::fitPxPerBeat() const { return noteAreaWidth() / (float) juce::jmax (0.25, editLength); }
+float  PianoRoll::pxPerBeat()    const { return pxPerBeatH > 0.0 ? (float) pxPerBeatH : fitPxPerBeat(); }
+
 float PianoRoll::xForBeat (double b) const
 {
-    return (float) keyGutter + (float) (b / editLength) * noteAreaWidth();
+    return (float) keyGutter + (float) ((b - viewStartBeatH) * (double) pxPerBeat());
 }
 
 double PianoRoll::beatForX (float x) const
 {
-    return (double) ((x - keyGutter) / noteAreaWidth()) * editLength;
+    return viewStartBeatH + (double) (x - (float) keyGutter) / (double) juce::jmax (1.0e-6f, pxPerBeat());
+}
+
+// Horizontal zoom / scroll — the same windowing the arrange view uses, so the vocabulary
+// (Ctrl+wheel zoom, Shift+wheel scroll, W/F/E) transfers between the two.
+void PianoRoll::clampViewH()
+{
+    const double vis = (double) noteAreaWidth() / (double) juce::jmax (1.0e-6f, pxPerBeat());
+    viewStartBeatH = juce::jlimit (0.0, juce::jmax (0.0, editLength - vis), viewStartBeatH);
+}
+
+void PianoRoll::zoomHAround (float anchorX, double factor)
+{
+    const double cur = (double) pxPerBeat();
+    const double next = juce::jlimit (0.25, 400.0, cur * factor);
+    if (std::abs (next - cur) < 1.0e-9) return;
+    const double anchorBeat = beatForX (anchorX);
+    pxPerBeatH = next;
+    viewStartBeatH = anchorBeat - (double) (anchorX - (float) keyGutter) / next;
+    zoomToggledH = false;
+    clampViewH();
+    repaint();
+}
+
+void PianoRoll::scrollBeatsH (double dBeats) { viewStartBeatH += dBeats; clampViewH(); repaint(); }
+
+void PianoRoll::fitWidthH() { pxPerBeatH = 0.0; viewStartBeatH = 0.0; zoomToggledH = false; repaint(); }
+
+void PianoRoll::zoomToNotes()
+{
+    double s = 1.0e18, e = -1.0e18;
+    auto acc = [&] (const Note& n) { s = juce::jmin (s, n.startBeat.toBeats());
+                                     e = juce::jmax (e, (n.startBeat + n.lengthBeats).toBeats()); };
+    if (! selection.empty()) { for (int i : selection) if (i >= 0 && i < (int) notes.size()) acc (notes[(size_t) i]); }
+    else                     for (auto& n : notes) acc (n);
+    if (e <= s) { fitWidthH(); return; }
+    const double pad = juce::jmax (0.25, (e - s) * 0.05);
+    const double len = juce::jmax (0.25, (e - s) + 2.0 * pad);
+    pxPerBeatH = juce::jlimit (0.25, 400.0, (double) noteAreaWidth() / len);
+    viewStartBeatH = juce::jmax (0.0, s - pad);
+    clampViewH();
+    repaint();
+}
+
+void PianoRoll::zoomToggleH()
+{
+    if (! zoomToggledH) { togglePrevPxH = pxPerBeatH; togglePrevStartH = viewStartBeatH; zoomToNotes(); zoomToggledH = true; }
+    else { pxPerBeatH = togglePrevPxH; viewStartBeatH = togglePrevStartH; zoomToggledH = false; clampViewH(); repaint(); }
 }
 
 float PianoRoll::yForPitch (int p) const
@@ -716,20 +771,30 @@ void PianoRoll::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWhee
     const float dy = wheel.deltaY * (wheel.isReversed ? -1.0f : 1.0f);
     if (std::abs (dy) < 1.0e-4f) return;
 
-    if (e.mods.isCtrlDown() || e.mods.isCommandDown())
+    const bool cmd = e.mods.isCtrlDown() || e.mods.isCommandDown();
+    if (cmd)                                            // Ctrl/Cmd: horizontal zoom (shared convention)
     {
-        // Vertical zoom, keeping the pitch under the cursor stable.
+        zoomHAround (e.position.x, dy > 0 ? 1.15 : 1.0 / 1.15);
+        return;
+    }
+    if (e.mods.isAltDown())                             // Alt: vertical pitch zoom, pitch under cursor stable
+    {
         const int anchorPitch = pitchForY (e.position.y);
         viewRows += (dy > 0 ? -2 : 2);                 // wheel up = zoom in (fewer rows)
         clampView();
-        // re-anchor: put anchorPitch back under the cursor
         const int rowUnderCursor = (int) std::floor (e.position.y / juce::jmax (1.0, rowHeight()));
         viewTop = anchorPitch + rowUnderCursor;
         clampView();
     }
+    else if (e.mods.isShiftDown())                     // Shift: horizontal scroll
+    {
+        const double vis = (double) noteAreaWidth() / (double) juce::jmax (1.0e-6f, pxPerBeat());
+        scrollBeatsH (-(double) dy * vis * 0.2);
+        return;
+    }
     else
     {
-        viewTop += (dy > 0 ? 2 : -2);                  // wheel up = scroll toward higher pitches
+        viewTop += (dy > 0 ? 2 : -2);                  // plain wheel: scroll toward higher pitches
         clampView();
     }
     repaint();
