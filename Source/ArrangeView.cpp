@@ -29,7 +29,7 @@ int ArrangeView::laneCountFor (int track) const
 }
 int ArrangeView::rowHeight (int i) const
 {
-    return trackHeight + (isExpanded (i) ? pickerRowH + laneCountFor (i) * laneRowH : 0);
+    return th() + (isExpanded (i) ? pickerRowH + laneCountFor (i) * laneRowH : 0);
 }
 int ArrangeView::rowTop (int i) const
 {
@@ -43,7 +43,7 @@ int ArrangeView::preferredHeight() const
     int h = rulerHeight;
     for (int i = 0; i < (int) tracks.size(); ++i) h += rowHeight (i);
     h += (int) busRows.size() * busRowH;                // content-less bus/master rows below
-    return juce::jmax (rulerHeight + trackHeight, h);   // always at least one row tall
+    return juce::jmax (rulerHeight + th(), h);   // always at least one row tall
 }
 
 void ArrangeView::refreshAutomation()
@@ -187,8 +187,8 @@ void ArrangeView::resized()
         editButtons[(size_t) i]->setBounds (headerWidth - 58, y + 28, 52, 16);
         armButtons [(size_t) i]->setBounds (headerWidth - 90, y + 6, 26, 20);
         arpButtons [(size_t) i]->setBounds (headerWidth - 34, y + 28, 28, 16);
-        if (i < (int) expandButtons.size()) expandButtons[(size_t) i]->setBounds (10, y + trackHeight - 18, 16, 14);
-        volSliders [(size_t) i]->setBounds (30, y + trackHeight - 18, headerWidth - 42, 12);
+        if (i < (int) expandButtons.size()) expandButtons[(size_t) i]->setBounds (10, y + th() - 18, 16, 14);
+        volSliders [(size_t) i]->setBounds (30, y + th() - 18, headerWidth - 42, 12);
 
         if (i < (int) paramButtons.size())
         {
@@ -196,7 +196,7 @@ void ArrangeView::resized()
             if (isExpanded (i))
             {
                 pk->setButtonText ("+ Lane");
-                pk->setBounds (10, y + trackHeight + 2, 72, pickerRowH - 4);
+                pk->setBounds (10, y + th() + 2, 72, pickerRowH - 4);
                 pk->setVisible (true);
             }
             else pk->setVisible (false);
@@ -304,27 +304,62 @@ void ArrangeView::zoomToggle()
     }
 }
 
-void ArrangeView::setViewState (double pxPerBeat, double startBeat)
+void ArrangeView::fitHeight()
 {
-    pxPerBeatStore = juce::jmax (0.0, pxPerBeat);
-    viewStartBeat  = juce::jmax (0.0, startBeat);
+    const int n = (int) tracks.size();
+    if (n <= 0) return;
+    int availH = getHeight();
+    if (auto* vp = findParentComponentOfClass<juce::Viewport>()) availH = vp->getMaximumVisibleHeight();
+    const double target = (double) juce::jmax (1, availH - rulerHeight) / (double) n;   // per-row target height
+    trackHeightScale = juce::jlimit (0.35, 4.0, target / (double) trackHeight);
+    setSize (getWidth(), preferredHeight());
+    repaint();
+}
+
+void ArrangeView::zoomVCentered (double factor)
+{
+    trackHeightScale = juce::jlimit (0.35, 4.0, trackHeightScale * factor);
+    setSize (getWidth(), preferredHeight());
+    repaint();
+}
+
+void ArrangeView::nudgeWaveAmp (double factor)
+{
+    waveAmpScale = (float) juce::jlimit (1.0, 16.0, (double) waveAmpScale * factor);
+    repaint();
+}
+
+void ArrangeView::setViewState (double pxPerBeat, double startBeat, double trackHScale, double waveAmp)
+{
+    pxPerBeatStore   = juce::jmax (0.0, pxPerBeat);
+    viewStartBeat    = juce::jmax (0.0, startBeat);
+    trackHeightScale = juce::jlimit (0.35, 4.0, trackHScale > 0.0 ? trackHScale : 1.0);
+    waveAmpScale     = (float) juce::jlimit (1.0, 16.0, waveAmp > 0.0 ? waveAmp : 1.0);
     zoomToggled = false;
-    if (getWidth() > headerWidth) clampView();
+    // Only reflow when we have real geometry — in headless (width 0, no window) setSize/resized
+    // would touch un-laid-out child widgets and crash; the members above are enough to persist.
+    if (getWidth() > headerWidth) { clampView(); setSize (getWidth(), preferredHeight()); }
     repaint();
 }
 
 void ArrangeView::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w)
 {
-    if (e.mods.isCommandDown())                 // Ctrl/Cmd + wheel: horizontal zoom around the pointer
-        zoomHAround (e.position.x, w.deltaY >= 0.0f ? 1.15 : 1.0 / 1.15);
-    else if (e.mods.isShiftDown())              // Shift + wheel: horizontal scroll
+    const bool cmd = e.mods.isCommandDown(), alt = e.mods.isAltDown(), shift = e.mods.isShiftDown();
+    const bool up = w.deltaY >= 0.0f;
+    if (cmd && alt)                             // Ctrl/Cmd + Alt: waveform amplitude zoom
+        nudgeWaveAmp (up ? 1.2 : 1.0 / 1.2);
+    else if (cmd)                               // Ctrl/Cmd: horizontal zoom around the pointer
+        zoomHAround (e.position.x, up ? 1.15 : 1.0 / 1.15);
+    else if (alt)                               // Alt: vertical (row height) zoom
+        zoomVCentered (up ? 1.1 : 1.0 / 1.1);
+    else if (shift)                             // Shift: horizontal scroll
     {
         const double vis = (double) juce::jmax (1, getWidth() - headerWidth) / (double) juce::jmax (1.0e-6f, pixelsPerBeat());
         const float  d   = w.deltaY != 0.0f ? w.deltaY : w.deltaX;
         scrollBeats (-(double) d * vis * 0.2);
     }
     else
-        Component::mouseWheelMove (e, w);        // let the outer viewport scroll vertically
+        Component::mouseWheelMove (e, w);        // plain wheel: let the outer viewport scroll vertically
 }
 
 void ArrangeView::mouseMagnify (const juce::MouseEvent& e, float scaleFactor)
@@ -356,7 +391,7 @@ double ArrangeView::snapToGrid (double beat) const { constexpr double g = 0.25; 
 void ArrangeView::trackBand (int track, float& top, float& bot) const
 {
     const float y = (float) rowTop (track);
-    top = y + 4.0f; bot = y + (float) trackHeight - 4.0f;
+    top = y + 4.0f; bot = y + (float) th() - 4.0f;
 }
 
 // Global autoLanes indices belonging to a track, in draw order (top to bottom of the stack).
@@ -371,7 +406,7 @@ void ArrangeView::trackLaneIndices (int track, std::vector<int>& out) const
 // Padded band of the k-th stacked sub-lane (below the clip area + the picker strip).
 void ArrangeView::laneBand (int track, int k, float& top, float& bot) const
 {
-    const float base = (float) (rowTop (track) + trackHeight + pickerRowH);
+    const float base = (float) (rowTop (track) + th() + pickerRowH);
     top = base + (float) (k * laneRowH) + 4.0f;
     bot = base + (float) ((k + 1) * laneRowH) - 4.0f;
 }
@@ -379,7 +414,7 @@ void ArrangeView::laneBand (int track, int k, float& top, float& bot) const
 int ArrangeView::laneAtY (int track, float y) const
 {
     if (! isExpanded (track)) return -1;
-    const int base = rowTop (track) + trackHeight + pickerRowH;
+    const int base = rowTop (track) + th() + pickerRowH;
     if (y < base) return -1;                       // in the clip area or picker strip
     const int k = (int) ((y - base) / laneRowH);
     return juce::isPositiveAndBelow (k, laneCountFor (track)) ? k : -1;
@@ -435,7 +470,7 @@ int ArrangeView::clipAt (int track, juce::Point<float> p) const
     {
         juce::Rectangle<float> r (xForBeat (clips[(size_t) i].startBeat.toBeats()), y + 2.0f,
                                   xForBeat (clips[(size_t) i].endBeat()) - xForBeat (clips[(size_t) i].startBeat.toBeats()),
-                                  (float) trackHeight - 4.0f);
+                                  (float) th() - 4.0f);
         if (r.contains (p))
             return i;
     }
@@ -515,7 +550,8 @@ void ArrangeView::drawClip (juce::Graphics& g, const Track& t, const Clip& c,
         {
             const float frac = (x - r.getX()) / juce::jmax (1.0f, r.getWidth());
             const int idx = juce::jlimit (0, N - 1, (int) (frac * N));
-            const float a = pk[(size_t) idx] * wf.getHeight() * 0.5f;
+            const float a = juce::jmin (wf.getHeight() * 0.5f,
+                                        pk[(size_t) idx] * wf.getHeight() * 0.5f * waveAmpScale);   // amplitude zoom, clamped to lane
             g.drawVerticalLine (x, mid - a, mid + a);
         }
     }
@@ -681,12 +717,12 @@ void ArrangeView::paint (juce::Graphics& g)
             g.fillRect (0, y, headerWidth, rh);
         }
         g.setColour (t->colour);
-        g.fillRect (0, y + 3, 4, trackHeight - 6);
+        g.fillRect (0, y + 3, 4, th() - 6);
 
         // Expanded automation area: a "+ Lane" picker strip, then one stacked sub-lane per param.
         if (isExpanded (i))
         {
-            const int exTop = y + trackHeight;
+            const int exTop = y + th();
             g.setColour (Palette::lineSoft);
             g.drawHorizontalLine (exTop, (float) headerWidth, (float) getWidth());
             g.setColour (Palette::bg.withAlpha (0.22f));
@@ -757,7 +793,7 @@ void ArrangeView::paint (juce::Graphics& g)
             const auto& c = t->clips[(size_t) ci];
             juce::Rectangle<float> r (xForBeat (c.startBeat.toBeats()), (float) y + 2.0f,
                                       xForBeat (c.endBeat()) - xForBeat (c.startBeat.toBeats()),
-                                      (float) trackHeight - 4.0f);
+                                      (float) th() - 4.0f);
             drawClip (g, *t, c, r, i == selTrack && ci == selClip);
         }
 
@@ -1100,7 +1136,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             dragTrack = track; dragAutoLane = li; dragAutoPoint = pi; drag = Drag::point;   // start moving it
             return;
         }
-        const int subTop = rowTop (track) + trackHeight;
+        const int subTop = rowTop (track) + th();
         if (isExpanded (track) && p.y >= subTop)   // anywhere in the expanded automation area
         {
             const int k = laneAtY (track, p.y);
