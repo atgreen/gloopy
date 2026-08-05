@@ -41,3 +41,7 @@ rpmbuild/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# gstack skill scratch + local research notes (not part of the tracked source)
+.gstack/
+FOR-GLOOPY.md
