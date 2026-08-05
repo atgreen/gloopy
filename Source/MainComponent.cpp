@@ -7635,6 +7635,26 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     if (key == juce::KeyPress ('z', MK::commandModifier | MK::shiftModifier, 0))  { redo(); return true; }
     if (key == juce::KeyPress ('y', MK::commandModifier, 0))                      { redo(); return true; }
     if (key == juce::KeyPress ('.', MK::commandModifier, 0))                      { apiPanic(); return true; }   // MIDI panic
+    // Transport & playhead navigation (apply whether playing or stopped).
+    if (key.getKeyCode() == juce::KeyPress::homeKey)                              { seekToStart(); return true; }
+    if (key.getKeyCode() == juce::KeyPress::endKey)                              { seekToEnd(); return true; }
+    if (key == juce::KeyPress (juce::KeyPress::leftKey, 0, 0))                    { seekBars (-1); return true; }
+    if (key == juce::KeyPress (juce::KeyPress::rightKey, 0, 0))                   { seekBars (+1); return true; }
+    if (key == juce::KeyPress (juce::KeyPress::leftKey,  MK::shiftModifier, 0))   { seekRelative (-1.0); return true; }
+    if (key == juce::KeyPress (juce::KeyPress::rightKey, MK::shiftModifier, 0))   { seekRelative (+1.0); return true; }
+    // Recording.
+    if (key == juce::KeyPress ('r', 0, 0) || key.getKeyCode() == juce::KeyPress::F9Key) { toggleRecord(); return true; }
+    if (key == juce::KeyPress ('r', MK::shiftModifier, 0))                        { toggleArmSelectedTrack(); return true; }
+    // Loop & metronome.
+    if (key == juce::KeyPress ('l', MK::commandModifier, 0))                      { toggleLoop(); return true; }
+    if (key == juce::KeyPress ('m', MK::commandModifier, 0))                      { toggleMetronome(); return true; }
+    // Clip editing (arrangement selection).
+    if (key == juce::KeyPress ('d', MK::commandModifier, 0))                      { duplicateSelectedClip(); return true; }
+    if (key == juce::KeyPress ('c', MK::commandModifier, 0))                      { copySelectedClip (false); return true; }
+    if (key == juce::KeyPress ('x', MK::commandModifier, 0))                      { copySelectedClip (true);  return true; }
+    if (key == juce::KeyPress ('v', MK::commandModifier, 0))                      { pasteClipAtPlayhead(); return true; }
+    if (key == juce::KeyPress ('e', MK::commandModifier, 0))                      { splitSelectedAtPlayhead(); return true; }
+    if (key == juce::KeyPress ('s', MK::commandModifier | MK::shiftModifier, 0))  { saveProjectAs(); return true; }
     // Delete/Backspace: remove the selected arrangement clip, or clear the selected session slot.
     // (The piano roll handles Delete on selected notes itself when it has focus.)
     if (key.getKeyCode() == juce::KeyPress::deleteKey || key.getKeyCode() == juce::KeyPress::backspaceKey)
@@ -7646,6 +7666,110 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
             { apiClearSessionSlot (t->id, selSessionScene); if (sessionPane) sessionPane->rebuild(); return true; }
     }
     return false;
+}
+
+// --- keyboard-driven transport & editing (see keyPressed) ------------------------------------
+
+void MainComponent::seekToStart() { transport.requestSeek (0.0); }
+
+double MainComponent::projectEndBeats() const
+{
+    double e = 0.0;
+    for (auto& t : tracks) for (auto& c : t->clips) e = juce::jmax (e, c.endBeat());
+    return e;
+}
+
+void MainComponent::seekToEnd() { transport.requestSeek (projectEndBeats()); }
+
+// <- / -> : move the playhead one bar. Right always steps to the next bar line; Left steps to the
+// current bar's start when mid-bar, otherwise to the previous bar (so it feels like "back a bar").
+void MainComponent::seekBars (int dir)
+{
+    auto mm = meterMap();
+    int bar; double bib; mm.beatToBarBeat (transport.getPlayheadBeats(), bar, bib);
+    const int target = juce::jmax (1, dir > 0 ? bar + 1 : (bib > 1.0 + 1.0e-6 ? bar : bar - 1));
+    transport.requestSeek (mm.barBeatToBeats (target, 1.0));
+}
+
+void MainComponent::seekRelative (double beats)
+{
+    transport.requestSeek (juce::jmax (0.0, transport.getPlayheadBeats() + beats));
+}
+
+void MainComponent::toggleRecord() { if (recordButton.onClick) recordButton.onClick(); }
+
+void MainComponent::toggleArmSelectedTrack()
+{
+    if (selTrack < 0) return;
+    if (auto* t = trackByIndex (selTrack))
+    {
+        apiArmTrack (t->id, ! t->recordArmed.load(), t->recordInput.load(),
+                     t->recordChannels.load(), t->recordMonitor.load());
+        if (arrangeView) arrangeView->repaint();
+    }
+}
+
+void MainComponent::toggleLoop()
+{
+    const bool e = ! transport.isLoopEnabled();
+    transport.setLoopEnabled (e);
+    loopButton.setToggleState (e, juce::dontSendNotification);
+    if (arrangeView) arrangeView->repaint();
+}
+
+void MainComponent::toggleMetronome()
+{
+    const bool e = ! apiGetMetronome();
+    apiSetMetronome (e);
+    metroButton.setToggleState (e, juce::dontSendNotification);
+}
+
+void MainComponent::duplicateSelectedClip()
+{
+    if (selTrack < 0 || selClip < 0) return;
+    if (auto* t = trackByIndex (selTrack))
+    {
+        const int ni = apiDuplicateClip (t->id, selClip, -1.0);   // butt the copy up to the right
+        if (ni >= 0) { selClip = ni; if (arrangeView) { arrangeView->setSelection (selTrack, ni); arrangeView->rebuild(); } }
+    }
+}
+
+void MainComponent::copySelectedClip (bool cut)
+{
+    if (selTrack < 0 || selClip < 0) return;
+    auto* t = trackByIndex (selTrack);
+    if (t == nullptr) return;
+    {
+        const juce::ScopedLock sl (engineLock);
+        if (! juce::isPositiveAndBelow (selClip, (int) t->clips.size())) return;
+        clipClipboard = clipToTree (t->clips[(size_t) selClip], "CLIP");
+    }
+    if (cut) apiRemoveClip (t->id, selClip);
+}
+
+void MainComponent::pasteClipAtPlayhead()
+{
+    if (! clipClipboard.isValid() || selTrack < 0) return;
+    auto* t = trackByIndex (selTrack);
+    if (t == nullptr) return;
+    pushUndoSnapshot();
+    Clip c = clipFromTree (clipClipboard);
+    c.startBeat = juce::jmax (0.0, transport.getPlayheadBeats());
+    int ni = -1;
+    { const juce::ScopedLock sl (engineLock); t->clips.push_back (std::move (c)); ni = (int) t->clips.size() - 1; }
+    selClip = ni;
+    emitChange ("clip_changed", t->id);
+    if (arrangeView) { arrangeView->setSelection (selTrack, ni); arrangeView->rebuild(); }
+}
+
+void MainComponent::splitSelectedAtPlayhead()
+{
+    if (selTrack < 0 || selClip < 0) return;
+    if (auto* t = trackByIndex (selTrack))
+    {
+        apiSplitClip (t->id, selClip, transport.getPlayheadBeats());   // no-op if the playhead is outside the clip
+        if (arrangeView) arrangeView->rebuild();
+    }
 }
 
 // '?' toggles the keyboard-shortcut overlay: size it to the window, bring it to the
@@ -7678,7 +7802,12 @@ void MainComponent::saveCurrentProject()
         else                                                   saveProject (currentProjectFile);
         return;
     }
-    // Never saved: default to the directory (composition folder) format.
+    saveProjectAs();   // never saved -> prompt for a location
+}
+
+// Ctrl/Cmd+Shift+S: always prompt for a destination folder (composition format).
+void MainComponent::saveProjectAs()
+{
     fileChooser = std::make_unique<juce::FileChooser> ("Save as composition folder", juce::File());
     fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectDirectories,
         [this] (const juce::FileChooser& fc)
