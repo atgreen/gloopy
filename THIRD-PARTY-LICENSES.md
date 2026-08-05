@@ -138,6 +138,10 @@ one-way compatible into a GPL/AGPL-3.0 work.
 ## Where the license texts ship
 
 `packaging/collect-licenses.sh` gathers every in-tree third-party license text into
-`licenses/`, which is installed to **`share/doc/gloopy/third-party-licenses/`** in the
-RPM/DEB (alongside this manifest) and copied into the Windows zip's `licenses/` folder —
-so a distributed build always carries the full licensing of the code it ships.
+`licenses/`, which is shipped alongside this manifest so a distributed build always carries
+the full licensing of the code it ships:
+
+- **RPM**: under **`share/licenses/gloopy/`** (the Fedora convention — beside Gloopy's own
+  `LICENSE`, and found by `rpm -qd`/`rpm --licensefiles gloopy`).
+- **DEB**: under **`share/doc/gloopy/third-party-licenses/`** (the Debian convention).
+- **Windows zip**: in the `licenses/` folder.

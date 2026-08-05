@@ -34,11 +34,26 @@ Surge XT synth, and its projects are plain, version-controllable text.
 DESTDIR=%{buildroot} cmake --install "%{gloopy_builddir}" --component gloopy --prefix %{_prefix}
 install -Dm0644 "%{gloopy_srcdir}/LICENSE" "%{buildroot}%{_defaultlicensedir}/%{name}/LICENSE"
 
+# Bundled third-party license texts belong in the RPM license directory
+# (/usr/share/licenses/<pkg>/, the Fedora convention) beside our own LICENSE — not under
+# share/doc. The CMake install stages them under share/doc/gloopy (that is the Debian
+# layout, which the .deb keeps); relocate that tree here for the RPM so `rpm -qd`/`--licensefiles`
+# and users find every notice in one place.
+if [ -f "%{buildroot}%{_datadir}/doc/%{name}/THIRD-PARTY-LICENSES.md" ]; then
+    mv "%{buildroot}%{_datadir}/doc/%{name}/THIRD-PARTY-LICENSES.md" \
+       "%{buildroot}%{_defaultlicensedir}/%{name}/"
+fi
+if [ -d "%{buildroot}%{_datadir}/doc/%{name}/third-party-licenses" ]; then
+    mv "%{buildroot}%{_datadir}/doc/%{name}/third-party-licenses" \
+       "%{buildroot}%{_defaultlicensedir}/%{name}/"
+fi
+rmdir "%{buildroot}%{_datadir}/doc/%{name}" 2>/dev/null || true
+
 %files
-%license %{_defaultlicensedir}/%{name}/LICENSE
+# The whole license directory (our LICENSE + the bundled third-party texts + manifest).
+%license %{_defaultlicensedir}/%{name}/
 %{_bindir}/gloopy
 %{_datadir}/gloopy/
-%doc %{_datadir}/doc/gloopy/
 %{_libdir}/gloopy/
 %{_datadir}/applications/gloopy.desktop
 %{_datadir}/icons/hicolor/scalable/apps/gloopy.svg
