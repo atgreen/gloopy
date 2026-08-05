@@ -7658,6 +7658,15 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     if (key == juce::KeyPress ('x', MK::commandModifier, 0))                      { copySelectedClip (true);  return true; }
     if (key == juce::KeyPress ('v', MK::commandModifier, 0))                      { pasteClipAtPlayhead(); return true; }
     if (key == juce::KeyPress ('e', MK::commandModifier, 0))                      { splitSelectedAtPlayhead(); return true; }
+    // Timeline zoom (Arrange view only): W fit-width, F zoom-to-selection, E toggle, = / - zoom.
+    if (viewMode == ViewMode::Arrange && arrangeView)
+    {
+        if (key == juce::KeyPress ('w', 0, 0)) { arrangeView->fitWidth();        return true; }
+        if (key == juce::KeyPress ('f', 0, 0)) { arrangeView->zoomToSelection(); return true; }
+        if (key == juce::KeyPress ('e', 0, 0)) { arrangeView->zoomToggle();      return true; }
+        if (key == juce::KeyPress ('=', 0, 0)) { arrangeView->zoomHCentered (1.3);       return true; }
+        if (key == juce::KeyPress ('-', 0, 0)) { arrangeView->zoomHCentered (1.0 / 1.3); return true; }
+    }
     if (key == juce::KeyPress ('s', MK::commandModifier | MK::shiftModifier, 0))  { saveProjectAs(); return true; }
     // Delete/Backspace: remove the selected arrangement clip, or clear the selected session slot.
     // (The piano roll handles Delete on selected notes itself when it has focus.)
@@ -7989,6 +7998,8 @@ juce::ValueTree MainComponent::toValueTree()
     root.setProperty ("tsden", transport.getTimeSigDenominator(), nullptr);
     root.setProperty ("swing", transport.getSwing(), nullptr);
     root.setProperty ("launchQuantum", sessionLauncher.quantumBeats(), nullptr);   // session-view launch quantize
+    if (arrangeView) { root.setProperty ("viewPxPerBeat", arrangeView->getPxPerBeat(), nullptr);       // timeline zoom / scroll (0 = fit)
+                       root.setProperty ("viewStartBeat", arrangeView->getViewStartBeat(), nullptr); }
     root.setProperty ("notes", projectNotes, nullptr);
     root.setProperty ("scaleRoot", scaleRoot, nullptr);
     root.setProperty ("scaleName", scaleName, nullptr);
@@ -8854,6 +8865,8 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     transport.setBpm ((double) root.getProperty ("bpm", 128.0));
     transport.setTimeSignature ((int) root.getProperty ("tsnum", 4), (int) root.getProperty ("tsden", 4));
     transport.setSwing ((double) root.getProperty ("swing", 0.5));
+    if (arrangeView) arrangeView->setViewState ((double) root.getProperty ("viewPxPerBeat", 0.0),
+                                                (double) root.getProperty ("viewStartBeat", 0.0));
 
     projectNotes = root.getProperty ("notes", "").toString();
     if (notesWindow != nullptr) notesEditor.setText (projectNotes, juce::dontSendNotification);

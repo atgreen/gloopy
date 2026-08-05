@@ -223,10 +223,114 @@ double ArrangeView::spanBeats() const
 
 int ArrangeView::numBars() const { int bar; double bib; meter.beatToBarBeat (spanBeats() - 1.0e-6, bar, bib); return bar; }
 
-float  ArrangeView::pixelsPerBeat() const { return (float) (getWidth() - headerWidth) / (float) juce::jmax (1.0, spanBeats()); }
+float  ArrangeView::fitPixelsPerBeat() const { return (float) (getWidth() - headerWidth) / (float) juce::jmax (1.0, spanBeats()); }
+float  ArrangeView::pixelsPerBeat() const { return pxPerBeatStore > 0.0 ? (float) pxPerBeatStore : fitPixelsPerBeat(); }
 float  ArrangeView::barWidth() const { return pixelsPerBeat() * (float) juce::jmax (0.001, beatsPerBar); }
-float  ArrangeView::xForBeat (double beat) const { return (float) headerWidth + (float) beat * pixelsPerBeat(); }
-double ArrangeView::beatForX (float x) const { return (double) (x - (float) headerWidth) / (double) juce::jmax (1.0e-6f, pixelsPerBeat()); }
+float  ArrangeView::xForBeat (double beat) const { return (float) headerWidth + (float) ((beat - viewStartBeat) * (double) pixelsPerBeat()); }
+double ArrangeView::beatForX (float x) const { return viewStartBeat + (double) (x - (float) headerWidth) / (double) juce::jmax (1.0e-6f, pixelsPerBeat()); }
+
+// ── Timeline zoom / scroll (Phase 1: horizontal) ─────────────────────────────
+// Windowed horizontal view: every beat↔pixel conversion funnels through the two functions
+// above, so honouring viewStartBeat + a stored pxPerBeat here makes clips, automation, the
+// ruler, hit-testing and drops all zoom/scroll consistently. Zero pxPerBeatStore = fit-to-width.
+
+void ArrangeView::clampView()
+{
+    const double vis = (double) juce::jmax (1, getWidth() - headerWidth) / (double) juce::jmax (1.0e-6f, pixelsPerBeat());
+    viewStartBeat = juce::jlimit (0.0, juce::jmax (0.0, spanBeats() - vis), viewStartBeat);
+}
+
+void ArrangeView::zoomHAround (float anchorX, double factor)
+{
+    const double cur  = (double) pixelsPerBeat();
+    const double next = juce::jlimit (0.25, 400.0, cur * factor);          // multiplicative, clamped
+    if (std::abs (next - cur) < 1.0e-9) return;
+    const double anchorBeat = beatForX (anchorX);                          // beat under the anchor (before)
+    pxPerBeatStore = next;
+    viewStartBeat  = anchorBeat - (double) (anchorX - (float) headerWidth) / next;   // keep that beat fixed
+    zoomToggled = false;
+    clampView();
+    repaint();
+}
+
+void ArrangeView::scrollBeats (double dBeats) { viewStartBeat += dBeats; clampView(); repaint(); }
+
+void ArrangeView::zoomHCentered (double factor)
+{
+    zoomHAround ((float) headerWidth + (float) (getWidth() - headerWidth) * 0.5f, factor);
+}
+
+void ArrangeView::fitWidth()
+{
+    pxPerBeatStore = 0.0;   // -> derive fit-to-width
+    viewStartBeat  = 0.0;
+    zoomToggled = false;
+    repaint();
+}
+
+void ArrangeView::zoomToSelection()
+{
+    double s = -1.0, e = -1.0;
+    {
+        const juce::ScopedLock sl (engineLock);
+        if (juce::isPositiveAndBelow (selTrack, (int) tracks.size())
+              && juce::isPositiveAndBelow (selClip, (int) tracks[(size_t) selTrack]->clips.size()))
+        {
+            const auto& c = tracks[(size_t) selTrack]->clips[(size_t) selClip];
+            s = c.startBeat.toBeats(); e = c.endBeat();
+        }
+    }
+    if (e <= s) return;                                    // nothing selected -> no-op
+    const double pad = juce::jmax (0.5, (e - s) * 0.05);
+    const double lenBeats = juce::jmax (0.25, (e - s) + 2.0 * pad);
+    pxPerBeatStore = juce::jlimit (0.25, 400.0, (double) juce::jmax (1, getWidth() - headerWidth) / lenBeats);
+    viewStartBeat  = juce::jmax (0.0, s - pad);
+    clampView();
+    repaint();
+}
+
+void ArrangeView::zoomToggle()
+{
+    if (! zoomToggled)
+    {
+        togglePrevPxPerBeat = pxPerBeatStore; togglePrevStart = viewStartBeat;
+        zoomToSelection();
+        zoomToggled = true;      // set AFTER zoomToSelection (it clears the flag) so a 2nd press restores
+    }
+    else
+    {
+        pxPerBeatStore = togglePrevPxPerBeat; viewStartBeat = togglePrevStart; zoomToggled = false;
+        clampView(); repaint();
+    }
+}
+
+void ArrangeView::setViewState (double pxPerBeat, double startBeat)
+{
+    pxPerBeatStore = juce::jmax (0.0, pxPerBeat);
+    viewStartBeat  = juce::jmax (0.0, startBeat);
+    zoomToggled = false;
+    if (getWidth() > headerWidth) clampView();
+    repaint();
+}
+
+void ArrangeView::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w)
+{
+    if (e.mods.isCommandDown())                 // Ctrl/Cmd + wheel: horizontal zoom around the pointer
+        zoomHAround (e.position.x, w.deltaY >= 0.0f ? 1.15 : 1.0 / 1.15);
+    else if (e.mods.isShiftDown())              // Shift + wheel: horizontal scroll
+    {
+        const double vis = (double) juce::jmax (1, getWidth() - headerWidth) / (double) juce::jmax (1.0e-6f, pixelsPerBeat());
+        const float  d   = w.deltaY != 0.0f ? w.deltaY : w.deltaX;
+        scrollBeats (-(double) d * vis * 0.2);
+    }
+    else
+        Component::mouseWheelMove (e, w);        // let the outer viewport scroll vertically
+}
+
+void ArrangeView::mouseMagnify (const juce::MouseEvent& e, float scaleFactor)
+{
+    if (scaleFactor > 0.0f) zoomHAround (e.position.x, (double) scaleFactor);
+}
 
 void ArrangeView::refreshMeter()
 {
