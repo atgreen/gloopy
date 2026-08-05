@@ -142,6 +142,8 @@ public:
     void resized() override;
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
+    void mouseMove (const juce::MouseEvent&) override;   // hover a linked clip -> highlight its group
+    void mouseExit (const juce::MouseEvent&) override;
     void mouseUp   (const juce::MouseEvent&) override;
 
 private:
@@ -222,6 +224,7 @@ private:
     // Ruler drag (seek / loop region; Alt = punch region).
     bool   rulerDrag { false }, loopDragged { false }, rulerAlt { false };
     bool   dropHighlight { false };   // a browser drag is hovering the arrangement
+    juce::String hoveredLinkId;       // link id under the pointer; its clips highlight together
     double rulerStartBeat { 0.0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ArrangeView)
