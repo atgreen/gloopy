@@ -355,6 +355,13 @@ MainComponent::MainComponent (bool headless)
     addAndMakeVisible (mapsButton);
     mapsButton.setTooltip ("Mappings: see and remove all MIDI/OSC controller maps and LFO routes");
     mapsButton.onClick = [this] { openMappings(); };
+    for (auto* b : { &zoomOutBtn, &zoomInBtn, &zoomFitBtn }) addAndMakeVisible (*b);
+    zoomOutBtn.setTooltip ("Zoom the timeline out  (-)");
+    zoomInBtn .setTooltip ("Zoom the timeline in  (=)");
+    zoomFitBtn.setTooltip ("Fit the song to the width  (W)");
+    zoomOutBtn.onClick = [this] { if (arrangeView) arrangeView->zoomHCentered (1.0 / 1.3); };
+    zoomInBtn .onClick = [this] { if (arrangeView) arrangeView->zoomHCentered (1.3); };
+    zoomFitBtn.onClick = [this] { if (arrangeView) arrangeView->fitWidth(); };
     mappingsView.onRemove = [this] (const juce::String& kind, const juce::String& key)
     {
         if (kind == "ctrl") apiRemoveControllerMap (key);
@@ -5335,6 +5342,8 @@ void MainComponent::applyViewMode()
     mixerViewport  .setVisible (viewMode == ViewMode::Mixer);
     if (viewMode == ViewMode::Session && sessionPane) sessionPane->rebuild();
     if (viewMode == ViewMode::Mixer   && mixerView)   mixerView->rebuild();
+    const bool arr = viewMode == ViewMode::Arrange;                 // the zoom cluster is arrange-only
+    zoomOutBtn.setVisible (arr); zoomInBtn.setVisible (arr); zoomFitBtn.setVisible (arr);
     resized();
     grabKeyboardFocus();   // keep Tab reaching keyPressed regardless of what had focus
 }
@@ -7073,6 +7082,12 @@ void MainComponent::resized()
     mixerButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (6);
     mapsButton   .setBounds (bar.removeFromRight (52)); bar.removeFromRight (6);
     loopButton   .setBounds (bar.removeFromRight (54)); bar.removeFromRight (6);
+    if (zoomFitBtn.isVisible())   // arrange-view zoom cluster (hidden in Session/Mixer)
+    {
+        zoomFitBtn.setBounds (bar.removeFromRight (38)); bar.removeFromRight (2);
+        zoomInBtn .setBounds (bar.removeFromRight (24)); bar.removeFromRight (2);
+        zoomOutBtn.setBounds (bar.removeFromRight (24)); bar.removeFromRight (10);
+    }
     metroButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (6);
     panicButton  .setBounds (bar.removeFromRight (54)); bar.removeFromRight (12);
     scaleNameBox .setBounds (bar.removeFromRight (128).reduced (0, 4)); bar.removeFromRight (4);
