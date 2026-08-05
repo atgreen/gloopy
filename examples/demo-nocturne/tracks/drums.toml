@@ -19,12 +19,13 @@ colour = -47872
 sample_file = "assets/samples/kick.wav"
 root = 36
 
+
 [[clips]]
 id = "drums"
 name = "Drums"
 ctype = 0
-start = 0
-length = 96
-content_length = 96
-looped = false
+start = 64
+length = 32
+content_length = 4
+looped = true
 notes = "clips/drums/drums.notes"

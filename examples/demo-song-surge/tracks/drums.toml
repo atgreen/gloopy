@@ -40,12 +40,113 @@ colour = -5085479
 sample_file = "assets/samples/clap.wav"
 root = 39
 
+
 [[clips]]
 id = "drums"
 name = "Drums"
 ctype = 0
 start = 0
-length = 240
-content_length = 240
-looped = false
+length = 32
+content_length = 4
+looped = true
 notes = "clips/drums/drums.notes"
+
+[[clips]]
+id = "drums-2"
+name = "Drums"
+ctype = 0
+start = 32
+length = 28
+content_length = 4
+looped = true
+notes = "clips/drums/drums-2.notes"
+
+[[clips]]
+id = "drums-3"
+name = "Drums"
+ctype = 0
+start = 60
+length = 4
+content_length = 4
+looped = true
+notes = "clips/drums/drums-3.notes"
+
+[[clips]]
+id = "drums-4"
+name = "Drums"
+ctype = 0
+start = 64
+length = 32
+content_length = 4
+looped = true
+notes = "clips/drums/drums-4.notes"
+
+[[clips]]
+id = "drums-5"
+name = "Drums"
+ctype = 0
+start = 96
+length = 28
+content_length = 4
+looped = true
+notes = "clips/drums/drums-5.notes"
+
+[[clips]]
+id = "drums-6"
+name = "Drums"
+ctype = 0
+start = 124
+length = 4
+content_length = 4
+looped = true
+notes = "clips/drums/drums-6.notes"
+
+[[clips]]
+id = "drums-7"
+name = "Drums"
+ctype = 0
+start = 128
+length = 32
+content_length = 4
+looped = true
+notes = "clips/drums/drums-7.notes"
+
+[[clips]]
+id = "drums-8"
+name = "Drums"
+ctype = 0
+start = 160
+length = 28
+content_length = 4
+looped = true
+notes = "clips/drums/drums-8.notes"
+
+[[clips]]
+id = "drums-9"
+name = "Drums"
+ctype = 0
+start = 188
+length = 4
+content_length = 4
+looped = true
+notes = "clips/drums/drums-9.notes"
+
+[[clips]]
+id = "drums-10"
+name = "Drums"
+ctype = 0
+start = 192
+length = 32
+content_length = 4
+looped = true
+notes = "clips/drums/drums-10.notes"
+
+[[clips]]
+id = "drums-11"
+name = "Drums"
+ctype = 0
+start = 224
+length = 16
+content_length = 4
+looped = true
+notes = "clips/drums/drums-11.notes"
