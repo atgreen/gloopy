@@ -7,7 +7,7 @@
 #include <map>
 #include <vector>
 
-/** A deliberately small TOML subset for Gloopy's "composition as repo" files:
+/** A deliberately small TOML subset for Gloopy's "composition as code" files:
     root key/values, single `[tables]`, arrays-of-tables `[[arrays]]`, flat
     `key = value` lines, and scalar arrays. Enough for the composition manifests,
     tolerant of comments, surrounding whitespace and key reordering — the things a

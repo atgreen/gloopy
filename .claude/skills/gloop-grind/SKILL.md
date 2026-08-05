@@ -3,7 +3,7 @@ name: gloop-grind
 version: 1.0.0
 description: |
   The long-march roadmap for GLOOPY — the compact JUCE 9 / C++17 linear-arranger
-  DAW at ~/git/gloopy (plugin hosting, composition-as-repo projects, OSC + gRPC
+  DAW at ~/git/gloopy (plugin hosting, composition-as-code projects, OSC + gRPC
   control, automation, embedded sfizz, scriptable/headless workflows). Invoke when
   the user says "grind", "keep going on Gloopy", "what's next", "pick the next
   feature", or wants to continue the roadmap across sessions. Loads the north star,
@@ -22,12 +22,12 @@ allowed-tools:
   - Agent
 ---
 
-# grind — the march to make Gloopy the scriptable, composition-as-repo DAW
+# grind — the march to make Gloopy the scriptable, composition-as-code DAW
 
 This skill is the durable map and process for **Gloopy** (`~/git/gloopy`): a compact
 JUCE 9 / C++17 linear-arranger DAW that hosts VST3/LV2 plugins and an embedded sfizz
 SFZ engine, and that is driven end-to-end by a **control API** (OSC UDP 9000 + gRPC
-`127.0.0.1:50051`) over projects stored as a **diff-friendly composition-as-repo**
+`127.0.0.1:50051`) over projects stored as a **diff-friendly composition-as-code**
 text format.
 
 Three living documents, in order of authority:
@@ -46,7 +46,7 @@ Three living documents, in order of authority:
 ## The north star (what Gloopy is trying to be)
 
 **The DAW you can drive from a script and store in git.** Not a full DAW with an API
-bolted on — a DAW whose *primary* surface is the composition-as-repo text format and
+bolted on — a DAW whose *primary* surface is the composition-as-code text format and
 the OSC/gRPC control API, with the GUI as one client among Python, Common Lisp, CI,
 and future AI agents. Every capability is reachable *and verifiable* headlessly:
 `grpcurl` builds it, `--render` bounces it, a script asserts the WAV. Gloopy stays
@@ -240,7 +240,7 @@ product surface, and the session-view/engine tails* — not foundational plumbin
 
 ## The backlog — the real list we're building, ordered
 
-The through-line: **make the scriptable composition-as-repo surface deep and
+The through-line: **make the scriptable composition-as-code surface deep and
 complete before making it pretty.** Waves are roughly sequential; within a wave, order
 by leverage. Each item is a slice: model+serialise+proto+client → headless proof →
 commit. ✦ marks a design fork worth a prior-art check first. Effort: **S** ≈ hours,
@@ -1002,7 +1002,7 @@ measurably single-core-bound on a heavy multi-track session. See Wave 7 for why.
       real pre-existing bug found while testing tempo-synced effects: modulation effects
       (delay/chorus/flanger/phaser) carried their delay-line + LFO-phase state across renders,
       so two renders of the same project differed (~0.026) — non-deterministic, violating the
-      composition-as-repo "reproducible render" principle. Verified: chorus, and chorus + a
+      composition-as-code "reproducible render" principle. Verified: chorus, and chorus + a
       0.7-feedback ping-pong delay (worst case), now render byte-identical twice (diff 0.0);
       the tempo-synced-chorus smoke asserts sync==sync2 and the exact free-vs-synced match.
     - `[x]` **Stereo Widener landed** (commit): `StereoWidenerFx`, mid/side, one Width
@@ -2166,10 +2166,10 @@ render-wiring design in `docs/session-view.md`.
         closes the gRPC/OSC/persistence gap. Manual model doc notes the settable, persisted
         launch-quantize window; mkdocs --strict green.
 
-### Wave 9 — Git as project management (composition-as-repo, realized) ✦
+### Wave 9 — Git as project management (composition-as-code, realized) ✦
 
 The north star is "the DAW you can drive from a script **and store in git**" — this epic
-delivers the second half. Gloopy's composition-as-repo format is already a first-class git
+delivers the second half. Gloopy's composition-as-code format is already a first-class git
 citizen (readable TOML / `.notes` / `.points`, content-addressed dirty writes → minimal
 diffs), so wrapping it in git makes **version control a native DAW workflow**: novel in a DAW,
 familiar from every IDE. The bar (user direction, 2026-07-28) is an **IDE-grade source-control
@@ -2555,7 +2555,7 @@ gate them later.
 - No embedded Lua or second scripting VM — scripts drive the existing gRPC API.
 - No built-in-effect catalog — keep the set small and high-value (#15); Gloopy hosts
   VST3/LV2 for the long tail.
-- No broad foreign-format support before the composition-as-repo format is rock-solid.
+- No broad foreign-format support before the composition-as-code format is rock-solid.
 - No reimplementing git or vendoring libgit2 (#30) — **detect and shell out to the system
   `git`**, reusing the user's identity/SSH/credentials. Git state lives in `.git`, never in the
   composition format. **Never auto-push** — push is always an explicit user action.

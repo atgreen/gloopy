@@ -1067,7 +1067,7 @@ class Gloopy:
         self._ack(self.stub.SaveProject(pb.FilePath(path=path)))
 
     def save_composition(self, path: str) -> None:
-        """Save the project as a directory 'composition as repo' (diff-friendly TOML+notes)."""
+        """Save the project as a directory 'composition as code' (diff-friendly TOML+notes)."""
         self._ack(self.stub.SaveComposition(pb.FilePath(path=path)))
 
     def load_composition(self, path: str) -> None:

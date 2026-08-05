@@ -2827,7 +2827,7 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def SaveComposition(self, request, context):
-        """directory "composition as repo" format
+        """directory "composition as code" format
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

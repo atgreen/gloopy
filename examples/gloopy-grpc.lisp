@@ -317,7 +317,7 @@ Returns (:track-id :index)."
 (defun new-project  ()     (%ack "NewProject" (mk 'gloopy.pb::empty)))
 (defun load-project (path) (%ack "LoadProject" (mk 'gloopy.pb::file-path :path (namestring path))))
 (defun save-project (path) (%ack "SaveProject" (mk 'gloopy.pb::file-path :path (namestring path))))
-(defun save-composition (path) ; directory "composition as repo" format
+(defun save-composition (path) ; directory "composition as code" format
   (%ack "SaveComposition" (mk 'gloopy.pb::file-path :path (namestring path))))
 (defun load-composition (path)
   (%ack "LoadComposition" (mk 'gloopy.pb::file-path :path (namestring path))))
