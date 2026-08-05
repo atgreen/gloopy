@@ -4741,6 +4741,11 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
 
 juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int start, int num, bool ignoreLoopWindow)
 {
+    // Flush denormals to zero for the whole mix. Feedback/decay effects (reverb, delay, chorus,
+    // flanger, phaser, tremolo) ring down to tiny values; on x86 denormal arithmetic is 10-100x
+    // slower, so without this a decaying tail spikes CPU and under-runs the buffer (crackles).
+    juce::ScopedNoDenormals noDenormals;
+
     auto* out = &outBuf;
 
     if (panicRequested.exchange (false))                 // MIDI panic: kill any stuck/hanging notes

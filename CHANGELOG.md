@@ -13,6 +13,13 @@ tagged release.
 
 ## [Unreleased]
 
+### Fixed
+- **Occasional crackles (buffer under-runs) from denormals.** The mix ran without flushing
+  denormal floats to zero, so a feedback/decay effect ringing down (reverb, delay, chorus,
+  flanger, phaser, tremolo) could spike the CPU on x86 — where denormal arithmetic is 10–100×
+  slower — and under-run the audio buffer. The mixer now flushes denormals for the whole block;
+  the rendered audio is unchanged.
+
 ## [0.5.4] - 2026-08-05
 
 ### Added
