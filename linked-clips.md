@@ -1,10 +1,21 @@
 # Linked / Pooled Clips
 
-> **Status: Proposed (not implemented).** A design for "edit one, all update" clips —
-> aliases / shared copies / pooled patterns, in the vocabulary of other DAWs. Grounded in
-> the current model: `Source/Clip.h` (`struct Clip`), the note sidecars in
-> `Source/Composition.cpp`, the shared step/pattern grid in `Source/StepEditor.h`, and the
-> DrumKit voices in `Source/DrumKit.h`.
+> **Status: Implemented (v1).** "Edit one, all update" clips — aliases / shared copies /
+> pooled patterns, in the vocabulary of other DAWs. Grounded in the current model:
+> `Source/Clip.h` (`struct Clip`), the note sidecars in `Source/Composition.cpp`, the shared
+> step/pattern grid in `Source/StepEditor.h`, and the DrumKit voices in `Source/DrumKit.h`.
+>
+> **The shipped v1 uses the "propagate-on-edit" model, not the `shared_ptr<PatternSource>`
+> rewrite sketched below.** A clip carries a `linkId` (`Clip::linkId`); clips sharing a
+> non-empty id share a pattern, and editing the notes of any one fans out to the others in
+> `MainComponent::syncLinkedClips`. This keeps `notes` by-value — so the real-time render path
+> and every read site are untouched, it round-trips through the whole-project undo/serializers
+> with a single scalar property, and it avoids turning every clip-copy into an accidental link.
+> Editing propagates from the piano roll / step grid and the note-transform tools; shape ops
+> (split/crop/stretch/consolidate) detach a clip. Create with **Duplicate Linked**
+> (`Cmd/Ctrl+Shift+D` / clip menu / `apiDuplicateClipLinked`); detach with **Make Unique**
+> (`apiMakeClipUnique`). Serialized as a `link` key in both formats. A future pass can add the
+> `patterns/` file-dedup below; the sections that follow are the original design sketch.
 
 ## Why
 

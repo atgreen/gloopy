@@ -113,6 +113,7 @@ int MainComponent::apiSplitClip (int trackId, int index, double beat)
             if (local <= 0.0 || local >= a.lengthBeats) return -1;   // split point outside the clip
 
             Clip b = a;                                              // copies type/audio/gain/name/etc.
+            a.linkId.clear(); b.linkId.clear();                      // split diverges the content -> unlink both halves
             b.startBeat      = a.startBeat + local;
             b.lengthBeats    = a.lengthBeats - local;
             b.contentLenBeats = b.lengthBeats;
@@ -219,6 +220,7 @@ int MainComponent::apiDuplicateClip (int trackId, int index, double atBeat)
             const juce::ScopedLock sl (engineLock);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
             Clip copy = t->clips[(size_t) index];
+            copy.linkId.clear();                                        // a plain duplicate is independent
             copy.startBeat = atBeat >= 0.0 ? atBeat : copy.endBeat();   // default: butt up to the right
             copy.name = t->clips[(size_t) index].name + " copy";
             t->clips.push_back (std::move (copy));
@@ -333,6 +335,7 @@ bool MainComponent::apiCropClip (int trackId, int index, double startBeat, doubl
                 c.lengthBeats     = newLen;
                 c.contentLenBeats = newLen;
                 c.looped          = false;
+                c.linkId.clear();                    // crop reshapes this instance -> unlink
                 ok = true;
             }
         }
@@ -363,6 +366,7 @@ bool MainComponent::apiScaleClipTime (int trackId, int index, double factor)
             scaleNoteTimes (c.notes, f);                         // stretch/compress the note rhythm
             c.contentLenBeats = juce::jmax (0.25, c.contentLenBeats.toBeats() * f);   // content window follows
             c.lengthBeats     = juce::jmax (0.25, c.lengthBeats.toBeats() * f);       // and the arrangement slot
+            c.linkId.clear();                                    // time-stretch reshapes this instance -> unlink
         }
         if (t->arp.enabled) applyArpToTrack (*t);
         emitChange ("clip_changed", trackId);
@@ -401,6 +405,7 @@ bool MainComponent::apiConsolidateClip (int trackId, int index)
             }
             c.contentLenBeats = c.lengthBeats.toBeats();
             c.looped          = false;
+            c.linkId.clear();                    // consolidate bakes this instance -> unlink (each repetition can diverge)
         }
         if (t->arp.enabled) applyArpToTrack (*t);
         emitChange ("clip_changed", trackId);
@@ -769,6 +774,7 @@ int MainComponent::apiImportClipNotesJson (int trackId, double startBeat, const 
             auto& c = t->clips[(size_t) index];                               \
             if (c.isAudio()) return false;                                    \
             auto& notes = c.notes; (void) notes; BODY;                        \
+            syncLinkedClips (c);   /* transform edits the shared pattern */   \
         }                                                                     \
         emitChange ("clip_changed", trackId);                                 \
         return true;                                                          \
@@ -835,6 +841,97 @@ bool MainComponent::apiSplitNotesAtBeat (int trackId, int index, double beat)
 { GLOOPY_EDIT_CLIP_NOTES (splitNotesAtBeat (notes, beat)) }
 
 // Recompute a track's live-arp expansion for all its MIDI clips. Caller holds engineLock.
+// ── Linked / pooled clips ────────────────────────────────────────────────────
+// Clips sharing a non-empty linkId share one pattern: editing the notes of any one
+// (piano roll, step grid, or a note-transform tool) fans the new content out to all
+// the others here. Placement (start/length/loop/transpose/velocity/colour) stays
+// per-instance; shape-changing ops (split/crop/stretch/consolidate) detach a clip.
+
+void MainComponent::syncLinkedClips (const Clip& src)   // caller holds engineLock
+{
+    if (src.linkId.isEmpty()) return;
+    for (auto& t : tracks)
+    {
+        bool touched = false;
+        auto apply = [&] (Clip& c)
+        {
+            if (&c == &src || c.linkId != src.linkId) return;
+            c.notes           = src.notes;
+            c.contentLenBeats = src.contentLenBeats;   // the loop window travels with the notes
+            touched = true;
+        };
+        for (auto& c : t->clips) apply (c);
+        for (auto& s : t->sessionSlots) if (s) apply (*s);
+        if (touched && t->arp.enabled) applyArpToTrack (*t);
+    }
+}
+
+juce::String MainComponent::freshLinkId() const
+{
+    int mx = 0;
+    auto scan = [&] (const juce::String& id) { if (id.startsWith ("link-")) mx = juce::jmax (mx, id.substring (5).getIntValue()); };
+    for (auto& t : tracks)
+    {
+        for (auto& c : t->clips) scan (c.linkId);
+        for (auto& s : t->sessionSlots) if (s) scan (s->linkId);
+    }
+    return "link-" + juce::String (mx + 1);
+}
+
+int MainComponent::apiDuplicateClipLinked (int trackId, int index, double atBeat)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        pushUndoSnapshot();
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return -1;
+        int newIndex = -1;
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
+            Clip& src = t->clips[(size_t) index];
+            if (src.isAudio()) return -1;                            // linking is for MIDI/pattern clips
+            if (src.linkId.isEmpty()) src.linkId = freshLinkId();    // promote the source into a new link group
+            Clip copy = src;                                         // keeps linkId -> linked to the source
+            copy.startBeat = atBeat >= 0.0 ? atBeat : copy.endBeat();
+            t->clips.push_back (std::move (copy));
+            newIndex = (int) t->clips.size() - 1;
+        }
+        emitChange ("clip_changed", trackId);
+        if (arrangeView) arrangeView->repaint();
+        return newIndex;
+    });
+}
+
+bool MainComponent::apiMakeClipUnique (int trackId, int index)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        Track* t = resolveTrack (trackId);
+        if (t == nullptr) return false;
+        pushUndoSnapshot();
+        {
+            const juce::ScopedLock sl (engineLock);
+            if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
+            Clip& c = t->clips[(size_t) index];
+            if (c.linkId.isEmpty()) return false;                    // already independent
+            const auto gone = c.linkId;
+            c.linkId.clear();
+            // If exactly one clip is left carrying the id, it's a group of one — detach it too.
+            Clip* lone = nullptr; int n = 0;
+            for (auto& tr : tracks)
+            {
+                for (auto& cc : tr->clips)         if (cc.linkId == gone) { ++n; lone = &cc; }
+                for (auto& s  : tr->sessionSlots)  if (s && s->linkId == gone) { ++n; lone = s.get(); }
+            }
+            if (n == 1 && lone) lone->linkId.clear();
+        }
+        emitChange ("clip_changed", trackId);
+        if (arrangeView) arrangeView->repaint();
+        return true;
+    });
+}
+
 void MainComponent::applyArpToTrack (Track& t)
 {
     for (auto& c : t.clips)

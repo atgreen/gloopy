@@ -427,6 +427,7 @@ bool MainComponent::saveComposition (const juce::File& dir)
             if ((double) cl.getProperty ("fadeout", 0.0) > 0.0) w.number ("fade_out", cl.getProperty ("fadeout", 0.0));
             if ((int) cl.getProperty ("fadeshape", 0) != 0) w.number ("fade_shape", (double) (int) cl.getProperty ("fadeshape", 0));
             if ((int) cl.getProperty ("colour", 0) != 0) w.integer ("colour", (juce::int64) (int) cl.getProperty ("colour", 0));   // per-clip colour override
+            if (cl.hasProperty ("link")) w.str ("link", cl.getProperty ("link").toString());   // linked/pooled clips share a pattern
             if (cl.hasProperty ("script") || cl.hasProperty ("generator"))   // script clip (notes below are cached output)
             {
                 if (cl.hasProperty ("script"))   // file-based generator
@@ -1078,6 +1079,7 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                     if (cd.getDouble ("fade_out", 0.0) > 0.0) cl.setProperty ("fadeout", cd.getDouble ("fade_out", 0.0), nullptr);
                     if ((int) cd.getDouble ("fade_shape", 0.0) != 0) cl.setProperty ("fadeshape", (int) cd.getDouble ("fade_shape", 0.0), nullptr);
                     if (cd.getInt ("colour", 0) != 0) cl.setProperty ("colour", cd.getInt ("colour", 0), nullptr);   // per-clip colour override
+                    if (cd.has ("link")) cl.setProperty ("link", cd.getString ("link"), nullptr);   // linked/pooled clips share a pattern
                     if (cd.has ("script") || cd.has ("generator"))   // script clip: file OR named generator + seed
                     {
                         if (cd.has ("script"))    cl.setProperty ("script", cd.getString ("script"), nullptr);

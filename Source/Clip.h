@@ -28,6 +28,12 @@ struct Clip
     int    transpose       { 0 };    // non-destructive playback pitch offset (semitones)
     float  velocityScale   { 1.0f };  // non-destructive playback velocity multiplier (0..2)
 
+    // Linked / pooled clips: when non-empty, every clip sharing this id shares one pattern —
+    // editing the notes of any one propagates to all (MainComponent::syncLinkedClips). Placement
+    // (start/length/loop/transpose/velocity/colour) stays per-instance. Empty = independent.
+    juce::String linkId;
+    bool   isLinked() const noexcept { return linkId.isNotEmpty(); }
+
     // Audio content (shared so copies are cheap).
     std::shared_ptr<juce::AudioBuffer<float>> audio;
     double audioSourceRate { 44100.0 };
