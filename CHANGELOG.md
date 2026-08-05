@@ -13,6 +13,11 @@ tagged release.
 
 ## [Unreleased]
 
+### Added
+- **CPU (DSP-load) meter** in the status bar — a mini bar + percentage showing how much of each
+  audio buffer's real-time budget the mix is using, green/amber/red as it climbs. If it's near
+  100% you're close to under-running (crackles); a bigger audio buffer or fewer effects helps.
+
 ### Fixed
 - **Occasional crackles (buffer under-runs) from denormals.** The mix ran without flushing
   denormal floats to zero, so a feedback/decay effect ringing down (reverb, delay, chorus,
