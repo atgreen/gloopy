@@ -770,6 +770,7 @@ private:
                                  { "E", "Zoom toggle (selection <-> back)" } } },
                 { "Clips",     { { "Cmd/Ctrl+C / X / V", "Copy / cut / paste clip (paste at playhead)" },
                                  { "Cmd/Ctrl+D", "Duplicate selected clip" },
+                                 { "Cmd/Ctrl+Shift+D", "Duplicate linked (shared pattern)" },
                                  { "Cmd/Ctrl+E", "Split selected clip at the playhead" },
                                  { "Del / Backspace", "Delete selected clip / clear session slot" } } },
                 { "Editing",   { { "Cmd/Ctrl+Z", "Undo" },

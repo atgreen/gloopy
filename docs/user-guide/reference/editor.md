@@ -29,7 +29,15 @@ two views of the *same* notes. (Keyboard shortcuts are in
 | Right-click / double-click | Delete a note |
 | Shift-drag | Marquee-select |
 | Drag in the **velocity strip** (bottom) | Set a note's velocity; Shift-drag = a velocity ramp |
-| Mouse-wheel / Ctrl-wheel | Scroll / zoom vertically |
+| Mouse-wheel | Scroll the pitch view up / down |
+| Ctrl-wheel | Zoom the **timeline** (horizontal), around the pointer |
+| Alt-wheel | Zoom the **pitch** rows |
+| Shift-wheel | Scroll the timeline horizontally |
+
+The piano roll has a **horizontal scrollbar** (bottom) to travel the timeline and a
+**vertical scrollbar** (right) to travel the pitch range, plus `W` (fit width), `F` (frame
+the notes) and `E` (zoom toggle) — the same [zoom vocabulary](keyboard-shortcuts.md#timeline-zoom-navigation)
+as the arrangement.
 
 The keyboard shortcuts (Q quantize, H humanize, S strum, L legato, ↑/↓ transpose,
 Delete) act on the selection if there is one, else all notes — see
