@@ -13,6 +13,8 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-08-05
+
 ### Added
 - **Timeline zoom & scroll.** The arrangement no longer squeezes the whole song into the width
   (so a long song stops shrinking to unreadable slivers). Zoom the timeline with
@@ -35,6 +37,14 @@ tagged release.
   clips and hovering one highlights the whole group, "Make unique" detaches one, and shape ops
   (split/crop/stretch/consolidate) detach
   automatically. Saved with the project. A point of difference from Ableton/Bitwig, which lack it.
+
+### Fixed
+- **Closing the app is no longer slow.** The gRPC control server shut down with no deadline, so a
+  subscribed control client (a notebook, a script) could hold the window-close open until it
+  disconnected; it now cancels in-flight calls after a short grace period.
+- **The bundled third-party licence set no longer lists notices for content that isn't shipped** —
+  most notably Surge's third-party (Voxengo) reverb impulses, whose terms are GPL-incompatible and
+  whose data Gloopy never packages.
 
 ## [0.5.3] - 2026-08-05
 
@@ -482,7 +492,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/atgreen/gloopy/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/atgreen/gloopy/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/atgreen/gloopy/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/atgreen/gloopy/compare/v0.5.0...v0.5.1
