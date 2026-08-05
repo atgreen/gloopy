@@ -1490,10 +1490,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#mixer-and-session-views-grouping" class="md-nav__link">
+  <a href="#transport-playhead" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Mixer and Session views (grouping)
+        Transport &amp; playhead
       
     </span>
   </a>
@@ -1501,10 +1501,54 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#arrangement-and-session-views" class="md-nav__link">
+  <a href="#recording" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Arrangement and Session views
+        Recording
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loop-metronome" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loop &amp; metronome
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#clips-arrangement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Clips (Arrangement)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timeline-zoom-navigation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timeline zoom &amp; navigation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mixer-and-session-views-grouping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mixer and Session views (grouping)
       
     </span>
   </a>
@@ -2587,10 +2631,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#mixer-and-session-views-grouping" class="md-nav__link">
+  <a href="#transport-playhead" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Mixer and Session views (grouping)
+        Transport &amp; playhead
       
     </span>
   </a>
@@ -2598,10 +2642,54 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#arrangement-and-session-views" class="md-nav__link">
+  <a href="#recording" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Arrangement and Session views
+        Recording
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loop-metronome" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loop &amp; metronome
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#clips-arrangement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Clips (Arrangement)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timeline-zoom-navigation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timeline zoom &amp; navigation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mixer-and-session-views-grouping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mixer and Session views (grouping)
       
     </span>
   </a>
@@ -2668,7 +2756,8 @@
 
 <h1 id="keyboard-shortcuts">Keyboard shortcuts<a class="headerlink" href="#keyboard-shortcuts" title="Permanent link">&para;</a></h1>
 <p>Every shortcut Gloopy responds to, grouped by where it applies. Modifier keys are
-written for Windows/Linux; on macOS, <strong>Ctrl</strong> means <strong>⌘</strong> (Command).</p>
+written for Windows/Linux; on macOS, <strong>Ctrl</strong> means <strong>⌘</strong> (Command). Press <strong>?</strong> at
+any time for the same list as an in-app overlay.</p>
 <h2 id="global">Global<a class="headerlink" href="#global" title="Permanent link">&para;</a></h2>
 <p>These work anywhere in the main window.</p>
 <table>
@@ -2690,6 +2779,10 @@ written for Windows/Linux; on macOS, <strong>Ctrl</strong> means <strong>⌘</st
 <tr>
 <td><strong>Ctrl+S</strong></td>
 <td>Save the project (prompts for a folder the first time)</td>
+</tr>
+<tr>
+<td><strong>Ctrl+Shift+S</strong></td>
+<td>Save As… (always prompts for a location)</td>
 </tr>
 <tr>
 <td><strong>Ctrl+Z</strong></td>
@@ -2715,6 +2808,163 @@ written for Windows/Linux; on macOS, <strong>Ctrl</strong> means <strong>⌘</st
 stop, and resume from the same spot. The transport's <strong>Stop</strong> button is what
 returns to the start.</p>
 </div>
+<h2 id="transport-playhead">Transport &amp; playhead<a class="headerlink" href="#transport-playhead" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Home / End</strong></td>
+<td>Move the playhead to the start / end of the project</td>
+</tr>
+<tr>
+<td><strong>&lt; / &gt;</strong></td>
+<td>Move the playhead back / forward one <strong>bar</strong></td>
+</tr>
+<tr>
+<td><strong>Shift+&lt; / Shift+&gt;</strong></td>
+<td>Move the playhead back / forward one <strong>beat</strong></td>
+</tr>
+</tbody>
+</table>
+<p>These apply whether or not playback is running.</p>
+<h2 id="recording">Recording<a class="headerlink" href="#recording" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>R</strong> (or <strong>F9</strong>)</td>
+<td>Start / stop recording</td>
+</tr>
+<tr>
+<td><strong>Shift+R</strong></td>
+<td>Arm / disarm the selected track</td>
+</tr>
+</tbody>
+</table>
+<h2 id="loop-metronome">Loop &amp; metronome<a class="headerlink" href="#loop-metronome" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Ctrl+L</strong></td>
+<td>Toggle the loop</td>
+</tr>
+<tr>
+<td><strong>Ctrl+M</strong></td>
+<td>Toggle the metronome</td>
+</tr>
+</tbody>
+</table>
+<h2 id="clips-arrangement">Clips (Arrangement)<a class="headerlink" href="#clips-arrangement" title="Permanent link">&para;</a></h2>
+<p>Act on the selected clip.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Ctrl+C / Ctrl+X / Ctrl+V</strong></td>
+<td>Copy / cut / paste the clip (paste lands at the playhead)</td>
+</tr>
+<tr>
+<td><strong>Ctrl+D</strong></td>
+<td>Duplicate the selected clip</td>
+</tr>
+<tr>
+<td><strong>Ctrl+Shift+D</strong></td>
+<td>Duplicate <strong>linked</strong> — the copy shares the original's pattern, so editing the notes of either updates both. "Make unique" (clip menu) detaches one again.</td>
+</tr>
+<tr>
+<td><strong>Ctrl+E</strong></td>
+<td>Split the selected clip at the playhead</td>
+</tr>
+<tr>
+<td><strong>Delete / Backspace</strong></td>
+<td>Delete the selected arrangement clip, or clear the selected Session slot</td>
+</tr>
+</tbody>
+</table>
+<h2 id="timeline-zoom-navigation">Timeline zoom &amp; navigation<a class="headerlink" href="#timeline-zoom-navigation" title="Permanent link">&para;</a></h2>
+<p>Active in the <strong>Arrangement</strong>; the same scroll / <code>W</code> / <code>F</code> / <code>E</code> vocabulary also works in
+the <strong>piano roll</strong>. The arrangement has a pinned horizontal scrollbar; the piano roll has
+both a horizontal (timeline) and a vertical (pitch) scrollbar.</p>
+<table>
+<thead>
+<tr>
+<th>Key / gesture</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Ctrl+scroll</strong> (or trackpad pinch)</td>
+<td>Zoom the timeline horizontally, around the pointer</td>
+</tr>
+<tr>
+<td><strong>Alt+scroll</strong></td>
+<td>Zoom <strong>track height</strong> (in the piano roll: <strong>pitch</strong>)</td>
+</tr>
+<tr>
+<td><strong>Ctrl+Alt+scroll</strong></td>
+<td>Zoom the audio-clip <strong>waveform amplitude</strong></td>
+</tr>
+<tr>
+<td><strong>Shift+scroll</strong></td>
+<td>Scroll the timeline horizontally</td>
+</tr>
+<tr>
+<td><strong>Ctrl+drag</strong> a box</td>
+<td>Marquee — zoom to the box (horizontal + vertical)</td>
+</tr>
+<tr>
+<td><strong>= / -</strong></td>
+<td>Zoom in / out (horizontal)</td>
+</tr>
+<tr>
+<td><strong>[ / ]</strong></td>
+<td>Waveform amplitude out / in</td>
+</tr>
+<tr>
+<td><strong>W</strong></td>
+<td>Fit the song to the width</td>
+</tr>
+<tr>
+<td><strong>H</strong></td>
+<td>Fit all tracks to the height</td>
+</tr>
+<tr>
+<td><strong>F</strong></td>
+<td>Zoom to the selected clip (piano roll: frame the notes)</td>
+</tr>
+<tr>
+<td><strong>E</strong></td>
+<td>Zoom toggle — jump to the selection, press again to return</td>
+</tr>
+<tr>
+<td><strong>1–5</strong></td>
+<td>Recall a zoom preset (<strong>Shift+1–5</strong> stores the current view)</td>
+</tr>
+</tbody>
+</table>
+<p>Zoom and scroll position are saved with the project.</p>
 <h2 id="mixer-and-session-views-grouping">Mixer and Session views (grouping)<a class="headerlink" href="#mixer-and-session-views-grouping" title="Permanent link">&para;</a></h2>
 <p>Available while the <strong>Mixer</strong> or <strong>Session</strong> view is focused, acting on the
 current strip / track-column selection:</p>
@@ -2742,26 +2992,10 @@ current strip / track-column selection:</p>
 </table>
 <p>See <a href="../../../control-scripting/concepts/model/#mixer-track-bus-send">Mixer track (bus, send)</a>
 for what a group is.</p>
-<h2 id="arrangement-and-session-views">Arrangement and Session views<a class="headerlink" href="#arrangement-and-session-views" title="Permanent link">&para;</a></h2>
-<p>Acting on the current selection.</p>
-<table>
-<thead>
-<tr>
-<th>Key</th>
-<th>Action</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Delete / Backspace</strong></td>
-<td>Delete the selected arrangement clip, or clear the selected Session slot</td>
-</tr>
-</tbody>
-</table>
 <h2 id="piano-roll-the-editor">Piano roll (the editor)<a class="headerlink" href="#piano-roll-the-editor" title="Permanent link">&para;</a></h2>
 <p>Active when the <strong>PIANO</strong> editor has focus and a clip is loaded. Each transform
 acts on the <strong>selected notes</strong> if you've made a selection, otherwise on <strong>all</strong>
-notes in the clip.</p>
+notes in the clip. (The zoom keys <strong>W / F / E</strong> above also apply here.)</p>
 <table>
 <thead>
 <tr>
