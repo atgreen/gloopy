@@ -1,7 +1,7 @@
 # Feature Ideas
 
 Product and architecture ideas that fit Gloopy's current direction: a compact
-JUCE DAW with plugin hosting, composition-as-repo projects, OSC/gRPC control,
+JUCE DAW with plugin hosting, composition-as-code projects, OSC/gRPC control,
 automation, examples, rendering, and scriptable workflows.
 
 Gloopy should stay smaller, more scriptable, and more composition-repo friendly
@@ -135,7 +135,7 @@ For Gloopy:
 
 ### 10. Project notes
 
-Gloopy's composition-as-repo format makes project notes more natural than a
+Gloopy's composition-as-code format makes project notes more natural than a
 hidden project blob.
 
 For Gloopy:
@@ -198,7 +198,7 @@ For Gloopy:
 - Keep built-in instruments/effects curated — Gloopy already hosts VST3/LV2, so
   built-ins should stay a small, high-value set rather than a catalog.
 - Keep the JUCE layout simple; avoid a window-heavy workspace.
-- Don't chase broad format support before the composition-as-repo format is solid.
+- Don't chase broad format support before the composition-as-code format is solid.
 - Never copy third-party code or assets without a deliberate license review
   against Gloopy's AGPL-3.0 license.
 
