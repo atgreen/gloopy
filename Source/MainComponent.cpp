@@ -7684,6 +7684,11 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
         if (key == juce::KeyPress ('h', 0, 0)) { arrangeView->fitHeight();               return true; }   // fit tracks to height
         if (key == juce::KeyPress ('[', 0, 0)) { arrangeView->nudgeWaveAmp (1.0 / 1.3);  return true; }   // waveform amplitude out
         if (key == juce::KeyPress (']', 0, 0)) { arrangeView->nudgeWaveAmp (1.3);        return true; }   // waveform amplitude in
+        for (int d = 1; d <= 5; ++d)   // 1-5 recall a zoom preset; Shift+digit stores one
+        {
+            if (key == juce::KeyPress ((char) ('0' + d), MK::shiftModifier, 0)) { arrangeView->storeZoomPreset (d);  return true; }
+            if (key == juce::KeyPress ((char) ('0' + d), 0, 0))                 { arrangeView->recallZoomPreset (d); return true; }
+        }
     }
     if (key == juce::KeyPress ('s', MK::commandModifier | MK::shiftModifier, 0))  { saveProjectAs(); return true; }
     // Delete/Backspace: remove the selected arrangement clip, or clear the selected session slot.

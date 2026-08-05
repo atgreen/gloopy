@@ -760,6 +760,8 @@ private:
                                  { "Alt+scroll", "Zoom track height" },
                                  { "Cmd/Ctrl+Alt+scroll", "Zoom waveform amplitude" },
                                  { "Shift+scroll", "Scroll the timeline" },
+                                 { "Cmd/Ctrl+drag", "Marquee - zoom to a box" },
+                                 { "1-5 / Shift+1-5", "Recall / store a zoom preset" },
                                  { "= / -", "Zoom in / out" },
                                  { "W / H", "Fit song to width / tracks to height" },
                                  { "[ / ]", "Waveform amplitude out / in" },

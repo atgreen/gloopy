@@ -342,6 +342,54 @@ void ArrangeView::setViewState (double pxPerBeat, double startBeat, double track
     repaint();
 }
 
+void ArrangeView::zoomToMarquee()
+{
+    const float x0 = juce::jmin (marqueeA.x, marqueeB.x), x1 = juce::jmax (marqueeA.x, marqueeB.x);
+    const float y0 = juce::jmin (marqueeA.y, marqueeB.y), y1 = juce::jmax (marqueeA.y, marqueeB.y);
+    if (x1 - x0 < 6.0f && y1 - y0 < 6.0f) { repaint(); return; }   // too small: treat as a click, no zoom
+
+    if (x1 - x0 >= 6.0f)                                            // horizontal: frame the beat range
+    {
+        const double bs = juce::jmax (0.0, beatForX (x0)), be = beatForX (x1);
+        if (be > bs + 1.0e-6)
+        {
+            pxPerBeatStore = juce::jlimit (0.25, 400.0, (double) juce::jmax (1, getWidth() - headerWidth) / (be - bs));
+            viewStartBeat  = bs;
+        }
+    }
+    if (y1 - y0 >= 6.0f)                                            // vertical: fill the covered tracks, scroll to them
+    {
+        const int t0 = trackAtY (y0), t1 = trackAtY (y1);
+        if (t0 >= 0 && t1 >= t0)
+        {
+            const double spanPx = (double) (rowTop (t1) + rowHeight (t1) - rowTop (t0));
+            int availH = getHeight();
+            if (auto* vp = findParentComponentOfClass<juce::Viewport>()) availH = vp->getMaximumVisibleHeight();
+            if (spanPx > 1.0)
+                trackHeightScale = juce::jlimit (0.35, 4.0, trackHeightScale * (double) juce::jmax (1, availH - rulerHeight) / spanPx);
+            setSize (getWidth(), preferredHeight());
+            if (auto* vp = findParentComponentOfClass<juce::Viewport>())
+                vp->setViewPosition (vp->getViewPositionX(), juce::jmax (0, rowTop (t0) - rulerHeight));
+        }
+    }
+    zoomToggled = false;
+    clampView();
+    repaint();
+}
+
+void ArrangeView::storeZoomPreset (int i)
+{
+    if (i >= 1 && i <= 5)
+        zoomPresets[(size_t) (i - 1)] = { pxPerBeatStore, viewStartBeat, trackHeightScale, (double) waveAmpScale, true };
+}
+
+void ArrangeView::recallZoomPreset (int i)
+{
+    if (i < 1 || i > 5) return;
+    const auto& p = zoomPresets[(size_t) (i - 1)];
+    if (p.set) setViewState (p.px, p.start, p.thScale, p.waveAmp);
+}
+
 void ArrangeView::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w)
 {
     const bool cmd = e.mods.isCommandDown(), alt = e.mods.isAltDown(), shift = e.mods.isShiftDown();
@@ -874,6 +922,18 @@ void ArrangeView::paint (juce::Graphics& g)
         juce::Path tri;
         tri.addTriangle (px - 5.0f, 0.0f, px + 5.0f, 0.0f, px, 8.0f);
         g.fillPath (tri);
+    }
+
+    // Ctrl-drag marquee zoom box.
+    if (marquee)
+    {
+        const juce::Rectangle<float> box = juce::Rectangle<float>::leftTopRightBottom (
+            juce::jmin (marqueeA.x, marqueeB.x), juce::jmin (marqueeA.y, marqueeB.y),
+            juce::jmax (marqueeA.x, marqueeB.x), juce::jmax (marqueeA.y, marqueeB.y));
+        g.setColour (juce::Colour (0xff6ab0ff).withAlpha (0.15f));
+        g.fillRect (box);
+        g.setColour (juce::Colour (0xff6ab0ff));
+        g.drawRect (box, 1.0f);
     }
 
     // A browser item is being dragged over the arrangement — invite the drop.
@@ -1581,6 +1641,13 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         return;
     }
 
+    // Ctrl/Cmd-drag a box -> marquee zoom (H+V). Preempts clip drag/delete.
+    if (e.mods.isCommandDown() && p.x >= (float) headerWidth && p.y >= (float) rulerHeight)
+    {
+        marquee = true; marqueeA = marqueeB = p; drag = Drag::none;
+        return;
+    }
+
     // Double-click a clip still deletes it directly (fast removal gesture).
     if (hit >= 0 && e.getNumberOfClicks() >= 2)
     {
@@ -1777,6 +1844,7 @@ void ArrangeView::mouseExit (const juce::MouseEvent&)
 
 void ArrangeView::mouseDrag (const juce::MouseEvent& e)
 {
+    if (marquee) { marqueeB = e.position; repaint(); return; }
     if (rulerDrag)
     {
         const double b = juce::jmax (0.0, beatForX (e.position.x));
@@ -1859,6 +1927,7 @@ void ArrangeView::mouseDrag (const juce::MouseEvent& e)
 
 void ArrangeView::mouseUp (const juce::MouseEvent& e)
 {
+    if (marquee) { marquee = false; zoomToMarquee(); return; }
     // Commit a finished breakpoint drag as one undo step (only if it actually moved).
     if (drag == Drag::point && e.mouseWasDraggedSinceMouseDown()
           && dragAutoLane >= 0 && dragAutoLane < (int) autoLanes.size())
