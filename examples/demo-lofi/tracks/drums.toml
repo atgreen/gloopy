@@ -33,12 +33,33 @@ colour = -8388652
 sample_file = "assets/samples/hat.wav"
 root = 42
 
+
 [[clips]]
 id = "drums"
 name = "Drums"
 ctype = 0
 start = 0
-length = 96
-content_length = 96
-looped = false
+length = 4
+content_length = 4
+looped = true
 notes = "clips/drums/drums.notes"
+
+[[clips]]
+id = "drums-2"
+name = "Drums"
+ctype = 0
+start = 4
+length = 4
+content_length = 4
+looped = true
+notes = "clips/drums/drums-2.notes"
+
+[[clips]]
+id = "drums-3"
+name = "Drums"
+ctype = 0
+start = 8
+length = 88
+content_length = 4
+looped = true
+notes = "clips/drums/drums-3.notes"
