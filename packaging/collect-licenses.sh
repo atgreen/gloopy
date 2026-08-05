@@ -19,9 +19,19 @@ cp THIRD-PARTY-LICENSES.md "$OUT/"
 
 # Every LICENSE / COPYING under the vendored trees, minus test/example fixtures and the
 # built Surge LV2 output (whose factory data contains license-named text files).
+#
+# Also skip license texts for content we DON'T ship, so we never carry a notice whose terms
+# don't apply to the package — most importantly:
+#   - */impulses_3rdparty/* : Surge's third-party reverb IRs (e.g. Voxengo, whose licence
+#     forbids selling/altering — incompatible with GPL/AGPL). The shipped SurgeXTData bundles
+#     only impulses_factory (Surge's own GPL content); the _3rdparty IR data is never packaged,
+#     so its restrictive licence must not ride along and imply "you may not sell Gloopy".
+#   - */JUCE/extras/* : JUCE's standalone demo/tool projects (Projucer, AudioPluginHost, the
+#     Android gradle wrappers) — not linked into anything we build or ship.
 find third_party -type f \( -iname 'LICENSE*' -o -iname 'COPYING*' -o -iname 'LICENCE*' \) \
     -not -path '*/test/*' -not -path '*/tests/*' -not -path '*/example*/*' \
-    -not -path '*/surge-plugin/*' -not -path '*/surge-data/*' 2>/dev/null |
+    -not -path '*/surge-plugin/*' -not -path '*/surge-data/*' \
+    -not -path '*/impulses_3rdparty/*' -not -path '*/JUCE/extras/*' 2>/dev/null |
 while IFS= read -r f; do
     dest="$OUT/$f"
     mkdir -p "$(dirname "$dest")"
