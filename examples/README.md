@@ -4,14 +4,14 @@
 
 A complete ~60-bar demo track (124 BPM, A minor) that exercises the whole app:
 
-- **8 tracks** — Kick, Snare, Hat, Clap (samplers), Bass, Pad, Lead (synths),
-  and an FX track (audio: crashes + synthesized risers).
+- **Core tracks** — a **Drums** track (a four-pad DrumKit: kick, snare, hat,
+  clap), Bass, Pad, Lead (synths), and an FX track (audio: crashes + synthesized
+  risers).
 - **Song structure** — Intro → Verse → Chorus → Verse → Chorus → **Breakdown**
   → **Final Chorus** → Outro, with drum fills and a filter-swept riser into
-  every drop, octave-doubled leads in the choruses, and panned percussion.
+  every drop, and octave-doubled leads in the choruses.
 - **Mixer effects** — reverb on the pad and crash, stereo ping-pong delay on
-  the lead, a low-pass filter on the bass, a high-pass on the hats, and a
-  master gain trim.
+  the lead, a low-pass filter on the bass, and a master gain trim.
 - **Background flourishes** — echoing *pings*, soft *bell dings*, synthesized
   *woowoo* swoops, and a *sparkle* arp in the final chorus, each on its own
   mixer insert with delay/reverb.

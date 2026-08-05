@@ -1,0 +1,51 @@
+id = "drums"
+name = "Drums"
+type = 0
+colour = -2070982
+default_pitch = 36
+volume = 1
+pan = 0
+mute = false
+solo = false
+mixer_insert = "ins-1"
+
+[generator]
+type = "drumkit"
+
+[[generator.pad]]
+name = "Kick"
+note = 36
+colour = -2070982
+sample_file = "assets/samples/kick.wav"
+root = 36
+
+[[generator.pad]]
+name = "Snare"
+note = 38
+colour = -2513855
+sample_file = "assets/samples/snare.wav"
+root = 38
+
+[[generator.pad]]
+name = "Hat"
+note = 42
+colour = -11095445
+sample_file = "assets/samples/hat.wav"
+root = 42
+
+[[generator.pad]]
+name = "Clap"
+note = 39
+colour = -5085479
+sample_file = "assets/samples/clap.wav"
+root = 39
+
+[[clips]]
+id = "drums"
+name = "Drums"
+ctype = 0
+start = 0
+length = 240
+content_length = 240
+looped = false
+notes = "clips/drums/drums.notes"
