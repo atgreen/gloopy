@@ -13,7 +13,15 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-08-05
+
 ### Added
+- **Keyboard shortcuts for transport, recording, and clip editing.** The playhead and common
+  edits are now on the keyboard: Home/End jump to the start/end and `<` / `>` step a bar (hold
+  Shift for a beat); `R` (or F9) starts/stops recording and Shift+`R` arms the selected track;
+  Cmd/Ctrl+L toggles the loop and Cmd/Ctrl+M the metronome; Cmd/Ctrl+D / C / X / V / E duplicate,
+  copy, cut, paste (at the playhead) and split the selected clip; and Cmd/Ctrl+Shift+S is Save As.
+  Press `?` for the full, grouped list.
 - **DrumKits in the composition format.** Composition folders (and `.gloopy` archives) can now
   represent a multi-pad **DrumKit** track — `type = "drumkit"` with one `[[generator.pad]]` per
   voice, each referencing its sample under `assets/`, so the kit stays human-readable and
@@ -436,7 +444,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/atgreen/gloopy/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/atgreen/gloopy/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/atgreen/gloopy/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/atgreen/gloopy/compare/v0.3.0...v0.4.0
