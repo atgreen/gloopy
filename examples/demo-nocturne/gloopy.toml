@@ -5,8 +5,8 @@ bpm = 76
 swing = 0.5
 
 [[tracks]]
-id = "kick"
-file = "tracks/kick.toml"
+id = "drums"
+file = "tracks/drums.toml"
 [[tracks]]
 id = "strings-vpo"
 file = "tracks/strings-vpo.toml"

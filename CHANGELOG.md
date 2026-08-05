@@ -14,6 +14,12 @@ tagged release.
 ## [Unreleased]
 
 ### Added
+- **DrumKits in the composition format.** Composition folders (and `.gloopy` archives) can now
+  represent a multi-pad **DrumKit** track — `type = "drumkit"` with one `[[generator.pad]]` per
+  voice, each referencing its sample under `assets/`, so the kit stays human-readable and
+  self-contained. The bundled sample demos (`demo-song`, `demo-song-surge`, `demo-synthwave`,
+  `demo-lofi`, `demo-nocturne`) now ship their drums as a single DrumKit track (kick/snare/hat/clap
+  on one set of step-editor lanes) instead of one sampler track per voice.
 - **Mid-song time-signature changes.** A piece is no longer locked to one meter: right-click the
   arrangement ruler to add a time-signature change at a bar (or set the initial, bar-1
   signature), e.g. a 4/4 verse into a 6/8 bridge. The bar ruler renumbers and re-spaces its

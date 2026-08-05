@@ -362,6 +362,38 @@ bool MainComponent::saveComposition (const juce::File& dir)
              .str ("sample_name", sm.getProperty ("sname").toString())
              .number ("rate", sm.getProperty ("rate", 44100.0));
         }
+        else if (auto kit = tr.getChildWithName ("KIT"); kit.isValid())
+        {
+            // A multi-pad DrumKit: one [[generator.pad]] per voice, each pad's sample
+            // written to assets/samples/ so the composition stays self-contained.
+            w.str ("type", "drumkit");
+            for (int pi = 0; pi < kit.getNumChildren(); ++pi)
+            {
+                auto pad = kit.getChild (pi);
+                if (! pad.hasType ("PAD")) continue;
+                const auto padslug = slugify (pad.getProperty ("padname").toString(), "pad-" + juce::String (pi));
+                const auto rel = "assets/samples/" + slug + "-" + padslug + ".wav";
+                ctx.writeBytes (rel, buildWav (pad.getProperty ("data").toString(),
+                                               (int) pad.getProperty ("channels", 1), (int) pad.getProperty ("frames", 0),
+                                               (double) pad.getProperty ("rate", 44100.0)));
+                w.blank().arrayItem ("generator.pad")
+                 .str ("name", pad.getProperty ("padname").toString())
+                 .integer ("note", (int) pad.getProperty ("note", 36))
+                 .integer ("colour", (int) pad.getProperty ("padcol", (int) juce::Colours::orangered.getARGB()))
+                 .str ("sample_file", rel)
+                 .integer ("root", (int) pad.getProperty ("root", (int) pad.getProperty ("note", 36)))
+                 .number ("start", (double) pad.getProperty ("sstart", 0.0))
+                 .number ("end", (double) pad.getProperty ("send", 1.0))
+                 .boolean ("reverse", (bool) pad.getProperty ("srev", false))
+                 .number ("fade_in", (double) pad.getProperty ("sfadein", 0.0))
+                 .number ("fade_out", (double) pad.getProperty ("sfadeout", 0.0))
+                 .boolean ("loop", (bool) pad.getProperty ("sloop", false))
+                 .boolean ("mono", (bool) pad.getProperty ("smono", false))
+                 .number ("loop_xfade", (double) pad.getProperty ("sloopxf", 0.0))
+                 .integer ("interp", (int) pad.getProperty ("sinterp", 0))
+                 .str ("sample_name", pad.getProperty ("sname").toString());
+            }
+        }
         else if (auto pl = tr.getChildWithName ("PLUGIN"); pl.isValid())
         {
             ctx.writeBytes ("plugins/state/" + slug + ".bin", decodeBase64 (pl.getProperty ("pstate").toString()));
@@ -983,6 +1015,41 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                     if ((int) g->getDouble ("interp", 0.0) != 0) s.setProperty ("sinterp", (int) g->getDouble ("interp", 0.0), nullptr);
                     s.setProperty ("sname", g->getString ("sample_name"), nullptr);
                     tr.addChild (s, -1, nullptr);
+                }
+                else if (gtype == "drumkit")
+                {
+                    // Rebuild a DrumKit: each [[generator.pad]] loads its sample_file into a
+                    // PAD node shaped exactly like the native (.glp) KIT/PAD save path expects.
+                    tr.setProperty ("gen", "DrumKit", nullptr);
+                    juce::ValueTree k ("KIT");
+                    if (auto* pads = td.array ("generator.pad"))
+                        for (auto& pd : *pads)
+                        {
+                            juce::ValueTree p ("PAD");
+                            int ch = 1, fr = 0; double rate = 44100.0;
+                            p.setProperty ("data", wavToBase64 (dir.getChildFile (pd.getString ("sample_file")),
+                                                                formatManager, ch, fr, rate), nullptr);
+                            p.setProperty ("channels", ch, nullptr);
+                            p.setProperty ("frames", fr, nullptr);
+                            p.setProperty ("rate", rate, nullptr);
+                            const int note = pd.getInt ("note", 36);
+                            p.setProperty ("note", note, nullptr);
+                            p.setProperty ("root", pd.getInt ("root", note), nullptr);
+                            p.setProperty ("padname", pd.getString ("name", "Pad"), nullptr);
+                            p.setProperty ("padcol", pd.getInt ("colour", (int) juce::Colours::orangered.getARGB()), nullptr);
+                            p.setProperty ("sstart", pd.getDouble ("start", 0.0), nullptr);
+                            p.setProperty ("send", pd.getDouble ("end", 1.0), nullptr);
+                            p.setProperty ("srev", pd.getBool ("reverse", false), nullptr);
+                            p.setProperty ("sfadein", pd.getDouble ("fade_in", 0.0), nullptr);
+                            p.setProperty ("sfadeout", pd.getDouble ("fade_out", 0.0), nullptr);
+                            p.setProperty ("sloop", pd.getBool ("loop", false), nullptr);
+                            if (pd.getBool ("mono", false)) p.setProperty ("smono", true, nullptr);
+                            if (pd.getDouble ("loop_xfade", 0.0) > 0.0) p.setProperty ("sloopxf", pd.getDouble ("loop_xfade", 0.0), nullptr);
+                            if (pd.getInt ("interp", 0) != 0) p.setProperty ("sinterp", pd.getInt ("interp", 0), nullptr);
+                            p.setProperty ("sname", pd.getString ("sample_name", pd.getString ("name")), nullptr);
+                            k.addChild (p, -1, nullptr);
+                        }
+                    tr.addChild (k, -1, nullptr);
                 }
                 else if (gtype == "plugin")
                 {
