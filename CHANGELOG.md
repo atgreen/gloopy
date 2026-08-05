@@ -13,6 +13,8 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-08-04
+
 ### Fixed
 - **Demos and presets are no longer empty when Gloopy is launched by name.** The executable
   path was resolved from `argv[0]` relative to the working directory, so typing `gloopy`
@@ -419,7 +421,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/atgreen/gloopy/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/atgreen/gloopy/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/atgreen/gloopy/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/atgreen/gloopy/compare/v0.2.0...v0.3.0
