@@ -254,6 +254,9 @@ bool MainComponent::saveComposition (const juce::File& dir)
             if (s.trim().isNotEmpty()) tc.add (s.trim());
         if (! tc.isEmpty()) man.strArray ("tuning_cents", tc);
     }
+    if ((double) root.getProperty ("viewPxPerBeat", 0.0) > 0.0)   // persist zoom/scroll only once the user has zoomed
+        man.number ("view_px_per_beat", root.getProperty ("viewPxPerBeat"))
+           .number ("view_start_beat",  root.getProperty ("viewStartBeat", 0.0));
     man.blank();
 
     // Slug the mixer inserts first so tracks can reference them by slug.
@@ -861,6 +864,8 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
     root.setProperty ("tsnum", man.root.getInt ("ts_num", 4), nullptr);
     root.setProperty ("tsden", man.root.getInt ("ts_den", 4), nullptr);
     root.setProperty ("swing", man.root.getDouble ("swing", 0.5), nullptr);
+    root.setProperty ("viewPxPerBeat", man.root.getDouble ("view_px_per_beat", 0.0), nullptr);
+    root.setProperty ("viewStartBeat", man.root.getDouble ("view_start_beat", 0.0), nullptr);
     root.setProperty ("launchQuantum", man.root.getDouble ("launch_quantum", 4.0), nullptr);
     root.setProperty ("notes", dir.getChildFile ("notes.md").loadFileAsString(), nullptr);
     root.setProperty ("scaleRoot", man.root.getInt ("scale_root", 0), nullptr);

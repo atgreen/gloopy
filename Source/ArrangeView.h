@@ -145,6 +145,18 @@ public:
     void mouseMove (const juce::MouseEvent&) override;   // hover a linked clip -> highlight its group
     void mouseExit (const juce::MouseEvent&) override;
     void mouseUp   (const juce::MouseEvent&) override;
+    void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;   // Ctrl+wheel zoom / Shift+wheel scroll
+    void mouseMagnify   (const juce::MouseEvent&, float scaleFactor) override;                // trackpad pinch zoom
+
+    // Timeline zoom / scroll (horizontal). View state is a stored px-per-beat + left edge;
+    // 0 px-per-beat means "derive fit-to-width" (the old behaviour), so old projects open unchanged.
+    void   fitWidth();          // fit the whole song to the width
+    void   zoomToSelection();   // frame the selected clip
+    void   zoomToggle();        // jump to the selection; press again to restore
+    void   zoomHCentered (double factor);   // zoom around the view centre (keyboard +/-)
+    double getPxPerBeat() const { return pxPerBeatStore; }       // 0 = fit-to-width
+    double getViewStartBeat() const { return viewStartBeat; }
+    void   setViewState (double pxPerBeat, double startBeat);    // restore persisted zoom/scroll
 
 private:
     void timerCallback() override;
@@ -155,6 +167,10 @@ private:
     float  barWidth() const;
     float  xForBeat (double beat) const;
     double beatForX (float x) const;
+    float  fitPixelsPerBeat() const;          // fit-to-width scale (the old pixelsPerBeat)
+    void   clampView();                        // keep viewStartBeat within the content
+    void   zoomHAround (float anchorX, double factor);   // multiplicative zoom keeping the anchor beat fixed
+    void   scrollBeats (double dBeats);
     void   refreshMeter();                                    // pull the current meter map from the owner
     int    trackAtY (float y) const;
     double snapToBar (double beat) const;
@@ -225,6 +241,10 @@ private:
     bool   rulerDrag { false }, loopDragged { false }, rulerAlt { false };
     bool   dropHighlight { false };   // a browser drag is hovering the arrangement
     juce::String hoveredLinkId;       // link id under the pointer; its clips highlight together
+    double pxPerBeatStore { 0.0 };    // horizontal zoom; 0 => derive fit-to-width
+    double viewStartBeat  { 0.0 };    // left edge of the timeline, in beats
+    double togglePrevPxPerBeat { 0.0 }, togglePrevStart { 0.0 };   // zoom-toggle memory
+    bool   zoomToggled { false };
     double rulerStartBeat { 0.0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ArrangeView)
