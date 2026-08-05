@@ -20,8 +20,8 @@ tagged release.
   use **`=`/`-`** to zoom, **`W`** to fit the song, **`F`** to frame the selected clip, and **`E`**
   to toggle between the selection and your previous view. Track rows resize too (**Alt+scroll**,
   **`H`** to fit all tracks to the height), and audio waveforms have their own amplitude zoom
-  (**Cmd/Ctrl+Alt+scroll**, **`[`**/**`]`**). All of it — horizontal, vertical, and waveform —
-  is saved with the project.
+  (**Cmd/Ctrl+Alt+scroll**, **`[`**/**`]`**). A **`- + Fit`** cluster in the arrange toolbar drives
+  it for pointer users. All of it — horizontal, vertical, and waveform — is saved with the project.
 - **Linked / pooled clips.** Duplicate a clip as a *linked* copy (**Cmd/Ctrl+Shift+D**, or the
   clip menu's "Duplicate linked") and the copies share one pattern — editing the notes of any
   one (piano roll, step grid, or a note-transform tool) updates them all. Placement stays

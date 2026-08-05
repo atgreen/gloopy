@@ -999,6 +999,7 @@ private:
     juce::TextButton panicButton   { "Panic" };
     juce::TextButton mixerButton   { "Mixer" };
     juce::TextButton mapsButton    { "Maps" };     // see + remove all controller/LFO mappings
+    juce::TextButton zoomOutBtn { "-" }, zoomInBtn { "+" }, zoomFitBtn { "Fit" };   // arrange-view zoom cluster (Arrange view only)
     ActivityRail     activityRail;      // far-left icon rail: selects a browser category / toggles the panel
     int              browserActiveCat { 0 };   // category the rail last opened
     juce::ComboBox   scaleRootBox;                 // C..B    — project scale selector
