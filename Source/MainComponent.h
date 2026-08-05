@@ -744,17 +744,27 @@ private:
         {
             setWantsKeyboardFocus (true);
             groups = {
-                { "Transport", { { "Space", "Play / Stop" } } },
+                { "Transport", { { "Space", "Play / Stop in place" },
+                                 { "Home / End", "Playhead to start / end" },
+                                 { "< / >", "Move playhead a bar (Shift = a beat)" } } },
+                { "Recording", { { "R  (or F9)", "Start / stop recording" },
+                                 { "Shift+R", "Arm / disarm the selected track" } } },
+                { "Loop / click", { { "Cmd/Ctrl+L", "Toggle loop" },
+                                    { "Cmd/Ctrl+M", "Toggle metronome" } } },
                 { "Views",     { { "Tab", "Cycle Arrange / Session / Mixer" } } },
-                { "Editing",   { { "Del / Backspace", "Delete selected clip / clear session slot" },
-                                 { "Cmd/Ctrl+Z", "Undo" },
+                { "Clips",     { { "Cmd/Ctrl+C / X / V", "Copy / cut / paste clip (paste at playhead)" },
+                                 { "Cmd/Ctrl+D", "Duplicate selected clip" },
+                                 { "Cmd/Ctrl+E", "Split selected clip at the playhead" },
+                                 { "Del / Backspace", "Delete selected clip / clear session slot" } } },
+                { "Editing",   { { "Cmd/Ctrl+Z", "Undo" },
                                  { "Cmd/Ctrl+Shift+Z, Cmd/Ctrl+Y", "Redo" } } },
                 { "Mixer",     { { "Cmd/Ctrl+G", "Group selected strips" },
                                  { "Cmd/Ctrl+Shift+G", "Ungroup" } } },
                 { "Session",   { { "Cmd/Ctrl+G", "Group selected track columns" },
                                  { "Cmd/Ctrl+Shift+G", "Ungroup" } } },
                 { "Groups",    { { "Cmd/Ctrl+Shift+F", "Fold / unfold all groups" } } },
-                { "Project",   { { "Cmd/Ctrl+S", "Save project" } } },
+                { "Project",   { { "Cmd/Ctrl+S", "Save project" },
+                                 { "Cmd/Ctrl+Shift+S", "Save as…" } } },
                 { "MIDI",      { { "Cmd/Ctrl+.", "Panic - all notes off" } } },
                 { "Help",      { { "?", "Toggle this overlay" }, { "Esc", "Close" } } },
             };
@@ -863,6 +873,22 @@ private:
     void redo();
     void toggleTransport();       // Space: play/stop in place
     void saveCurrentProject();    // Ctrl/Cmd+S: save to the current file (or Save As if unsaved)
+    void saveProjectAs();         // Ctrl/Cmd+Shift+S: always prompt for a location
+    // Keyboard-driven transport / editing (see keyPressed). Playhead seeks apply while stopped too.
+    void seekToStart();           // Home
+    void seekToEnd();             // End
+    void seekBars (int dir);      // <- / -> : move the playhead one bar (dir = -1 / +1)
+    void seekRelative (double beats);   // Shift+<- / Shift+-> : move by a beat
+    double projectEndBeats() const;     // last clip end across all tracks
+    void toggleRecord();          // R / F9
+    void toggleArmSelectedTrack();// Shift+R
+    void toggleLoop();            // Ctrl/Cmd+L
+    void toggleMetronome();       // Ctrl/Cmd+M
+    void duplicateSelectedClip(); // Ctrl/Cmd+D
+    void copySelectedClip (bool cut);   // Ctrl/Cmd+C  (cut = Ctrl/Cmd+X)
+    void pasteClipAtPlayhead();   // Ctrl/Cmd+V
+    void splitSelectedAtPlayhead();     // Ctrl/Cmd+E
+    juce::ValueTree clipClipboard;      // last copied/cut arrangement clip (a CLIP tree)
     std::vector<juce::ValueTree> undoStack, redoStack;
     bool undoSuppressed { false };
 
