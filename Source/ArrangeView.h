@@ -4,6 +4,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <array>
 #include <vector>
 #include <memory>
 #include <functional>
@@ -162,6 +163,8 @@ public:
     double getTrackHeightScale() const { return trackHeightScale; }
     double getWaveAmpScale() const { return (double) waveAmpScale; }
     void   setViewState (double pxPerBeat, double startBeat, double trackHScale, double waveAmp);   // restore persisted view
+    void   storeZoomPreset  (int i);   // 1..5 (Shift+digit): snapshot the current view
+    void   recallZoomPreset (int i);   // 1..5 (digit): restore a stored snapshot
 
 private:
     void timerCallback() override;
@@ -176,6 +179,7 @@ private:
     void   clampView();                        // keep viewStartBeat within the content
     void   zoomHAround (float anchorX, double factor);   // multiplicative zoom keeping the anchor beat fixed
     void   scrollBeats (double dBeats);
+    void   zoomToMarquee();                              // frame the Ctrl-drag box (H+V)
     void   refreshMeter();                                    // pull the current meter map from the owner
     int    trackAtY (float y) const;
     double snapToBar (double beat) const;
@@ -253,6 +257,10 @@ private:
     float  waveAmpScale     { 1.0f };  // audio-clip waveform amplitude zoom [1..16]
     double togglePrevPxPerBeat { 0.0 }, togglePrevStart { 0.0 };   // zoom-toggle memory
     bool   zoomToggled { false };
+    bool   marquee { false };                          // Ctrl-drag zoom box in progress
+    juce::Point<float> marqueeA, marqueeB;
+    struct ViewSnapshot { double px = 0.0, start = 0.0, thScale = 1.0, waveAmp = 1.0; bool set = false; };
+    std::array<ViewSnapshot, 5> zoomPresets {};        // 1..5 recall slots (session-scoped)
     double rulerStartBeat { 0.0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ArrangeView)
