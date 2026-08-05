@@ -458,6 +458,8 @@ public:
     void  apiSetMetronomeLevel (float level);                        // click volume (0..1)
     float apiGetMetronomeLevel();
     int  apiDuplicateClip (int trackId, int index, double atBeat);  // atBeat<0 => right after; -> new index
+    int  apiDuplicateClipLinked (int trackId, int index, double atBeat);  // duplicate, keeping a shared pattern link
+    bool apiMakeClipUnique (int trackId, int index);               // detach a linked clip into its own pattern
     int  apiRepeatClip (int trackId, int index, int copies);        // tile N butted copies after the clip; -> copies added, or -1
     bool apiReverseClip (int trackId, int index);                   // reverse notes (MIDI) or audio buffer
     bool apiCropClip (int trackId, int index, double startBeat, double endBeat);   // trim a MIDI clip to a beat range
@@ -498,6 +500,8 @@ public:
     bool apiGetTrackArp (int trackId, bool& enabled, double& rate, int& octaves, float& gate, int& mode,
                          float& swing, bool& hold, float& probability);
     void applyArpToTrack (Track& t);   // recompute clip.arpNotes from raw notes (message thread, engineLock held)
+    void syncLinkedClips (const Clip& src);   // push src's notes/content window to every clip sharing src.linkId (engineLock held)
+    juce::String freshLinkId() const;          // an unused "link-N" id for a new link group
     bool apiAddChord (int trackId, int index, int root, const juce::String& type,
                       double startBeat, double lengthBeats, float velocity, int inversion);   // stamp a chord
 
@@ -885,6 +889,8 @@ private:
     void toggleLoop();            // Ctrl/Cmd+L
     void toggleMetronome();       // Ctrl/Cmd+M
     void duplicateSelectedClip(); // Ctrl/Cmd+D
+    void duplicateSelectedClipLinked(); // Ctrl/Cmd+Shift+D: linked duplicate
+    void makeSelectedClipUnique();
     void copySelectedClip (bool cut);   // Ctrl/Cmd+C  (cut = Ctrl/Cmd+X)
     void pasteClipAtPlayhead();   // Ctrl/Cmd+V
     void splitSelectedAtPlayhead();     // Ctrl/Cmd+E

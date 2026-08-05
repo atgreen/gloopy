@@ -457,6 +457,17 @@ void ArrangeView::drawClip (juce::Graphics& g, const Track& t, const Clip& c,
         g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
         g.setColour (juce::Colours::black.withAlpha (0.85f));
     }
+    // Linked/pooled clip: two interlocking rings (a chain) — this clip's pattern is shared
+    // with the other clips carrying the same link id, so editing any one updates them all.
+    if (c.isLinked() && titleArea.getWidth() > 20.0f)
+    {
+        auto badge = titleArea.removeFromRight (15.0f);
+        const float cy = badge.getCentreY(), x0 = badge.getX() + 1.0f;
+        g.setColour (juce::Colour (0xff6ab0ff));
+        g.drawEllipse (x0,        cy - 3.0f, 6.0f, 6.0f, 1.3f);
+        g.drawEllipse (x0 + 4.0f, cy - 3.0f, 6.0f, 6.0f, 1.3f);
+        g.setColour (juce::Colours::black.withAlpha (0.85f));
+    }
     g.drawText (c.name.isNotEmpty() ? c.name : t.name, titleArea, juce::Justification::centredLeft, true);
 }
 
@@ -1049,7 +1060,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         repaint();
 
         bool isMidi = false, isTake = false, isMutedTake = false, isLoopedMidi = false, isMuted = false;
-        bool isScript = false, isScriptLive = false;
+        bool isScript = false, isScriptLive = false, isLinked = false;
         double clipStart = 0.0, clipEnd = 0.0;
         {
             const juce::ScopedLock sl (engineLock);
@@ -1064,6 +1075,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
                                && cl.contentLenBeats < cl.lengthBeats - 1.0e-9;   // actually tiles
                 isScript = cl.isScript();
                 isScriptLive = cl.scriptLive;
+                isLinked = cl.isLinked();
                 clipStart = cl.startBeat.toBeats();
                 clipEnd   = (cl.startBeat + cl.lengthBeats).toBeats();
             }
@@ -1099,6 +1111,8 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             rep.addItem (602, "x2"); rep.addItem (604, "x4"); rep.addItem (608, "x8"); rep.addItem (616, "x16");
             m.addSubMenu ("Repeat", rep);
         }
+        m.addItem (26, "Duplicate linked", isMidi);      // the copy shares this clip's pattern (edit one -> both)
+        m.addItem (27, "Make unique", isLinked);         // detach a linked clip into its own pattern
         m.addItem (3, "Reverse");
         m.addItem (4, "Snap to scale", isMidi);
         m.addItem (13, "Crop to loop region", transport.isLoopEnabled());   // MIDI notes or audio buffer
@@ -1383,6 +1397,8 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             }
             const char* cmd = r == 1  ? "split"
                             : r == 2  ? "duplicate"
+                            : r == 26 ? "duplicatelinked"
+                            : r == 27 ? "makeunique"
                             : r == 3  ? "reverse"
                             : r == 4  ? "snapscale"
                             : r == 13 ? "croploop"

@@ -670,6 +670,8 @@ MainComponent::MainComponent (bool headless)
         if      (cmd == "split")     apiSplitClip (id, clip, transport.getPlayheadBeats());
         else if (cmd.startsWith ("splitmarker:")) apiSplitClipAtMarker (id, clip, cmd.substring (12));
         else if (cmd == "duplicate") apiDuplicateClip (id, clip, -1.0);
+        else if (cmd == "duplicatelinked") apiDuplicateClipLinked (id, clip, -1.0);
+        else if (cmd == "makeunique") apiMakeClipUnique (id, clip);
         else if (cmd == "reverse")   apiReverseClip (id, clip);
         else if (cmd == "snapscale") apiSnapClipToScale (id, clip);
         else if (cmd == "normalize") apiNormalizeClip (id, clip, -1.0f);   // audio clip -> -1 dBFS
@@ -4693,6 +4695,7 @@ void MainComponent::writeBackEditor()
             cp->notes = notes;
             if (selSessionScene < 0 && tracks[(size_t) et]->arp.enabled)
                 applyArpToTrack (*tracks[(size_t) et]);   // arrangement clip: keep the live-arp expansion current
+            syncLinkedClips (*cp);                        // linked clips share this pattern
         }
     }
     if (arrangeView) arrangeView->repaint();
@@ -7649,6 +7652,7 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     if (key == juce::KeyPress ('l', MK::commandModifier, 0))                      { toggleLoop(); return true; }
     if (key == juce::KeyPress ('m', MK::commandModifier, 0))                      { toggleMetronome(); return true; }
     // Clip editing (arrangement selection).
+    if (key == juce::KeyPress ('d', MK::commandModifier | MK::shiftModifier, 0))  { duplicateSelectedClipLinked(); return true; }
     if (key == juce::KeyPress ('d', MK::commandModifier, 0))                      { duplicateSelectedClip(); return true; }
     if (key == juce::KeyPress ('c', MK::commandModifier, 0))                      { copySelectedClip (false); return true; }
     if (key == juce::KeyPress ('x', MK::commandModifier, 0))                      { copySelectedClip (true);  return true; }
@@ -7732,6 +7736,25 @@ void MainComponent::duplicateSelectedClip()
         const int ni = apiDuplicateClip (t->id, selClip, -1.0);   // butt the copy up to the right
         if (ni >= 0) { selClip = ni; if (arrangeView) { arrangeView->setSelection (selTrack, ni); arrangeView->rebuild(); } }
     }
+}
+
+// Ctrl/Cmd+Shift+D: duplicate the selected clip as a LINKED copy — the copy shares the
+// original's pattern, so editing either updates both (see syncLinkedClips).
+void MainComponent::duplicateSelectedClipLinked()
+{
+    if (selTrack < 0 || selClip < 0) return;
+    if (auto* t = trackByIndex (selTrack))
+    {
+        const int ni = apiDuplicateClipLinked (t->id, selClip, -1.0);
+        if (ni >= 0) { selClip = ni; if (arrangeView) { arrangeView->setSelection (selTrack, ni); arrangeView->rebuild(); } }
+    }
+}
+
+void MainComponent::makeSelectedClipUnique()
+{
+    if (selTrack < 0 || selClip < 0) return;
+    if (auto* t = trackByIndex (selTrack))
+        if (apiMakeClipUnique (t->id, selClip) && arrangeView) arrangeView->rebuild();
 }
 
 void MainComponent::copySelectedClip (bool cut)
@@ -7832,6 +7855,7 @@ juce::ValueTree MainComponent::clipToTree (const Clip& c, const juce::Identifier
     if (c.fadeInBeats  > 0.0) cl.setProperty ("fadein",  c.fadeInBeats,  nullptr);
     if (c.fadeOutBeats > 0.0) cl.setProperty ("fadeout", c.fadeOutBeats, nullptr);
     if (c.fadeShape != 0)     cl.setProperty ("fadeshape", c.fadeShape, nullptr);
+    if (c.linkId.isNotEmpty()) cl.setProperty ("link", c.linkId, nullptr);   // linked/pooled clips share a pattern
     if (c.isScript())   // script clip: source file OR named generator + seed (notes below are cached output)
     {
         if (c.scriptSource.isNotEmpty())    cl.setProperty ("script", c.scriptSource, nullptr);
@@ -7900,6 +7924,7 @@ Clip MainComponent::clipFromTree (const juce::ValueTree& cl)
     c.scriptLang      = cl.getProperty ("scriptlang", "").toString();
     c.scriptSeed      = (juce::int64) cl.getProperty ("scriptseed", (juce::int64) 0);
     c.scriptLive   = (bool) cl.getProperty ("scriptlive", false);
+    c.linkId       = cl.getProperty ("link", "").toString();
 
     if (c.isAudio() && cl.hasProperty ("afile"))
     {
