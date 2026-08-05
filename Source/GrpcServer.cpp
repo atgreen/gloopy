@@ -1343,7 +1343,11 @@ void GrpcServer::stop()
 {
     if (impl != nullptr && impl->server != nullptr)
     {
-        impl->server->Shutdown();
+        // Bounded shutdown: force-cancel any in-flight streaming / long-poll RPC (Subscribe,
+        // KernelPoll) after a short grace period. A plain Shutdown() has no deadline, so it
+        // blocks until every such RPC ends on its own — i.e. until the client disconnects —
+        // which makes closing the app hang for seconds whenever a control client is subscribed.
+        impl->server->Shutdown (std::chrono::system_clock::now() + std::chrono::milliseconds (250));
         if (impl->thread.joinable()) impl->thread.join();
         impl->server.reset();
     }
