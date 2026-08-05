@@ -56,6 +56,7 @@ class MainComponent : public juce::AudioAppComponent,
                       public juce::FileDragAndDropTarget,
                       public juce::DragAndDropContainer,   // browser rows drag into the arrange view
                       public juce::KeyListener,
+                      public juce::ScrollBar::Listener,   // pinned horizontal timeline scrollbar
                       private juce::Timer
 {
 public:
@@ -1002,6 +1003,9 @@ private:
     juce::TextButton mixerButton   { "Mixer" };
     juce::TextButton mapsButton    { "Maps" };     // see + remove all controller/LFO mappings
     juce::TextButton zoomOutBtn { "-" }, zoomInBtn { "+" }, zoomFitBtn { "Fit" };   // arrange-view zoom cluster (Arrange view only)
+    juce::ScrollBar  arrangeHScroll { false };   // pinned horizontal scrollbar under the arrangement (false = horizontal)
+    void scrollBarMoved (juce::ScrollBar*, double newRangeStart) override;
+    void updateArrangeScroll();                  // sync the scrollbar's range/thumb to the view
     ActivityRail     activityRail;      // far-left icon rail: selects a browser category / toggles the panel
     int              browserActiveCat { 0 };   // category the rail last opened
     juce::ComboBox   scaleRootBox;                 // C..B    — project scale selector

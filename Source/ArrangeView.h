@@ -56,6 +56,8 @@ public:
     std::function<void (int, int)> onClipSelected;
     /** A clip's content/position changed (repaint editor previews etc.). */
     std::function<void()> onChanged;
+    /** The horizontal zoom/scroll window changed — the owner syncs its scrollbar. */
+    std::function<void()> onViewChanged;
     /** The loop region was enabled/disabled/moved from the ruler. */
     std::function<void()> onLoopChanged;
     /** Open the plugin editor for a plugin-instrument track (arg = track index). */
@@ -160,6 +162,9 @@ public:
     void   nudgeWaveAmp (double factor);    // audio-clip waveform amplitude zoom
     double getPxPerBeat() const { return pxPerBeatStore; }       // 0 = fit-to-width
     double getViewStartBeat() const { return viewStartBeat; }
+    double getSpanBeats() const;                                 // total song length (scrollbar range)
+    double getVisibleBeats() const;                              // beats across the width (scrollbar thumb)
+    void   setViewStartBeat (double b);                          // scrollbar -> scroll the timeline
     double getTrackHeightScale() const { return trackHeightScale; }
     double getWaveAmpScale() const { return (double) waveAmpScale; }
     void   setViewState (double pxPerBeat, double startBeat, double trackHScale, double waveAmp);   // restore persisted view

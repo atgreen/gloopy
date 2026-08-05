@@ -246,7 +246,12 @@ void ArrangeView::clampView()
 {
     const double vis = (double) juce::jmax (1, getWidth() - headerWidth) / (double) juce::jmax (1.0e-6f, pixelsPerBeat());
     viewStartBeat = juce::jlimit (0.0, juce::jmax (0.0, spanBeats() - vis), viewStartBeat);
+    if (onViewChanged) onViewChanged();
 }
+
+double ArrangeView::getSpanBeats() const { return spanBeats(); }
+double ArrangeView::getVisibleBeats() const { return (double) juce::jmax (1, getWidth() - headerWidth) / (double) juce::jmax (1.0e-6f, pixelsPerBeat()); }
+void   ArrangeView::setViewStartBeat (double b) { viewStartBeat = juce::jmax (0.0, b); clampView(); repaint(); }
 
 void ArrangeView::zoomHAround (float anchorX, double factor)
 {
@@ -273,6 +278,7 @@ void ArrangeView::fitWidth()
     pxPerBeatStore = 0.0;   // -> derive fit-to-width
     viewStartBeat  = 0.0;
     zoomToggled = false;
+    if (onViewChanged) onViewChanged();
     repaint();
 }
 
@@ -695,6 +701,7 @@ void ArrangeView::paint (juce::Graphics& g)
     meter.forEachBarLine (span, [&] (int barNum, double beatAtStart)
     {
         const float x = xForBeat (beatAtStart);
+        if (x < (float) headerWidth) return;   // scrolled off the left — don't paint into the header column
         g.setColour (Palette::line);
         g.drawVerticalLine ((int) x, 0.0f, h);
         g.setColour (Palette::textDim);
@@ -843,18 +850,21 @@ void ArrangeView::paint (juce::Graphics& g)
         g.setFont (Palette::sectionFont());
         g.drawText (subtitle, 12, y + 22, headerWidth - 70, 12, juce::Justification::centredLeft, false);
 
-        // Clips.
-        for (int ci = 0; ci < (int) t->clips.size(); ++ci)
+        // Clips + collapsed automation — clipped to the lane's timeline area so a scrolled or
+        // partly-offscreen clip never paints over the pinned header column on the left.
         {
-            const auto& c = t->clips[(size_t) ci];
-            juce::Rectangle<float> r (xForBeat (c.startBeat.toBeats()), (float) y + 2.0f,
-                                      xForBeat (c.endBeat()) - xForBeat (c.startBeat.toBeats()),
-                                      (float) th() - 4.0f);
-            drawClip (g, *t, c, r, i == selTrack && ci == selClip);
+            juce::Graphics::ScopedSaveState clipSS (g);
+            g.reduceClipRegion (headerWidth, y, getWidth() - headerWidth, rh);
+            for (int ci = 0; ci < (int) t->clips.size(); ++ci)
+            {
+                const auto& c = t->clips[(size_t) ci];
+                juce::Rectangle<float> r (xForBeat (c.startBeat.toBeats()), (float) y + 2.0f,
+                                          xForBeat (c.endBeat()) - xForBeat (c.startBeat.toBeats()),
+                                          (float) th() - 4.0f);
+                drawClip (g, *t, c, r, i == selTrack && ci == selClip);
+            }
+            if (! isExpanded (i)) { float bt, bb; trackBand (i, bt, bb); drawAutomation (g, t->id, bt, bb); }
         }
-
-        // Collapsed: overlay all the track's lanes on its clips (expanded lanes drawn above).
-        if (! isExpanded (i)) { float bt, bb; trackBand (i, bt, bb); drawAutomation (g, t->id, bt, bb); }
 
         g.setColour (Palette::lineSoft);
         g.drawHorizontalLine (y + rh, 0.0f, (float) getWidth());   // row-bottom separator (incl. sub-lane)

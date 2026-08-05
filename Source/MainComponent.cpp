@@ -415,6 +415,7 @@ MainComponent::MainComponent (bool headless)
     };
     arrangeView->onClipSelected = [this] (int t, int c) { selectClip (t, c); };
     arrangeView->onChanged      = [this] { if (arrangeView) arrangeView->repaint(); };
+    arrangeView->onViewChanged  = [this] { updateArrangeScroll(); };   // keep the timeline scrollbar in sync
     // Automation overlay: hand the arrangement the track-owned lanes, resolved to their track id
     // and value range so it can normalise each curve into the row. (Bus/effect lanes come later.)
     arrangeView->getAutomation = [this]
@@ -877,6 +878,9 @@ MainComponent::MainComponent (bool headless)
     arrangeViewport.setViewedComponent (arrangeView.get(), false);
     arrangeViewport.setScrollBarsShown (true, false);
     addAndMakeVisible (arrangeViewport);
+    addAndMakeVisible (arrangeHScroll);        // pinned horizontal timeline scrollbar
+    arrangeHScroll.addListener (this);
+    arrangeHScroll.setAutoHide (false);
 
     // ---- session view (clip-launch grid); Tab cycles Arrange -> Session -> Mixer ----
     sessionPane = std::make_unique<SessionPane> (tracks, mixerTracks, scenes, sessionLauncher, transport, engineLock);
@@ -5334,6 +5338,20 @@ void MainComponent::parentHierarchyChanged()
     if (top != nullptr) top->addKeyListener (this);
 }
 
+void MainComponent::updateArrangeScroll()
+{
+    if (! arrangeView) return;
+    const double span = juce::jmax (1.0, arrangeView->getSpanBeats());
+    const double vis  = juce::jmin (arrangeView->getVisibleBeats(), span);
+    arrangeHScroll.setRangeLimits (0.0, span, juce::dontSendNotification);
+    arrangeHScroll.setCurrentRange (arrangeView->getViewStartBeat(), vis, juce::dontSendNotification);
+}
+
+void MainComponent::scrollBarMoved (juce::ScrollBar* sb, double newStart)
+{
+    if (sb == &arrangeHScroll && arrangeView) arrangeView->setViewStartBeat (newStart);
+}
+
 void MainComponent::applyViewMode()
 {
     mixerButton.setToggleState (viewMode == ViewMode::Mixer, juce::dontSendNotification);   // lit while active
@@ -7120,11 +7138,22 @@ void MainComponent::resized()
     verticalLayout.layOutComponents (comps, 3, area.getX(), area.getY(),
                                      area.getWidth(), area.getHeight(), true, true);
 
+    // Pinned horizontal scrollbar under the arrangement: carve 12px off the viewport's bottom.
+    const bool arr = viewMode == ViewMode::Arrange;
+    arrangeHScroll.setVisible (arr);
+    if (arr)
+    {
+        auto ab = arrangeViewport.getBounds();
+        arrangeHScroll.setBounds (ab.removeFromBottom (12));
+        arrangeViewport.setBounds (ab);
+    }
+
     busyOverlay.setBounds (getLocalBounds());   // covers everything while busy
 
     if (arrangeView)
         arrangeView->setSize (arrangeViewport.getMaximumVisibleWidth(),
                               juce::jmax (arrangeView->preferredHeight(), arrangeViewport.getHeight()));
+    if (arr) updateArrangeScroll();
     // SessionPane self-sizes its inner grid + frozen scene column in its own resized().
     if (mixerView && viewMode == ViewMode::Mixer)
         mixerView->setSize (juce::jmax (700, mixerViewport.getMaximumVisibleWidth()),
