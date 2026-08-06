@@ -584,6 +584,13 @@ public:
     std::set<juce::int64>      liveRegenInFlight;        // clip keys with a regen currently running
     int    livePass { 0 };                               // increments each loop/rewind
     double liveLastBeats { -1.0 };
+    // Lock-free fast-path for scheduleLiveClips: true only while the project may contain a
+    // live-script clip. Set true at the two sites a clip can BECOME live (toggle + load);
+    // the per-tick scan self-clears it once none remain. When false, the message-thread timer
+    // skips the engineLock scan entirely, so a project with no live clips (the common case)
+    // never contends the audio callback's try-lock at 30 Hz. Over-true just costs one scan
+    // (today's behaviour); it can never miss a real live clip.
+    std::atomic<bool> liveClipsPresent { false };
     void         editClipScript (int trackIdx, int clip);
     void         regenerateClipScript (int trackIdx, int clip);
     void         driveClipScript (int trackIdx, int clip);

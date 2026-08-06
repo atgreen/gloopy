@@ -3614,6 +3614,7 @@ bool MainComponent::apiSetClipScriptLive (int trackId, int index, bool live)
         if (! juce::isPositiveAndBelow (index, (int) t->clips.size()) || ! t->clips[(size_t) index].isScript())
             return false;
         t->clips[(size_t) index].scriptLive = live;
+        if (live) liveClipsPresent.store (true, std::memory_order_relaxed);   // arm the scan
         return true;
     });
     if (! ok) return false;
@@ -3637,9 +3638,18 @@ void MainComponent::scheduleLiveClips (double beats)
     if (beats < liveLastBeats - 1.0e-6) ++livePass;   // looped or rewound: a new pass
     liveLastBeats = beats;
 
+    // Fast path: no live-script clips in the project -> don't take engineLock at all. This runs
+    // at the 30 Hz UI-timer rate; taking the blocking engineLock here made the audio callback's
+    // try-lock miss occasionally, dropping a block to silence (audible crackle). Skipping the
+    // lock when there's no live work eliminates that contention for the common case. See the
+    // liveClipsPresent comment in MainComponent.h.
+    if (! liveClipsPresent.load (std::memory_order_relaxed))
+        return;
+
     const double lead = juce::jmax (1.0, transport.beatsPerBar());   // one bar of look-ahead
     struct Due { int trackId, clipIndex; juce::int64 key; };
     std::vector<Due> due;
+    bool anyLive = false;   // any live-script clip still exists? -> refresh the fast-path flag
     {
         const juce::ScopedLock sl (engineLock);
         for (auto& t : tracks)
@@ -3649,6 +3659,7 @@ void MainComponent::scheduleLiveClips (double beats)
             {
                 const auto& c = t->clips[(size_t) i];
                 if (! (c.isScript() && c.scriptLive)) continue;
+                anyLive = true;
                 if (beats < c.startBeat - lead || beats >= c.endBeat()) continue;   // outside the pre-roll..end window
                 const juce::int64 key = ((juce::int64) t->id << 20) | (juce::int64) (i & 0xFFFFF);
                 if (liveRegenPass[key] == livePass) continue;   // already done this pass
@@ -3658,6 +3669,8 @@ void MainComponent::scheduleLiveClips (double beats)
             }
         }
     }
+    // Self-clear: once the last live clip is gone, stop scanning (and stop locking) next tick.
+    liveClipsPresent.store (anyLive, std::memory_order_relaxed);
     for (auto& d : due) { liveRegenInFlight.insert (d.key); autoRegenScriptClip (d.trackId, d.clipIndex); }
 }
 
@@ -8019,6 +8032,7 @@ Clip MainComponent::clipFromTree (const juce::ValueTree& cl)
     c.scriptLang      = cl.getProperty ("scriptlang", "").toString();
     c.scriptSeed      = (juce::int64) cl.getProperty ("scriptseed", (juce::int64) 0);
     c.scriptLive   = (bool) cl.getProperty ("scriptlive", false);
+    if (c.scriptLive && c.isScript()) liveClipsPresent.store (true, std::memory_order_relaxed);   // arm the scan
     c.linkId       = cl.getProperty ("link", "").toString();
 
     if (c.isAudio() && cl.hasProperty ("afile"))
