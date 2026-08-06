@@ -37,7 +37,13 @@ bool MainComponent::apiAddLocation (const juce::String& name, const juce::String
 
 std::vector<MainComponent::TimelineLocation> MainComponent::apiListLocations()
 {
-    return callOnMessageThread ([&] { GLOOPY_ELOCK(sl); return locations; });
+    // No engineLock: `locations` (timeline cue/section markers) is message-thread-only state —
+    // mutated only via the message-thread Locations API + load, and the audio thread never reads
+    // it (loop points live on the transport, not here). This body already runs on the message
+    // thread via callOnMessageThread, so the read is serialised with every writer. Taking
+    // engineLock here fired at UI-repaint rate (the arrange view lists markers each frame) and
+    // showed up as a steady-state dropout source in the slice-1 trace — same shape as meterMap.
+    return callOnMessageThread ([&] { return locations; });
 }
 
 bool MainComponent::apiRemoveLocation (const juce::String& name)
