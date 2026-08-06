@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "MixerView.h"
+#include "EngineLock.h"
 #include "Palette.h"
 
 // ===========================================================================
@@ -64,7 +65,7 @@ public:
         // Routing cue drawn under the name: a bus shows its role (fed by main outputs = GROUP,
         // by sends = RETURN, neither = BUS); a routed insert shows "-> target". Recomputed each
         // rebuild (routing changes rebuild the strips), so it stays current.
-        const juce::ScopedLock sl (owner.engineLock);
+        GLOOPY_ELOCK_ON(sl, owner.engineLock);
         if (t->isBus)
         {
             bool hasMembers = false, hasSends = false;
@@ -247,7 +248,7 @@ MixerView::MixerView (std::vector<std::unique_ptr<MixerTrack>>& tracksRef,
     bypassButton.onClick = [this]
     {
         if (selectedTrack < 0) return;
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto& fx = tracks[(size_t) selectedTrack]->effects;
         if (juce::isPositiveAndBelow (selectedEffect, (int) fx.size()))
             fx[(size_t) selectedEffect]->bypassed.store (bypassButton.getToggleState());
@@ -259,7 +260,7 @@ MixerView::MixerView (std::vector<std::unique_ptr<MixerTrack>>& tracksRef,
         if (selectedTrack < 0) return;
         if (onBeforeStructuralChange) onBeforeStructuralChange();   // close any plugin editors
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             auto& fx = tracks[(size_t) selectedTrack]->effects;
             if (juce::isPositiveAndBelow (selectedEffect, (int) fx.size()))
                 fx.erase (fx.begin() + selectedEffect);
@@ -275,7 +276,7 @@ MixerView::MixerView (std::vector<std::unique_ptr<MixerTrack>>& tracksRef,
         juce::AudioProcessor* proc = nullptr;
         juce::String name;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             auto& fx = tracks[(size_t) selectedTrack]->effects;
             if (juce::isPositiveAndBelow (selectedEffect, (int) fx.size()))
             {
@@ -332,7 +333,7 @@ void MixerView::showFxMenu (int trackIndex)
     }
 
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto& fx = tracks[(size_t) trackIndex]->effects;
         if (! fx.empty())
         {
@@ -365,7 +366,7 @@ void MixerView::showFxMenu (int trackIndex)
             if (fx == nullptr) return;
             int newIndex = -1;
             {
-                const juce::ScopedLock sl (engineLock);
+                GLOOPY_ELOCK(sl);
                 tracks[(size_t) trackIndex]->effects.push_back (std::move (fx));
                 newIndex = (int) tracks[(size_t) trackIndex]->effects.size() - 1;
             }
@@ -389,7 +390,7 @@ void MixerView::rebuildEditor()
     Effect* fx = nullptr;
     if (juce::isPositiveAndBelow (selectedTrack, (int) tracks.size()))
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto& list = tracks[(size_t) selectedTrack]->effects;
         if (juce::isPositiveAndBelow (selectedEffect, (int) list.size()))
             fx = list[(size_t) selectedEffect].get();
@@ -610,7 +611,7 @@ void MixerView::showGroupMenu (int insertIndex)
     // Ungroup: only for a bus that inserts route their main output into (a real group, not a return).
     int memberCount = 0;
     if (thisIsBus && onUngroup)
-    { const juce::ScopedLock sl (engineLock);
+    { GLOOPY_ELOCK(sl);
       for (auto& mt : tracks) if (mt->output.load() == insertIndex) ++memberCount; }
     if (memberCount > 0)
     {
@@ -629,7 +630,7 @@ void MixerView::showGroupMenu (int insertIndex)
             juce::String curName;
             if (getBackingTrack) { auto bt = getBackingTrack (insertIndex); if (bt.valid) curName = bt.name; }   // track name, if this insert backs one
             if (curName.isEmpty())
-            { const juce::ScopedLock sl (engineLock);
+            { GLOOPY_ELOCK(sl);
               if (juce::isPositiveAndBelow (insertIndex, (int) tracks.size())) curName = tracks[(size_t) insertIndex]->name; }
             auto* aw = new juce::AlertWindow ("Rename strip", "New strip name", juce::MessageBoxIconType::NoIcon);
             aw->addTextEditor ("name", curName, "Name");
@@ -719,7 +720,7 @@ void MixerView::ungroupSelected()
     if (! onUngroup || groupSel.empty()) return;
     int target = -1;
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto members = [&] (int bus) { int n = 0; for (auto& mt : tracks) if (mt->output.load() == bus) ++n; return n; };
         for (int i : groupSel)   // a selected group bus itself
             if (juce::isPositiveAndBelow (i, (int) tracks.size()) && tracks[(size_t) i]->isBus && members (i) > 0) { target = i; break; }
@@ -843,7 +844,7 @@ void MixerView::updateGroupHover (int hoveredIndex)
     juce::Colour newColour;
     if (hoveredIndex >= 0)
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         const int N = (int) tracks.size();
         if (juce::isPositiveAndBelow (hoveredIndex, N) && tracks[(size_t) hoveredIndex]->isBus)
         {

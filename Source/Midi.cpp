@@ -10,6 +10,7 @@
 // GUI and gRPC use.
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 #include <cmath>
 
 namespace
@@ -38,7 +39,7 @@ bool MainComponent::apiExportMidi (const juce::String& path)
 
         int noteCount = 0;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             for (auto& t : tracks)
             {
                 if (t->type != TrackType::Instrument) continue;

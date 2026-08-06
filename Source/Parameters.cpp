@@ -14,6 +14,7 @@
 //   track/<id>/synth/<name>                  effect/<insert>/<slot>/<paramName>
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 #include "SynthGenerator.h"
 #include "SynthVoice.h"
 #include "Effect.h"
@@ -107,7 +108,7 @@ std::vector<MainComponent::ParamDesc> MainComponent::apiListParameters()
             {
                 // Hosted instrument plugin (VST3/LV2): each param addressed by index,
                 // value normalised 0..1 (the plugin's own scaling is internal).
-                const juce::ScopedLock sl (engineLock);
+                GLOOPY_ELOCK(sl);
                 const auto& ps = proc->getParameters();
                 for (int pi = 0; pi < ps.size(); ++pi)
                     out.push_back (mk (base + "plugin/" + juce::String (pi),
@@ -126,7 +127,7 @@ std::vector<MainComponent::ParamDesc> MainComponent::apiListParameters()
             out.push_back (mk (base + "mute",   mt.name + " Mute",   mt.mute.load() ? 1.f : 0.f, 0.f, 1.f, 0.f, "", "bool"));
             out.push_back (mk (base + "solo",   mt.name + " Solo",   mt.solo.load() ? 1.f : 0.f, 0.f, 1.f, 0.f, "", "bool"));
 
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             for (size_t slot = 0; slot < mt.effects.size(); ++slot)
             {
                 auto& fx = *mt.effects[slot];
@@ -148,7 +149,7 @@ std::vector<MainComponent::ParamDesc> MainComponent::apiListParameters()
 
         // ── control groups (VCA-lite): the group fader, automatable as a VCA offset ──
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             for (auto& cg : controlGroups)
                 out.push_back (mk ("group/" + cg->name + "/gain", cg->name + " (VCA)",
                                    cg->gain.load(), 0.f, 1.f, 1.f, "", "linear"));
@@ -217,7 +218,7 @@ bool MainComponent::apiSetParameter (const juce::String& id, float value)
             return apiSetMacroValue (tid, tok[3].getIntValue(), value);
         if (tok.size() == 4 && tok[2] == "plugin")   // track/<id>/plugin/<index>
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             for (auto& t : tracks)
                 if (t->id == tid && t->generator)
                     return setPluginParam (t->generator->getPluginInstance(), tok[3].getIntValue(), value, true);
@@ -247,7 +248,7 @@ bool MainComponent::apiSetParameter (const juce::String& id, float value)
     if (domain == "effect" && tok.size() == 5 && tok[3] == "plugin")   // effect/<i>/<slot>/plugin/<index>
     {
         const int i = tok[1].getIntValue(), slot = tok[2].getIntValue();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (! juce::isPositiveAndBelow (i, (int) mixerTracks.size())) return false;
         auto& fx = mixerTracks[(size_t) i]->effects;
         if (! juce::isPositiveAndBelow (slot, (int) fx.size())) return false;

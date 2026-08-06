@@ -6,6 +6,7 @@
 // Gloopy project. Presets live under <userAppData>/Gloopy/presets/<category>/.
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 #include "SynthGenerator.h"
 #include "SfizzGenerator.h"
 #include "Effects.h"
@@ -166,7 +167,7 @@ bool MainComponent::apiLoadInstrumentPreset (int trackId, const juce::String& na
 
         gen->prepare (currentSampleRate, currentBlockSize);
         pushUndoSnapshot();
-        { const juce::ScopedLock sl (engineLock); t->generator = std::move (gen); }
+        { GLOOPY_ELOCK(sl); t->generator = std::move (gen); }
         emitChange ("track_changed", trackId);
         if (arrangeView) arrangeView->rebuild();
         std::cout << "[preset] loaded instrument preset '" << name << "' (" << kind << ") onto track " << trackId << std::endl;
@@ -184,7 +185,7 @@ bool MainComponent::apiSaveEffectPreset (int insert, const juce::String& name)
         w.str ("format", "gloopy-preset").str ("type", "effect-chain").str ("name", name).blank();
         int builtins = 0;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             for (auto& fx : mixerTracks[(size_t) insert]->effects)
             {
                 if (fx->getPluginInstance() != nullptr) continue;   // plugin effects skipped in presets
@@ -213,7 +214,7 @@ bool MainComponent::apiLoadEffectPreset (int insert, const juce::String& name)
         auto* effects = doc.array ("effects");
         if (effects == nullptr) return false;
 
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto& chain = mixerTracks[(size_t) insert]->effects;
         chain.clear();
         for (auto& e : *effects)

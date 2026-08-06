@@ -13,6 +13,7 @@
 // an empty map every conversion reduces to beat*spb, byte-identical to before.
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 #include <algorithm>
 #include <limits>
 #include <cmath>
@@ -37,7 +38,7 @@ static std::vector<MainComponent::TempoMarker> effectiveMarkers (
 
 double MainComponent::tempoAtBeat (double beat)
 {
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
     const auto m = effectiveMarkers (tempoMap, transport.getBpm());
     double bpm = m.front().bpm;                    // before the first marker -> first bpm
     for (auto& mk : m) { if (mk.beat.inBeats() <= beat + kEps) bpm = mk.bpm; else break; }
@@ -47,7 +48,7 @@ double MainComponent::tempoAtBeat (double beat)
 double MainComponent::apiBeatsToSeconds (double beat)
 {
     if (beat <= 0.0) return 0.0;
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
     const auto m = effectiveMarkers (tempoMap, transport.getBpm());
 
     double sec = 0.0;
@@ -65,7 +66,7 @@ double MainComponent::apiBeatsToSeconds (double beat)
 double MainComponent::apiSecondsToBeats (double seconds)
 {
     if (seconds <= 0.0) return 0.0;
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
     const auto m = effectiveMarkers (tempoMap, transport.getBpm());
 
     double acc = 0.0;
@@ -110,7 +111,7 @@ void MainComponent::apiGetTimeSignature (int& num, int& denom)
 // mid-song change is honoured everywhere. engineLock is reentrant, so callers may hold it.
 gloopy::time::MeterMap MainComponent::meterMap()
 {
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
     std::vector<gloopy::time::MeterChange> ch;
     ch.reserve (timeSigMap.size());
     for (auto& m : timeSigMap) ch.push_back ({ m.beat.inBeats(), m.num, m.den });
@@ -135,7 +136,7 @@ bool MainComponent::apiAddTimeSigMarker (double beat, int num, int denom)
     {
         pushUndoSnapshot();
         const double snapped = meterMap().snapToBar (beat);   // land the change on a bar boundary
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (snapped <= kEps)                                  // a change at bar 1 IS the initial signature
         {
             transport.setTimeSignature (num, denom);
@@ -160,7 +161,7 @@ bool MainComponent::apiRemoveTimeSigMarker (double beat)
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         const auto before = timeSigMap.size();
         timeSigMap.erase (std::remove_if (timeSigMap.begin(), timeSigMap.end(),
                             [&] (const TimeSigMarker& m) { return std::abs (m.beat.inBeats() - beat) < kEps; }),
@@ -173,7 +174,7 @@ bool MainComponent::apiRemoveTimeSigMarker (double beat)
 
 std::vector<MainComponent::TimeSigMarker> MainComponent::apiListTimeSigMarkers()
 {
-    return callOnMessageThread ([&] { const juce::ScopedLock sl (engineLock); return timeSigMap; });
+    return callOnMessageThread ([&] { GLOOPY_ELOCK(sl); return timeSigMap; });
 }
 
 bool MainComponent::apiAddTempoMarker (double beat, double bpm)
@@ -182,7 +183,7 @@ bool MainComponent::apiAddTempoMarker (double beat, double bpm)
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto it = std::find_if (tempoMap.begin(), tempoMap.end(),
                                 [&] (const TempoMarker& m) { return std::abs (m.beat.inBeats() - beat) < kEps; });
         if (it != tempoMap.end()) it->bpm = bpm;                 // upsert
@@ -198,7 +199,7 @@ bool MainComponent::apiRemoveTempoMarker (double beat)
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         const auto before = tempoMap.size();
         tempoMap.erase (std::remove_if (tempoMap.begin(), tempoMap.end(),
                             [&] (const TempoMarker& m) { return std::abs (m.beat.inBeats() - beat) < kEps; }),
@@ -209,7 +210,7 @@ bool MainComponent::apiRemoveTempoMarker (double beat)
 
 std::vector<MainComponent::TempoMarker> MainComponent::apiListTempoMarkers()
 {
-    return callOnMessageThread ([&] { const juce::ScopedLock sl (engineLock); return tempoMap; });
+    return callOnMessageThread ([&] { GLOOPY_ELOCK(sl); return tempoMap; });
 }
 
 // Tempo-aware conversions built on the (already-tested) beat<->seconds integration.

@@ -7,6 +7,7 @@
 // just mutate the clips vector under the engine lock; no new persistence.
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 #include "NoteEdits.h"
 #include "NotesJson.h"
 #include "Onsets.h"
@@ -21,7 +22,7 @@ int MainComponent::apiSplitClipAtMarker (int trackId, int index, const juce::Str
     {
         double beat = -1.0;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             for (auto& l : locations)
                 if (l.name == marker) { beat = l.startBeat.inBeats(); break; }
         }
@@ -42,7 +43,7 @@ int MainComponent::apiSliceClipAtTransients (int trackId, int index, float sensi
         std::vector<float> mono;
         double srcRate = 44100.0, clipStart = 0.0, clipLenBeats = 0.0;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             Track* t = resolveTrack (trackId);
             if (t == nullptr || ! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
             const Clip& c = t->clips[(size_t) index];
@@ -97,7 +98,7 @@ int MainComponent::apiSplitClip (int trackId, int index, double beat)
         // Validate the split point before snapshotting, so a no-op split leaves the
         // undo stack untouched.
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
             const Clip& c = t->clips[(size_t) index];
             const double local = beat - c.startBeat.toBeats();
@@ -106,7 +107,7 @@ int MainComponent::apiSplitClip (int trackId, int index, double beat)
         pushUndoSnapshot();
         int newIndex = -1;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
             Clip& a = t->clips[(size_t) index];
             const double local = beat - a.startBeat.toBeats();                 // split offset within the clip
@@ -189,7 +190,7 @@ int MainComponent::apiSplitClipEqual (int trackId, int index, int pieces)
     {
         double start = 0.0, len = 0.0;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             Track* t = resolveTrack (trackId);
             if (t == nullptr || ! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
             start = t->clips[(size_t) index].startBeat.toBeats();
@@ -217,7 +218,7 @@ int MainComponent::apiDuplicateClip (int trackId, int index, double atBeat)
         if (t == nullptr) return -1;
         int newIndex = -1;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
             Clip copy = t->clips[(size_t) index];
             copy.linkId.clear();                                        // a plain duplicate is independent
@@ -241,7 +242,7 @@ bool MainComponent::apiReverseClip (int trackId, int index)
         if (t == nullptr) return false;
         bool ok = false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             Clip& c = t->clips[(size_t) index];
             if (c.isAudio())
@@ -278,7 +279,7 @@ bool MainComponent::apiCropClip (int trackId, int index, double startBeat, doubl
         pushUndoSnapshot();
         bool ok = false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             Clip& c = t->clips[(size_t) index];
             const double clipEnd = (c.startBeat + c.lengthBeats).toBeats();
@@ -358,7 +359,7 @@ bool MainComponent::apiScaleClipTime (int trackId, int index, double factor)
         if (t == nullptr) return false;
         pushUndoSnapshot();
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             Clip& c = t->clips[(size_t) index];
             if (c.isAudio()) return false;                       // MIDI clips only
@@ -383,7 +384,7 @@ bool MainComponent::apiConsolidateClip (int trackId, int index)
         if (t == nullptr) return false;
         pushUndoSnapshot();
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             Clip& c = t->clips[(size_t) index];
             if (c.isAudio()) return false;                       // MIDI clips only
@@ -422,7 +423,7 @@ bool MainComponent::apiSetLoopToClip (int trackId, int index)
     {
         double s = 0.0, e = 0.0;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             Track* t = resolveTrack (trackId);
             if (t == nullptr || ! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             const Clip& c = t->clips[(size_t) index];
@@ -448,7 +449,7 @@ int MainComponent::apiRepeatClip (int trackId, int index, int copies)
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return -1;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
             const Clip base = t->clips[(size_t) index];   // copy before the vector grows/reallocates
             const double len = juce::jmax (0.0625, base.lengthBeats.toBeats());
@@ -476,7 +477,7 @@ bool MainComponent::apiSetClipMuted (int trackId, int index, bool muted)
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             t->clips[(size_t) index].muted = muted;
         }
@@ -494,7 +495,7 @@ bool MainComponent::apiRenameClip (int trackId, int index, const juce::String& n
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             t->clips[(size_t) index].name = name.trim();   // empty -> the clip label falls back to the track name
         }
@@ -515,7 +516,7 @@ bool MainComponent::apiSetClipColour (int trackId, int index, const juce::String
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             t->clips[(size_t) index].colour = col;
         }
@@ -537,7 +538,7 @@ int MainComponent::apiBounceClip (int trackId, int index)
         double startBeat = 0.0, endBeat = 0.0;
         juce::String srcName;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             Track* t = resolveTrack (trackId);
             if (t == nullptr || ! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
             const Clip& c = t->clips[(size_t) index];
@@ -561,7 +562,7 @@ int MainComponent::apiBounceClip (int trackId, int index)
         if (clipIdx < 0) { apiRemoveTrack (newTrack); return -1; }
 
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             Track* nt = resolveTrack (newTrack);
             if (nt != nullptr && juce::isPositiveAndBelow (clipIdx, (int) nt->clips.size()))
                 nt->clips[(size_t) clipIdx].name = srcName + " (bounce)";
@@ -582,7 +583,7 @@ bool MainComponent::apiSetClipGain (int trackId, int index, float gainDb)
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             Clip& c = t->clips[(size_t) index];
             if (! c.isAudio()) return false;
@@ -605,7 +606,7 @@ float MainComponent::apiNormalizeClip (int trackId, int index, float targetDbfs)
         if (t == nullptr) return -1.0f;
         float applied = -1.0f;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1.0f;
             Clip& c = t->clips[(size_t) index];
             if (! c.isAudio() || c.audio == nullptr) return -1.0f;
@@ -631,7 +632,7 @@ bool MainComponent::apiSetClipFades (int trackId, int index, double fadeInBeats,
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             Clip& c = t->clips[(size_t) index];
             if (! c.isAudio()) return false;
@@ -652,7 +653,7 @@ bool MainComponent::apiSetClipFadeShape (int trackId, int index, int shape)
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             Clip& c = t->clips[(size_t) index];
             if (! c.isAudio()) return false;
@@ -668,7 +669,7 @@ std::vector<Note> MainComponent::apiGetClipNotes (int trackId, int index)
 {
     return callOnMessageThread ([&] () -> std::vector<Note>
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         Track* t = resolveTrack (trackId);
         if (t == nullptr || ! juce::isPositiveAndBelow (index, (int) t->clips.size())) return {};
         return t->clips[(size_t) index].notes;
@@ -686,7 +687,7 @@ bool MainComponent::apiSetClipTranspose (int trackId, int index, int semitones)
         if (t == nullptr) return false;
         pushUndoSnapshot();
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             auto& c = t->clips[(size_t) index];
             if (c.isAudio()) return false;                       // MIDI clips only
@@ -707,7 +708,7 @@ bool MainComponent::apiSetClipVelocity (int trackId, int index, float scale)
         if (t == nullptr) return false;
         pushUndoSnapshot();
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             auto& c = t->clips[(size_t) index];
             if (c.isAudio()) return false;                       // MIDI clips only
@@ -728,7 +729,7 @@ bool MainComponent::apiSetClipProbability (int trackId, int index, float prob)
         if (t == nullptr) return false;
         pushUndoSnapshot();
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             auto& c = t->clips[(size_t) index];
             if (c.isAudio()) return false;                       // MIDI clips only
@@ -769,7 +770,7 @@ int MainComponent::apiImportClipNotesJson (int trackId, double startBeat, const 
         if (t == nullptr) return false;                                       \
         pushUndoSnapshot();                                                   \
         {                                                                     \
-            const juce::ScopedLock sl (engineLock);                           \
+            GLOOPY_ELOCK(sl);                           \
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false; \
             auto& c = t->clips[(size_t) index];                               \
             if (c.isAudio()) return false;                                    \
@@ -887,7 +888,7 @@ int MainComponent::apiDuplicateClipLinked (int trackId, int index, double atBeat
         if (t == nullptr) return -1;
         int newIndex = -1;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return -1;
             Clip& src = t->clips[(size_t) index];
             if (src.isAudio()) return -1;                            // linking is for MIDI/pattern clips
@@ -911,7 +912,7 @@ bool MainComponent::apiMakeClipUnique (int trackId, int index)
         if (t == nullptr) return false;
         pushUndoSnapshot();
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             Clip& c = t->clips[(size_t) index];
             if (c.linkId.isEmpty()) return false;                    // already independent
@@ -956,7 +957,7 @@ bool MainComponent::apiSetTrackArp (int trackId, bool enabled, double rate, int 
         if (t == nullptr) return false;
         pushUndoSnapshot();
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             const bool wasEnabled = t->arp.enabled;
             t->arp.enabled = enabled;
             t->arp.rate    = juce::jmax (0.03125, rate);
@@ -986,7 +987,7 @@ bool MainComponent::apiGetTrackArp (int trackId, bool& enabled, double& rate, in
 {
     return callOnMessageThread ([&] () -> bool
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
         enabled = t->arp.enabled; rate = t->arp.rate; octaves = t->arp.octaves;
@@ -1028,7 +1029,7 @@ int MainComponent::apiAddScene (const juce::String& name)
         pushUndoSnapshot();
         int idx;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             idx = (int) scenes.size();
             scenes.push_back ({ name.isNotEmpty() ? name : ("Scene " + juce::String (idx + 1)), {} });
             for (auto& t : tracks) insertSceneSlot (t->sessionSlots, idx);   // append an empty slot to each column
@@ -1045,7 +1046,7 @@ bool MainComponent::apiRemoveScene (int scene)
         if (scene < 0 || scene >= (int) scenes.size()) return false;
         pushUndoSnapshot();
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             scenes.erase (scenes.begin() + scene);
             for (auto& t : tracks) removeSceneSlot (t->sessionSlots, scene);
             sessionLauncher.reset();                        // scene indices shifted -> stop session playback
@@ -1063,7 +1064,7 @@ bool MainComponent::apiSetSessionClip (int trackId, int scene, const Clip& clip)
         if (t == nullptr || scene < 0) return false;
         pushUndoSnapshot();
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             while ((int) scenes.size() <= scene)            // grow the grid to reach this scene row
             {
                 const int idx = (int) scenes.size();
@@ -1086,7 +1087,7 @@ bool MainComponent::apiClearSessionSlot (int trackId, int scene)
         if (t == nullptr || scene < 0) return false;
         pushUndoSnapshot();
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (scene < (int) t->sessionSlots.size()) t->sessionSlots[(size_t) scene] = nullptr;
         }
         emitChange ("session_clip", trackId);
@@ -1101,7 +1102,7 @@ bool MainComponent::apiLaunchClip (int trackId, int scene)
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             const int ti = trackIndexOf (tracks, t);
             if (ti < 0 || scene < 0 || scene >= (int) t->sessionSlots.size()
                 || t->sessionSlots[(size_t) scene] == nullptr)
@@ -1121,7 +1122,7 @@ bool MainComponent::apiStopTrackClip (int trackId)
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             const int ti = trackIndexOf (tracks, t);
             if (ti < 0) return false;
             sessionLauncher.requestStop (ti);
@@ -1137,7 +1138,7 @@ bool MainComponent::apiLaunchScene (int scene)
     {
         if (scene < 0 || scene >= (int) scenes.size()) return false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             std::vector<bool> occupied ((size_t) tracks.size(), false);
             for (int i = 0; i < (int) tracks.size(); ++i)
                 occupied[(size_t) i] = (slotClip (tracks[(size_t) i]->sessionSlots, scene) != nullptr);
@@ -1153,7 +1154,7 @@ void MainComponent::apiStopAllClips()
 {
     callOnMessageThread ([&] () -> bool
     {
-        { const juce::ScopedLock sl (engineLock); sessionLauncher.requestStopAll(); }
+        { GLOOPY_ELOCK(sl); sessionLauncher.requestStopAll(); }
         emitChange ("stop_all_clips", 0);
         return true;
     });
@@ -1163,7 +1164,7 @@ void MainComponent::apiSetLaunchQuantumBeats (double beats)
 {
     callOnMessageThread ([&] () -> bool
     {
-        { const juce::ScopedLock sl (engineLock); sessionLauncher.setQuantumBeats (beats); }
+        { GLOOPY_ELOCK(sl); sessionLauncher.setQuantumBeats (beats); }
         emitChange ("launch_quantum", 0);
         return true;
     });

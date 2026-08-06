@@ -8,6 +8,7 @@
 // Composition.cpp) and serialised in toValueTree/loadFromTree (MainComponent.cpp).
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 
 bool MainComponent::apiDefineMixerScene (const juce::String& name)
 {
@@ -15,7 +16,7 @@ bool MainComponent::apiDefineMixerScene (const juce::String& name)
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         MixerScene sc;
         sc.name = name;
         for (auto& mt : mixerTracks)
@@ -40,7 +41,7 @@ std::vector<juce::String> MainComponent::apiListMixerScenes()
 {
     return callOnMessageThread ([&]
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         std::vector<juce::String> out;
         for (auto& s : mixerScenes) out.push_back (s.name);
         return out;
@@ -54,7 +55,7 @@ bool MainComponent::apiRecallMixerScene (const juce::String& name)
         pushUndoSnapshot();
         bool found = false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             auto it = std::find_if (mixerScenes.begin(), mixerScenes.end(),
                                     [&] (const MixerScene& s) { return s.name == name; });
             if (it == mixerScenes.end()) return false;
@@ -87,7 +88,7 @@ bool MainComponent::apiRemoveMixerScene (const juce::String& name)
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         const auto before = mixerScenes.size();
         mixerScenes.erase (std::remove_if (mixerScenes.begin(), mixerScenes.end(),
                                [&] (const MixerScene& s) { return s.name == name; }),
