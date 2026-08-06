@@ -536,6 +536,32 @@ bool MainComponent::saveComposition (const juce::File& dir)
                 w.str ("notes", rel);
             }
         }
+        // Rack macros: one [[macros]] per encoder; each mapping is a compact string in `maps`:
+        //   s|<synthParam>|lo|hi                       built-in synth param on this track
+        //   e|<insert>|<slot>|<effectParam>|lo|hi      built-in mixer-effect param
+        //   p|<insert>|<slot>|<paramIndex>|lo|hi       hosted-plugin param (insert<0 = this track's instrument)
+        if (auto ms = tr.getChildWithName ("MACROS"); ms.isValid())
+            for (int mi = 0; mi < ms.getNumChildren(); ++mi)
+            {
+                auto mv = ms.getChild (mi);
+                if (! mv.hasType ("MACRO")) continue;
+                juce::StringArray maps;
+                for (int ti = 0; ti < mv.getNumChildren(); ++ti)
+                {
+                    auto mp = mv.getChild (ti);
+                    if (! mp.hasType ("MAP")) continue;
+                    const juce::String lohi = "|" + toml::Writer::num ((double) mp.getProperty ("lo", 0.0))
+                                            + "|" + toml::Writer::num ((double) mp.getProperty ("hi", 1.0));
+                    const juce::String synth = mp.getProperty ("synth", "").toString();
+                    const int ins = (int) mp.getProperty ("insert", -1), slot = (int) mp.getProperty ("slot", -1);
+                    if (synth.isNotEmpty())                                    maps.add ("s|" + synth + lohi);
+                    else if ((int) mp.getProperty ("pparam", -1) >= 0)        maps.add ("p|" + juce::String (ins) + "|" + juce::String (slot) + "|" + juce::String ((int) mp.getProperty ("pparam", -1)) + lohi);
+                    else                                                      maps.add ("e|" + juce::String (ins) + "|" + juce::String (slot) + "|" + mp.getProperty ("effect", "").toString() + lohi);
+                }
+                w.blank().arrayItem ("macros").str ("name", mv.getProperty ("name", "Macro").toString())
+                 .number ("value", (double) mv.getProperty ("value", 0.0));
+                if (! maps.isEmpty()) w.strArray ("maps", maps);
+            }
         ctx.writeText ("tracks/" + slug + ".toml", w.str());
     }
 
@@ -1163,6 +1189,52 @@ bool MainComponent::loadComposition (const juce::File& pathIn)
                     }
                     tr.addChild (cl, -1, nullptr);
                 }
+
+            // Rack macros (inverse of the [[macros]] write above) -> MACROS/MACRO/MAP subtree,
+            // which buildTrackFromTree already reads (incl. the plugin-param "pparam" mapping).
+            if (auto* macros = td.array ("macros"))
+            {
+                juce::ValueTree ms ("MACROS");
+                for (auto& md : *macros)
+                {
+                    juce::ValueTree mv ("MACRO");
+                    mv.setProperty ("name",  md.getString ("name", "Macro"), nullptr);
+                    mv.setProperty ("value", md.getDouble ("value", 0.0), nullptr);
+                    for (auto& enc : md.getStringArray ("maps"))
+                    {
+                        auto tk = juce::StringArray::fromTokens (enc, "|", "");
+                        if (tk.isEmpty()) continue;
+                        juce::ValueTree mp ("MAP");
+                        if (tk[0] == "s" && tk.size() >= 4)
+                        {
+                            mp.setProperty ("synth", tk[1], nullptr);
+                            mp.setProperty ("lo", tk[2].getDoubleValue(), nullptr);
+                            mp.setProperty ("hi", tk[3].getDoubleValue(), nullptr);
+                        }
+                        else if (tk[0] == "p" && tk.size() >= 6)
+                        {
+                            mp.setProperty ("insert", tk[1].getIntValue(), nullptr);
+                            mp.setProperty ("slot",   tk[2].getIntValue(), nullptr);
+                            mp.setProperty ("pparam", tk[3].getIntValue(), nullptr);
+                            mp.setProperty ("lo", tk[4].getDoubleValue(), nullptr);
+                            mp.setProperty ("hi", tk[5].getDoubleValue(), nullptr);
+                        }
+                        else if (tk[0] == "e" && tk.size() >= 6)
+                        {
+                            mp.setProperty ("insert", tk[1].getIntValue(), nullptr);
+                            mp.setProperty ("slot",   tk[2].getIntValue(), nullptr);
+                            mp.setProperty ("effect", tk[3], nullptr);
+                            mp.setProperty ("lo", tk[4].getDoubleValue(), nullptr);
+                            mp.setProperty ("hi", tk[5].getDoubleValue(), nullptr);
+                        }
+                        else continue;
+                        mv.addChild (mp, -1, nullptr);
+                    }
+                    ms.addChild (mv, -1, nullptr);
+                }
+                tr.addChild (ms, -1, nullptr);
+            }
+
             tracksTree.addChild (tr, -1, nullptr);
         }
 
