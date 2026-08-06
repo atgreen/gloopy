@@ -8780,6 +8780,85 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
             newTracks.push_back (buildTrackFromTree (trks.getChild (i)));
     }
 
+    // ...and the mixer, including hosted-plugin inserts (makePluginEffect + setStateInformation) —
+    // the other heavy part of a load. Built into a local and swapped in under the lock below. The
+    // legacy no-MIXER-node fallback uses newTracks (not yet published), so it stays off-lock too.
+    std::vector<std::unique_ptr<MixerTrack>> newMixer;
+    {
+        auto mx = root.getChildWithName ("MIXER");
+        if (mx.getNumChildren() > 0)
+        {
+            for (int i = 0; i < mx.getNumChildren(); ++i)
+            {
+                auto tv = mx.getChild (i);
+                auto mt = std::make_unique<MixerTrack> (tv.getProperty ("name", "Track").toString());
+                mt->volume.store ((float) (double) tv.getProperty ("vol", 0.8));
+                mt->pan.store    ((float) (double) tv.getProperty ("pan", 0.0));
+                mt->mute.store   ((bool) tv.getProperty ("mute", false));
+                mt->solo.store   ((bool) tv.getProperty ("solo", false));
+                mt->isBus = (bool) tv.getProperty ("bus", false);
+                mt->output.store ((int) tv.getProperty ("out", 0));
+                mt->folded.store ((bool) tv.getProperty ("fold", false));
+                if (tv.hasProperty ("col")) mt->colour = juce::Colour ((juce::uint32) (int) tv.getProperty ("col", 0));
+                mt->group = tv.getProperty ("group", juce::String()).toString();
+                mt->buffer.setSize (2, juce::jmax (16, currentBlockSize));
+                for (int f = 0; f < tv.getNumChildren(); ++f)
+                {
+                    auto ft = tv.getChild (f);
+                    if (ft.hasType ("SEND"))   // aux send, not an effect
+                    {
+                        mt->sends.push_back ({ (int) ft.getProperty ("to", 0),
+                                               (float) (double) ft.getProperty ("level", 0.0),
+                                               (bool) ft.getProperty ("post", false) });
+                        continue;
+                    }
+                    const juce::String ftype = ft.getProperty ("type", "Gain").toString();
+                    std::unique_ptr<Effect> fx;
+
+                    if (ftype == "Plugin")
+                    {
+                        juce::PluginDescription d;
+                        if (auto xml = juce::parseXML (ft.getProperty ("pdesc").toString())) d.loadFromXml (*xml);
+                        fx = makePluginEffect (resolvePluginDescription (d));
+                        if (fx != nullptr)
+                        {
+                            juce::MemoryBlock st; st.fromBase64Encoding (ft.getProperty ("pstate").toString());
+                            if (st.getSize() > 0 && fx->getPluginInstance() != nullptr)
+                                fx->getPluginInstance()->setStateInformation (st.getData(), (int) st.getSize());
+                        }
+                    }
+                    else
+                    {
+                        fx = makeEffect (ftype);
+                        if (fx != nullptr)
+                        {
+                            auto params = fx->parameters();
+                            for (int pv = 0; pv < ft.getNumChildren(); ++pv)
+                            {
+                                const juce::String nm = ft.getChild (pv).getProperty ("name", "").toString();
+                                const float val = (float) (double) ft.getChild (pv).getProperty ("value", 0.0);
+                                for (auto& pr : params) if (pr.name == nm) { pr.set (val); break; }
+                            }
+                        }
+                    }
+                    if (fx == nullptr) continue;
+                    fx->bypassed.store ((bool) ft.getProperty ("bypass", false));
+                    mt->effects.push_back (std::move (fx));
+                }
+                newMixer.push_back (std::move (mt));
+            }
+        }
+        if (newMixer.empty())   // legacy project with no MIXER node: one insert per track
+        {
+            newMixer.push_back (std::make_unique<MixerTrack> ("Master"));
+            for (auto& t : newTracks)
+            {
+                newMixer.push_back (std::make_unique<MixerTrack> (t->name));
+                t->mixerTrack.store ((int) newMixer.size() - 1);
+            }
+        }
+    }
+
     GLOOPY_ELOCK(sl);
     transport.setPlaying (false);
     tracks.clear();
@@ -8814,78 +8893,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     for (auto& t : tracks) ensureSlotCount (t->sessionSlots, (int) scenes.size());
     sessionLauncher.setTrackCount ((int) tracks.size());
 
-    auto mx = root.getChildWithName ("MIXER");
-    if (mx.getNumChildren() > 0)
-    {
-        for (int i = 0; i < mx.getNumChildren(); ++i)
-        {
-            auto tv = mx.getChild (i);
-            auto mt = std::make_unique<MixerTrack> (tv.getProperty ("name", "Track").toString());
-            mt->volume.store ((float) (double) tv.getProperty ("vol", 0.8));
-            mt->pan.store    ((float) (double) tv.getProperty ("pan", 0.0));
-            mt->mute.store   ((bool) tv.getProperty ("mute", false));
-            mt->solo.store   ((bool) tv.getProperty ("solo", false));
-            mt->isBus = (bool) tv.getProperty ("bus", false);
-            mt->output.store ((int) tv.getProperty ("out", 0));
-            mt->folded.store ((bool) tv.getProperty ("fold", false));
-            if (tv.hasProperty ("col")) mt->colour = juce::Colour ((juce::uint32) (int) tv.getProperty ("col", 0));
-            mt->group = tv.getProperty ("group", juce::String()).toString();
-            mt->buffer.setSize (2, juce::jmax (16, currentBlockSize));
-            for (int f = 0; f < tv.getNumChildren(); ++f)
-            {
-                auto ft = tv.getChild (f);
-                if (ft.hasType ("SEND"))   // aux send, not an effect
-                {
-                    mt->sends.push_back ({ (int) ft.getProperty ("to", 0),
-                                           (float) (double) ft.getProperty ("level", 0.0),
-                                           (bool) ft.getProperty ("post", false) });
-                    continue;
-                }
-                const juce::String ftype = ft.getProperty ("type", "Gain").toString();
-                std::unique_ptr<Effect> fx;
-
-                if (ftype == "Plugin")
-                {
-                    juce::PluginDescription d;
-                    if (auto xml = juce::parseXML (ft.getProperty ("pdesc").toString())) d.loadFromXml (*xml);
-                    fx = makePluginEffect (resolvePluginDescription (d));
-                    if (fx != nullptr)
-                    {
-                        juce::MemoryBlock st; st.fromBase64Encoding (ft.getProperty ("pstate").toString());
-                        if (st.getSize() > 0 && fx->getPluginInstance() != nullptr)
-                            fx->getPluginInstance()->setStateInformation (st.getData(), (int) st.getSize());
-                    }
-                }
-                else
-                {
-                    fx = makeEffect (ftype);
-                    if (fx != nullptr)
-                    {
-                        auto params = fx->parameters();
-                        for (int pv = 0; pv < ft.getNumChildren(); ++pv)
-                        {
-                            const juce::String nm = ft.getChild (pv).getProperty ("name", "").toString();
-                            const float val = (float) (double) ft.getChild (pv).getProperty ("value", 0.0);
-                            for (auto& pr : params) if (pr.name == nm) { pr.set (val); break; }
-                        }
-                    }
-                }
-                if (fx == nullptr) continue;
-                fx->bypassed.store ((bool) ft.getProperty ("bypass", false));
-                mt->effects.push_back (std::move (fx));
-            }
-            mixerTracks.push_back (std::move (mt));
-        }
-    }
-    if (mixerTracks.empty())   // legacy project with no MIXER node: one insert per track
-    {
-        mixerTracks.push_back (std::make_unique<MixerTrack> ("Master"));
-        for (auto& t : tracks)
-        {
-            mixerTracks.push_back (std::make_unique<MixerTrack> (t->name));
-            t->mixerTrack.store ((int) mixerTracks.size() - 1);
-        }
-    }
+    mixerTracks = std::move (newMixer);   // pre-built off-lock above; swap in under the brief lock
     pruneUnbackedInserts();   // drop any leftover fixed-pool "Ins N" strips no track uses
 
     auto grps = root.getChildWithName ("GROUPS");
