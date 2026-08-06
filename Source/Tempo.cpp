@@ -108,25 +108,41 @@ void MainComponent::apiGetTimeSignature (int& num, int& denom)
 
 // The project's meter map: the transport's initial (bar-1) signature plus the mid-song
 // time-signature markers. Every bar-grid / bar-number / snap query goes through this so a
-// mid-song change is honoured everywhere. engineLock is reentrant, so callers may hold it.
+// mid-song change is honoured everywhere.
+//
+// No engineLock (deliberately). timeSigMap is only ever MUTATED on the message thread (the
+// tempo API + project load), and every caller of meterMap() runs on the message thread — the
+// two gRPC entry points below marshal via callOnMessageThread. The audio thread reads
+// timeSigMap DIRECTLY in renderBlock (under engineLock) and never calls meterMap(), so a
+// concurrent const read here is safe. Taking engineLock here — at the 30 Hz position-label
+// rate — was a steady-state dropout source: slice-1 tracing caught this exact spot holding
+// the lock and stalling the audio callback's try-lock (see Source/EngineLock.h). Same
+// message-thread-serialised reasoning as scheduleLiveClips.
 gloopy::time::MeterMap MainComponent::meterMap()
 {
-    GLOOPY_ELOCK(sl);
     std::vector<gloopy::time::MeterChange> ch;
     ch.reserve (timeSigMap.size());
     for (auto& m : timeSigMap) ch.push_back ({ m.beat.inBeats(), m.num, m.den });
     return { transport.getTimeSigNumerator(), transport.getTimeSigDenominator(), std::move (ch) };
 }
 
-// Absolute beat -> (bar, beat-in-bar), both 1-based to match the "1.1.00" readout.
+// Absolute beat -> (bar, beat-in-bar), both 1-based to match the "1.1.00" readout. Marshalled
+// to the message thread so meterMap()'s lock-free timeSigMap read stays message-thread-only
+// (gRPC calls this from its own thread; callOnMessageThread runs inline when already on it).
 void MainComponent::apiBeatsToBarBeat (double beat, int& bar, double& beatInBar)
 {
-    meterMap().beatToBarBeat (beat, bar, beatInBar);
+    const auto r = callOnMessageThread ([&]
+    {
+        int b = 1; double bib = 1.0;
+        meterMap().beatToBarBeat (beat, b, bib);
+        return std::pair<int, double> { b, bib };
+    });
+    bar = r.first; beatInBar = r.second;
 }
 
 double MainComponent::apiBarBeatToBeats (int bar, double beatInBar)
 {
-    return meterMap().barBeatToBeats (bar, beatInBar);
+    return callOnMessageThread ([&] { return meterMap().barBeatToBeats (bar, beatInBar); });
 }
 
 bool MainComponent::apiAddTimeSigMarker (double beat, int num, int denom)
