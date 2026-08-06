@@ -8764,6 +8764,22 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     if (! root.hasType ("GLOOPY")) return;
 
     closeAllPluginWindows();
+
+    // Slice-4 (build-off-lock): construct the heavy per-track state — generators, sfizz sample
+    // loads, hosted-plugin instances — BEFORE taking engineLock. This is the dominant cost of a
+    // load; holding engineLock across it starved the audio callback's try-lock for the whole
+    // load (slice-1 trace pinned loadFromTree holding engineLock ~0.4s -> a burst of dropped
+    // blocks). buildTrackFromTree is a pure builder (ValueTree + const device config -> Track),
+    // so it runs safely here with no lock; the finished tracks are swapped in under the brief
+    // lock below, so the audio thread only ever sees the old or the new set, never a half-built
+    // one. (Mixer-insert plugins are still built under the lock — a follow-up step.)
+    std::vector<std::unique_ptr<Track>> newTracks;
+    {
+        auto trks = root.getChildWithName ("TRACKS");
+        for (int i = 0; i < trks.getNumChildren(); ++i)
+            newTracks.push_back (buildTrackFromTree (trks.getChild (i)));
+    }
+
     GLOOPY_ELOCK(sl);
     transport.setPlaying (false);
     tracks.clear();
@@ -8793,9 +8809,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
                                 juce::Colour ((juce::uint32) (int) one.getProperty ("colour", (int) 0)) });
         }
 
-    auto trks = root.getChildWithName ("TRACKS");
-    for (int i = 0; i < trks.getNumChildren(); ++i)
-        tracks.push_back (buildTrackFromTree (trks.getChild (i)));
+    tracks = std::move (newTracks);   // pre-built off-lock above; swap in under the brief lock
     // Keep every track's slot column rectangular (== scene count) after load.
     for (auto& t : tracks) ensureSlotCount (t->sessionSlots, (int) scenes.size());
     sessionLauncher.setTrackCount ((int) tracks.size());
