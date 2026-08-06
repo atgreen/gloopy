@@ -13,7 +13,22 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-08-06
+
 ### Added
+- **Choose which MIDI inputs Gloopy listens to.** **File → MIDI Inputs** is now a checkable list of
+  every MIDI source — tick to listen, untick to ignore. Toggling is applied live and remembered
+  across sessions. Regular ports are on by default; ALSA **"Midi Through"** loopback ports are off
+  by default, because opening the loopback (and a controller's duplicate second port) could double
+  every note. Also scriptable over the control API.
+- **Macros can drive hosted-plugin parameters.** A rack macro can now be mapped onto a VST3/Surge
+  plugin parameter — either the track's own instrument plugin or a mixer-insert plugin — not just
+  built-in synth and effect params, so one perceptual knob can sweep a hosted synth. Exposed in the
+  control API (`map_macro_plugin`) for composition-as-code, and saved with the project.
+- **Crash-resilient plugin scanning.** Plugin scanning now runs in a separate child process, so a
+  plugin that segfaults while being probed takes down the *scanner*, not Gloopy — even on the first
+  scan. It resumes past each bad plugin automatically, so one broken plugin can no longer wedge
+  startup.
 - **CPU (DSP-load) meter** in the status bar — a mini bar + percentage showing how much of each
   audio buffer's real-time budget the mix is using, green/amber/red as it climbs. If it's near
   100% you're close to under-running (crackles); a bigger audio buffer or fewer effects helps.
@@ -28,6 +43,14 @@ tagged release.
   regression guard so audio smoothness can't quietly regress.
 
 ### Fixed
+- **Never-ending buzzing when playing a live MIDI note into an sfizz instrument.** Live notes
+  (from a keyboard or OSC) leaked into every track and were replayed on every audio block, forever —
+  a single keypress spawned tens of thousands of note-ons, pinned every sfizz instrument at its
+  voice limit, and the note never stopped (CPU stuck near 100%, an audible buzz). Live MIDI now
+  plays and releases correctly, and one held note costs a small fraction of what it did.
+- **Macro racks weren't saved with a project.** Every macro mapping survived undo/redo but was
+  silently lost on save/reload (the composition format never stored them). Macros — including the
+  new plugin-parameter mappings — now round-trip through saving and reopening a project.
 - **Occasional crackles (buffer under-runs) from denormals.** The mix ran without flushing
   denormal floats to zero, so a feedback/decay effect ringing down (reverb, delay, chorus,
   flanger, phaser, tremolo) could spike the CPU on x86 — where denormal arithmetic is 10–100×
@@ -525,7 +548,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.5.4...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.5.5...HEAD
+[0.5.5]: https://github.com/atgreen/gloopy/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/atgreen/gloopy/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/atgreen/gloopy/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/atgreen/gloopy/compare/v0.5.1...v0.5.2
