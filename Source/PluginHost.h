@@ -138,6 +138,40 @@ public:
         saveCache();
     }
 
+    /** Scan OUT OF PROCESS: run the full scan in a child (`gloopy --scan`) so a plugin that
+        segfaults while being probed takes down the CHILD, not us. The child shares the
+        dead-man's-pedal file, and JUCE's PluginDirectoryScanner reads it on construction and
+        skips whatever a prior run crashed on — so each re-spawn RESUMES past the last crasher
+        until the scan completes cleanly. The child writes the plugins.xml cache on a clean
+        finish, which we then loadCache(). This means one bad plugin can no longer wedge or
+        crash startup even on the FIRST scan (the in-process scanAll + pedal only recovered on
+        the *next* launch). Falls back to in-process scanAll() if the exe can't be found/spawned. */
+    bool scanOutOfProcess (std::function<void (const juce::String&)> onProgress = {})
+    {
+        const auto exe = juce::File::getSpecialLocation (juce::File::currentExecutableFile);
+        if (! exe.existsAsFile()) { scanAll (onProgress); return true; }   // no exe to re-invoke
+
+        for (int attempt = 0; attempt < 256; ++attempt)   // bounded: ~one retry per bad plugin
+        {
+            if (onProgress) onProgress (attempt == 0 ? juce::String ("Scanning plugins (isolated)…")
+                                                     : "A plugin crashed while scanning — skipping it, resuming…");
+            juce::ChildProcess child;
+            if (! child.start (juce::StringArray { exe.getFullPathName(), "--scan" },
+                               juce::ChildProcess::wantStdOut | juce::ChildProcess::wantStdErr))
+            {
+                scanAll (onProgress);   // couldn't spawn the child — do it in-process
+                return true;
+            }
+            child.readAllProcessOutput();        // blocks until the child exits (clean or crash)
+            if (child.getExitCode() == 0)        // clean finish -> the child wrote the full cache
+                return loadCache();
+            // Non-zero exit == the child crashed mid-scan. The offender is now recorded in the
+            // pedal, so the next child's scanner skips it and resumes. The attempt cap prevents
+            // an infinite loop if the pedal ever fails to advance.
+        }
+        return loadCache();   // exhausted retries — use the most complete cache we managed to write
+    }
+
     juce::File cacheFile() const
     {
         return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)

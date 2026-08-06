@@ -6522,7 +6522,8 @@ void MainComponent::scanPlugins (bool force)
     if (! force && pluginsScanned) return;
     pluginsScanned = true;
     if (! force && pluginHost.loadCache()) return;   // instant restore from cache
-    pluginHost.scanAll();                             // slow full scan, then caches
+    pluginHost.scanOutOfProcess();                   // slow full scan in a child, then caches —
+                                                     // a crashing plugin takes down the child, not us
 }
 
 juce::PluginDescription MainComponent::resolvePluginDescription (const juce::PluginDescription& saved)
