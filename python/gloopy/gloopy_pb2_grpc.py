@@ -210,6 +210,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.MacroMapEffect.SerializeToString,
                 response_deserializer=gloopy__pb2.Ack.FromString,
                 _registered_method=True)
+        self.MapMacroPlugin = channel.unary_unary(
+                '/gloopy.v1.Gloopy/MapMacroPlugin',
+                request_serializer=gloopy__pb2.MacroMapPlugin.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.RandomizeMacros = channel.unary_unary(
                 '/gloopy.v1.Gloopy/RandomizeMacros',
                 request_serializer=gloopy__pb2.TrackId.SerializeToString,
@@ -1503,6 +1508,12 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def MapMacroEffect(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MapMacroPlugin(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -3104,6 +3115,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'MapMacroEffect': grpc.unary_unary_rpc_method_handler(
                     servicer.MapMacroEffect,
                     request_deserializer=gloopy__pb2.MacroMapEffect.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
+            ),
+            'MapMacroPlugin': grpc.unary_unary_rpc_method_handler(
+                    servicer.MapMacroPlugin,
+                    request_deserializer=gloopy__pb2.MacroMapPlugin.FromString,
                     response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'RandomizeMacros': grpc.unary_unary_rpc_method_handler(
@@ -5117,6 +5133,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/MapMacroEffect',
             gloopy__pb2.MacroMapEffect.SerializeToString,
+            gloopy__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def MapMacroPlugin(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/MapMacroPlugin',
+            gloopy__pb2.MacroMapPlugin.SerializeToString,
             gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,

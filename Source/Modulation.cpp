@@ -152,6 +152,25 @@ void MainComponent::applyParamValue (const juce::String& id, float v)
                         const float pv = mp.lo + mac.value * (mp.hi - mp.lo);
                         if (mp.synthParam.isNotEmpty())
                             applySynthParam (t.get(), mp.synthParam.toRawUTF8(), pv);
+                        else if (mp.pluginParam >= 0)   // hosted-plugin param by index — RT-safe direct setValue, no alloc
+                        {
+                            juce::AudioProcessor* proc = nullptr;
+                            if (mp.insert >= 0 && mp.slot >= 0)
+                            {
+                                if (juce::isPositiveAndBelow (mp.insert, (int) mixerTracks.size()))
+                                {
+                                    auto& fx = mixerTracks[(size_t) mp.insert]->effects;
+                                    if (juce::isPositiveAndBelow (mp.slot, (int) fx.size())) proc = fx[(size_t) mp.slot]->getPluginInstance();
+                                }
+                            }
+                            else if (t->generator) proc = t->generator->getPluginInstance();
+                            if (proc != nullptr)
+                            {
+                                const auto& ps = proc->getParameters();
+                                if (juce::isPositiveAndBelow (mp.pluginParam, ps.size()))
+                                    ps[mp.pluginParam]->setValue (juce::jlimit (0.0f, 1.0f, pv));
+                            }
+                        }
                         else if (mp.insert >= 0 && mp.slot >= 0
                                  && juce::isPositiveAndBelow (mp.insert, (int) mixerTracks.size()))
                         {

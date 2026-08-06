@@ -1919,6 +1919,11 @@ void MainComponent::applyMacroMappings (Track* t, const Macro& m)
         const float v = mp.lo + m.value * (mp.hi - mp.lo);
         if (mp.synthParam.isNotEmpty())
             applySynthParam (t, mp.synthParam.toRawUTF8(), v);
+        else if (mp.pluginParam >= 0)   // hosted-plugin param — reuse the locked param-model resolver
+            apiSetParameter (mp.insert >= 0
+                                 ? "effect/" + juce::String (mp.insert) + "/" + juce::String (mp.slot) + "/plugin/" + juce::String (mp.pluginParam)
+                                 : "track/"  + juce::String (t->id) + "/plugin/" + juce::String (mp.pluginParam),
+                             v);
         else if (mp.insert >= 0 && mp.slot >= 0 && mp.effectParam.isNotEmpty())
             apiSetEffectParam (mp.insert, mp.slot, mp.effectParam, v);
     }
@@ -1972,6 +1977,22 @@ bool MainComponent::apiMapMacroEffect (int trackId, int macro, int insert, int s
         auto* t = resolveTrack (trackId);
         if (t == nullptr || ! juce::isPositiveAndBelow (macro, (int) t->macros.size())) return false;
         MacroMapping mp; mp.insert = insert; mp.slot = slot; mp.effectParam = param; mp.lo = lo; mp.hi = hi;
+        t->macros[(size_t) macro].mappings.push_back (std::move (mp));
+        applyMacroMappings (t, t->macros[(size_t) macro]);
+        return true;
+    });
+}
+
+// Map a macro onto a HOSTED-PLUGIN param by index: insert>=0 targets a mixer-insert plugin
+// (insert/slot), insert<0 targets this track's own instrument plugin (e.g. Surge). Mirrors the
+// param-model plugin grammar the modulation/automation path already drives.
+bool MainComponent::apiMapMacroPlugin (int trackId, int macro, int insert, int slot, int paramIndex, float lo, float hi)
+{
+    return callOnMessageThread ([&] () -> bool
+    {
+        auto* t = resolveTrack (trackId);
+        if (t == nullptr || ! juce::isPositiveAndBelow (macro, (int) t->macros.size()) || paramIndex < 0) return false;
+        MacroMapping mp; mp.insert = insert; mp.slot = slot; mp.pluginParam = paramIndex; mp.lo = lo; mp.hi = hi;
         t->macros[(size_t) macro].mappings.push_back (std::move (mp));
         applyMacroMappings (t, t->macros[(size_t) macro]);
         return true;
@@ -8280,6 +8301,9 @@ juce::ValueTree MainComponent::toValueTree()
                 {
                     juce::ValueTree mt ("MAP");
                     if (mp.synthParam.isNotEmpty()) mt.setProperty ("synth", mp.synthParam, nullptr);
+                    else if (mp.pluginParam >= 0) { mt.setProperty ("insert", mp.insert, nullptr);
+                                                    mt.setProperty ("slot", mp.slot, nullptr);
+                                                    mt.setProperty ("pparam", mp.pluginParam, nullptr); }
                     else { mt.setProperty ("insert", mp.insert, nullptr);
                            mt.setProperty ("slot", mp.slot, nullptr);
                            mt.setProperty ("effect", mp.effectParam, nullptr); }
@@ -8739,6 +8763,7 @@ std::unique_ptr<Track> MainComponent::buildTrackFromTree (const juce::ValueTree&
                             mp.insert      = (int) mt.getProperty ("insert", -1);
                             mp.slot        = (int) mt.getProperty ("slot", -1);
                             mp.effectParam = mt.getProperty ("effect", "");
+                            mp.pluginParam = (int) mt.getProperty ("pparam", -1);
                             mp.lo = (float) (double) mt.getProperty ("lo", 0.0);
                             mp.hi = (float) (double) mt.getProperty ("hi", 1.0);
                             m.mappings.push_back (std::move (mp));

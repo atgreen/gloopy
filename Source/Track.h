@@ -26,6 +26,8 @@ struct MacroMapping
     juce::String synthParam;                  // non-empty => a built-in synth param on this track
     int          insert { -1 }, slot { -1 };  // >= 0 => a mixer effect param (insert/slot)
     juce::String effectParam;                 // effect param name (with insert/slot)
+    int          pluginParam { -1 };          // >= 0 => a hosted-plugin param by index: with insert>=0 a
+                                              // mixer-insert plugin (insert/slot), else this track's instrument plugin
     float        lo { 0.0f }, hi { 1.0f };    // the range the macro sweeps this param across
 };
 

@@ -75,6 +75,10 @@ message MacroValue     { int32 track_id = 1; int32 macro = 2; float value = 3; }
 message MacroMapSynth  { int32 track_id = 1; int32 macro = 2; string param = 3; float lo = 4; float hi = 5; }
 message MacroMapEffect { int32 track_id = 1; int32 macro = 2; int32 insert = 3; int32 slot = 4;
                          string param = 5; float lo = 6; float hi = 7; }
+// Map a macro onto a HOSTED-PLUGIN param by index. insert>=0 => a mixer-insert plugin (insert/slot);
+// insert<0 => this track's own instrument plugin (e.g. Surge). slot is ignored when insert<0.
+message MacroMapPlugin { int32 track_id = 1; int32 macro = 2; int32 insert = 3; int32 slot = 4;
+                         int32 param_index = 5; float lo = 6; float hi = 7; }
 message MacroRef       { int32 track_id = 1; int32 macro = 2; }                 // remove / clear mappings
 message MacroRename    { int32 track_id = 1; int32 macro = 2; string name = 3; }
 
@@ -503,6 +507,7 @@ service Gloopy {
   rpc SetMacroValue   (MacroValue)     returns (Ack);
   rpc MapMacroSynth   (MacroMapSynth)  returns (Ack);
   rpc MapMacroEffect  (MacroMapEffect) returns (Ack);
+  rpc MapMacroPlugin  (MacroMapPlugin) returns (Ack);
   rpc RandomizeMacros (TrackId)        returns (Ack);
   rpc RenameMacro       (MacroRename)  returns (Ack);
   rpc RemoveMacro       (MacroRef)     returns (Ack);
