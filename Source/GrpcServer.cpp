@@ -87,7 +87,9 @@ namespace
         { for (auto& n : main.apiListAudioInputs()) r->add_names (n.toStdString()); return Status::OK; }
 
         Status ListMidiInputs (ServerContext*, const gpb::Empty*, gpb::MidiInputs* r) override
-        { for (auto& n : main.apiListMidiInputs()) r->add_names (n.toStdString()); return Status::OK; }
+        { for (auto& in : main.apiListMidiInputs()) { r->add_names (in.name.toStdString()); r->add_enabled (in.enabled); } return Status::OK; }
+        Status SetMidiInputEnabled (ServerContext*, const gpb::MidiInputEnable* q, gpb::Ack* r) override
+        { main.apiSetMidiInputEnabled (js (q->name()), q->enabled()); r->set_ok (true); return Status::OK; }
 
         Status ArmTrack (ServerContext*, const gpb::ArmRequest* q, gpb::Ack* r) override
         { const bool ok = main.apiArmTrack (q->track_id(), q->armed(), q->input(), q->channels(), q->monitor());

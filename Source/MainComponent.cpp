@@ -1499,6 +1499,7 @@ Track* MainComponent::resolveTrack (int id)
 // ---------------------------------------------------------------------------
 void MainComponent::setupMidiInputs()
 {
+    loadMidiInputPrefs();          // which sources to listen to (Midi Through off by default)
     openAvailableMidiInputs();
     // ...plus a virtual port so a keyboard/software can connect at any time.
     virtualMidiIn = juce::MidiInput::createNewDevice ("Gloopy MIDI In", this);
@@ -1515,21 +1516,84 @@ void MainComponent::setupMidiInputs()
     });
 }
 
-std::vector<juce::String> MainComponent::apiListMidiInputs()
+static bool isMidiThrough (const juce::String& name) { return name.containsIgnoreCase ("through"); }
+
+static juce::File midiPrefsFile()
 {
-    // The MIDI input sources Gloopy can receive from. It auto-opens all of these (+ hot-plug), so
-    // this is effectively "what Gloopy is listening to". Static ALSA query — safe from any thread.
-    std::vector<juce::String> out;
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+               .getChildFile ("Gloopy").getChildFile ("midi-inputs.txt");
+}
+
+void MainComponent::loadMidiInputPrefs()
+{
+    midiInputsDisabled.clear(); midiThroughAllowed.clear();
+    for (auto& line : juce::StringArray::fromLines (midiPrefsFile().loadFileAsString()))
+    {
+        const auto s = line.trim();
+        if      (s.startsWith ("d|")) midiInputsDisabled.insert (s.substring (2));
+        else if (s.startsWith ("t|")) midiThroughAllowed.insert (s.substring (2));
+    }
+}
+
+void MainComponent::saveMidiInputPrefs()
+{
+    juce::StringArray lines;
+    for (auto& n : midiInputsDisabled) lines.add ("d|" + n);
+    for (auto& n : midiThroughAllowed) lines.add ("t|" + n);
+    auto f = midiPrefsFile();
+    f.getParentDirectory().createDirectory();
+    f.replaceWithText (lines.joinIntoString ("\n"));
+}
+
+// Regular ports default ON (unless explicitly disabled); "Midi Through" loopback ports default OFF
+// (unless explicitly allowed) — see the header comment.
+bool MainComponent::midiInputEnabled (const juce::String& name) const
+{
+    return isMidiThrough (name) ? midiThroughAllowed.count (name) > 0
+                                : midiInputsDisabled.count (name) == 0;
+}
+
+std::vector<MainComponent::MidiInputInfo> MainComponent::apiListMidiInputs()
+{
+    std::vector<MidiInputInfo> out;
     for (const auto& d : juce::MidiInput::getAvailableDevices())
-        out.push_back (d.name);
+        out.push_back ({ d.name, midiInputEnabled (d.name) });
     return out;
+}
+
+void MainComponent::apiSetMidiInputEnabled (const juce::String& name, bool enabled)
+{
+    callOnMessageThread ([&]
+    {
+        if (isMidiThrough (name)) { if (enabled) midiThroughAllowed.insert (name); else midiThroughAllowed.erase (name); }
+        else                      { if (enabled) midiInputsDisabled.erase (name);  else midiInputsDisabled.insert (name); }
+        saveMidiInputPrefs();
+        openAvailableMidiInputs();   // opens the newly-enabled sources, closes the newly-disabled ones
+        return true;
+    });
 }
 
 void MainComponent::openAvailableMidiInputs()
 {
-    for (const auto& d : juce::MidiInput::getAvailableDevices())
+    const auto devices = juce::MidiInput::getAvailableDevices();
+    // Close any input that is currently open but now disabled (or has been unplugged).
+    for (int i = openMidiInputs.size() - 1; i >= 0; --i)
     {
-        if (openMidiInputs.contains (d.identifier)) continue;   // already open
+        const auto id = openMidiInputs[i];
+        const juce::MidiDeviceInfo* dev = nullptr;
+        for (const auto& d : devices) if (d.identifier == id) { dev = &d; break; }
+        if (dev == nullptr || ! midiInputEnabled (dev->name))
+        {
+            deviceManager.removeMidiInputDeviceCallback (id, this);
+            deviceManager.setMidiInputDeviceEnabled (id, false);
+            openMidiInputs.remove (i);
+            if (dev != nullptr) std::cout << "[midi] input closed: " << dev->name << std::endl;
+        }
+    }
+    // Open any enabled input not yet open.
+    for (const auto& d : devices)
+    {
+        if (openMidiInputs.contains (d.identifier) || ! midiInputEnabled (d.name)) continue;
         deviceManager.setMidiInputDeviceEnabled (d.identifier, true);
         deviceManager.addMidiInputDeviceCallback (d.identifier, this);
         openMidiInputs.add (d.identifier);
@@ -7341,13 +7405,20 @@ void MainComponent::showFileMenu()
     menu.addItem (29, "Remotes / Push / Pull...", isComposition);     // remote sync (Git.cpp)
     menu.addItem (30, "Resolve conflicts...", isComposition);         // merge-conflict resolver (Git.cpp)
     menu.addItem (31, "Git Settings...", isComposition);              // identity + auto-commit (Git.cpp)
-    // Live MIDI status (read-only): the input sources Gloopy hears + which track they play.
+    // MIDI inputs: check a source to listen to it, uncheck to ignore it. Regular ports are on by
+    // default; ALSA "Midi Through" loopback ports are off by default (opening them, and duplicate
+    // device ports, doubled notes). Toggling is applied live and remembered across sessions.
     juce::PopupMenu midiMenu;
     const auto midiIns = apiListMidiInputs();
+    juce::StringArray midiNames;
     if (midiIns.empty())
         midiMenu.addItem (899, "(no MIDI inputs detected)", false);
     else
-        for (const auto& n : midiIns) midiMenu.addItem (899, n, false);
+        for (const auto& in : midiIns)
+        {
+            midiMenu.addItem (900 + midiNames.size(), in.name, true, in.enabled);   // checkable; ticked = listening
+            midiNames.add (in.name);
+        }
     midiMenu.addSeparator();
     int midiTgt = midiInputTarget.load();
     if (midiTgt < 0) midiTgt = firstInstrumentId.load();
@@ -7361,8 +7432,14 @@ void MainComponent::showFileMenu()
     menu.addSeparator();
     menu.addItem (41, "About Gloopy...");
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fileButton),
-        [this, isComposition] (int result)
+        [this, isComposition, midiNames] (int result)
         {
+            if (result >= 900 && result < 900 + midiNames.size())   // toggle a MIDI input source
+            {
+                const auto name = midiNames[result - 900];
+                apiSetMidiInputEnabled (name, ! midiInputEnabled (name));
+                return;
+            }
             if (result == 8) { openNotes(); return; }
             if (result == 17) { openSourceControl(); return; }
             if (result == 22) { showCommitDialog(); return; }   // save + stage all + commit

@@ -165,9 +165,15 @@ class Gloopy:
     def list_audio_inputs(self) -> list[str]:
         return list(self.stub.ListAudioInputs(pb.Empty()).names)
 
-    def list_midi_inputs(self) -> list[str]:
-        """MIDI input sources Gloopy is listening to (it auto-opens all + hot-plugs)."""
-        return list(self.stub.ListMidiInputs(pb.Empty()).names)
+    def list_midi_inputs(self) -> list[dict]:
+        """MIDI input sources and whether Gloopy is listening to each: [{name, enabled}]. Regular
+        ports default on; ALSA 'Midi Through' loopback ports default off."""
+        r = self.stub.ListMidiInputs(pb.Empty())
+        return [{"name": n, "enabled": e} for n, e in zip(r.names, r.enabled)]
+
+    def set_midi_input_enabled(self, name: str, enabled: bool = True) -> None:
+        """Enable/disable a MIDI input source by name (applied live, remembered across sessions)."""
+        self._ack(self.stub.SetMidiInputEnabled(pb.MidiInputEnable(name=name, enabled=enabled)))
 
     def arm_track(self, track_id: int, armed: bool = True, input: int = 0,
                   channels: int = 2, monitor: bool = False) -> None:

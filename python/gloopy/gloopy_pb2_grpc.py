@@ -140,6 +140,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.Empty.SerializeToString,
                 response_deserializer=gloopy__pb2.MidiInputs.FromString,
                 _registered_method=True)
+        self.SetMidiInputEnabled = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetMidiInputEnabled',
+                request_serializer=gloopy__pb2.MidiInputEnable.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.ArmTrack = channel.unary_unary(
                 '/gloopy.v1.Gloopy/ArmTrack',
                 request_serializer=gloopy__pb2.ArmRequest.SerializeToString,
@@ -1416,7 +1421,14 @@ class GloopyServicer:
         raise NotImplementedError('Method not implemented!')
 
     def ListMidiInputs(self, request, context):
-        """live MIDI sources Gloopy is listening to
+        """MIDI sources + whether each is enabled
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetMidiInputEnabled(self, request, context):
+        """enable/disable a MIDI source (persisted)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -3046,6 +3058,11 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.ListMidiInputs,
                     request_deserializer=gloopy__pb2.Empty.FromString,
                     response_serializer=gloopy__pb2.MidiInputs.SerializeToString,
+            ),
+            'SetMidiInputEnabled': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetMidiInputEnabled,
+                    request_deserializer=gloopy__pb2.MidiInputEnable.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'ArmTrack': grpc.unary_unary_rpc_method_handler(
                     servicer.ArmTrack,
@@ -4756,6 +4773,33 @@ class Gloopy:
             '/gloopy.v1.Gloopy/ListMidiInputs',
             gloopy__pb2.Empty.SerializeToString,
             gloopy__pb2.MidiInputs.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetMidiInputEnabled(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetMidiInputEnabled',
+            gloopy__pb2.MidiInputEnable.SerializeToString,
+            gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,
             insecure,
