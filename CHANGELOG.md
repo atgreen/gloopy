@@ -21,6 +21,11 @@ tagged release.
   real-time priority (`realtime` group + a `limits.d` drop-in), switches the CPU governor to
   `performance`, and gives PipeWire a roomier buffer — the standard low-latency-audio setup that
   eliminates most under-run crackles on a stock desktop. Idempotent; `--check` reports state only.
+- **Audio-dropout diagnostics.** When the audio engine has to drop a buffer, it now records which
+  part of the app was holding the engine lock at that instant (file and line) and how long it held
+  it; set `GLOOPY_TRACE_DROPOUTS=1` to log a line naming the culprit. `scripts/check-no-dropouts.py`
+  is a headless check that plays a project and fails if steady-state playback drops any buffers — a
+  regression guard so audio smoothness can't quietly regress.
 
 ### Fixed
 - **Occasional crackles (buffer under-runs) from denormals.** The mix ran without flushing
@@ -28,6 +33,18 @@ tagged release.
   flanger, phaser, tremolo) could spike the CPU on x86 — where denormal arithmetic is 10–100×
   slower — and under-run the audio buffer. The mixer now flushes denormals for the whole block;
   the rendered audio is unchanged.
+- **Crackles during playback from the UI touching the audio engine.** Two bits of per-frame
+  housekeeping — regenerating live/script clips, and reading the bar/beat "meter map" for the
+  position readout — briefly took the audio engine's lock at the 30-per-second UI refresh rate. If
+  one overlapped an audio buffer (or the UI thread was momentarily descheduled while holding the
+  lock), that buffer was dropped to silence — an occasional tick/crackle during otherwise-steady
+  playback. Both now read without locking the audio engine, so steady-state playback is clean.
+- **Crackles when opening a project.** Loading a composition held the audio engine's lock for the
+  entire load — including the slow parts: building instruments, streaming sfizz samples, and
+  instantiating plugins — which starved audio for up to half a second (a burst of dropped buffers,
+  audible if you loaded while playing). The heavy work now happens off the audio lock and the
+  finished tracks and mixer are swapped in atomically, so opening a project no longer interrupts
+  audio.
 
 ## [0.5.4] - 2026-08-05
 
