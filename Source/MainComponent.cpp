@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 #include "AudioAllocGuard.h"
 #include "ParamId.h"
 #include "NoteScheduler.h"
@@ -445,7 +446,7 @@ MainComponent::MainComponent (bool headless)
     {
         std::vector<ArrangeView::BusRowView> out;
         auto lanes = apiGetAutomation();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         for (int i = 0; i < (int) mixerTracks.size(); ++i)
         {
             auto& mt = *mixerTracks[(size_t) i];
@@ -521,7 +522,7 @@ MainComponent::MainComponent (bool headless)
     // and reveal what was just recorded. The Write arm itself stays on for the next pass.
     arrangeView->onPlaybackStopped = [this]
     {
-        { const juce::ScopedLock sl (engineLock); writingTargets.clear(); }
+        { GLOOPY_ELOCK(sl); writingTargets.clear(); }
         if (arrangeView) arrangeView->refreshAutomation();
     };
     arrangeView->onLoopChanged  = [this]
@@ -734,7 +735,7 @@ MainComponent::MainComponent (bool headless)
         else if (cmd == "promotetake")
         {
             juce::String takeId;
-            { const juce::ScopedLock sl (engineLock);
+            { GLOOPY_ELOCK(sl);
               auto& cl = tracks[(size_t) trackIdx]->clips;
               if (juce::isPositiveAndBelow (clip, (int) cl.size())) takeId = cl[(size_t) clip].takeId; }
             if (takeId.isNotEmpty()) apiPromoteTake (takeId);
@@ -743,7 +744,7 @@ MainComponent::MainComponent (bool headless)
         {
             // Comp selection: activate this take, mute its siblings (same anchor).
             pushUndoSnapshot();
-            { const juce::ScopedLock sl (engineLock);
+            { GLOOPY_ELOCK(sl);
               auto& cl = tracks[(size_t) trackIdx]->clips;
               if (juce::isPositiveAndBelow (clip, (int) cl.size()))
               {
@@ -922,12 +923,12 @@ MainComponent::MainComponent (bool headless)
         auto* t = trackByIndex (ti);
         if (t == nullptr) return;
         std::shared_ptr<Clip> src;
-        { const juce::ScopedLock sl (engineLock); src = slotClip (t->sessionSlots, s); }
+        { GLOOPY_ELOCK(sl); src = slotClip (t->sessionSlots, s); }
         if (src == nullptr) return;
         pushUndoSnapshot();
         Clip c = *src;                                   // copy notes / length / loop
         c.startBeat = juce::jmax (0.0, samplesToBeats (transport.getPlayheadSamples()).inBeats());   // at the playhead
-        { const juce::ScopedLock sl (engineLock); t->clips.push_back (std::move (c)); }
+        { GLOOPY_ELOCK(sl); t->clips.push_back (std::move (c)); }
         if (arrangeView) arrangeView->rebuild();
         setViewMode (ViewMode::Arrange);                 // reveal the result on the timeline
     };
@@ -937,7 +938,7 @@ MainComponent::MainComponent (bool headless)
         if (t == nullptr) return;
         Clip copy;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (selTrack < 0 || selTrack >= (int) tracks.size()) return;
             auto& sc = tracks[(size_t) selTrack]->clips;
             if (selClip < 0 || selClip >= (int) sc.size()) return;
@@ -962,7 +963,7 @@ MainComponent::MainComponent (bool headless)
         // the TRANSITIVE tracks (in track order); `output` is the parent bus (0 = master) so the
         // session view can nest group columns.
         std::vector<SessionView::GroupInfo> out;
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         const int N = (int) mixerTracks.size();
         auto ancestry = [&] (int insert, std::vector<int>& anc)   // buses innermost -> outermost
         {
@@ -1005,13 +1006,13 @@ MainComponent::MainComponent (bool headless)
     grid.getBusLevels = [this] (int bus, float& l, float& r)
     {
         l = r = 0.0f;
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (juce::isPositiveAndBelow (bus, (int) mixerTracks.size()))
         { l = mixerTracks[(size_t) bus]->peakL.load(); r = mixerTracks[(size_t) bus]->peakR.load(); }
     };
     grid.onSetGroupFolded = [this] (int bus, bool folded)
     {
-        { const juce::ScopedLock sl (engineLock);
+        { GLOOPY_ELOCK(sl);
           if (juce::isPositiveAndBelow (bus, (int) mixerTracks.size())) mixerTracks[(size_t) bus]->folded.store (folded); }
         if (sessionPane) sessionPane->rebuild();
     };
@@ -1019,7 +1020,7 @@ MainComponent::MainComponent (bool headless)
     grid.onOpenDeviceWindow = [this] (int bus) { openDeviceWindow (bus); };   // floating device chain for the group
     grid.onSetGroupColour = [this] (int bus, juce::Colour col)
     {
-        { const juce::ScopedLock sl (engineLock);
+        { GLOOPY_ELOCK(sl);
           if (juce::isPositiveAndBelow (bus, (int) mixerTracks.size())) mixerTracks[(size_t) bus]->colour = col; }
         if (sessionPane) sessionPane->rebuild();
         if (mixerView)   mixerView->rebuild();
@@ -1036,7 +1037,7 @@ MainComponent::MainComponent (bool headless)
         closeAllPluginWindows();
         std::vector<int> inserts;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             for (int t : trackIdx)
                 if (juce::isPositiveAndBelow (t, (int) tracks.size()))
                 {
@@ -1094,7 +1095,7 @@ MainComponent::MainComponent (bool headless)
     };
     devicePanel.getTitle = [this]
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (! juce::isPositiveAndBelow (deviceTrack, (int) mixerTracks.size())) return juce::String ("DEVICES");
         const juce::String bullet (juce::CharPointer_UTF8 ("\xe2\x80\xa2"));
         return "DEVICES   " + bullet + "   " + mixerTracks[(size_t) deviceTrack]->name.toUpperCase();
@@ -1102,7 +1103,7 @@ MainComponent::MainComponent (bool headless)
     devicePanel.getChain = [this]
     {
         std::vector<std::pair<juce::String, bool>> out;
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (juce::isPositiveAndBelow (deviceTrack, (int) mixerTracks.size()))
             for (auto& fx : mixerTracks[(size_t) deviceTrack]->effects)
                 out.push_back ({ fx->name(), fx->bypassed.load() });
@@ -1128,7 +1129,7 @@ MainComponent::MainComponent (bool headless)
     rackPanel.onShowClip = [this] { bottomMode = BottomMode::Clip; resized(); };
     rackPanel.getTitle = [this]
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (auto* t = resolveTrack (rackTrack))
         {
             const juce::String bullet (juce::CharPointer_UTF8 ("\xe2\x80\xa2"));
@@ -1139,7 +1140,7 @@ MainComponent::MainComponent (bool headless)
     rackPanel.getMacros = [this]
     {
         std::vector<RackPanel::MacroInfo> out;
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (auto* t = resolveTrack (rackTrack))
             for (auto& m : t->macros) out.push_back ({ m.name, m.value, (int) m.mappings.size() });
         return out;
@@ -1148,7 +1149,7 @@ MainComponent::MainComponent (bool headless)
     {
         if (rackTrack < 0) return;
         int n = 0;
-        { const juce::ScopedLock sl (engineLock); if (auto* t = resolveTrack (rackTrack)) n = (int) t->macros.size(); }
+        { GLOOPY_ELOCK(sl); if (auto* t = resolveTrack (rackTrack)) n = (int) t->macros.size(); }
         apiAddMacro (rackTrack, "Macro " + juce::String (n + 1));
     };
     rackPanel.onSetValue = [this] (int macro, float v) { if (rackTrack >= 0) apiSetMacroValue (rackTrack, macro, v); };
@@ -1158,7 +1159,7 @@ MainComponent::MainComponent (bool headless)
     rackPanel.getSnapshots = [this]
     {
         std::vector<juce::String> out;
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (auto* t = resolveTrack (rackTrack))
             for (auto& s : t->macroSnapshots) out.push_back (s.name);
         return out;
@@ -1230,7 +1231,7 @@ MainComponent::MainComponent (bool headless)
     };
     mixerView->onInsertGroup = [this] (int insert) -> juce::String
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         return juce::isPositiveAndBelow (insert, (int) mixerTracks.size()) ? mixerTracks[(size_t) insert]->group : juce::String();
     };
     mixerView->onAssignGroup = [this] (int insert, const juce::String& grp) { apiAssignInsertToGroup (insert, grp); };
@@ -1247,7 +1248,7 @@ MainComponent::MainComponent (bool headless)
     mixerView->onInsertSends = [this] (int insert) -> std::vector<MixerView::SendState>
     {
         std::vector<MixerView::SendState> out;
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (juce::isPositiveAndBelow (insert, (int) mixerTracks.size()))
             for (auto& sd : mixerTracks[(size_t) insert]->sends) out.push_back ({ sd.bus, sd.level, sd.postFader });
         return out;
@@ -1256,7 +1257,7 @@ MainComponent::MainComponent (bool headless)
     mixerView->onAddBus      = [this] (const juce::String& name) { apiAddBus (name); if (mixerView) { mixerView->rebuild(); mixerView->revealLastStrip(); } };   // scroll to show the new bus
     mixerView->getBackingTrack = [this] (int insert) -> MixerView::BackingTrack
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         for (auto& t : tracks)
             if (t->mixerTrack.load() == insert) return { true, t->name, t->colour };
         return {};
@@ -1266,7 +1267,7 @@ MainComponent::MainComponent (bool headless)
         // If a track is patched into this insert, rename the TRACK (so arrange/session/mixer stay in
         // sync); otherwise it's a bus / unused channel -> rename the insert itself.
         int backingId = -1;
-        { const juce::ScopedLock sl (engineLock);
+        { GLOOPY_ELOCK(sl);
           for (auto& t : tracks) if (t->mixerTrack.load() == index) { backingId = t->id; break; } }
         if (backingId >= 0) apiRenameTrack (backingId, name);
         else                apiSetInsertName (index, name);
@@ -1279,7 +1280,7 @@ MainComponent::MainComponent (bool headless)
     };
     mixerView->onInsertOutput = [this] (int insert)
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         return juce::isPositiveAndBelow (insert, (int) mixerTracks.size()) ? mixerTracks[(size_t) insert]->output.load() : 0;
     };
     // Multi-select "Group" (Cmd+G): fold the selected strips into a new bus, then cluster
@@ -1447,7 +1448,7 @@ void MainComponent::addTrack (std::unique_ptr<Track> track)
     if (track->generator) track->generator->prepare (currentSampleRate, currentBlockSize);
     track->liveMidi.reset (currentSampleRate);
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         // Give the track its own mixer insert, placed just after the last track insert (before any
         // buses) so buses stay higher-indexed than the channels routing into them.
         const int pos = firstBusIndex();
@@ -1628,7 +1629,7 @@ void MainComponent::startSessionRecord (int trackIndex, int scene)
 
 void MainComponent::startSessionCapture()
 {
-    const juce::ScopedLock sl (engineLock);        // audio thread try-locks, so this is safe
+    GLOOPY_ELOCK(sl);        // audio thread try-locks, so this is safe
     if (captureSegs.size() < 8192) captureSegs.resize (8192);
     captureWrite.store (0);
     const double arrBeat = juce::jmax (0.0, samplesToBeats (transport.getPlayheadSamples()).inBeats());
@@ -1645,7 +1646,7 @@ void MainComponent::finalizeSessionCapture()
     pushUndoSnapshot();
     int built = 0;
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         // Flush spans for clips still playing at stop.
         for (int ti = 0; ti < (int) tracks.size() && ti < (int) capturePrevSlot.size(); ++ti)
             if (capturePrevSlot[(size_t) ti] >= 0)
@@ -1725,7 +1726,7 @@ void MainComponent::finalizeRecording()
         c.looped = true;
         c.notes = std::move (notes);
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             ensureSlotCount (tracks[(size_t) srTrack]->sessionSlots, juce::jmax ((int) scenes.size(), srScene + 1));
             tracks[(size_t) srTrack]->sessionSlots[(size_t) srScene] = std::make_shared<Clip> (std::move (c));
             sessionLauncher.requestClip (srTrack, srScene);   // start looping the freshly recorded clip
@@ -1741,7 +1742,7 @@ void MainComponent::finalizeRecording()
     c.contentLenBeats = c.lengthBeats;
     c.looped = false;
     c.notes = std::move (notes);
-    { const juce::ScopedLock sl (engineLock); t->clips.push_back (std::move (c)); }
+    { GLOOPY_ELOCK(sl); t->clips.push_back (std::move (c)); }
     if (arrangeView) arrangeView->rebuild();
 }
 
@@ -1852,7 +1853,7 @@ bool MainComponent::apiSetTrackParams (int id, bool hasVol, float vol, bool hasP
         if (hasPan)  t->pan.store (juce::jlimit (-1.0f, 1.0f, pan));
         if (hasMute) t->mute.store (mute);
         if (hasSolo) t->solo.store (solo);
-        if (hasName) { const juce::ScopedLock sl (engineLock); t->name = name; }
+        if (hasName) { GLOOPY_ELOCK(sl); t->name = name; }
         if (arrangeView) arrangeView->repaint();
         return true;
     });
@@ -2025,7 +2026,7 @@ bool MainComponent::apiRemoveMacro (int trackId, int macro)
             const int idx = target.substring (base.length()).getIntValue();
             if (idx > macro) target = base + juce::String (idx - 1);
         };
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         automationLanes.erase (std::remove_if (automationLanes.begin(), automationLanes.end(),
             [&] (const AutoLaneSnap& l) { return l.target == exact; }), automationLanes.end());
         controllerMaps.erase (std::remove_if (controllerMaps.begin(), controllerMaps.end(),
@@ -2128,7 +2129,7 @@ bool MainComponent::apiStampSnapshot (int trackId, int snap, double beat)
         if (n == 0) return false;
 
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         for (size_t i = 0; i < n; ++i)
         {
             const juce::String target = "track/" + juce::String (id) + "/macro/" + juce::String ((int) i);
@@ -2200,7 +2201,7 @@ int MainComponent::apiAddClip (int trackId, double start, double len, double con
         c.notes = notes;
         int idx;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             t->clips.push_back (std::move (c));
             idx = (int) t->clips.size() - 1;
         }
@@ -2233,7 +2234,7 @@ bool MainComponent::apiSetInsertParams (int index, bool hasVol, float vol, bool 
 {
     return callOnMessageThread ([&] () -> bool
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (! juce::isPositiveAndBelow (index, (int) mixerTracks.size())) return false;
         auto& mt = *mixerTracks[(size_t) index];
         if (hasVol)  mt.volume.store (juce::jlimit (0.0f, 1.0f, vol));
@@ -2252,7 +2253,7 @@ bool MainComponent::apiSetInsertName (int index, const juce::String& name)
     {
         if (! juce::isPositiveAndBelow (index, (int) mixerTracks.size())) return false;
         pushUndoSnapshot();
-        { const juce::ScopedLock sl (engineLock); mixerTracks[(size_t) index]->name = name.trim(); }
+        { GLOOPY_ELOCK(sl); mixerTracks[(size_t) index]->name = name.trim(); }
         if (mixerView) { mixerView->rebuild(); mixerView->repaint(); }
         return true;
     });
@@ -2269,7 +2270,7 @@ int MainComponent::apiAddEffect (int insert, int type)
         if (fx == nullptr) return -1;
         int slot = -1;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (insert, (int) mixerTracks.size())) return -1;
             mixerTracks[(size_t) insert]->effects.push_back (std::move (fx));
             slot = (int) mixerTracks[(size_t) insert]->effects.size() - 1;
@@ -2288,7 +2289,7 @@ bool MainComponent::apiRemoveEffect (int insert, int slot)
         closeAllPluginWindows();
         bool ok = false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (juce::isPositiveAndBelow (insert, (int) mixerTracks.size()))
             {
                 auto& fx = mixerTracks[(size_t) insert]->effects;
@@ -2305,7 +2306,7 @@ bool MainComponent::apiSetEffectParam (int insert, int slot, const juce::String&
 {
     return callOnMessageThread ([&] () -> bool
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (! juce::isPositiveAndBelow (insert, (int) mixerTracks.size())) return false;
         auto& fx = mixerTracks[(size_t) insert]->effects;
         if (! juce::isPositiveAndBelow (slot, (int) fx.size())) return false;
@@ -2319,7 +2320,7 @@ bool MainComponent::apiSetEffectBypass (int insert, int slot, bool bypassed)
 {
     return callOnMessageThread ([&] () -> bool
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (! juce::isPositiveAndBelow (insert, (int) mixerTracks.size())) return false;
         auto& fx = mixerTracks[(size_t) insert]->effects;
         if (! juce::isPositiveAndBelow (slot, (int) fx.size())) return false;
@@ -2333,7 +2334,7 @@ std::vector<MainComponent::ParamSnap> MainComponent::apiGetEffectParams (int ins
     return callOnMessageThread ([&]
     {
         std::vector<ParamSnap> out;
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (juce::isPositiveAndBelow (insert, (int) mixerTracks.size()))
         {
             auto& fx = mixerTracks[(size_t) insert]->effects;
@@ -2350,7 +2351,7 @@ std::vector<float> MainComponent::apiGetAnalyzerData (int insert, int slot)
     return callOnMessageThread ([&]
     {
         std::vector<float> out;
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (juce::isPositiveAndBelow (insert, (int) mixerTracks.size()))
         {
             auto& fx = mixerTracks[(size_t) insert]->effects;
@@ -2476,7 +2477,7 @@ void MainComponent::apiSetAutomation (int type, int id, int slot, const juce::St
     callOnMessageThread ([&]
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         automationLanes.erase (std::remove_if (automationLanes.begin(), automationLanes.end(),
             [&] (const AutoLaneSnap& l) { return l.type == type && l.id == id && l.slot == slot
                                                  && l.param.equalsIgnoreCase (param); }),
@@ -2501,7 +2502,7 @@ void MainComponent::apiSetAutomationById (const juce::String& target, const std:
     callOnMessageThread ([&]
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         automationLanes.erase (std::remove_if (automationLanes.begin(), automationLanes.end(),
             [&] (const AutoLaneSnap& l) { return l.target == target; }), automationLanes.end());
         if (! points.empty())
@@ -2522,7 +2523,7 @@ bool MainComponent::apiSetAutomationStep (const juce::String& target, bool step)
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         for (auto& l : automationLanes)
             if (l.target == target) { l.step = step; return true; }
         return false;
@@ -2533,7 +2534,7 @@ bool MainComponent::apiGetAutomationStep (const juce::String& target)
 {
     return callOnMessageThread ([&] () -> bool
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         for (auto& l : automationLanes) if (l.target == target) return l.step;
         return false;
     });
@@ -2546,7 +2547,7 @@ bool MainComponent::apiSetAutomationCurve (const juce::String& target, float cur
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         for (auto& l : automationLanes)
             if (l.target == target) { l.curve = juce::jlimit (-1.0f, 1.0f, curve); return true; }
         return false;
@@ -2557,7 +2558,7 @@ float MainComponent::apiGetAutomationCurve (const juce::String& target)
 {
     return callOnMessageThread ([&] () -> float
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         for (auto& l : automationLanes) if (l.target == target) return l.curve;
         return 0.0f;
     });
@@ -2571,7 +2572,7 @@ void MainComponent::captureAutomationWrite (const juce::String& target, float va
     if (! autoWriteArmed.load() || ! transport.isPlaying() || target.isEmpty()) return;
     constexpr double q = 0.125;   // quantise capture to 1/8 beat so rapid moves collapse to one keyframe
     const double beat = juce::jmax (0.0, std::round (transport.getPlayheadBeats() / q) * q);
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
     writingTargets.insert (target);   // latch: this target writes (and stops reading) until stop/disarm
     auto it = std::find_if (automationLanes.begin(), automationLanes.end(),
                             [&] (const AutoLaneSnap& l) { return l.target == target; });
@@ -2588,7 +2589,7 @@ void MainComponent::setAutomationWrite (bool armed)
     autoWriteArmed.store (armed);
     if (! armed)
     {
-        { const juce::ScopedLock sl (engineLock); writingTargets.clear(); }
+        { GLOOPY_ELOCK(sl); writingTargets.clear(); }
         if (arrangeView) arrangeView->refreshAutomation();   // reveal what was just recorded
     }
 }
@@ -2599,7 +2600,7 @@ bool MainComponent::apiAddAutomationPointById (const juce::String& target, doubl
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto it = std::find_if (automationLanes.begin(), automationLanes.end(),
                                 [&] (const AutoLaneSnap& l) { return l.target == target; });
         if (it == automationLanes.end())
@@ -2620,7 +2621,7 @@ bool MainComponent::apiAddAutomationPointById (const juce::String& target, doubl
 
 std::vector<MainComponent::AutoLaneSnap> MainComponent::apiGetAutomation()
 {
-    return callOnMessageThread ([&] { const juce::ScopedLock sl (engineLock); return automationLanes; });
+    return callOnMessageThread ([&] { GLOOPY_ELOCK(sl); return automationLanes; });
 }
 
 void MainComponent::apiNewProject()
@@ -2689,7 +2690,7 @@ bool MainComponent::apiRemoveTrack (int id)
         closeAllPluginWindows();
         bool ok = false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             for (size_t i = 0; i < tracks.size(); ++i)
                 if (tracks[i]->id == id)
                 {
@@ -2749,7 +2750,7 @@ bool MainComponent::apiRenameTrack (int id, const juce::String& name)
         if (t == nullptr) return false;
         pushUndoSnapshot();
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             t->name = name.trim();
         }
         emitChange ("track_renamed", id);
@@ -2782,7 +2783,7 @@ bool MainComponent::apiMoveTrack (int id, int delta)
         // Locate + range-check under the lock first, so we only snapshot on a real move.
         int idx = -1, target = -1;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             for (size_t i = 0; i < tracks.size(); ++i)
                 if (tracks[i]->id == id) { idx = (int) i; break; }
             if (idx < 0) return false;
@@ -2791,7 +2792,7 @@ bool MainComponent::apiMoveTrack (int id, int delta)
         }
         pushUndoSnapshot();
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             std::swap (tracks[(size_t) idx], tracks[(size_t) target]);   // mixerTrack lives on the Track, so routing is unchanged
         }
         emitChange ("track_moved", id);
@@ -2810,7 +2811,7 @@ bool MainComponent::apiSetTrackColour (int id, const juce::String& hexArgb)
         if (t == nullptr) return false;
         pushUndoSnapshot();
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             t->colour = col;
         }
         emitChange ("track_coloured", id);
@@ -2859,7 +2860,7 @@ bool MainComponent::apiSetSamplerControls (int trackId, float startFrac, float e
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         for (auto& t : tracks)
             if (t->id == trackId)
                 if (auto* sm = dynamic_cast<Sampler*> (t->generator.get()))
@@ -2881,7 +2882,7 @@ MainComponent::SamplerSnap MainComponent::apiGetSamplerControls (int trackId)
 {
     return callOnMessageThread ([&] () -> SamplerSnap
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         for (auto& t : tracks)
             if (t->id == trackId)
                 if (auto* sm = dynamic_cast<Sampler*> (t->generator.get()))
@@ -2997,7 +2998,7 @@ bool MainComponent::apiSetTrackGenerator (int trackId, std::unique_ptr<Generator
         gen->prepare (currentSampleRate, currentBlockSize);   // ensure ready (idempotent if the builder did it)
         std::unique_ptr<Generator> old;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             old = std::move (t->generator);
             t->generator = std::move (gen);
         }
@@ -3095,7 +3096,7 @@ bool MainComponent::apiRemoveClip (int trackId, int index)
         if (t == nullptr) return false;
         bool ok = false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (juce::isPositiveAndBelow (index, (int) t->clips.size()))
                 { t->clips.erase (t->clips.begin() + index); ok = true; }
         }
@@ -3300,7 +3301,7 @@ bool MainComponent::apiStartDriver (int trackId, int index, const juce::String& 
     {
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
         p.clipLenBeats = t->clips[(size_t) index].contentLenBeats.toBeats();
         clipStart      = t->clips[(size_t) index].startBeat.toBeats();
@@ -3359,7 +3360,7 @@ bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::Strin
     {
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
         p.clipLenBeats = t->clips[(size_t) index].contentLenBeats.toBeats();
         return true;
@@ -3375,7 +3376,7 @@ bool MainComponent::apiRegenerateClip (int trackId, int index, const juce::Strin
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (index, (int) t->clips.size())) return false;
             auto& c = t->clips[(size_t) index];
             c.type = ClipType::Midi;
@@ -3533,7 +3534,7 @@ void MainComponent::launchEditor (const juce::File& f)
 void MainComponent::editClipScript (int trackIdx, int clip)
 {
     juce::String existing;
-    { const juce::ScopedLock sl (engineLock);
+    { GLOOPY_ELOCK(sl);
       if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
       auto& cl = tracks[(size_t) trackIdx]->clips;
       if (! juce::isPositiveAndBelow (clip, (int) cl.size())) return;
@@ -3548,7 +3549,7 @@ void MainComponent::editClipScript (int trackIdx, int clip)
         src = scriptsDir().getChildFile ("clip-" + juce::Uuid().toDashedString() + ".lisp");
         src.replaceWithText (defaultScriptTemplate());
         const auto rel = src.getRelativePathFrom (projectDir());   // store project-relative -> portable
-        { const juce::ScopedLock sl (engineLock);
+        { GLOOPY_ELOCK(sl);
           if (juce::isPositiveAndBelow (trackIdx, (int) tracks.size()))
           { auto& cl = tracks[(size_t) trackIdx]->clips;
             if (juce::isPositiveAndBelow (clip, (int) cl.size()))
@@ -3565,7 +3566,7 @@ void MainComponent::editClipScript (int trackIdx, int clip)
 void MainComponent::driveClipScript (int trackIdx, int clip)
 {
     juce::String source, generator, system, lang; juce::int64 seed = 0; int id = -1;
-    { const juce::ScopedLock sl (engineLock);
+    { GLOOPY_ELOCK(sl);
       if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
       id = tracks[(size_t) trackIdx]->id;
       auto& cl = tracks[(size_t) trackIdx]->clips;
@@ -3594,7 +3595,7 @@ void MainComponent::toggleClipScriptLive (int trackIdx, int clip)
 {
     int id = -1; bool live = false;
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
         auto& cl = tracks[(size_t) trackIdx]->clips;
         if (! juce::isPositiveAndBelow (clip, (int) cl.size()) || ! cl[(size_t) clip].isScript()) return;
@@ -3610,7 +3611,7 @@ bool MainComponent::apiSetClipScriptLive (int trackId, int index, bool live)
     {
         Track* t = resolveTrack (trackId);
         if (t == nullptr) return false;
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (! juce::isPositiveAndBelow (index, (int) t->clips.size()) || ! t->clips[(size_t) index].isScript())
             return false;
         t->clips[(size_t) index].scriptLive = live;
@@ -3651,7 +3652,7 @@ void MainComponent::scheduleLiveClips (double beats)
     std::vector<Due> due;
     bool anyLive = false;   // any live-script clip still exists? -> refresh the fast-path flag
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         for (auto& t : tracks)
         {
             if (t == nullptr) continue;
@@ -3682,7 +3683,7 @@ void MainComponent::autoRegenScriptClip (int trackId, int clipIndex)
     KernelHost::GenParams p;
     const juce::int64 key = ((juce::int64) trackId << 20) | (juce::int64) (clipIndex & 0xFFFFF);
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         Track* t = resolveTrack (trackId);
         if (t == nullptr || ! juce::isPositiveAndBelow (clipIndex, (int) t->clips.size()))
         { liveRegenInFlight.erase (key); return; }
@@ -3704,7 +3705,7 @@ void MainComponent::autoRegenScriptClip (int trackId, int clipIndex)
             if (! ok) return;   // keep the cached notes; a slow/cold generate just misses this pass
             bool changed = false, isSel = false;
             {
-                const juce::ScopedLock sl (engineLock);
+                GLOOPY_ELOCK(sl);
                 Track* t = resolveTrack (trackId);
                 if (t != nullptr && juce::isPositiveAndBelow (clipIndex, (int) t->clips.size()))
                 {
@@ -3724,7 +3725,7 @@ void MainComponent::autoRegenScriptClip (int trackId, int clipIndex)
 void MainComponent::regenerateClipScript (int trackIdx, int clip)
 {
     juce::String source, generator, system, lang; juce::int64 seed = 0; int id = -1;
-    { const juce::ScopedLock sl (engineLock);
+    { GLOOPY_ELOCK(sl);
       if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
       id = tracks[(size_t) trackIdx]->id;
       auto& cl = tracks[(size_t) trackIdx]->clips;
@@ -3754,7 +3755,7 @@ void MainComponent::setClipGenerator (int trackIdx, int clip, const juce::String
                                       const juce::String& system, const juce::String& lang)
 {
     juce::int64 seed = 0; int id = -1;
-    { const juce::ScopedLock sl (engineLock);
+    { GLOOPY_ELOCK(sl);
       if (! juce::isPositiveAndBelow (trackIdx, (int) tracks.size())) return;
       id = tracks[(size_t) trackIdx]->id;
       auto& cl = tracks[(size_t) trackIdx]->clips;
@@ -3785,7 +3786,7 @@ bool MainComponent::apiMoveClip (int trackId, int index, double startBeat, bool 
         if (src == nullptr || dst == nullptr) return false;
         bool ok = false, moved = false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (juce::isPositiveAndBelow (index, (int) src->clips.size()))
             {
                 if (dst == src)
@@ -3833,7 +3834,7 @@ int MainComponent::apiAddAudioClip (int trackId, double startBeat, const juce::S
         c.peaks = std::make_shared<std::vector<float>> (buildPeaks (*buf));
         int idx;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             t->clips.push_back (std::move (c));
             idx = (int) t->clips.size() - 1;
         }
@@ -3874,7 +3875,7 @@ int MainComponent::apiAddPluginEffect (int insert, const juce::String& identifie
         if (fx == nullptr) return -1;
         int slot;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             mixerTracks[(size_t) insert]->effects.push_back (std::move (fx));
             slot = (int) mixerTracks[(size_t) insert]->effects.size() - 1;
         }
@@ -3911,7 +3912,7 @@ bool MainComponent::apiRenderToFile (const juce::String& path, double tailSecond
         f = f.withFileExtension ("wav");   // default container; .flac is honoured below
     f.deleteFile();
 
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
 
     const bool        wasPlaying = transport.isPlaying();
     const juce::int64 savedHead  = transport.getPlayheadSamples();
@@ -4163,7 +4164,7 @@ void MainComponent::buildTemplate (const juce::String& name)
 
     // Seed a 2-bar looping groove: one drum clip (each pad on its own note) plus a
     // bass line. The kit is one track, so all the drum hits live in a single clip.
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
     if (tracks.size() < 2) return;
 
     auto add = [] (Clip& c, int pitch, std::initializer_list<int> steps)
@@ -4384,7 +4385,7 @@ void MainComponent::refreshDevicePanel()
 {
     const int tIdx = selTrack >= 0 ? selTrack : selSessionTrack;
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         deviceTrack = juce::isPositiveAndBelow (tIdx, (int) tracks.size())
                         ? juce::jlimit (0, (int) mixerTracks.size() - 1, tracks[(size_t) tIdx]->mixerTrack.load())
                         : -1;
@@ -4398,7 +4399,7 @@ void MainComponent::refreshRackPanel()
 {
     const int tIdx = selTrack >= 0 ? selTrack : selSessionTrack;
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         rackTrack = juce::isPositiveAndBelow (tIdx, (int) tracks.size()) ? tracks[(size_t) tIdx]->id : -1;
     }
     rackPanel.refresh();
@@ -4432,7 +4433,7 @@ void MainComponent::showMacroMenu (int macroIndex, juce::Component* anchor)
     bool hasSynth = false;
     int  insert   = -1;
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto* t = resolveTrack (rackTrack);
         if (t == nullptr) return;
         hasSynth = dynamic_cast<SynthGenerator*> (t->generator.get()) != nullptr;
@@ -4445,7 +4446,7 @@ void MainComponent::showMacroMenu (int macroIndex, juce::Component* anchor)
     std::vector<EffTarget> effTargets;
     {
         std::vector<std::pair<juce::String, int>> slots;
-        { const juce::ScopedLock sl (engineLock);
+        { GLOOPY_ELOCK(sl);
           if (juce::isPositiveAndBelow (insert, (int) mixerTracks.size()))
               for (int s = 0; s < (int) mixerTracks[(size_t) insert]->effects.size(); ++s)
                   slots.push_back ({ mixerTracks[(size_t) insert]->effects[(size_t) s]->name(), s }); }
@@ -4523,7 +4524,7 @@ void MainComponent::promptRenameMacro (int macroIndex)
     if (rackTrack < 0) return;
     juce::String cur;
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto* t = resolveTrack (rackTrack);
         if (t != nullptr && juce::isPositiveAndBelow (macroIndex, (int) t->macros.size()))
             cur = t->macros[(size_t) macroIndex].name;
@@ -4582,7 +4583,7 @@ void MainComponent::promptRenameSnapshot (int snap)
     if (rackTrack < 0) return;
     juce::String cur;
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto* t = resolveTrack (rackTrack);
         if (t != nullptr && juce::isPositiveAndBelow (snap, (int) t->macroSnapshots.size()))
             cur = t->macroSnapshots[(size_t) snap].name;
@@ -4640,7 +4641,7 @@ void MainComponent::loadSelectedClipIntoEditor()
     int pitch = 60;
     juce::String trackName;
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         int et = -1;
         if (Clip* cp = editingClip (et))
         {
@@ -4712,7 +4713,7 @@ void MainComponent::writeBackEditor()
 {
     auto notes = (editorMode == 0) ? editorPanel.roll.getNotes() : editorPanel.steps.getNotes();
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         int et = -1;
         if (Clip* cp = editingClip (et); cp != nullptr && ! cp->isAudio())
         {
@@ -4735,7 +4736,7 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
     transport.prepare (sampleRate);
     if (recordBuffer.empty()) recordBuffer.resize (1 << 18);   // ~260k events, preallocated
 
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
     mixBuffer.setSize (2, juce::jmax (16, samplesPerBlockExpected));
     scratchMidi.ensureSize (256 * 4);   // pre-size the reused MIDI scratch so even early blocks don't grow it
     scratchLive.ensureSize (256 * 4);
@@ -5233,6 +5234,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
     if (! stl.isLocked())
     {
         diagDropouts.fetch_add (1, std::memory_order_relaxed);   // block skipped -> silence
+        gloopy::noteEngineLockMiss();   // record WHO held engineLock (file:line) + how long — RT-safe
         return;
     }
 
@@ -5292,7 +5294,7 @@ void MainComponent::releaseResources() {}
 // ---------------------------------------------------------------------------
 void MainComponent::setupMixer()
 {
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
     mixerTracks.clear();
     mixerTracks.push_back (std::make_unique<MixerTrack> ("Master"));
     mixerTracks[0]->volume.store (0.9f);
@@ -6787,7 +6789,7 @@ void MainComponent::closeAllPluginWindows()
 
 int MainComponent::indexOfMixerTrack (const MixerTrack* mt) const
 {
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
     for (int i = 0; i < (int) mixerTracks.size(); ++i)
         if (mixerTracks[(size_t) i].get() == mt) return i;
     return -1;
@@ -6809,7 +6811,7 @@ void MainComponent::pruneDeviceWindows()
 void MainComponent::openDeviceWindow (int insert)
 {
     MixerTrack* target = nullptr;
-    { const juce::ScopedLock sl (engineLock);
+    { GLOOPY_ELOCK(sl);
       if (juce::isPositiveAndBelow (insert, (int) mixerTracks.size())) target = mixerTracks[(size_t) insert].get(); }
     if (target == nullptr) return;
 
@@ -6830,7 +6832,7 @@ void MainComponent::openDeviceWindow (int insert)
     panel->getEffectTypes = devicePanel.getEffectTypes;            // same built-in effect list
     panel->getTitle = [this, target]
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         const int i = indexOfMixerTrack (target);
         if (i < 0) return juce::String ("DEVICES");
         juce::String nm = mixerTracks[(size_t) i]->name;
@@ -6841,7 +6843,7 @@ void MainComponent::openDeviceWindow (int insert)
     panel->getChain = [this, target]
     {
         std::vector<std::pair<juce::String, bool>> out;
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         const int i = indexOfMixerTrack (target);
         if (i >= 0) for (auto& fx : mixerTracks[(size_t) i]->effects) out.push_back ({ fx->name(), fx->bypassed.load() });
         return out;
@@ -6860,7 +6862,7 @@ void MainComponent::openDeviceWindow (int insert)
     panel->getAnalyzerData = [this, target] (int slot)                       { const int i = indexOfMixerTrack (target); return i >= 0 ? apiGetAnalyzerData (i, slot) : std::vector<float>{}; };
 
     juce::String name;
-    { const juce::ScopedLock sl (engineLock);
+    { GLOOPY_ELOCK(sl);
       name = target->name;
       for (auto& t : tracks) if (t->mixerTrack.load() == insert) { name = t->name; break; } }   // track name for the title bar
     auto* w = new DeviceWindow ("Devices \xe2\x80\x94 " + name);
@@ -6881,6 +6883,30 @@ void MainComponent::openDeviceWindow (int insert)
 // ---------------------------------------------------------------------------
 void MainComponent::timerCallback()
 {
+    // RT-safety slice 1: if the audio callback dropped a block since last tick, name the
+    // culprit — which blocking engineLock holder was in the critical section, and for how
+    // long. Logged here on the message thread (the audio thread only stored lock-free), so
+    // no cout on the RT path. Turns a dropout into a file:line instead of an investigation.
+    {
+        const long long misses = gloopy::g_engineLockTrace.missCount.load (std::memory_order_relaxed);
+        // Tracking is always-on (cheap relaxed atomics feed the diagnostics + headless check);
+        // the console line is opt-in via GLOOPY_TRACE_DROPOUTS=1 so normal runs aren't spammed.
+        static const bool trace = juce::SystemStats::getEnvironmentVariable ("GLOOPY_TRACE_DROPOUTS", {}).isNotEmpty();
+        if (trace && misses > diagReportedMisses)
+        {
+            const char* who = gloopy::g_engineLockTrace.lastMissSite.load (std::memory_order_relaxed);
+            const double heldUs = gloopy::g_engineLockTrace.lastMissHeldUs.load (std::memory_order_relaxed);
+            const char* worst = gloopy::g_engineLockTrace.maxHoldSite.load (std::memory_order_relaxed);
+            const double worstUs = gloopy::g_engineLockTrace.maxHoldUs.load (std::memory_order_relaxed);
+            std::cout << "[dropout] engineLock held by " << (who ? who : "(unknown)")
+                      << " for " << juce::String (heldUs, 1).toStdString() << "us"
+                      << "  (worst hold this session: " << (worst ? worst : "(none)")
+                      << " " << juce::String (worstUs, 1).toStdString() << "us,"
+                      << " " << (misses - diagReportedMisses) << " new drop(s))" << std::endl;
+            diagReportedMisses = misses;
+        }
+    }
+
     if (audioRecActive.load() && loopRecRotate.exchange (false))
         rotateLoopTakes();   // loop recording: finalize the pass, start a new take
 
@@ -7553,7 +7579,7 @@ void MainComponent::newProject()
 {
     closeAllPluginWindows();
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         transport.setPlaying (false);
         tracks.clear();
         // A new project is a clean slate — clear ALL project-scoped state, not just tracks.
@@ -7871,7 +7897,7 @@ void MainComponent::copySelectedClip (bool cut)
     auto* t = trackByIndex (selTrack);
     if (t == nullptr) return;
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (! juce::isPositiveAndBelow (selClip, (int) t->clips.size())) return;
         clipClipboard = clipToTree (t->clips[(size_t) selClip], "CLIP");
     }
@@ -7887,7 +7913,7 @@ void MainComponent::pasteClipAtPlayhead()
     Clip c = clipFromTree (clipClipboard);
     c.startBeat = juce::jmax (0.0, transport.getPlayheadBeats());
     int ni = -1;
-    { const juce::ScopedLock sl (engineLock); t->clips.push_back (std::move (c)); ni = (int) t->clips.size() - 1; }
+    { GLOOPY_ELOCK(sl); t->clips.push_back (std::move (c)); ni = (int) t->clips.size() - 1; }
     selClip = ni;
     emitChange ("clip_changed", t->id);
     if (arrangeView) { arrangeView->setSelection (selTrack, ni); arrangeView->rebuild(); }
@@ -8090,7 +8116,7 @@ Clip MainComponent::clipFromTree (const juce::ValueTree& cl)
 
 juce::ValueTree MainComponent::toValueTree()
 {
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
     juce::ValueTree root ("GLOOPY");
     root.setProperty ("version", 2, nullptr);
     root.setProperty ("bpm", transport.getBpm(), nullptr);
@@ -8738,7 +8764,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
     if (! root.hasType ("GLOOPY")) return;
 
     closeAllPluginWindows();
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
     transport.setPlaying (false);
     tracks.clear();
     mixerTracks.clear();
@@ -8995,7 +9021,7 @@ void MainComponent::loadFromTree (const juce::ValueTree& root)
 void MainComponent::refreshUiAfterLoad()
 {
     for (auto& t : tracks) t->liveMidi.reset (currentSampleRate);
-    { const juce::ScopedLock sl (engineLock); for (auto& t : tracks) applyArpToTrack (*t); }   // rebuild live-arp expansions
+    { GLOOPY_ELOCK(sl); for (auto& t : tracks) applyArpToTrack (*t); }   // rebuild live-arp expansions
     refreshTrackIds();
 
     selTrack = selClip = -1;

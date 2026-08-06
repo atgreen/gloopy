@@ -4,6 +4,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "EngineLock.h"
 #include <vector>
 #include <memory>
 #include <functional>
@@ -326,7 +327,7 @@ public:
         std::vector<juce::String> trackName ((size_t) nt);
         std::vector<float> vol ((size_t) nt, 0.8f);
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             for (int t = 0; t < nt; ++t)
             {
                 playing[(size_t) t]   = launcher.playingSlot (t);
@@ -412,7 +413,7 @@ public:
                 auto base = trackCol[(size_t) t];
                 if (has)   // a slot's clip can carry its own colour (grid organization); else inherit the track colour
                 {
-                    const juce::ScopedLock sl (engineLock);
+                    GLOOPY_ELOCK(sl);
                     if (auto cc = slotClip (tracks[(size_t) t]->sessionSlots, s))
                         if (cc->colour.getARGB() != 0) base = cc->colour;
                 }
@@ -609,7 +610,7 @@ public:
     // The group bus this track routes into (its immediate parent group), or -1 if ungrouped.
     int groupOfTrack (int t) const
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (! juce::isPositiveAndBelow (t, (int) tracks.size())) return -1;
         const int ins = tracks[(size_t) t]->mixerTrack.load();
         if (! juce::isPositiveAndBelow (ins, (int) mixerTracks.size())) return -1;
@@ -683,12 +684,12 @@ private:
 
     bool hasClip (int t, int s) const
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         return t >= 0 && t < (int) tracks.size() && slotClip (tracks[(size_t) t]->sessionSlots, s) != nullptr;
     }
     juce::String clipName (int t, int s) const
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (auto c = slotClip (tracks[(size_t) t]->sessionSlots, s))
             return c->name.isNotEmpty() ? c->name : juce::String ("Clip");
         return {};
@@ -841,7 +842,7 @@ public:
 
         std::vector<int> pending ((size_t) nt, SessionLauncher::kNone);
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             for (int t = 0; t < nt; ++t) pending[(size_t) t] = launcher.pendingSlot (t);
         }
 

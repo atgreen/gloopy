@@ -11,6 +11,7 @@
 // toValueTree/loadFromTree and the composition (Composition.cpp).
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 
 MainComponent::ControlGroup* MainComponent::findControlGroup (const juce::String& name)
 {
@@ -25,7 +26,7 @@ bool MainComponent::apiDefineControlGroup (const juce::String& name, float gain)
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (auto* existing = findControlGroup (name))
             existing->gain.store (juce::jlimit (0.0f, 1.0f, gain));
         else
@@ -43,7 +44,7 @@ bool MainComponent::apiSetControlGroupGain (const juce::String& name, float gain
 {
     return callOnMessageThread ([&] () -> bool
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto* g = findControlGroup (name);
         if (g == nullptr) return false;
         g->gain.store (juce::jlimit (0.0f, 1.0f, gain));
@@ -55,7 +56,7 @@ bool MainComponent::apiSetControlGroupMute (const juce::String& name, bool mute)
 {
     return callOnMessageThread ([&] () -> bool
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto* g = findControlGroup (name);
         if (g == nullptr) return false;
         g->mute.store (mute);
@@ -67,7 +68,7 @@ bool MainComponent::apiSetControlGroupSolo (const juce::String& name, bool solo)
 {
     return callOnMessageThread ([&] () -> bool
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto* g = findControlGroup (name);
         if (g == nullptr) return false;
         g->solo.store (solo);
@@ -83,7 +84,7 @@ bool MainComponent::apiAssignInsertToGroup (int insert, const juce::String& grou
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (! juce::isPositiveAndBelow (insert, (int) mixerTracks.size())) return false;
         const juce::String g = group.trim();
         if (g.isNotEmpty() && findControlGroup (g) == nullptr)
@@ -102,7 +103,7 @@ bool MainComponent::apiRemoveControlGroup (const juce::String& name)
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         const auto before = controlGroups.size();
         for (auto& mt : mixerTracks)
             if (mt->group == name) mt->group.clear();
@@ -117,7 +118,7 @@ std::vector<MainComponent::ControlGroupInfo> MainComponent::apiListControlGroups
 {
     return callOnMessageThread ([&]
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         std::vector<ControlGroupInfo> out;
         for (auto& g : controlGroups)
         {

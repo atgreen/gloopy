@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "PlaylistView.h"
+#include "EngineLock.h"
 #include "Palette.h"
 #include <cmath>
 
@@ -154,7 +155,7 @@ void PlaylistView::mouseDown (const juce::MouseEvent& e)
     if (hit >= 0 && (e.mods.isPopupMenu() || e.getNumberOfClicks() >= 2))
     {
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             clips.erase (clips.begin() + hit);
         }
         selectedClip = activeClip = -1;
@@ -193,7 +194,7 @@ void PlaylistView::mouseDown (const juce::MouseEvent& e)
         c.startBeat    = juce::jmax (0.0, snapToBar (beatForX (p.x)));
         c.lengthBeats  = juce::jmax (1, patterns[(size_t) pat]->getLengthBeats());
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             clips.push_back (c);
         }
         activeClip = selectedClip = (int) clips.size() - 1;
@@ -211,7 +212,7 @@ void PlaylistView::mouseDrag (const juce::MouseEvent& e)
 
     const auto p = e.position;
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto& c = clips[(size_t) activeClip];
         const double barLen = juce::jmax (1, patterns[(size_t) c.patternIndex]->getLengthBeats());
 

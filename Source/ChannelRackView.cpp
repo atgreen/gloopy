@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "ChannelRackView.h"
+#include "EngineLock.h"
 #include "Palette.h"
 
 ChannelRackView::ChannelRackView (std::vector<std::unique_ptr<Channel>>& channelsRef,
@@ -107,7 +108,7 @@ void ChannelRackView::mouseDown (const juce::MouseEvent& e)
 
     Channel* ch = channels[(size_t) row].get();
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         p->toggleStep (row, step, ch->defaultPitch, 0.85f);
     }
     if (onPatternEdited) onPatternEdited (row);

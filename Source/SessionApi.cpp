@@ -11,6 +11,7 @@
 // the next launch-quantum boundary during playback (its own logic is unit-tested separately).
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 
 // Copy an existing arrangement clip into a session slot (populate the grid over the API), so a
 // script can build a launchable grid without the desktop drag. Reuses apiSetSessionClip, which
@@ -20,7 +21,7 @@ bool MainComponent::apiCopyClipToSessionSlot (int trackId, int clipIndex, int sc
     Clip copy;
     const bool have = callOnMessageThread ([&] () -> bool
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         Track* t = resolveTrack (trackId);
         if (t == nullptr || ! juce::isPositiveAndBelow (clipIndex, (int) t->clips.size())) return false;
         copy = t->clips[(size_t) clipIndex];
@@ -38,7 +39,7 @@ bool MainComponent::apiSetSessionSlotColour (int trackId, int scene, const juce:
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         Track* t = resolveTrack (trackId);
         if (t == nullptr || scene < 0 || scene >= (int) t->sessionSlots.size()) return false;
         auto& clip = t->sessionSlots[(size_t) scene];
@@ -52,7 +53,7 @@ bool MainComponent::apiSessionLaunchClip (int trackId, int scene)
 {
     return callOnMessageThread ([&] () -> bool
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         int idx = -1;
         for (int i = 0; i < (int) tracks.size(); ++i) if (tracks[(size_t) i]->id == trackId) { idx = i; break; }
         if (idx < 0 || scene < 0) return false;
@@ -67,7 +68,7 @@ bool MainComponent::apiSessionLaunchScene (int scene)
 {
     return callOnMessageThread ([&] () -> bool
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (scene < 0) return false;
         std::vector<bool> occupied (tracks.size(), false);
         for (size_t i = 0; i < tracks.size(); ++i)
@@ -84,7 +85,7 @@ bool MainComponent::apiSessionStopTrack (int trackId)
 {
     return callOnMessageThread ([&] () -> bool
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         int idx = -1;
         for (int i = 0; i < (int) tracks.size(); ++i) if (tracks[(size_t) i]->id == trackId) { idx = i; break; }
         if (idx < 0) return false;
@@ -97,7 +98,7 @@ bool MainComponent::apiSessionStopAll()
 {
     return callOnMessageThread ([&] () -> bool
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         sessionLauncher.requestStopAll();
         return true;
     });
@@ -107,7 +108,7 @@ MainComponent::SessionSnap MainComponent::apiGetSessionState()
 {
     return callOnMessageThread ([&] () -> SessionSnap
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         SessionSnap snap;
         snap.scenes       = (int) scenes.size();
         snap.quantumBeats = sessionLauncher.quantumBeats();

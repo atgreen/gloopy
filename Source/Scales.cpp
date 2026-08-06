@@ -7,6 +7,7 @@
 // composition manifest (see Composition.cpp) and toValueTree/loadFromTree.
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 #include "SynthGenerator.h"
 #include <set>
 #include <cmath>
@@ -53,7 +54,7 @@ bool MainComponent::apiSetScale (int root, const juce::String& name, const std::
         for (int i : iv) s.insert (((i % 12) + 12) % 12);
         s.insert (0);
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         scaleRoot = ((root % 12) + 12) % 12;
         scaleName = nm;
         scaleIntervals.assign (s.begin(), s.end());
@@ -69,7 +70,7 @@ void MainComponent::apiGetScale (int& root, juce::String& name, std::vector<int>
 {
     callOnMessageThread ([&]
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         root = scaleRoot; name = scaleName; intervals = scaleIntervals;
         return true;
     });
@@ -92,7 +93,7 @@ bool MainComponent::apiSetTuning (const std::vector<double>& cents12)
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         for (int i = 0; i < 12; ++i) projectTuning[(size_t) i] = cents12[(size_t) i];
         applyTuningToSynths();
         return true;
@@ -103,7 +104,7 @@ std::vector<double> MainComponent::apiGetTuning()
 {
     return callOnMessageThread ([&]
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         return std::vector<double> (projectTuning.begin(), projectTuning.end());
     });
 }
@@ -197,7 +198,7 @@ int MainComponent::apiSnapClipToScale (int trackId, int clipIndex)
         pushUndoSnapshot();
         int changed = 0;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (clipIndex, (int) t->clips.size())) return -1;
             for (auto& n : t->clips[(size_t) clipIndex].notes)
             {

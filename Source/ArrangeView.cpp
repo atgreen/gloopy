@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "ArrangeView.h"
+#include "EngineLock.h"
 #include "Palette.h"
 #include <cmath>
 
@@ -286,7 +287,7 @@ void ArrangeView::zoomToSelection()
 {
     double s = -1.0, e = -1.0;
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (juce::isPositiveAndBelow (selTrack, (int) tracks.size())
               && juce::isPositiveAndBelow (selClip, (int) tracks[(size_t) selTrack]->clips.size()))
         {
@@ -1086,7 +1087,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             juce::String curName;
             bool curPolarity = false;
             {
-                const juce::ScopedLock sl (engineLock);
+                GLOOPY_ELOCK(sl);
                 if (juce::isPositiveAndBelow (track, (int) tracks.size()))
                 {
                     curName = tracks[(size_t) track]->name;
@@ -1291,7 +1292,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         bool isScript = false, isScriptLive = false, isLinked = false;
         double clipStart = 0.0, clipEnd = 0.0;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (juce::isPositiveAndBelow (hit, (int) tracks[(size_t) track]->clips.size()))
             {
                 const auto& cl = tracks[(size_t) track]->clips[(size_t) hit];
@@ -1483,7 +1484,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             if (r == 25)   // Set script generator: reference a named generator in the project's system/module
             {
                 juce::String curGen, curSys, curLang;
-                { const juce::ScopedLock sl (engineLock);
+                { GLOOPY_ELOCK(sl);
                   if (juce::isPositiveAndBelow (t, (int) tracks.size())
                       && juce::isPositiveAndBelow (c, (int) tracks[(size_t) t]->clips.size()))
                   { auto& cl = tracks[(size_t) t]->clips[(size_t) c];
@@ -1513,7 +1514,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
             if (r == 20)   // Rename clip: prompt (prefilled with the clip's current name)
             {
                 juce::String cur;
-                { const juce::ScopedLock sl (engineLock);
+                { GLOOPY_ELOCK(sl);
                   if (juce::isPositiveAndBelow (t, (int) tracks.size())
                       && juce::isPositiveAndBelow (c, (int) tracks[(size_t) t]->clips.size()))
                       cur = tracks[(size_t) t]->clips[(size_t) c].name; }
@@ -1670,7 +1671,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
     if (hit >= 0 && e.getNumberOfClicks() >= 2)
     {
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             auto& clips = tracks[(size_t) track]->clips;
             clips.erase (clips.begin() + hit);
         }
@@ -1712,7 +1713,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         c.contentLenBeats = blen;
         c.looped         = true;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             tracks[(size_t) track]->clips.push_back (c);
             selClip = (int) tracks[(size_t) track]->clips.size() - 1;
         }
@@ -1847,7 +1848,7 @@ void ArrangeView::mouseMove (const juce::MouseEvent& e)
         if (const int track = trackAtY (p.y); track >= 0)
             if (const int hit = clipAt (track, p); hit >= 0)
             {
-                const juce::ScopedLock sl (engineLock);
+                GLOOPY_ELOCK(sl);
                 if (juce::isPositiveAndBelow (track, (int) tracks.size())
                       && juce::isPositiveAndBelow (hit, (int) tracks[(size_t) track]->clips.size()))
                     link = tracks[(size_t) track]->clips[(size_t) hit].linkId;
@@ -1927,7 +1928,7 @@ void ArrangeView::mouseDrag (const juce::MouseEvent& e)
     if (dragTrack < 0 || dragClip < 0)
         return;
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (! juce::isPositiveAndBelow (dragTrack, (int) tracks.size())) return;
         auto& clips = tracks[(size_t) dragTrack]->clips;
         if (! juce::isPositiveAndBelow (dragClip, (int) clips.size())) return;

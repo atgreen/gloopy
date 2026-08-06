@@ -9,6 +9,7 @@
 // the punch range, and creates clips on stop.
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 #include <iostream>
 #include <set>
 
@@ -279,7 +280,7 @@ void MainComponent::finalizeTake (int trackId, const juce::File& take, double st
     c.takeId          = take.getFileNameWithoutExtension();
     const auto ref      = c.audioFile;
     const auto lenBeats = c.lengthBeats;
-    { const juce::ScopedLock sl (engineLock); t->clips.push_back (std::move (c)); }
+    { GLOOPY_ELOCK(sl); t->clips.push_back (std::move (c)); }
 
     if (currentProjectFile.getFileName() == "gloopy.toml")
     {
@@ -364,7 +365,7 @@ bool MainComponent::apiPromoteTake (const juce::String& takeId)
         if (! src.moveFileTo (dest)) return false;
         const auto newRef = portableSamplePath (dest.getFullPathName());
 
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         for (auto& t : tracks)
             for (auto& c : t->clips)
                 if (c.takeId == takeId) c.audioFile = newRef;
@@ -380,7 +381,7 @@ int MainComponent::apiCleanupTakes()
     return callOnMessageThread ([&] () -> int
     {
         std::set<juce::String> referenced;
-        { const juce::ScopedLock sl (engineLock);
+        { GLOOPY_ELOCK(sl);
           for (auto& t : tracks) for (auto& c : t->clips)
               if (c.takeId.isNotEmpty()) referenced.insert (c.takeId); }
 
@@ -401,7 +402,7 @@ int MainComponent::apiRecoverTakes()
     return callOnMessageThread ([&] () -> int
     {
         std::set<juce::String> referenced;
-        { const juce::ScopedLock sl (engineLock);
+        { GLOOPY_ELOCK(sl);
           for (auto& t : tracks) for (auto& c : t->clips)
               if (c.takeId.isNotEmpty()) referenced.insert (c.takeId); }
 
@@ -434,7 +435,7 @@ int MainComponent::apiRecoverTakes()
                 c.peaks = std::make_shared<std::vector<float>> (buildPeaks (*buf));
                 c.audioFile = portableSamplePath (f.getFullPathName());
                 c.takeId = f.getFileNameWithoutExtension();
-                { const juce::ScopedLock sl (engineLock); target->clips.push_back (std::move (c)); }
+                { GLOOPY_ELOCK(sl); target->clips.push_back (std::move (c)); }
                 ++recovered;
             }
         if (recovered > 0 && arrangeView) arrangeView->rebuild();

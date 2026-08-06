@@ -8,6 +8,7 @@
 // (see Composition.cpp) and serialised in toValueTree/loadFromTree (MainComponent.cpp).
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 
 using gloopy::time::BeatPosition;
 
@@ -21,7 +22,7 @@ bool MainComponent::apiAddLocation (const juce::String& name, const juce::String
         const double e = juce::jmax (s, endBeat);   // markers pass end<=start -> collapses to a point
         pushUndoSnapshot();
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             auto it = std::find_if (locations.begin(), locations.end(),
                                     [&] (const TimelineLocation& l) { return l.name == name; });
             if (it != locations.end())
@@ -36,7 +37,7 @@ bool MainComponent::apiAddLocation (const juce::String& name, const juce::String
 
 std::vector<MainComponent::TimelineLocation> MainComponent::apiListLocations()
 {
-    return callOnMessageThread ([&] { const juce::ScopedLock sl (engineLock); return locations; });
+    return callOnMessageThread ([&] { GLOOPY_ELOCK(sl); return locations; });
 }
 
 bool MainComponent::apiRemoveLocation (const juce::String& name)
@@ -44,7 +45,7 @@ bool MainComponent::apiRemoveLocation (const juce::String& name)
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         const auto before = locations.size();
         locations.erase (std::remove_if (locations.begin(), locations.end(),
                              [&] (const TimelineLocation& l) { return l.name == name; }),
@@ -57,7 +58,7 @@ bool MainComponent::apiRemoveLocation (const juce::String& name)
 // A zero-length location (a marker) is rejected — a range must span time.
 bool MainComponent::apiResolveRange (const juce::String& name, double& startBeat, double& endBeat)
 {
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
     for (auto& l : locations)
         if (l.name == name && l.endBeat > l.startBeat)          // typed position comparison (Time.h)
         {

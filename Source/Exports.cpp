@@ -17,6 +17,7 @@
 //         "stems" -> every instrument track    -> exports/<name>/<id>-<slug>.<ext>
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 
 namespace
 {
@@ -82,7 +83,7 @@ bool MainComponent::apiDefineExportProfile (const juce::String& name, const juce
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto it = std::find_if (exportProfiles.begin(), exportProfiles.end(),
                                 [&] (const ExportProfile& e) { return e.name == p.name; });
         if (it != exportProfiles.end()) *it = p;      // upsert
@@ -93,7 +94,7 @@ bool MainComponent::apiDefineExportProfile (const juce::String& name, const juce
 
 std::vector<MainComponent::ExportProfile> MainComponent::apiListExportProfiles()
 {
-    return callOnMessageThread ([&] { const juce::ScopedLock sl (engineLock); return exportProfiles; });
+    return callOnMessageThread ([&] { GLOOPY_ELOCK(sl); return exportProfiles; });
 }
 
 bool MainComponent::apiRemoveExportProfile (const juce::String& name)
@@ -101,7 +102,7 @@ bool MainComponent::apiRemoveExportProfile (const juce::String& name)
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         const auto before = exportProfiles.size();
         exportProfiles.erase (std::remove_if (exportProfiles.begin(), exportProfiles.end(),
                                   [&] (const ExportProfile& e) { return e.name == name; }),
@@ -119,7 +120,7 @@ bool MainComponent::apiRunExport (const juce::String& name, const juce::String& 
     // apiRenderToFile takes it for the whole bounce.
     ExportProfile p;
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto it = std::find_if (exportProfiles.begin(), exportProfiles.end(),
                                 [&] (const ExportProfile& e) { return e.name == name; });
         if (it == exportProfiles.end()) return false;

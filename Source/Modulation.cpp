@@ -9,6 +9,7 @@
 // target, four shapes.
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 #include "SynthGenerator.h"
 #include "Lfo.h"
 #include "ParamId.h"
@@ -24,7 +25,7 @@ bool MainComponent::apiSetModulation (const juce::String& target, float rate, fl
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         modulations.erase (std::remove_if (modulations.begin(), modulations.end(),
                                [&] (const Mod& m) { return m.target == target; }),
                            modulations.end());
@@ -46,7 +47,7 @@ bool MainComponent::apiAddModulation (const juce::String& target, float rate, fl
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         const float ph = phase - std::floor (phase);
         modulations.push_back ({ target, juce::jmax (0.0f, rate), depth, center, juce::jlimit (0, 4, shape),
                                  juce::jmax (0.0f, syncBeats), ph, unipolar, juce::jmax (0.0f, slewMs) });
@@ -60,7 +61,7 @@ bool MainComponent::apiAddModulation (const juce::String& target, float rate, fl
 // offline render reproducible regardless of prior live state (called from apiRenderToFile).
 void MainComponent::resetModulationSmoothing()
 {
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
     for (auto& m : modulations) m.smoothInit = false;
 }
 
@@ -69,7 +70,7 @@ bool MainComponent::apiRemoveModulation (const juce::String& target)
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         const auto before = modulations.size();
         modulations.erase (std::remove_if (modulations.begin(), modulations.end(),
                                [&] (const Mod& m) { return m.target == target; }),
@@ -82,7 +83,7 @@ std::vector<MainComponent::ModSnap> MainComponent::apiListModulations()
 {
     return callOnMessageThread ([&]
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         std::vector<ModSnap> out;
         for (auto& m : modulations) out.push_back ({ m.target, m.rate, m.depth, m.center, m.shape, m.syncBeats, m.phase, m.unipolar, m.slewMs });
         return out;

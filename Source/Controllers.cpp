@@ -9,6 +9,7 @@
 // the whole thing is verifiable headlessly without MIDI hardware.
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 
 bool MainComponent::apiAddControllerMap (const juce::String& source, const juce::String& target, float lo, float hi)
 {
@@ -16,7 +17,7 @@ bool MainComponent::apiAddControllerMap (const juce::String& source, const juce:
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         auto it = std::find_if (controllerMaps.begin(), controllerMaps.end(),
                                 [&] (const CtrlMap& m) { return m.source == source && m.target == target; });
         if (it != controllerMaps.end()) { it->lo = lo; it->hi = hi; }     // upsert
@@ -31,7 +32,7 @@ bool MainComponent::apiRemoveControllerMap (const juce::String& source)
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         const auto before = controllerMaps.size();
         controllerMaps.erase (std::remove_if (controllerMaps.begin(), controllerMaps.end(),
                                   [&] (const CtrlMap& m) { return m.source == source; }),
@@ -42,12 +43,12 @@ bool MainComponent::apiRemoveControllerMap (const juce::String& source)
 
 std::vector<MainComponent::CtrlMap> MainComponent::apiListControllerMaps()
 {
-    return callOnMessageThread ([&] { const juce::ScopedLock sl (engineLock); return controllerMaps; });
+    return callOnMessageThread ([&] { GLOOPY_ELOCK(sl); return controllerMaps; });
 }
 
 void MainComponent::apiMidiLearn (const juce::String& target)
 {
-    callOnMessageThread ([&] { const juce::ScopedLock sl (engineLock); learnTarget = target; return true; });
+    callOnMessageThread ([&] { GLOOPY_ELOCK(sl); learnTarget = target; return true; });
 }
 
 // Called from the MIDI callback / OSC lane / SetController RPC. value01 is 0..1.
@@ -57,19 +58,19 @@ void MainComponent::apiSetController (const juce::String& source, float value01)
 {
     // Capture branch (learn): resolve the target's range, add the map, done.
     juce::String learn;
-    { const juce::ScopedLock sl (engineLock); learn = learnTarget; }
+    { GLOOPY_ELOCK(sl); learn = learnTarget; }
     if (learn.isNotEmpty())
     {
         ParamDesc d;
         const float lo = apiGetParameter (learn, d) ? d.min : 0.0f;
         const float hi = apiGetParameter (learn, d) ? d.max : 1.0f;
         apiAddControllerMap (source, learn, lo, hi);
-        { const juce::ScopedLock sl (engineLock); learnTarget = {}; }
+        { GLOOPY_ELOCK(sl); learnTarget = {}; }
         return;
     }
 
     const float v01 = juce::jlimit (0.0f, 1.0f, value01);
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
     for (auto& m : controllerMaps)
         if (m.source == source && ! m.bypass)
             applyParamValue (m.target, m.lo + v01 * (m.hi - m.lo));   // lo>hi inverts; lock held -> audio-thread-safe
@@ -81,7 +82,7 @@ bool MainComponent::apiSetControllerBypass (const juce::String& source, const ju
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         for (auto& m : controllerMaps)
             if (m.source == source && m.target == target) { m.bypass = bypass; return true; }
         return false;

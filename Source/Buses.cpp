@@ -8,6 +8,7 @@
 // buffers accumulate sends before they're processed in the summing loop.
 
 #include "MainComponent.h"
+#include "EngineLock.h"
 
 int MainComponent::apiAddBus (const juce::String& name)
 {
@@ -16,7 +17,7 @@ int MainComponent::apiAddBus (const juce::String& name)
         pushUndoSnapshot();
         int index = -1;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             auto bus = std::make_unique<MixerTrack> (name.isNotEmpty() ? name : "Bus");
             bus->isBus = true;
             bus->buffer.setSize (2, juce::jmax (16, currentBlockSize));
@@ -40,7 +41,7 @@ bool MainComponent::apiRemoveBus (int busIndex)
         pushUndoSnapshot();
         bool ok = false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (busIndex, (int) mixerTracks.size())) return false;
             if (! mixerTracks[(size_t) busIndex]->isBus) return false;   // buses only
             mixerTracks.erase (mixerTracks.begin() + busIndex);
@@ -75,7 +76,7 @@ bool MainComponent::apiUngroup (int busIndex)
         pushUndoSnapshot();
         bool ok = false;
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (busIndex, (int) mixerTracks.size())) return false;
             if (! mixerTracks[(size_t) busIndex]->isBus) return false;
             const int parent    = mixerTracks[(size_t) busIndex]->output.load();   // group's parent (0 = master)
@@ -105,7 +106,7 @@ bool MainComponent::apiSetSend (int insert, int bus, float level, bool postFader
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (! juce::isPositiveAndBelow (insert, (int) mixerTracks.size())) return false;
         if (! juce::isPositiveAndBelow (bus,    (int) mixerTracks.size())) return false;
         if (bus == insert || bus == 0) return false;   // no self-send, and master isn't a send target
@@ -133,7 +134,7 @@ bool MainComponent::apiSetInsertOutput (int insert, int target)
     return callOnMessageThread ([&] () -> bool
     {
         pushUndoSnapshot();
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         if (! juce::isPositiveAndBelow (insert, (int) mixerTracks.size())) return false;
         if (insert == 0) return false;                       // master has no output target
         if (target != 0)                                     // 0 = master, always valid
@@ -172,7 +173,7 @@ bool MainComponent::apiGatherGroup (int busIndex)
         };
         // Decide whether a gather is needed without mutating (so we don't snapshot a no-op).
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             if (! juce::isPositiveAndBelow (busIndex, (int) mixerTracks.size())) return false;
             const int n = (int) tracks.size();
             int count = 0, firstAt = -1;
@@ -184,7 +185,7 @@ bool MainComponent::apiGatherGroup (int busIndex)
         }
         pushUndoSnapshot();
         {
-            const juce::ScopedLock sl (engineLock);
+            GLOOPY_ELOCK(sl);
             std::vector<std::unique_ptr<Track>> mems, result;
             int insertAt = -1;
             for (int t = 0; t < (int) tracks.size(); ++t)
@@ -262,7 +263,7 @@ void MainComponent::removeMixerTrackAt (int pos)
 // insert that no track uses, so a loaded project ends up with exactly Master + per-track inserts + buses.
 void MainComponent::pruneUnbackedInserts()
 {
-    const juce::ScopedLock sl (engineLock);
+    GLOOPY_ELOCK(sl);
     for (int i = (int) mixerTracks.size() - 1; i >= 1; --i)   // high -> low so indices below stay stable
     {
         if (mixerTracks[(size_t) i]->isBus) continue;
@@ -277,7 +278,7 @@ void MainComponent::pruneUnbackedInserts()
 void MainComponent::foldAllGroups (bool fold)
 {
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         std::vector<char> hasMember (mixerTracks.size(), 0);
         for (auto& mt : mixerTracks)
         {
@@ -294,7 +295,7 @@ void MainComponent::toggleFoldAllGroups()
 {
     bool anyOpen = false;
     {
-        const juce::ScopedLock sl (engineLock);
+        GLOOPY_ELOCK(sl);
         std::vector<char> hasMember (mixerTracks.size(), 0);
         for (auto& mt : mixerTracks)
         {
