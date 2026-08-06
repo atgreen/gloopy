@@ -17,6 +17,10 @@ tagged release.
 - **CPU (DSP-load) meter** in the status bar — a mini bar + percentage showing how much of each
   audio buffer's real-time budget the mix is using, green/amber/red as it climbs. If it's near
   100% you're close to under-running (crackles); a bigger audio buffer or fewer effects helps.
+- **`scripts/setup-realtime-audio.sh`** — a one-shot Linux helper that grants the audio thread
+  real-time priority (`realtime` group + a `limits.d` drop-in), switches the CPU governor to
+  `performance`, and gives PipeWire a roomier buffer — the standard low-latency-audio setup that
+  eliminates most under-run crackles on a stock desktop. Idempotent; `--check` reports state only.
 
 ### Fixed
 - **Occasional crackles (buffer under-runs) from denormals.** The mix ran without flushing
