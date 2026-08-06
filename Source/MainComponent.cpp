@@ -5068,7 +5068,11 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
             // stepped pattern; otherwise pass them straight to the generator. Recording below
             // still captures the raw `live` input (non-destructive: the clip arp re-applies on
             // playback), matching how the clip arp works.
-            juce::MidiBuffer& live = scratchLive;   // removeNextBlockOfMessages clears it first
+            juce::MidiBuffer& live = scratchLive;
+            live.clear();   // MidiMessageCollector::removeNextBlockOfMessages ADDS to the buffer (it does
+                            // NOT clear it), and scratchLive is reused across every track and every block.
+                            // Without this, one live note leaks into every track and is replayed each block
+                            // forever -> voice explosion / stuck buzzing note. (The old comment was wrong.)
             t->liveMidi.removeNextBlockOfMessages (live, num);
             if (t->arp.enabled)
                 t->liveArp.process (live, midi, num, spb, t->arp.rate, t->arp.octaves,
