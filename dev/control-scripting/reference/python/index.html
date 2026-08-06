@@ -2741,6 +2741,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.map_macro_plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        map_macro_plugin
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#gloopy.client.Gloopy.randomize_macros" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4849,6 +4860,17 @@
     <span class="md-ellipsis">
       
         map_macro_effect
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.map_macro_plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        map_macro_plugin
       
     </span>
   </a>
@@ -7101,6 +7123,26 @@ lfotarget lforate lfodepth.</p>
     <div class="doc doc-contents ">
 
         <p>Map a macro onto a mixer insert-effect param (insert/slot), swept lo..hi.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="gloopy.client.Gloopy.map_macro_plugin" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">map_macro_plugin</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">macro</span><span class="p">,</span> <span class="n">param_index</span><span class="p">,</span> <span class="n">insert</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">slot</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">lo</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">hi</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span></code>
+
+<a href="#gloopy.client.Gloopy.map_macro_plugin" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Map a macro onto a HOSTED-PLUGIN param by index, swept lo..hi. Default (insert=-1)
+targets this track's own instrument plugin (e.g. Surge); pass insert&gt;=0 (with slot) to
+target a mixer-insert plugin.</p>
 
 
     </div>
