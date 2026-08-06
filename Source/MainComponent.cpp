@@ -7018,7 +7018,7 @@ void MainComponent::paintStatusBar (juce::Graphics& g)
     {
         const float load = juce::jlimit (0.0f, 1.0f, cpuLoadSmoothed);
         const juce::String txt = "CPU " + juce::String (juce::roundToInt (load * 100.0f)) + "%";
-        const int   tw   = measure (txt) + 4;
+        const int   tw   = measure ("CPU 100%") + 4;   // fixed width (room for 3 digits) so it never shifts
         const float barW = 34.0f;
         auto seg = row.removeFromRight (tw + (int) barW + 8);
         juce::Rectangle<float> bar ((float) seg.getX() + 2.0f, cy - 4.0f, barW, 8.0f);
