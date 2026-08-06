@@ -625,3 +625,127 @@ also refines Ardour idea #15 (plugin scanning / metadata cache) above. **#2 (rat
 is the strategic one — decide the direction now even if the migration lands incrementally,
 before every position field is a `double`. (See also Ardour idea #13, tempo map / time
 domains.)
+
+---
+
+## RT-safety: "the audio thread owns nothing it can block on" — epic
+
+Distilled from studying how four Linux DAWs keep the GUI from stalling the audio thread —
+Ardour, Hydrogen, LMMS, Radium (local checkouts under `~/git`) — plus the field's canon
+(Bencina's *"Real-time audio programming 101"*, Doumler/Renn-Giles's lock-free-audio talks,
+and the `farbot`/`crill`/`choc` primitive libraries). The north star every serious engine
+converges on: **the audio thread never locks, never allocates, never blocks.** For a DAW
+with a rich editor and composition-as-code, the practical form is *not* "the audio thread
+owns all state" — it's:
+
+> **The main thread owns the editable document. The audio thread reads an immutable
+> snapshot (published via RCU / double-buffer) and drains a lock-free command queue.
+> Object lifetime is reclaimed off the audio thread. Nothing the audio thread touches can
+> block it.**
+
+### Why we care (what we measured)
+
+`getNextAudioBlock` (`Source/MainComponent.cpp`) grabs `engineLock` with a `ScopedTryLock`
+and **drops the block to silence on a miss** (`diagDropouts`) — audible crackle. Meanwhile
+~239 blocking `ScopedLock(engineLock)` sites on the message thread can hold it during
+playback. Investigation of `examples/demo-ascension` (11 sfizz tracks) found the sustained
+crackle was `scheduleLiveClips` taking `engineLock` at the 30 Hz UI-timer rate; fixing that
+(PR #72) took steady-state dropouts from ~14/pass to 0. The two *remaining* dropout sources
+are (a) **structural-edit / load bursts** — `load_project` holds `engineLock` ~0.34 s and
+skips ~30 blocks — and (b) a **one-time cold-start streaming** transient. This epic is the
+architecture that removes (a) entirely; the residual streaming is a separate, cheaper fix.
+
+### Why NOT the literal "audio thread owns the state"
+
+Three Gloopy-specific tensions push against it, and shape the target above:
+1. **The editable document belongs on the main thread** — it's what you save, undo, diff as
+   composition-as-code, and edit in the arrange/piano-roll/mixer views.
+2. **Hosted plugins force off-RT lifetime anyway** — Surge/sfizz/VST3 can't be instantiated,
+   preset-loaded, or destroyed on the audio thread. The audio thread owns a *pointer*; a
+   non-RT thread owns the *lifetime*.
+3. **The UI is a rich editor, not just meters** — views read the whole model, so they want a
+   published snapshot (or their own shadow copy), not to lock the live one.
+
+### What already points the right way
+
+- **Meters are already lock-free** — `MixerView` reads `track->peakL.load()` (atomics), not
+  the lock; the arrange playhead reads `transport.getPlayheadBeats()` without locking.
+- **`AudioAllocGuard`** already *proves* the mix is allocation-free headlessly (steady delta
+  of `g_audioAllocCount` == 0). The analogous proof for this epic is "steady-state
+  `diagDropouts` delta == 0."
+- **Control is already command-shaped** — gRPC/OSC/Python/CL are all commands
+  (`SetTempo`, `AddClip`, `SetParam`). Routing them through a queue is a natural fit, not a
+  retrofit. This is Gloopy's head start over a mouse-driven DAW.
+- **`renderMode` already bifurcates** live vs offline, so the command queue can be a
+  **live-only** concern and deterministic offline render stays synchronous.
+
+### Slices (one green commit each; all land under the existing try-lock safety net)
+
+0. **(DONE, PR #72) Move UI-rate housekeeping off the lock.** `scheduleLiveClips` skips
+   `engineLock` when no live-script clips exist. Establishes the principle: routine
+   message-thread work must not take the audio lock.
+1. **Self-diagnosing misses.** On a try-lock miss in `getNextAudioBlock`, record the current
+   `engineLock` holder (file:line + thread), à la Hydrogen's `m_LockingThread` / `m_pLocker`.
+   Add a headless assertion / diagnostics check that steady-state `diagDropouts` stays 0
+   (reuse `scripts/crackle-probe.py`). Makes every later slice measurable. *Cheap, first.*
+2. **Adaptive try-lock.** Replace the instantaneous `ScopedTryLock` with Hydrogen's
+   `tryLockFor(slack)` — wait up to the block's remaining real-time budget before dropping to
+   silence. Buys tolerance during migration for near-free.
+3. **Lock-free command queue (the "UI sends commands" core).** An SPSC queue (use
+   `choc`/`farbot`/`crill`, don't hand-roll) that the audio thread drains at the top of each
+   block. Route the *hot* RT mutations through it first — param/automation, note events,
+   transport, clip/scene launch. Control threads (gRPC/OSC) already funnel through the
+   message thread via `callOnMessageThread`, so the producer side stays single-writer.
+   `engineLock` stays as the fallback for everything not yet migrated.
+4. **RCU / double-buffer the render snapshot.** Publish the structural topology the audio
+   thread reads — tracks/clips/graph — as an immutable snapshot swapped by atomic pointer
+   (Ardour's `SerializedRCUManager`). Writers build off-lock and swap; the audio thread reads
+   a stable snapshot each block and never blocks. **This kills the `load_project` and
+   add/remove-track bursts** (remaining dropout source (a)).
+5. **Deferred-free.** Retired objects (plugins, sample buffers, old snapshots) go to an
+   off-RT reclamation queue — the audio thread never calls `free()`. A simple retire-list,
+   **not** a linked-in GC (Radium's Boehm link is a scar to note, not a model to copy).
+6. **Views read the snapshot / a shadow model** instead of locking the live one — migrate
+   view by view (arrange, piano roll, mixer). Undo/persistence stay on the document; only the
+   *render projection* is published.
+7. **Retire `engineLock`.** With reads snapshot-based and writes queued, the try-lock becomes
+   a no-op and can be removed.
+
+Slices 1–3 are high-value / low-risk and worth doing soon; 4–7 are the funded milestone.
+
+### Gloopy-specific hard parts / scope notes
+
+- **Plugins:** create/destroy on a helper thread, hand the pointer to the audio thread via
+  the queue, retire via deferred-free (slice 5). The audio thread owns the reference, not the
+  lifetime. Ties into Radium epic #1 (plugin crash resilience).
+- **Determinism / offline render:** the command queue is **live-only**. Offline render
+  (`renderMode`) must keep applying changes synchronously at defined sample positions so
+  bounces stay bit-reproducible (`resetModulationSmoothing`, per-effect `reset()`). Add a
+  test that a scripted change lands identically live-queued vs offline-synchronous.
+- **Command ordering / single-writer:** keep the queue SPSC by funnelling all producers
+  through the message thread (already true for the control APIs). Multiple direct RT producers
+  would need an MPSC queue — avoid.
+- **Undo/redo + save stay on the document** (main thread). This is exactly why "main owns the
+  document" beats "audio owns the state" for Gloopy.
+- **Session launch** already runs `advance()` on the audio thread under `engineLock`
+  (`Source/SessionApi.cpp`); it becomes a command consumer + snapshot reader like everything
+  else.
+
+### Things to keep in check
+
+- Don't hand-roll the lock-free primitives — use `choc`/`farbot`/`crill`. Radium hand-rolled
+  seqlocks and a GC over ~20 years; we shouldn't.
+- Don't shatter `engineLock` into many fine-grained locks (deadlock risk) — the queue + RCU
+  model *removes* the need for fine locks, it doesn't add more.
+- Steady-state crackle is **already fixed**. This is the endgame, not urgent — sequence it
+  behind the cheap residual fixes (shorten `load_project`'s hold; background sfizz warm).
+- Reference material only: Ardour is GPL, Gloopy is AGPL — copy *patterns*, not code, and get
+  a license review before lifting anything verbatim.
+
+### Priority
+
+Do **slice 1** (self-diagnosing misses + the zero-dropout headless check) opportunistically —
+it's cheap and turns every future dropout into a named holder instead of a 4-agent hunt.
+**Slices 2–3** (adaptive try-lock + command queue for hot mutations) are the next high-value
+step. **Slices 4–7** (RCU snapshot, deferred-free, snapshot-reading views, retire the lock)
+are the deliberate milestone — take them when RT-robustness becomes a first-class goal.
