@@ -120,6 +120,7 @@ public:
     bool apiSetMacroValue (int trackId, int macro, float value);          // 0..1, then apply
     bool apiMapMacroSynth  (int trackId, int macro, const juce::String& param, float lo, float hi);
     bool apiMapMacroEffect (int trackId, int macro, int insert, int slot, const juce::String& param, float lo, float hi);
+    bool apiMapMacroPlugin (int trackId, int macro, int insert, int slot, int paramIndex, float lo, float hi);  // insert<0 = track instrument plugin
     bool apiRandomizeMacros (int trackId);   // random 0..1 for every macro, then apply
     bool apiRenameMacro       (int trackId, int macro, const juce::String& name);
     bool apiRemoveMacro       (int trackId, int macro);

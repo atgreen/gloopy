@@ -291,6 +291,16 @@ class Gloopy:
             pb.MacroMapEffect(track_id=track_id, macro=macro, insert=insert, slot=slot,
                               param=param, lo=lo, hi=hi)))
 
+    def map_macro_plugin(self, track_id: int, macro: int, param_index: int,
+                         insert: int = -1, slot: int = 0,
+                         lo: float = 0.0, hi: float = 1.0) -> None:
+        """Map a macro onto a HOSTED-PLUGIN param by index, swept lo..hi. Default (insert=-1)
+        targets this track's own instrument plugin (e.g. Surge); pass insert>=0 (with slot) to
+        target a mixer-insert plugin."""
+        self._ack(self.stub.MapMacroPlugin(
+            pb.MacroMapPlugin(track_id=track_id, macro=macro, insert=insert, slot=slot,
+                              param_index=param_index, lo=lo, hi=hi)))
+
     def randomize_macros(self, track_id: int) -> None:
         """Roll every macro on the track to a fresh random 0..1 and apply — musical because
         each mapping stays within its authored [lo,hi] safe range."""

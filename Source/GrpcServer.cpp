@@ -178,6 +178,12 @@ namespace
                                                     js (q->param()), q->lo(), q->hi());
             r->set_ok (ok); if (! ok) r->set_error ("no such track/macro"); return Status::OK;
         }
+        Status MapMacroPlugin (ServerContext*, const gpb::MacroMapPlugin* q, gpb::Ack* r) override
+        {
+            const bool ok = main.apiMapMacroPlugin (q->track_id(), q->macro(), q->insert(), q->slot(),
+                                                    q->param_index(), q->lo(), q->hi());
+            r->set_ok (ok); if (! ok) r->set_error ("no such track/macro"); return Status::OK;
+        }
         Status RandomizeMacros (ServerContext*, const gpb::TrackId* q, gpb::Ack* r) override
         {
             const bool ok = main.apiRandomizeMacros (q->id());
