@@ -1264,7 +1264,17 @@ private:
                        std::vector<juce::String>& filesOut);     // false if unknown/failed
 
     std::vector<juce::String> apiListAudioInputs();
-    std::vector<juce::String> apiListMidiInputs();   // live MIDI sources Gloopy is listening to
+    struct MidiInputInfo { juce::String name; bool enabled; };
+    std::vector<MidiInputInfo> apiListMidiInputs();   // MIDI sources + whether Gloopy is listening to each
+    void apiSetMidiInputEnabled (const juce::String& name, bool enabled);   // open/close a source live + persist
+    // MIDI input selection: which sources Gloopy listens to. Regular ports are ON by default (in
+    // midiInputsDisabled = user turned OFF); ALSA "Midi Through" loopback ports are OFF by default
+    // (in midiThroughAllowed = user turned ON) — opening the loopback + duplicate device ports was a
+    // note-doubling source. Persisted app-wide (not per project) in midi-inputs.txt.
+    std::set<juce::String> midiInputsDisabled, midiThroughAllowed;
+    bool  midiInputEnabled (const juce::String& name) const;
+    void  loadMidiInputPrefs();
+    void  saveMidiInputPrefs();
     bool apiArmTrack (int trackId, bool armed, int input, int channels, bool monitor);
     bool apiSetPunchRange (bool enabled, double inBeat, double outBeat, double countIn);
     bool apiSetRecordSettings (int format, double latencyOffsetSeconds);
