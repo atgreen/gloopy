@@ -2587,6 +2587,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.set_midi_input_enabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        set_midi_input_enabled
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#gloopy.client.Gloopy.arm_track" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4706,6 +4717,17 @@
     <span class="md-ellipsis">
       
         list_midi_inputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.set_midi_input_enabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        set_midi_input_enabled
       
     </span>
   </a>
@@ -6860,7 +6882,26 @@ channel on exit. Methods return plain Python values (ints, dicts, lists).</p>
 
     <div class="doc doc-contents ">
 
-        <p>MIDI input sources Gloopy is listening to (it auto-opens all + hot-plugs).</p>
+        <p>MIDI input sources and whether Gloopy is listening to each: [{name, enabled}]. Regular
+ports default on; ALSA 'Midi Through' loopback ports default off.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="gloopy.client.Gloopy.set_midi_input_enabled" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">set_midi_input_enabled</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+
+<a href="#gloopy.client.Gloopy.set_midi_input_enabled" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Enable/disable a MIDI input source by name (applied live, remembered across sessions).</p>
 
 
     </div>
