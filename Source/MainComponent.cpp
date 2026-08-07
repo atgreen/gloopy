@@ -5211,7 +5211,7 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         }
 
         const bool audible = ! t->mute.load() && (! anySolo || t->solo.load());
-        if (! audible) continue;
+        if (! audible) { t->prevGainL = 0.0f; t->prevGainR = 0.0f; continue; }   // ramp up from silence on unmute
 
         const float pol = t->polarity.load() ? -1.0f : 1.0f;   // phase invert
         const float v = t->volume.load() * pol;
@@ -5219,8 +5219,14 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
         const float theta = (pan + 1.0f) * 0.25f * juce::MathConstants<float>::pi;
         const int route = juce::jlimit (0, numTracks - 1, t->mixerTrack.load());
         auto& dst = mixerTracks[(size_t) route]->buffer;
-        dst.addFrom (0, 0, mixBuffer, 0, 0, num, v * std::cos (theta));
-        dst.addFrom (1, 0, mixBuffer, juce::jmin (1, mixBuffer.getNumChannels() - 1), 0, num, v * std::sin (theta));
+        // Ramp the track fader/pan within the block (click-free) — same fix as the mixer inserts.
+        const float gL = v * std::cos (theta), gR = v * std::sin (theta);
+        const float sL = (t->prevGainL < 0.0f) ? gL : t->prevGainL;
+        const float sR = (t->prevGainR < 0.0f) ? gR : t->prevGainR;
+        const int   srcR = juce::jmin (1, mixBuffer.getNumChannels() - 1);
+        dst.addFromWithRamp (0, 0, mixBuffer.getReadPointer (0),    num, sL, gL);
+        dst.addFromWithRamp (1, 0, mixBuffer.getReadPointer (srcR), num, sR, gR);
+        t->prevGainL = gL; t->prevGainR = gR;
     }
 
     auto subView = [num] (juce::AudioBuffer<float>& b)
@@ -5303,14 +5309,19 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
                 bus.addFrom (1, 0, mt.buffer, 1, 0, num, g);
             }
 
-        if (! audible) continue;
+        if (! audible) { mt.prevGainL = 0.0f; mt.prevGainR = 0.0f; continue; }   // ramp up from silence on unmute
         // Main output → master (0) by default, or into a group/bus insert. The target must be
         // processed later in this loop (higher index) so it accumulates before it's summed; else
         // fall back to master rather than lose/delay the signal.
         const int out = mt.output.load();
         auto& dest = (out > ti && out < numTracks) ? mixerTracks[(size_t) out]->buffer : master.buffer;
-        dest.addFrom (0, 0, mt.buffer, 0, 0, num, v * panL);
-        dest.addFrom (1, 0, mt.buffer, 1, 0, num, v * panR);
+        // Ramp the per-channel gain from last block's value → this block's (click-free fader/pan).
+        const float gL = v * panL, gR = v * panR;
+        const float sL = (mt.prevGainL < 0.0f) ? gL : mt.prevGainL;
+        const float sR = (mt.prevGainR < 0.0f) ? gR : mt.prevGainR;
+        dest.addFromWithRamp (0, 0, mt.buffer.getReadPointer (0), num, sL, gL);
+        dest.addFromWithRamp (1, 0, mt.buffer.getReadPointer (1), num, sR, gR);
+        mt.prevGainL = gL; mt.prevGainR = gR;
     }
 
     // --- master -> output ---
@@ -5320,8 +5331,11 @@ juce::int64 MainComponent::renderBlock (juce::AudioBuffer<float>& outBuf, int st
     const float mpL = master.buffer.getMagnitude (0, 0, num) * mv, mpR = master.buffer.getMagnitude (1, 0, num) * mv;
     master.peakL.store (mpL); master.peakR.store (mpR);
     if (mpL >= 1.0f || mpR >= 1.0f) master.clipped.store (true);
-    if (out->getNumChannels() > 0) out->addFrom (0, start, master.buffer, 0, 0, num, mv);
-    if (out->getNumChannels() > 1) out->addFrom (1, start, master.buffer, 1, 0, num, mv);
+    // Ramp the master fader within the block too (click-free master volume moves).
+    const float sMv = (master.prevGainL < 0.0f) ? mv : master.prevGainL;
+    if (out->getNumChannels() > 0) out->addFromWithRamp (0, start, master.buffer.getReadPointer (0), num, sMv, mv);
+    if (out->getNumChannels() > 1) out->addFromWithRamp (1, start, master.buffer.getReadPointer (1), num, sMv, mv);
+    master.prevGainL = mv;
 
     // --- metronome: a short click at each beat, accented on bar downbeats. A monitor
     // layer added on top of the master (allocation-free; state persists across blocks so
