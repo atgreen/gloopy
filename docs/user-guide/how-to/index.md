@@ -31,6 +31,13 @@ assumes you've done [Your first track](../tutorials/first-track.md).
 
 - **[Play real drums with a DrumKit](play-drums-with-a-drumkit.md)** — a sampled,
   multi-pad kit on one track, edited in the step grid.
+- **[Play an external instrument](play-an-external-instrument.md)** — run a
+  standalone synth (ZynAddSubFX, Yoshimi, …) as a track, mixed into the song.
+
+## Sync and collaborate
+
+- **[Sync (and jam) with Ableton Link](sync-with-ableton-link.md)** — share tempo,
+  beat, and audio with Live, other DAWs, and hardware on the network.
 
 ## Generating content
 

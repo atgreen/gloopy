@@ -35,6 +35,10 @@ bounce it to a WAV.
 - **Plugin hosting** — load **VST3** and **LV2** instruments and effects
   (e.g. [Surge XT](https://surge-synthesizer.github.io/)); native plugin editors
   open when the plugin embeds an X11 UI, otherwise a generic parameter panel.
+- **External instruments** — run a standalone synth app (ZynAddSubFX, Yoshimi, …)
+  as its own process, with its real native window, wired in as a track: Gloopy
+  plays it live and folds its audio back into the mix through the track's inserts
+  and fader. (Linux.)
 - **Piano-roll editing** — the same note model behind a 16-step **grid** and a
   **piano roll** (toggle STEPS / PIANO). The roll has vertical zoom + scroll,
   shift-drag **region selection** (move/transform groups), **note auditioning**
@@ -58,7 +62,12 @@ bounce it to a WAV.
   Mod**) or any hosted plugin effect.
 - **Live MIDI input** — play the selected instrument track from a MIDI keyboard;
   Gloopy opens available hardware inputs and exposes a virtual **"Gloopy MIDI In"**
-  port that a controller or another app can connect to at any time.
+  port that a controller or another app can connect to at any time. Choose which
+  sources it listens to under **File → MIDI Inputs** (remembered across sessions).
+- **Ableton Link** — sync tempo and beat with Ableton Live, other DAWs, iOS apps,
+  and hardware on the network; a toolbar **LINK** toggle shows the peer count. It
+  can also **share audio over the network** — send your master as a channel and
+  receive a peer's channel onto a track, beat-aligned.
 - **Control API** — drive Gloopy from an external program (Common Lisp, Python,
   anything): **gRPC** for structural commands/queries and streamed feedback,
   **OSC** for low-latency live notes and knob turns. See
