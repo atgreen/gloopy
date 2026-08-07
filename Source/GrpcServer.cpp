@@ -959,6 +959,8 @@ namespace
 
         Status AddAudioTrack (ServerContext*, const gpb::AddAudioTrackRequest* q, gpb::TrackId* r) override
         { r->set_id (main.apiAddAudioTrack (js (q->name()))); return Status::OK; }
+        Status AddExternalInstrument (ServerContext*, const gpb::AddExternalInstrumentRequest* q, gpb::TrackId* r) override
+        { r->set_id (main.apiAddExternalInstrument (js (q->command()), js (q->name()))); return Status::OK; }
 
         Status AddSamplerTrack (ServerContext*, const gpb::AddSamplerTrackRequest* q, gpb::TrackId* r) override
         { r->set_id (main.apiAddSamplerTrack (js (q->name()), js (q->path()), q->root_note())); return Status::OK; }
