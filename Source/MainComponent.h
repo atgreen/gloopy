@@ -1297,6 +1297,15 @@ private:
   private:
     juce::StringArray openMidiInputs;
     std::unique_ptr<juce::MidiInput> virtualMidiIn;
+
+    // MIDI clock OUT (slice 2): a virtual output port that sends 24-PPQN clock + Start/Stop/Continue
+    // so external gear follows Gloopy's tempo/transport. Opt-in via File → MIDI (off by default).
+    std::unique_ptr<juce::MidiOutput> clockOut;
+    std::atomic<bool> midiClockOutEnabled { false };
+    bool   clockWasPlaying { false };   // audio thread: detect play-state transitions
+    double clockTicks { 0.0 };          // audio thread: fractional 24-PPQN accumulator (tempo clock)
+    juce::MidiBuffer clockScratch;      // reused per block (avoid audio-thread allocation)
+    void   sendMidiClockBlock (int numSamples);   // emit this block's clock/transport (audio thread)
     juce::MidiDeviceListConnection midiListConnection;   // hot-plug notifications
 
     juce::Viewport   arrangeViewport;
