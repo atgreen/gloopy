@@ -29,8 +29,10 @@ Every RPC is a plain function; messages come back as plists.")
    #:add-tempo-marker #:remove-tempo-marker #:list-tempo-markers
    ;; tracks
    #:list-tracks #:get-state #:add-synth-track #:add-sampler-track #:add-sfz-track
-   #:add-audio-track #:add-plugin-track #:set-track-params #:set-synth-param
-   #:remove-track
+   #:add-audio-track #:add-plugin-track #:add-external-instrument
+   #:set-track-params #:set-synth-param #:remove-track
+   ;; ableton link
+   #:set-link-enabled #:add-link-audio-receiver
    ;; macros (the rack layer)
    #:add-macro #:set-macro-value #:map-macro-synth #:map-macro-effect #:randomize-macros
    #:rename-macro #:clear-macro-mappings #:remove-macro

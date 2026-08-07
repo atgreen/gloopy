@@ -14,9 +14,14 @@
 (in-package :gloopy)
 
 (defvar *channel* nil "The active ag-grpc channel, or NIL if not connected.")
+(defvar *stub*    nil "The generated GLOOPY.PB client stub bound to *channel*.")
 
 ;;; --- plumbing ---------------------------------------------------------------
-(defun svc (method) (concatenate 'string "/gloopy.v1.Gloopy/" method))
+;;; Calls go through the client stub that ag-proto GENERATES from proto/gloopy.proto
+;;; (see proto.lisp): every RPC already has a GLOOPY.PB::GLOOPY-<name> method carrying
+;;; its own wire path + response type, so adding an RPC needs no hand-written call glue
+;;; — only (optionally) an ergonomic wrapper below.  %stub maps a CamelCase RPC name to
+;;; that generated method using ag-proto's OWN name mangling, so the two can't drift.
 (defun d (x) (coerce x 'double-float))     ; proto double fields
 (defun s (x) (coerce x 'single-float))     ; proto float fields
 (defun mk (class &rest initargs) (apply #'make-instance class initargs))
@@ -26,15 +31,24 @@
 (defun wave-int (w) (if (integerp w) w (or (getf *waveforms* w)    (error "unknown waveform ~s" w))))
 (defun fx-int   (ty)(if (integerp ty)ty (or (getf *effect-types* ty)(error "unknown effect type ~s" ty))))
 
-(defun %unary (method request response-type)
-  "Make a unary call, signalling on a non-OK status; returns the response message."
-  (unless *channel* (error "Gloopy: not connected — call (connect) first."))
-  (let* ((call (ag-grpc:call-unary *channel* (svc method) request :response-type response-type))
-         (status (ag-grpc:call-status call)))
+(defun %stub (method)
+  "The generated stub method for RPC METHOD (a CamelCase string), resolved via ag-proto's
+own name mangling so it always matches the generated GLOOPY.PB symbol."
+  (let ((sym (find-symbol (concatenate 'string "GLOOPY-" (ag-proto::lisp-name method))
+                          :gloopy.pb)))
+    (if (and sym (fboundp sym)) sym
+        (error "Gloopy: no generated stub for RPC ~a (is proto/gloopy.proto loaded?)" method))))
+
+(defun %unary (method request &optional response-type)
+  "Unary call through the generated stub; signals on non-OK status; returns the response.
+RESPONSE-TYPE is ignored (the generated stub carries it) — kept only for call-site clarity."
+  (declare (ignore response-type))
+  (unless *stub* (error "Gloopy: not connected — call (connect) first."))
+  (multiple-value-bind (resp status call) (funcall (%stub method) *stub* request)
     (unless (eql status 0)
       (error "Gloopy RPC ~a failed (status ~a): ~a" method status
              (ignore-errors (ag-grpc::call-status-message call))))
-    (ag-grpc:call-response call)))
+    resp))
 
 (defun %ack (method request)
   "Unary call returning Ack; T on success, else signal with the server's message."
@@ -68,12 +82,13 @@ find Gloopy even when it fell back off 50051 to a free port."
 from Gloopy's discovery file (so a moved control port just works), falling back to 50051."
   (let ((port (or port (%discover-control-port) 50051)))
     (when *channel* (ignore-errors (ag-grpc:channel-close *channel*)))
-    (setf *channel* (ag-grpc:make-channel host port))
+    (setf *channel* (ag-grpc:make-channel host port)
+          *stub*    (gloopy.pb::make-gloopy-stub *channel*))
     (format t "~&Connected to Gloopy at ~a:~a~%" host port)
     *channel*))
 
 (defun disconnect ()
-  (when *channel* (ag-grpc:channel-close *channel*) (setf *channel* nil))
+  (when *channel* (ag-grpc:channel-close *channel*) (setf *channel* nil *stub* nil))
   (values))
 
 (defun connectedp () (and *channel* t))
@@ -181,6 +196,14 @@ transport's single constant tempo; markers make the beat<->time map piecewise."
                      (mk 'gloopy.pb::add-plugin-track-request :identifier identifier)
                      'gloopy.pb::track-id))))
     (if (minusp id) (error "Gloopy: no plugin for identifier ~s" identifier) id)))
+
+(defun add-external-instrument (command &optional (name ""))
+  "Launch a standalone app (e.g. \"zynaddsubfx -O jack\") as its own process, wired in as a
+track — native GUI, MIDI out, audio in.  Returns the new track id (-1 on a bad command)."
+  (gloopy.pb::id
+   (%unary "AddExternalInstrument"
+           (mk 'gloopy.pb::add-external-instrument-request :command command :name name)
+           'gloopy.pb::track-id)))
 
 (defun set-track-params (id &key volume pan mute solo name)
   "Set track params.  Only supplied keys are sent.  NOTE: because proto3 omits
@@ -462,6 +485,20 @@ Returns (:track-id :index)."
 (defun open-plugin-editor (track-id)
   (%ack "OpenPluginEditor" (mk 'gloopy.pb::track-id :id (round track-id))))
 
+;;; --- Ableton Link -----------------------------------------------------------
+(defun set-link-enabled (&optional (enabled t))
+  "Join (T) or leave (NIL) the Ableton Link session — the scriptable LINK toggle."
+  (%ack "SetLinkEnabled" (mk 'gloopy.pb::link-enable-request :enabled (and enabled t))))
+
+(defun add-link-audio-receiver (channel)
+  "Add a track that RECEIVES a peer's Ableton Link audio channel.  CHANNEL matches the
+channel name or \"peer: channel\"; Link must be enabled and the channel visible.  Returns
+the new track id (-1 if there's no such channel)."
+  (gloopy.pb::id
+   (%unary "AddLinkAudioReceiver"
+           (mk 'gloopy.pb::add-link-audio-receiver-request :channel channel)
+           'gloopy.pb::track-id)))
+
 ;;; --- project / render -------------------------------------------------------
 (defun new-project  ()     (%ack "NewProject" (mk 'gloopy.pb::empty)))
 (defun load-project (path) (%ack "LoadProject" (mk 'gloopy.pb::file-path :path (namestring path))))
@@ -490,12 +527,11 @@ Returns (:track-id :index)."
 (defun subscribe (&key (transport t) (meters t) (interval-ms 200) (seconds 3) on-event)
   "Stream playhead + meter events for ~SECONDS seconds.  Returns the collected
 event plists; also calls ON-EVENT (if given) with each as it arrives."
-  (unless *channel* (error "Gloopy: not connected."))
-  (let ((stream (ag-grpc:call-server-stream *channel* (svc "Subscribe")
+  (unless *stub* (error "Gloopy: not connected."))
+  (let ((stream (funcall (%stub "Subscribe") *stub*
                   (mk 'gloopy.pb::subscribe-request
                       :transport (and transport t) :meters (and meters t)
-                      :interval-ms (round interval-ms))
-                  :response-type 'gloopy.pb::event))
+                      :interval-ms (round interval-ms))))
         (events '())
         (budget (max 1 (ceiling (* 2 seconds (/ 1000 (max 1 interval-ms)))))))
     (unwind-protect
