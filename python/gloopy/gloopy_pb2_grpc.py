@@ -280,6 +280,11 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.AddAudioTrackRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.TrackId.FromString,
                 _registered_method=True)
+        self.AddExternalInstrument = channel.unary_unary(
+                '/gloopy.v1.Gloopy/AddExternalInstrument',
+                request_serializer=gloopy__pb2.AddExternalInstrumentRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.TrackId.FromString,
+                _registered_method=True)
         self.AddSamplerTrack = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AddSamplerTrack',
                 request_serializer=gloopy__pb2.AddSamplerTrackRequest.SerializeToString,
@@ -1606,6 +1611,13 @@ class GloopyServicer:
 
     def AddAudioTrack(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AddExternalInstrument(self, request, context):
+        """standalone app as a track
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -3197,6 +3209,11 @@ def add_GloopyServicer_to_server(servicer, server):
             'AddAudioTrack': grpc.unary_unary_rpc_method_handler(
                     servicer.AddAudioTrack,
                     request_deserializer=gloopy__pb2.AddAudioTrackRequest.FromString,
+                    response_serializer=gloopy__pb2.TrackId.SerializeToString,
+            ),
+            'AddExternalInstrument': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddExternalInstrument,
+                    request_deserializer=gloopy__pb2.AddExternalInstrumentRequest.FromString,
                     response_serializer=gloopy__pb2.TrackId.SerializeToString,
             ),
             'AddSamplerTrack': grpc.unary_unary_rpc_method_handler(
@@ -5528,6 +5545,33 @@ class Gloopy:
             target,
             '/gloopy.v1.Gloopy/AddAudioTrack',
             gloopy__pb2.AddAudioTrackRequest.SerializeToString,
+            gloopy__pb2.TrackId.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AddExternalInstrument(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/AddExternalInstrument',
+            gloopy__pb2.AddExternalInstrumentRequest.SerializeToString,
             gloopy__pb2.TrackId.FromString,
             options,
             channel_credentials,

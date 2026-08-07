@@ -254,6 +254,13 @@ class Gloopy:
     def add_audio_track(self, name: str = "") -> int:
         return self.stub.AddAudioTrack(pb.AddAudioTrackRequest(name=name)).id
 
+    def add_external_instrument(self, command: str, name: str = "") -> int:
+        """Add a track backed by a STANDALONE app launched as its own process (its native GUI
+        opens). `command` is an exe + args; the track forwards its MIDI to the app. Returns the
+        new track id (-1 on a bad command)."""
+        return self.stub.AddExternalInstrument(
+            pb.AddExternalInstrumentRequest(command=command, name=name)).id
+
     def add_plugin_track(self, identifier: str) -> int:
         return self.stub.AddPluginTrack(pb.AddPluginTrackRequest(identifier=identifier)).id
 

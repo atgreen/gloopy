@@ -38,6 +38,7 @@
 #include "GloopyLookAndFeel.h"
 
 class DrumKit;   // Source/DrumKit.h (multi-pad kit generator; used by the Hydrogen-kit loader)
+class JackCapture;   // Source/JackCapture.h (shared JACK/PipeWire audio-capture client for external instruments)
 
 #include <unordered_map>
 #include <map>
@@ -137,6 +138,7 @@ public:
     void apiSetLoop (bool enabled, double startBeat, double endBeat);
     TransportSnap apiGetTransport();
     int  apiAddSynthTrack (const juce::String& name, int wave, float a, float d, float s, float r, float g);
+    int  apiAddExternalInstrument (const juce::String& command, const juce::String& name);   // slice 1: launch a standalone app as a track
     bool apiSetTrackParams (int id, bool hasVol, float vol, bool hasPan, float pan,
                             bool hasMute, bool mute, bool hasSolo, bool solo,
                             bool hasName, const juce::String& name);
@@ -971,6 +973,7 @@ private:
 
     juce::AudioFormatManager formatManager;
     PluginHost pluginHost;
+    std::shared_ptr<JackCapture> jackCapture;   // slice 3: opened on first external-instrument track; shared by every ExternalInstrument
     double currentSampleRate { 44100.0 };
     int    currentBlockSize  { 512 };
 
@@ -1023,7 +1026,8 @@ private:
     juce::ComboBox   scaleNameBox;                 // chromatic/major/minor/...
     void applyScaleFromToolbar();                  // reads both boxes -> apiSetScale
     void refreshScaleToolbar();                    // model -> both boxes (after load)
-    void showAddTrackMenu();                        // + Track: Synth/Sampler/Audio/Plugin/Drum Kit
+    void showAddTrackMenu();                        // + Track: Synth/Sampler/Audio/Plugin/Drum Kit/External
+    void promptExternalInstrumentCommand();         // slice 1: ask for a command to launch as an external instrument
     void showSamplerChooser();                      // one chooser for audio files AND .sfz, dispatched by ext
     void addBundledDrumKitTrack (const juce::String& kitName);   // a vendored Hydrogen kit -> DrumKit track
     void showHydrogenKitChooser();                  // choose a .h2drumkit / drumkit.xml / kit folder to import

@@ -13,6 +13,7 @@
 #include "SynthGenerator.h"
 #include "DrumSynth.h"
 #include "DrumKit.h"
+#include "ExternalInstrument.h"
 #include "HydrogenKit.h"
 #include "Log.h"
 #include "Paths.h"
@@ -1855,6 +1856,26 @@ int MainComponent::apiAddSynthTrack (const juce::String& name, int wave, float a
         for (int i = 0; i < 12; ++i) p.tuning[(size_t) i].store ((float) projectTuning[(size_t) i]);   // inherit project microtuning
         auto t = std::make_unique<Track> (name.isNotEmpty() ? name : "Synth",
                                           std::move (sg), 60, paletteColour ((int) tracks.size()));
+        Track* raw = t.get();
+        addTrack (std::move (t));
+        return raw->id;
+    });
+}
+
+// Slice 1 (external-instrument epic): add a track backed by a STANDALONE app launched as its own
+// process (its real native GUI appears). No audio/MIDI routing yet — the track is silent; this
+// just proves the process/lifecycle model. `command` is a shell-style command line (exe + args).
+int MainComponent::apiAddExternalInstrument (const juce::String& command, const juce::String& name)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        juce::StringArray argv = juce::StringArray::fromTokens (command, true);   // respects quotes
+        argv.removeEmptyStrings();
+        if (argv.isEmpty()) return -1;
+        const juce::String label = name.isNotEmpty() ? name : juce::File (argv[0]).getFileNameWithoutExtension();
+        if (jackCapture == nullptr) jackCapture = std::make_shared<JackCapture>();   // slice 3: shared capture client, opened on first use
+        auto gen = std::make_unique<ExternalInstrument> (argv, label, jackCapture);
+        auto t = std::make_unique<Track> (label, std::move (gen), 60, paletteColour ((int) tracks.size()));
         Track* raw = t.get();
         addTrack (std::move (t));
         return raw->id;
@@ -6628,8 +6649,34 @@ void MainComponent::showAddTrackMenu()
     drums.addItem (12, "Load Hydrogen kit\xe2\x80\xa6");
     m.addSubMenu ("Drum Kit", drums);
 
+    // External instrument (epic slices 1-3): a standalone app launched as its own process, so its
+    // real native GUI appears; its MIDI in + JACK audio out are auto-routed (see ExternalInstrument).
+    // The per-app flags below make the app output to JACK/PipeWire so we can capture it into the mix;
+    // MIDI input stays on ALSA (default) so our slice-2 MIDI-out connection still reaches it.
+    auto onPath = [] (const juce::String& exe) -> juce::String
+    {
+        for (auto& d : juce::StringArray::fromTokens (juce::SystemStats::getEnvironmentVariable ("PATH", {}), ":", {}))
+            if (auto f = juce::File (d).getChildFile (exe); f.existsAsFile()) return f.getFullPathName();
+        return {};
+    };
+    struct KnownApp { const char* label; const char* exe; const char* audioFlags; };
+    const KnownApp knownApps[] = {
+        { "ZynAddSubFX", "zynaddsubfx", " -O jack" }, { "Yoshimi", "yoshimi", " -J" },
+        { "Surge XT (standalone)", "surge-xt", "" }, { "Vital", "vital", "" },
+        { "Helm", "helm", "" }, { "amsynth", "amsynth", " -j" },
+    };
+    juce::PopupMenu ext;
+    juce::StringArray extCmds, extNames;
+    for (auto& a : knownApps)
+        if (auto p = onPath (a.exe); p.isNotEmpty())
+        { ext.addItem (200 + extCmds.size(), a.label); extNames.add (a.label); extCmds.add ("\"" + p + "\"" + a.audioFlags); }
+    if (extCmds.isEmpty()) ext.addItem (297, "(no known standalone synths on PATH)", false);
+    ext.addSeparator();
+    ext.addItem (298, "Custom command\xe2\x80\xa6");
+    m.addSubMenu ("External Instrument", ext);
+
     m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (addTrackBtn),
-        [this] (int r)
+        [this, extCmds, extNames] (int r)
         {
             if      (r == 1)  { if (addSynthBtn.onClick)  addSynthBtn.onClick(); }
             else if (r == 2)  showSamplerChooser();
@@ -6638,7 +6685,24 @@ void MainComponent::showAddTrackMenu()
             else if (r == 10) addBundledDrumKitTrack ("GMRockKit");
             else if (r == 11) addBundledDrumKitTrack ("TR808EmulationKit");
             else if (r == 12) showHydrogenKitChooser();
+            else if (r >= 200 && r < 200 + extCmds.size()) apiAddExternalInstrument (extCmds[r - 200], extNames[r - 200]);
+            else if (r == 298) promptExternalInstrumentCommand();
         });
+}
+
+void MainComponent::promptExternalInstrumentCommand()
+{
+    auto aw = std::make_shared<juce::AlertWindow> ("External Instrument",
+        "Command to launch as a track (its native GUI will open):", juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("cmd", "zynaddsubfx", {});
+    aw->addButton ("Launch", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw] (int r)
+    {
+        if (r == 1) { const auto cmd = aw->getTextEditorContents ("cmd").trim(); if (cmd.isNotEmpty()) apiAddExternalInstrument (cmd, {}); }
+        aw->exitModalState (r);
+        aw->setVisible (false);
+    }), false);
 }
 
 void MainComponent::addBundledDrumKitTrack (const juce::String& kitName)

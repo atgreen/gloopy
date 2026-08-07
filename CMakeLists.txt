@@ -98,6 +98,7 @@ target_sources(Gloopy PRIVATE
     Source/PianoRoll.cpp
     Source/MixerView.cpp
     Source/GloopyLookAndFeel.cpp
+    Source/X11Raise.cpp          # EWMH window-raise helper (Linux external instruments; no-op stub elsewhere)
     Source/SurgeGenerator.cpp)   # Surge glue; PIMPL stub when GLOOPY_WITH_SURGE is off
 
 # Plugin-host formats by platform: VST3 everywhere; LV2 on Linux/macOS only
@@ -133,6 +134,15 @@ target_link_libraries(Gloopy PRIVATE
     PUBLIC
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags)   # LTO omitted: much faster builds
+
+# X11 for the EWMH window-raise helper (Source/X11Raise.cpp) used by external instruments. JUCE
+# loads X11 via dlopen so it's not otherwise on the link line; we call Xlib directly, so link it.
+# Linux-only (X11Raise.cpp is a no-op stub elsewhere). X11 dev headers are already required to
+# build juce_gui_basics on Linux, so this is always available here.
+if(UNIX AND NOT APPLE)
+    find_package(X11 REQUIRED)
+    target_link_libraries(Gloopy PRIVATE ${X11_LIBRARIES})
+endif()
 
 # ---------------------------------------------------------------------------
 # Vendored sfizz (third_party/sfizz) — the native SFZ engine, built as a static
