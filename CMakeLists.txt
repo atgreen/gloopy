@@ -145,6 +145,21 @@ if(UNIX AND NOT APPLE)
 endif()
 
 # ---------------------------------------------------------------------------
+# Ableton Link (third_party/link) — network tempo/beat/phase sync with Live,
+# other DAWs, iOS and hardware. Header-only: AbletonLinkConfig.cmake defines the
+# INTERFACE target Ableton::Link (include dirs + bundled asio-standalone +
+# LINK_PLATFORM_* defs + atomic/pthread on Linux). GPL-2.0-or-later, compatible
+# with Gloopy's AGPL-3.0 via the or-later upgrade path.
+# ---------------------------------------------------------------------------
+include(${CMAKE_CURRENT_SOURCE_DIR}/third_party/link/AbletonLinkConfig.cmake)
+target_link_libraries(Gloopy PRIVATE Ableton::Link)
+# Link/LinkAudio uses standalone asio for UDP discovery + audio transport. On Windows asio needs
+# Winsock; AbletonLinkConfig only adds atomic/pthread on Linux, so link the sockets libs ourselves.
+if(WIN32)
+    target_link_libraries(Gloopy PRIVATE ws2_32 wsock32 iphlpapi)
+endif()
+
+# ---------------------------------------------------------------------------
 # Vendored sfizz (third_party/sfizz) — the native SFZ engine, built as a static
 # library and linked directly (no plugin hosting, no state hack). Library only:
 # plugins/JACK/render/tests off, dr_libs audio backend (no libsndfile LGPL),
