@@ -63,7 +63,9 @@ bounce it to a WAV.
 - **Live MIDI input** — play the selected instrument track from a MIDI keyboard;
   Gloopy opens available hardware inputs and exposes a virtual **"Gloopy MIDI In"**
   port that a controller or another app can connect to at any time. Choose which
-  sources it listens to under **File → MIDI Inputs** (remembered across sessions).
+  sources it listens to under **File → MIDI Inputs** (remembered across sessions),
+  and optionally **follow MIDI transport** so a sequencer/controller's Start / Stop /
+  Continue drives Gloopy's playback.
 - **Ableton Link** — sync tempo and beat with Ableton Live, other DAWs, iOS apps,
   and hardware on the network; a toolbar **LINK** toggle shows the peer count. It
   can also **share audio over the network** — send your master as a channel and

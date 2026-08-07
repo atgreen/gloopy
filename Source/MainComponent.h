@@ -1105,6 +1105,8 @@ private:
 
     // Live MIDI input: the instrument track id that receives played notes.
     std::atomic<int> midiInputTarget { -1 };
+    std::atomic<bool> midiTransportFollow { false };   // react to MIDI Start/Stop/Continue/SPP/MMC (File → MIDI)
+    void handleMidiTransport (const juce::MidiMessage&);   // apply a transport message (MIDI thread; marshals UI)
     std::atomic<int> firstInstrumentId { -1 };   // fallback when nothing is selected
     // Live-MIDI input activity, for the track-header LED: the last note-on time (ms) and the
     // track that received it. Written on the MIDI thread, read on the message thread.

@@ -1559,6 +1559,7 @@ void MainComponent::loadMidiInputPrefs()
         const auto s = line.trim();
         if      (s.startsWith ("d|")) midiInputsDisabled.insert (s.substring (2));
         else if (s.startsWith ("t|")) midiThroughAllowed.insert (s.substring (2));
+        else if (s == "ft|1")         midiTransportFollow.store (true);
     }
 }
 
@@ -1567,6 +1568,7 @@ void MainComponent::saveMidiInputPrefs()
     juce::StringArray lines;
     for (auto& n : midiInputsDisabled) lines.add ("d|" + n);
     for (auto& n : midiThroughAllowed) lines.add ("t|" + n);
+    if (midiTransportFollow.load()) lines.add ("ft|1");
     auto f = midiPrefsFile();
     f.getParentDirectory().createDirectory();
     f.replaceWithText (lines.joinIntoString ("\n"));
@@ -1640,6 +1642,13 @@ void MainComponent::teardownMidiInputs()
 
 void MainComponent::handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage& m)
 {
+    // Optional external transport control (File → MIDI): let a sequencer/controller start, stop,
+    // continue, or locate Gloopy. Consumed here so these don't fall through to the instrument.
+    if (midiTransportFollow.load (std::memory_order_relaxed)
+        && (m.isMidiStart() || m.isMidiContinue() || m.isMidiStop()
+            || m.isSongPositionPointer() || m.isMidiMachineControlMessage()))
+    { handleMidiTransport (m); return; }
+
     // Continuous controllers drive mapped parameters (controller mapping / MIDI-learn).
     if (m.isController())
         apiSetController ("cc:" + juce::String (m.getControllerNumber()), m.getControllerValue() / 127.0f);
@@ -1657,6 +1666,46 @@ void MainComponent::handleIncomingMidiMessage (juce::MidiInput*, const juce::Mid
                 midiActivityTrackId.store (id);
                 midiActivityMs.store (juce::Time::getMillisecondCounterHiRes());
             }
+        }
+}
+
+// Apply a MIDI transport message (called on the MIDI input thread when "Follow MIDI transport" is
+// on). The transport state is atomic, so we change it immediately here for tight timing; the toolbar
+// button (a UI component) is updated on the message thread. MIDI Stop PAUSES — keeping the position
+// so a following Continue resumes — unlike the toolbar Stop, which also rewinds to the start.
+void MainComponent::handleMidiTransport (const juce::MidiMessage& m)
+{
+    auto play = [this] (bool fromStart)
+    {
+        if (fromStart) apiSeek (0.0);
+        transport.setPlaying (true);
+        juce::Component::SafePointer<MainComponent> sp { this };
+        juce::MessageManager::callAsync ([sp] { if (! sp) return;
+            sp->clearClipIndicators();
+            sp->playButton.setToggleState (true, juce::dontSendNotification);
+            sp->playButton.setIcon (IconButton::Pause); });
+    };
+    auto pause = [this]
+    {
+        transport.setPlaying (false);
+        juce::Component::SafePointer<MainComponent> sp { this };
+        juce::MessageManager::callAsync ([sp] { if (! sp) return;
+            sp->playButton.setToggleState (false, juce::dontSendNotification);
+            sp->playButton.setIcon (IconButton::Play); });
+    };
+
+    if      (m.isMidiStart())            play (true);      // from the top
+    else if (m.isMidiContinue())         play (false);     // from current position
+    else if (m.isMidiStop())             pause();
+    else if (m.isSongPositionPointer())  apiSeek (m.getSongPositionPointerMidiBeat() / 4.0);   // 16ths → beats
+    else if (m.isMidiMachineControlMessage())
+        switch (m.getMidiMachineControlCommand())
+        {
+            case juce::MidiMessage::mmc_play:
+            case juce::MidiMessage::mmc_deferredplay: play (false); break;
+            case juce::MidiMessage::mmc_stop:
+            case juce::MidiMessage::mmc_pause:        pause();      break;
+            default: break;   // rewind / fast-forward / record — not in this slice
         }
 }
 
@@ -7604,6 +7653,8 @@ void MainComponent::showFileMenu()
     Track* midiTrack = resolveTrack (midiTgt);
     midiMenu.addItem (899, "Live notes play: " + (midiTrack != nullptr ? midiTrack->name
                                                                         : juce::String ("(select an instrument track)")), false);
+    midiMenu.addSeparator();
+    midiMenu.addItem (46, "Follow MIDI transport (Start / Stop / Continue)", true, midiTransportFollow.load());
     menu.addSubMenu ("MIDI Inputs", midiMenu);
     menu.addItem (5, "Rescan Plugins");
     menu.addItem (42, "Connect Emacs to Kernel (Slynk)...");   // warm kernel's Slynk port, for Sly/SLIME
@@ -7619,6 +7670,7 @@ void MainComponent::showFileMenu()
                 apiSetMidiInputEnabled (name, ! midiInputEnabled (name));
                 return;
             }
+            if (result == 46) { midiTransportFollow.store (! midiTransportFollow.load()); saveMidiInputPrefs(); return; }
             if (result == 8) { openNotes(); return; }
             if (result == 17) { openSourceControl(); return; }
             if (result == 22) { showCommitDialog(); return; }   // save + stage all + commit
