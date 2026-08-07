@@ -749,3 +749,140 @@ it's cheap and turns every future dropout into a named holder instead of a 4-age
 **Slices 2–3** (adaptive try-lock + command queue for hot mutations) are the next high-value
 step. **Slices 4–7** (RCU snapshot, deferred-free, snapshot-reading views, retire the lock)
 are the deliberate milestone — take them when RT-robustness becomes a first-class goal.
+
+---
+
+## External instruments: Gloopy as a session host (NSM + JACK) — epic
+
+**Goal:** run standalone applications (ZynAddSubFX, Vital-standalone, Yoshimi, a hardware-ish
+softsynth) as **their own processes** — with their **real native GUIs** — as first-class Gloopy
+instrument tracks: Gloopy sends them MIDI, receives their audio, and **saves/restores their state
+inside the `.gloopy` composition**. This is the answer to "why can't I see ZynAddSubFX's native
+UI" — JUCE can't embed Zyn's external LV2 UI, so instead of hosting it in-process we host it as a
+*process* and let it draw its own window. (Prompted 2026-08-06; user chose the "Gloopy is the
+session host" model over "Gloopy is an NSM client".)
+
+**The two established mechanisms this builds on (Linux/JACK ecosystem):**
+- **NSM (New/Non Session Manager)** — an OSC-over-UDP protocol. A *server* launches each client
+  process with an `NSM_URL` env var; the client `/nsm/server/announce`s, the server assigns it a
+  per-client session directory and sends `/nsm/client/open <path> <name> <id>` and
+  `/nsm/client/save`; the client serialises **its own** state under that path and `/reply`s. On
+  reload the server relaunches the process and re-opens it against the saved dir. **ZynAddSubFX,
+  Yoshimi, Carla, Ardour, Qtractor** are all NSM-aware. Gloopy already has OSC plumbing
+  (`Source/OscControl.h`), so it can implement the **server** side.
+- **JACK / PipeWire graph** — the standalone app produces audio (and takes MIDI) over JACK ports;
+  Gloopy pulls that audio into the track and pushes MIDI out. On the user's PipeWire system,
+  PipeWire's JACK layer *is* the graph, so no separate JACK daemon is needed.
+
+### Architecture
+- A new generator type **`ExternalInstrument`** (peer of `PluginInstrument`/`SfizzGenerator`) that
+  owns: the launched **process** (`juce::ChildProcess` + `NSM_URL`), a **MIDI-out** port to it, an
+  **audio-in** capture from its JACK output, and its **NSM client id / session subdir**.
+- Gloopy runs a small **NSM server** (`nsmd` role) bound to a UDP port; the composition stores, per
+  external-instrument track, the client executable + client id, and the client's saved state lives
+  in the composition dir (`external/<slug>/…`) so it round-trips with the project.
+- **Audio/MIDI routing** is the real new muscle: Gloopy must join the **JACK/PipeWire** graph to
+  receive the app's output and send it MIDI. JUCE can run on a JACK audio backend; the cleaner path
+  is likely a dedicated JACK client sidecar that exposes one capture pair per external track and one
+  MIDI-out port, auto-connected to the launched app by port name.
+
+### Slices (one green commit each)
+1. **Launch + native GUI, no state, no audio.** An "Add External Instrument" entry launches a
+   chosen app as a child process so its real GUI appears; track owns the process lifecycle
+   (relaunch/kill, crash-restart). Proves the process model. (No sound yet.)
+2. **MIDI out → the app.** Open a MIDI-out (JACK MIDI or ALSA seq) named per track; auto-connect to
+   the app; route the track's live + sequenced notes to it. You can now *play* Zyn from Gloopy.
+3. **Audio in ← the app.** Join the JACK/PipeWire graph; capture the app's stereo output into the
+   track's buffer (the existing audio-input/monitoring path is the seam). You now *hear* it in the
+   mix, through the track's inserts/fader.
+4. **NSM server + state save/restore.** Implement the minimal NSM server verbs (announce/open/save);
+   store each client's state under `external/<slug>/` in the composition; save on project-save,
+   reopen on load. Zyn's patch now round-trips with the `.gloopy`.
+5. **Persistence + polish.** Serialise the external-track descriptor (exe, client id, ports) in the
+   composition TOML; reconnect ports on load; surface status (running / crashed / reconnecting) and
+   a "show GUI" button in the track header / device panel.
+6. **Freeze / bounce.** Because a live external process can't be offline-rendered deterministically
+   (see below), add "Freeze to audio" — real-time-capture the external track to a clip so bounces
+   and headless renders are reproducible.
+
+### Hard parts / scope notes
+- **Linux-only.** NSM + JACK are the Linux audio ecosystem; this feature does not exist on
+  Windows/mac. That's consistent with Gloopy's Linux-first nature, but it must degrade gracefully
+  (hide the feature where JACK/NSM aren't present).
+- **Determinism / offline render.** Composition-as-code wants bit-reproducible bounces; a separate
+  real-time process breaks that. Offline/headless render **cannot** drive an external instrument
+  deterministically — hence slice 6 (freeze-to-audio) is a *prerequisite* for using external
+  instruments in a rendered project, not an optional extra.
+- **Non-NSM apps.** Only NSM-aware apps save/restore live state. A non-aware app can be *launched*
+  but Gloopy can only persist whatever config file it writes itself — document the limitation and
+  gate the "save state" affordance on the client announcing NSM support.
+- **Latency + xruns.** Inter-app audio adds a graph hop; the external app's own buffer settings and
+  the JACK period matter. Keep it off the offline path entirely.
+- **Lifecycle/crash.** A crashing external app must not take Gloopy down (it won't — separate
+  process) but the track must show it and offer relaunch; ties into the plugin-crash-resilience
+  posture (Radium idea #1).
+- **Don't reinvent NSM.** Implement the small server subset needed; do not become a general session
+  manager. If the user already runs RaySession/nsmd, consider *cooperating* rather than competing.
+
+### Priority
+Aspirational and sizable — the JACK/graph integration (slices 2–3) is the real new capability and
+the biggest lift; slices 1 (launch+GUI) and 6 (freeze) are the pragmatic bookends. Sequence this
+*after* the plugin/RT work stabilises. First user-visible win worth shipping = slices 1–3 (launch a
+standalone synth, play it, hear it); state persistence (4–5) and freeze (6) make it a real project
+citizen. See [[surge-is-the-synth]] (in-process synth), [[desktop-ui-for-everything]], and the
+plugin-crash-resilience notes in the Radium section above.
+
+---
+
+## Ableton Link (network tempo/beat/phase sync) — epic
+
+**Goal:** sync Gloopy's transport — **tempo, beat phase, and optionally start/stop** — with every
+other Link-enabled app and device on the local network: Ableton Live, Bitwig, other DAWs, iOS
+apps, hardware. Turn Link on and Gloopy plays *in lock* with the room. (User-requested 2026-08-06,
+https://ableton.github.io/link/.)
+
+**License (why it's viable):** the Link library is **GPLv2-or-later** (dual-licensed with a
+commercial option). GPLv2+ can be used under GPLv3, and GPLv3/AGPLv3 are compatible — so Link is
+usable in Gloopy's **AGPL-3.0** work (the combined binary is AGPLv3; Link's terms are met via the
+GPLv3 upgrade path). This is *only* true because it's GPLv2-**or-later** — GPLv2-only would be
+incompatible. Vendor it under `third_party/link/` with its licence text; add a license-review note
+(like the Ardour/Radium caveats above).
+
+**Integration shape:** Link is a header-only C++ library that runs its own peer-discovery/sync
+thread. The audio callback calls `link.captureAudioSessionState()` to read the shared beat/phase/
+tempo at the buffer's start (this API is designed to be RT-safe — a good fit for our zero-alloc
+callback). Gloopy's `Transport` derives its tempo + playhead phase from that session state when Link
+is engaged, and pushes local tempo edits back to the session. A **Link** toggle + peer-count live in
+the toolbar/status bar.
+
+### Slices (one green commit each)
+1. **Connect + display.** Vendor the lib; a "Link" toggle creates/enables a `Link` session; show
+   the **peer count** in the status bar. No transport effect yet — proves discovery/build/threading.
+2. **Tempo follow.** When Link is on, Gloopy's tempo follows the shared session tempo, and a local
+   tempo change proposes to the session (peers move together). Reconcile with the tempo box.
+3. **Beat/phase sync.** Align Gloopy's playhead to the shared beat grid on start (quantized launch),
+   so bars line up with peers — the part that makes it feel locked, not just same-BPM.
+4. **Start/stop sync.** Opt into Link's transport start/stop so hitting play on one app starts all.
+
+### Hard parts / scope notes
+- **Tempo map collision.** Gloopy has a *tempo map* (mid-song tempo changes, `Source/Tempo.cpp`);
+  Link is a *single shared tempo*. Decide the contract: Link engaged ⇒ the local tempo map is
+  overridden/disabled (Link is authoritative), or Link only applies in live/session use. Don't let
+  both fight for the playhead.
+- **Determinism / offline render.** Link is real-time network sync — the offline/headless bounce
+  must **ignore** Link entirely (deterministic renders can't depend on network peers). Gate it on
+  the live path (like the session launcher), off the `renderMode` path.
+- **Threading.** Link's audio-session-state capture is built for the audio callback; the peer thread
+  is Link's own. Keep the callback's use alloc-free (it is) and don't block on Link's mutex on the
+  RT path — use the capture/commit API as intended.
+- **Quantum.** Expose the Link "quantum" (bar length) so phase sync lines up bars, tying into the
+  session-launch launch-quantum already in the model.
+- **Cross-platform:** Link runs on Linux/mac/Windows/iOS — no platform gating needed (unlike the
+  NSM/JACK external-instrument epic, which is Linux-only).
+
+### Priority
+Medium-high and **well-scoped** — the library does the hard timing/networking; Gloopy's work is
+wiring `Transport` to the session state and one UI toggle. Strong interop win that fits the
+networked/scriptable ethos. Slice 1 (connect + peer count) is a quick, satisfying first commit;
+slices 2–3 deliver the actual "plays in lock" value. See [[control-port-discovery]] (Gloopy already
+does network discovery for its control API) and the tempo map in `Source/Tempo.cpp`.
