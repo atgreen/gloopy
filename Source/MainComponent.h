@@ -1112,7 +1112,7 @@ private:
     // Learnable transport map: many controllers' transport buttons send CC/notes, not Start/Stop.
     // Bind a CC or note to each action so those buttons drive the transport. Packed = (0x100|cc) for
     // a controller, or the note number; -1 = unbound. Read on the MIDI thread, set by the learn UI.
-    enum { TA_Play = 0, TA_Stop, TA_Continue, TA_Record, TA_Count };
+    enum { TA_Play = 0, TA_Stop, TA_Continue, TA_Record, TA_Loop, TA_Rewind, TA_FastForward, TA_Count };
     std::array<std::atomic<int>, TA_Count> transportBind {};   // reset to -1 in loadMidiInputPrefs
     std::atomic<int> transportLearnTarget { -1 };              // action being learned, or -1
     void triggerTransportAction (int action);                 // MIDI thread

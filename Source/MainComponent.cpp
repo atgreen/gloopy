@@ -1797,16 +1797,38 @@ void MainComponent::handleMidiTransport (const juce::MidiMessage& m)
         }
 }
 
-// Trigger a mapped transport action (from a learned CC/note button). MIDI thread.
+// Trigger a mapped transport action (from a learned CC/note button). MIDI thread. Play/Stop set the
+// transport immediately (atomic); the rest — Record, Loop, and the marker jumps (which read the
+// message-thread-only `locations`) — are marshalled to the message thread.
 void MainComponent::triggerTransportAction (int action)
 {
+    juce::Component::SafePointer<MainComponent> sp { this };
     switch (action)
     {
         case TA_Play:
         case TA_Continue: transportSetPlaying (true);  break;
         case TA_Stop:     transportSetPlaying (false); break;
-        case TA_Record:   { juce::Component::SafePointer<MainComponent> sp { this };
-                            juce::MessageManager::callAsync ([sp] { if (sp && sp->recordButton.onClick) sp->recordButton.onClick(); }); } break;
+        case TA_Record:   juce::MessageManager::callAsync ([sp] { if (sp && sp->recordButton.onClick) sp->recordButton.onClick(); }); break;
+
+        case TA_Loop:     juce::MessageManager::callAsync ([sp] { if (! sp) return;
+                              const bool on = ! sp->transport.isLoopEnabled();
+                              sp->transport.setLoopEnabled (on);
+                              sp->loopButton.setToggleState (on, juce::dontSendNotification); }); break;
+
+        case TA_Rewind:   juce::MessageManager::callAsync ([sp] { if (! sp) return;   // to previous marker, else start
+                              const double cur = sp->transport.getPlayheadBeats();
+                              double target = 0.0;
+                              for (const auto& loc : sp->locations) { const double b = loc.startBeat.inBeats();
+                                  if (b < cur - 1.0e-6 && b > target) target = b; }
+                              sp->apiSeek (target); }); break;
+
+        case TA_FastForward: juce::MessageManager::callAsync ([sp] { if (! sp) return;   // to next marker, else +1 bar
+                              const double cur = sp->transport.getPlayheadBeats();
+                              double target = -1.0;
+                              for (const auto& loc : sp->locations) { const double b = loc.startBeat.inBeats();
+                                  if (b > cur + 1.0e-6 && (target < 0.0 || b < target)) target = b; }
+                              sp->apiSeek (target < 0.0 ? cur + sp->transport.beatsPerBar() : target); }); break;
+
         default: break;
     }
 }
@@ -7764,13 +7786,14 @@ void MainComponent::showFileMenu()
     {   // learn transport buttons for controllers that send CC/notes instead of Start/Stop
         auto bl = [] (int p) { return p < 0 ? juce::String ("unset")
                                             : (p & 0x100 ? "CC " + juce::String (p & 0x7F) : "Note " + juce::String (p & 0x7F)); };
+        const std::pair<int, const char*> acts[] = {
+            { TA_Play, "Play" }, { TA_Stop, "Stop" }, { TA_Continue, "Continue" }, { TA_Record, "Record" },
+            { TA_Loop, "Loop" }, { TA_Rewind, "Rewind" }, { TA_FastForward, "Fast-forward" } };
         juce::PopupMenu tmap;
-        tmap.addItem (50, "Learn Play  [" + bl (transportBind[TA_Play].load()) + "]");
-        tmap.addItem (51, "Learn Stop  [" + bl (transportBind[TA_Stop].load()) + "]");
-        tmap.addItem (52, "Learn Continue  [" + bl (transportBind[TA_Continue].load()) + "]");
-        tmap.addItem (53, "Learn Record  [" + bl (transportBind[TA_Record].load()) + "]");
+        for (const auto& a : acts)
+            tmap.addItem (50 + a.first, "Learn " + juce::String (a.second) + "  [" + bl (transportBind[(size_t) a.first].load()) + "]");
         tmap.addSeparator();
-        tmap.addItem (54, "Clear transport buttons");
+        tmap.addItem (50 + TA_Count, "Clear transport buttons");
         midiMenu.addSubMenu ("Transport buttons (learn)", tmap, midiTransportFollow.load());
     }
     menu.addSubMenu ("MIDI Inputs", midiMenu);
@@ -7790,12 +7813,12 @@ void MainComponent::showFileMenu()
             }
             if (result == 46) { midiTransportFollow.store (! midiTransportFollow.load()); saveMidiInputPrefs(); return; }
             if (result == 47) { midiClockOutEnabled.store (! midiClockOutEnabled.load()); saveMidiInputPrefs(); return; }
-            if (result >= 50 && result <= 53)   // arm learn: the next CC/note button binds to this action
+            if (result >= 50 && result < 50 + TA_Count)   // arm learn: the next CC/note button binds to this action
             {   // press a controller button now — it binds; reopen the menu to see [CC n]
                 transportLearnTarget.store (result - 50);
                 return;
             }
-            if (result == 54) { for (auto& b : transportBind) b.store (-1); transportLearnTarget.store (-1); saveMidiInputPrefs(); return; }
+            if (result == 50 + TA_Count) { for (auto& b : transportBind) b.store (-1); transportLearnTarget.store (-1); saveMidiInputPrefs(); return; }
             if (result == 8) { openNotes(); return; }
             if (result == 17) { openSourceControl(); return; }
             if (result == 22) { showCommitDialog(); return; }   // save + stage all + commit
