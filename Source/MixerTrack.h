@@ -25,6 +25,12 @@ struct MixerTrack
     std::atomic<float> peakR { 0.0f };
     std::atomic<bool>  clipped { false };   // sticky: set when a block hits >= 0 dBFS
 
+    // Output gain applied last block (audio thread only), so fader/pan/mute changes ramp within the
+    // block (addFromWithRamp) instead of stepping between blocks — steps are audible clicks (zipper
+    // noise), especially on sustained material. -1 = uninitialised (first block uses the current
+    // gain, no ramp). prevGainL doubles as the master's mono gain.
+    float prevGainL { -1.0f }, prevGainR { -1.0f };
+
     std::vector<std::unique_ptr<Effect>> effects;   // guarded by the engine lock
     juce::AudioBuffer<float>             buffer;     // audio-thread scratch
 

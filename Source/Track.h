@@ -73,6 +73,11 @@ struct Track
     std::atomic<bool>  polarity { false };   // phase invert: negate this track's contribution
     std::atomic<int>   mixerTrack { 0 };
 
+    // Per-channel gain applied last block (audio thread only), so the track fader/pan ramps within
+    // the block (addFromWithRamp) instead of stepping between blocks — steps click (zipper noise).
+    // -1 = uninitialised (first block uses the current gain, no ramp).
+    float prevGainL { -1.0f }, prevGainR { -1.0f };
+
     // Audio-recording state (project state, not global prefs).
     std::atomic<bool> recordArmed   { false };
     std::atomic<int>  recordInput   { 0 };   // first hardware input channel
