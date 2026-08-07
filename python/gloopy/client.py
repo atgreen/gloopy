@@ -261,6 +261,17 @@ class Gloopy:
         return self.stub.AddExternalInstrument(
             pb.AddExternalInstrumentRequest(command=command, name=name)).id
 
+    def add_link_audio_receiver(self, channel: str) -> int:
+        """Add a track that RECEIVES a peer's Ableton Link audio channel. `channel` matches the
+        channel name or "peer: channel"; Link must be enabled and the peer's channel visible.
+        Returns the new track id (-1 if there's no such channel)."""
+        return self.stub.AddLinkAudioReceiver(
+            pb.AddLinkAudioReceiverRequest(channel=channel)).id
+
+    def set_link_enabled(self, enabled: bool = True) -> None:
+        """Join (True) or leave (False) the Ableton Link session — the scriptable LINK toggle."""
+        self._ack(self.stub.SetLinkEnabled(pb.LinkEnableRequest(enabled=enabled)))
+
     def add_plugin_track(self, identifier: str) -> int:
         return self.stub.AddPluginTrack(pb.AddPluginTrackRequest(identifier=identifier)).id
 

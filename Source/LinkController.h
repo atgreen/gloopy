@@ -10,6 +10,9 @@
 #include <atomic>
 #include <cstdint>
 #include <cmath>
+#if defined(__linux__)
+ #include <sys/resource.h>
+#endif
 
 /** Ableton Link epic (ideas.md). Gloopy uses the LinkAudio base (a superset of plain Link): as well
     as sharing tempo/beat/phase with Live, other DAWs, iOS apps and hardware on the LAN, it can
@@ -32,11 +35,26 @@ public:
     /** Join / leave the session. Enables both Link sync and LinkAudio network-audio sharing. */
     void setEnabled (bool shouldBeEnabled)
     {
-        link.enable (shouldBeEnabled);
-        link.enableLinkAudio (shouldBeEnabled);
-        audioSending.store (shouldBeEnabled, std::memory_order_relaxed);
+        // Join Link + LinkAudio ONCE and keep them on. Toggling EITHER link.enable() or
+        // enableLinkAudio() off/on breaks the receive path (a re-subscribed source gets no buffers),
+        // so the LINK button can't drive the SDK on/off. Instead it drives a gloopy-level "active"
+        // flag: the sink stops committing and receivers mute+fade when off; buffers keep flowing into
+        // the ring the whole time, so turning it back on just un-mutes → guaranteed clean resume.
+        if (! sessionJoined) { link.enable (true); link.enableLinkAudio (true); sessionJoined = true; }
+        enabledState = shouldBeEnabled;
+        activeFlag->store (shouldBeEnabled, std::memory_order_relaxed);
+#if defined(__linux__)
+        // Without RT audio scheduling, LinkAudio's network/receive thread can contend with the
+        // audio thread and cause device under-runs (choppy received audio). Renice the Link thread
+        // down so the audio thread wins CPU. Best-effort; a no-op where it can't lower priority.
+        if (shouldBeEnabled && ! nicedLinkThread)
+        {
+            nicedLinkThread = true;
+            link.callOnLinkThread ([] { setpriority (PRIO_PROCESS, 0, 12); });
+        }
+#endif
     }
-    bool isEnabled() const { return link.isEnabled(); }
+    bool isEnabled() const { return enabledState; }
 
     /** Create the master send channel once the audio block size is known (message thread). The
         sink lives for this object's lifetime so the audio thread never races its destruction; the
@@ -56,7 +74,7 @@ public:
     void sendMaster (const float* left, const float* right, int numFrames, double sampleRate)
     {
         auto* sink = masterSink.get();
-        if (sink == nullptr || ! audioSending.load (std::memory_order_relaxed)) return;
+        if (sink == nullptr || ! activeFlag->load (std::memory_order_relaxed)) return;
 
         const auto sessionState = link.captureAudioSessionState();
         const double quantum    = 4.0;
@@ -88,6 +106,9 @@ public:
     /** Access the underlying LinkAudio (for the source/receive audio path in the next stage). */
     ableton::LinkAudio& audio() { return link; }
 
+    /** Shared on/off flag receivers read to mute+fade when Link is toggled off (the SDK stays on). */
+    std::shared_ptr<std::atomic<bool>> active() { return activeFlag; }
+
 private:
     static inline int      juceMax (int a, int b) { return a > b ? a : b; }
     static inline int16_t  toI16 (float x)
@@ -98,5 +119,8 @@ private:
 
     ableton::LinkAudio link;
     std::unique_ptr<ableton::LinkAudioSink> masterSink;   // announces "Gloopy Master"; lives for the object's lifetime
-    std::atomic<bool> audioSending { false };
+    std::shared_ptr<std::atomic<bool>> activeFlag { std::make_shared<std::atomic<bool>> (false) };
+    bool sessionJoined { false };    // Link + LinkAudio enabled once and kept (toggling breaks rx)
+    bool enabledState { false };     // the user-facing on/off (mutes send + receive, SDK stays on)
+    bool nicedLinkThread { false };
 };

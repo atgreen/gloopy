@@ -140,6 +140,8 @@ public:
     TransportSnap apiGetTransport();
     int  apiAddSynthTrack (const juce::String& name, int wave, float a, float d, float s, float r, float g);
     int  apiAddExternalInstrument (const juce::String& command, const juce::String& name);   // slice 1: launch a standalone app as a track
+    int  apiAddLinkAudioReceiver (const juce::String& channelName);   // Ableton Link stage C: receive a peer's audio channel as a track
+    void apiSetLinkEnabled (bool enabled);                            // join/leave the Link session (scriptable LINK toggle)
     bool apiSetTrackParams (int id, bool hasVol, float vol, bool hasPan, float pan,
                             bool hasMute, bool mute, bool hasSolo, bool solo,
                             bool hasName, const juce::String& name);
