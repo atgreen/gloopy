@@ -66,7 +66,8 @@ bounce it to a WAV.
   sources it listens to under **File → MIDI Inputs** (remembered across sessions),
   and optionally **follow MIDI transport** so a sequencer/controller drives Gloopy's
   playback — real Start / Stop / Continue and MMC, plus a **learn** to bind a controller's
-  CC/note transport buttons to Play/Stop/Continue/Record — or **send MIDI clock** + Start/Stop
+  CC/note transport buttons to Play / Stop / Continue / Record / Loop and marker skip
+  (rewind / fast-forward) — or **send MIDI clock** + Start/Stop
   out (a virtual "Gloopy Clock Out" port) to sync external gear to Gloopy's tempo.
 - **Ableton Link** — sync tempo and beat with Ableton Live, other DAWs, iOS apps,
   and hardware on the network; a toolbar **LINK** toggle shows the peer count. It
