@@ -95,23 +95,55 @@ void GloopyLookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int w
     {
         const float cx = (float) x + (float) width * 0.5f;
         const float tw = 4.0f;
+        const float top = (float) y, bot = (float) (y + height);
+        // Sunken track.
         g.setColour (Palette::inset);
-        g.fillRoundedRectangle (cx - tw * 0.5f, (float) y, tw, (float) height, 2.0f);
+        g.fillRoundedRectangle (cx - tw * 0.5f, top, tw, (float) height, 2.0f);
+        // Faint "nominal" reference tick (~80% of the throw), like a hardware fader's 0 mark.
+        g.setColour (Palette::line);
+        g.fillRect (cx - 6.0f, top + (float) height * 0.2f, 12.0f, 1.0f);
+        // Accent level fill below the cap.
         g.setColour (Palette::accent.withAlpha (0.9f));
-        g.fillRoundedRectangle (cx - tw * 0.5f, sliderPos, tw, (float) (y + height) - sliderPos, 2.0f);
-        g.setColour (Palette::textBright);
-        g.fillRoundedRectangle ((float) x + 1.0f, sliderPos - 3.5f, (float) width - 2.0f, 7.0f, 2.5f);
+        g.fillRoundedRectangle (cx - tw * 0.5f, sliderPos, tw, bot - sliderPos, 2.0f);
+        // Cap: a rounded handle, lighter at the top (elevation via shading, no drop shadow),
+        // a crisp outline instead of a shadow, and an accent centre grip line.
+        const float capW = juce::jmin ((float) width - 2.0f, 22.0f);
+        const float capH = 13.0f;
+        juce::Rectangle<float> cap (cx - capW * 0.5f, sliderPos - capH * 0.5f, capW, capH);
+        g.setGradientFill (juce::ColourGradient (Palette::headerHi, cap.getX(), cap.getY(),
+                                                 Palette::header,   cap.getX(), cap.getBottom(), false));
+        g.fillRoundedRectangle (cap, 3.0f);
+        g.setColour (Palette::line);
+        g.drawRoundedRectangle (cap.reduced (0.5f), 3.0f, 1.0f);
+        g.setColour (Palette::accent);
+        g.fillRoundedRectangle (cap.getX() + 3.0f, sliderPos - 1.0f, cap.getWidth() - 6.0f, 2.0f, 1.0f);
     }
     else if (style == juce::Slider::LinearHorizontal)
     {
         const float cy = (float) y + (float) height * 0.5f;
         const float th = 4.0f;
+        const float left = (float) x, right = (float) (x + width);
+        const float centre = (left + right) * 0.5f;
+        // Sunken track.
         g.setColour (Palette::inset);
-        g.fillRoundedRectangle ((float) x, cy - th * 0.5f, (float) width, th, 2.0f);
+        g.fillRoundedRectangle (left, cy - th * 0.5f, (float) width, th, 2.0f);
+        // Centre detent — this is a PAN, so 0 is the middle, not the left edge.
+        g.setColour (Palette::line);
+        g.fillRect (centre - 0.5f, cy - 5.0f, 1.0f, 10.0f);
+        // Accent fill from the centre outward toward the handle (left OR right).
         g.setColour (Palette::accent.withAlpha (0.9f));
-        g.fillRoundedRectangle ((float) x, cy - th * 0.5f, sliderPos - (float) x, th, 2.0f);
-        g.setColour (Palette::textBright);
-        g.fillRoundedRectangle (sliderPos - 3.5f, (float) y + 1.0f, 7.0f, (float) height - 2.0f, 2.5f);
+        const float fL = juce::jmin (centre, sliderPos), fR = juce::jmax (centre, sliderPos);
+        g.fillRoundedRectangle (fL, cy - th * 0.5f, fR - fL, th, 2.0f);
+        // Vertical cap: lighter on the left (elevation), outline, accent centre grip line.
+        const float capW = 11.0f, capH = juce::jmin ((float) height - 2.0f, 18.0f);
+        juce::Rectangle<float> cap (sliderPos - capW * 0.5f, cy - capH * 0.5f, capW, capH);
+        g.setGradientFill (juce::ColourGradient (Palette::headerHi, cap.getX(),     cap.getY(),
+                                                 Palette::header,   cap.getRight(), cap.getY(), false));
+        g.fillRoundedRectangle (cap, 3.0f);
+        g.setColour (Palette::line);
+        g.drawRoundedRectangle (cap.reduced (0.5f), 3.0f, 1.0f);
+        g.setColour (Palette::accent);
+        g.fillRoundedRectangle (sliderPos - 1.0f, cap.getY() + 3.0f, 2.0f, cap.getHeight() - 6.0f, 1.0f);
     }
     else
     {
