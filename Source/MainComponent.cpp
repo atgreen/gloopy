@@ -1535,6 +1535,14 @@ void MainComponent::setupMidiInputs()
         virtualMidiIn->start();
         std::cout << "[midi] virtual input 'Gloopy MIDI In' ready" << std::endl;
     }
+    // Virtual clock output — external gear connects here to follow Gloopy's tempo/transport.
+    // The background thread sends the timestamped clock messages we hand it each block.
+    clockOut = juce::MidiOutput::createNewDevice ("Gloopy Clock Out");
+    if (clockOut != nullptr)
+    {
+        clockOut->startBackgroundThread();
+        std::cout << "[midi] virtual output 'Gloopy Clock Out' ready" << std::endl;
+    }
     std::cout << "[midi] played notes go to the selected instrument track" << std::endl;
     // Hot-plug: open inputs that appear after startup.
     midiListConnection = juce::MidiDeviceListConnection::make ([this]
@@ -1560,6 +1568,7 @@ void MainComponent::loadMidiInputPrefs()
         if      (s.startsWith ("d|")) midiInputsDisabled.insert (s.substring (2));
         else if (s.startsWith ("t|")) midiThroughAllowed.insert (s.substring (2));
         else if (s == "ft|1")         midiTransportFollow.store (true);
+        else if (s == "co|1")         midiClockOutEnabled.store (true);
     }
 }
 
@@ -1569,6 +1578,7 @@ void MainComponent::saveMidiInputPrefs()
     for (auto& n : midiInputsDisabled) lines.add ("d|" + n);
     for (auto& n : midiThroughAllowed) lines.add ("t|" + n);
     if (midiTransportFollow.load()) lines.add ("ft|1");
+    if (midiClockOutEnabled.load()) lines.add ("co|1");
     auto f = midiPrefsFile();
     f.getParentDirectory().createDirectory();
     f.replaceWithText (lines.joinIntoString ("\n"));
@@ -1586,7 +1596,8 @@ std::vector<MainComponent::MidiInputInfo> MainComponent::apiListMidiInputs()
 {
     std::vector<MidiInputInfo> out;
     for (const auto& d : juce::MidiInput::getAvailableDevices())
-        out.push_back ({ d.name, midiInputEnabled (d.name) });
+        if (d.name != "Gloopy Clock Out")   // our own output — not a listenable input
+            out.push_back ({ d.name, midiInputEnabled (d.name) });
     return out;
 }
 
@@ -1622,6 +1633,7 @@ void MainComponent::openAvailableMidiInputs()
     // Open any enabled input not yet open.
     for (const auto& d : devices)
     {
+        if (d.name == "Gloopy Clock Out") continue;   // don't listen to our own clock output (feedback)
         if (openMidiInputs.contains (d.identifier) || ! midiInputEnabled (d.name)) continue;
         deviceManager.setMidiInputDeviceEnabled (d.identifier, true);
         deviceManager.addMidiInputDeviceCallback (d.identifier, this);
@@ -1638,6 +1650,7 @@ void MainComponent::teardownMidiInputs()
         deviceManager.removeMidiInputDeviceCallback (id, this);
     openMidiInputs.clear();
     if (virtualMidiIn != nullptr) { virtualMidiIn->stop(); virtualMidiIn.reset(); }
+    if (clockOut != nullptr) { clockOut->stopBackgroundThread(); clockOut.reset(); }
 }
 
 void MainComponent::handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage& m)
@@ -1673,6 +1686,52 @@ void MainComponent::handleIncomingMidiMessage (juce::MidiInput*, const juce::Mid
 // on). The transport state is atomic, so we change it immediately here for tight timing; the toolbar
 // button (a UI component) is updated on the message thread. MIDI Stop PAUSES — keeping the position
 // so a following Continue resumes — unlike the toolbar Stop, which also rewinds to the start.
+// Emit this block's outgoing MIDI clock (24 PPQN) + Start/Stop/Continue so external gear follows
+// Gloopy's tempo and transport. Audio thread: the clock is a tempo-driven fractional accumulator
+// (independent of song position, so looping doesn't disturb it), phase-reset when playback starts;
+// the timestamped messages are handed to the output's background thread for accurate delivery.
+void MainComponent::sendMidiClockBlock (int numSamples)
+{
+    if (! midiClockOutEnabled.load (std::memory_order_relaxed) || clockOut == nullptr) return;
+    const bool   playing = transport.isPlaying();
+    const double spb = transport.samplesPerBeat();
+    if (spb <= 0.0) { clockWasPlaying = playing; return; }
+    const double samplesPerClock = spb / 24.0;
+    auto& buf = clockScratch; buf.clear();   // reused (keeps capacity — no per-block alloc)
+
+    if (playing && ! clockWasPlaying)   // transport just started
+    {
+        clockTicks = 0.0;               // phase-lock the clock to the start
+        // The playhead already advanced ~one block by the time we run, so recover the block-start
+        // position to decide Start (from the top) vs SPP+Continue (mid-song).
+        const double beat = juce::jmax (0.0, transport.getPlayheadBeats() - (double) numSamples / spb);
+        if (beat < 1.0e-4)
+            buf.addEvent (juce::MidiMessage::midiStart(), 0);            // from the top
+        else
+        {   // resume mid-song: tell gear where, then continue
+            buf.addEvent (juce::MidiMessage::songPositionPointer (juce::jlimit (0, 16383, (int) std::llround (beat * 4.0))), 0);
+            buf.addEvent (juce::MidiMessage::midiContinue(), 0);
+        }
+    }
+
+    if (playing)
+    {
+        const double before = clockTicks, after = before + (double) numSamples / samplesPerClock;
+        for (long k = (long) std::ceil (before); k < after; ++k)
+            buf.addEvent (juce::MidiMessage::midiClock(),
+                          juce::jlimit (0, juce::jmax (0, numSamples - 1),
+                                        (int) std::llround ((k - before) * samplesPerClock)));
+        clockTicks = after;
+    }
+
+    if (! playing && clockWasPlaying)   // transport just stopped
+        buf.addEvent (juce::MidiMessage::midiStop(), 0);
+
+    clockWasPlaying = playing;
+    if (! buf.isEmpty())
+        clockOut->sendBlockOfMessages (buf, juce::Time::getMillisecondCounterHiRes(), currentSampleRate);
+}
+
 void MainComponent::handleMidiTransport (const juce::MidiMessage& m)
 {
     auto play = [this] (bool fromStart)
@@ -5502,6 +5561,9 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
     if (! renderMode.load())
         addMonitoring (info);   // dry input -> output for armed+monitor tracks
 
+    if (! renderMode.load())
+        sendMidiClockBlock (num);   // outgoing MIDI clock + Start/Stop/Continue (live path only)
+
     // LinkAudio: broadcast the final master to any subscribed peer, beat-grid aligned. Live path
     // only (offline render stays deterministic); RT-safe + a no-op when Link is off / unsubscribed.
     if (! renderMode.load() && linkController != nullptr && out->getNumChannels() >= 2)
@@ -7655,6 +7717,7 @@ void MainComponent::showFileMenu()
                                                                         : juce::String ("(select an instrument track)")), false);
     midiMenu.addSeparator();
     midiMenu.addItem (46, "Follow MIDI transport (Start / Stop / Continue)", true, midiTransportFollow.load());
+    midiMenu.addItem (47, "Send MIDI clock (to 'Gloopy Clock Out')", true, midiClockOutEnabled.load());
     menu.addSubMenu ("MIDI Inputs", midiMenu);
     menu.addItem (5, "Rescan Plugins");
     menu.addItem (42, "Connect Emacs to Kernel (Slynk)...");   // warm kernel's Slynk port, for Sly/SLIME
@@ -7671,6 +7734,7 @@ void MainComponent::showFileMenu()
                 return;
             }
             if (result == 46) { midiTransportFollow.store (! midiTransportFollow.load()); saveMidiInputPrefs(); return; }
+            if (result == 47) { midiClockOutEnabled.store (! midiClockOutEnabled.load()); saveMidiInputPrefs(); return; }
             if (result == 8) { openNotes(); return; }
             if (result == 17) { openSourceControl(); return; }
             if (result == 22) { showCommitDialog(); return; }   // save + stage all + commit

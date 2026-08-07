@@ -65,7 +65,8 @@ bounce it to a WAV.
   port that a controller or another app can connect to at any time. Choose which
   sources it listens to under **File → MIDI Inputs** (remembered across sessions),
   and optionally **follow MIDI transport** so a sequencer/controller's Start / Stop /
-  Continue drives Gloopy's playback.
+  Continue drives Gloopy's playback — or **send MIDI clock** + Start/Stop out (a virtual
+  "Gloopy Clock Out" port) to sync external gear to Gloopy's tempo.
 - **Ableton Link** — sync tempo and beat with Ableton Live, other DAWs, iOS apps,
   and hardware on the network; a toolbar **LINK** toggle shows the peer count. It
   can also **share audio over the network** — send your master as a channel and
