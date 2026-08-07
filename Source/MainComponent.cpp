@@ -15,6 +15,7 @@
 #include "DrumKit.h"
 #include "ExternalInstrument.h"
 #include "LinkController.h"
+#include "LinkAudioReceiver.h"
 #include "HydrogenKit.h"
 #include "Log.h"
 #include "Paths.h"
@@ -1904,6 +1905,49 @@ int MainComponent::apiAddExternalInstrument (const juce::String& command, const 
         Track* raw = t.get();
         addTrack (std::move (t));
         return raw->id;
+    });
+}
+
+// Add a track that RECEIVES a peer's LinkAudio channel (Ableton Link epic, stage C). Matches by
+// channel name or "peer: channel"; requires Link enabled and the peer's channel to be visible.
+// Returns the new track id, or -1 if there's no such channel. The desktop "Add Track > Link Audio"
+// submenu and the AddLinkAudioReceiver RPC both call this.
+int MainComponent::apiAddLinkAudioReceiver (const juce::String& channelName)
+{
+    return callOnMessageThread ([&] () -> int
+    {
+        if (linkController == nullptr) return -1;
+        for (const auto& c : linkController->audio().channels())
+        {
+            const juce::String name = juce::String (c.name);
+            const juce::String qualified = juce::String (c.peerName) + ": " + name;
+            if (name == channelName || qualified == channelName)
+            {
+                const juce::String label = qualified;
+                auto gen = std::make_unique<LinkAudioReceiver> (linkController->audio(), c, label, linkController->active());
+                auto t = std::make_unique<Track> (label, std::move (gen), 60, paletteColour ((int) tracks.size()));
+                Track* raw = t.get();
+                addTrack (std::move (t));
+                return raw->id;
+            }
+        }
+        return -1;   // no such channel (Link off, or the publishing peer isn't present)
+    });
+}
+
+// Join/leave the Ableton Link session from the control API — the scriptable equivalent of the LINK
+// toolbar toggle. Marshalled to the message thread so it also reflects on the button.
+void MainComponent::apiSetLinkEnabled (bool enabled)
+{
+    callOnMessageThread ([&] () -> int
+    {
+        if (linkController != nullptr)
+        {
+            linkController->setEnabled (enabled);
+            linkButton.setToggleState (enabled, juce::dontSendNotification);
+            updateLinkButton();
+        }
+        return 0;
     });
 }
 
@@ -6720,8 +6764,22 @@ void MainComponent::showAddTrackMenu()
     ext.addItem (298, "Custom command\xe2\x80\xa6");
     m.addSubMenu ("External Instrument", ext);
 
+    // Link Audio (Ableton Link epic, stage C): receive a peer's published audio channel as a track.
+    juce::PopupMenu linkm;
+    juce::StringArray linkChannels;
+    if (linkController != nullptr && linkController->isEnabled())
+        for (const auto& c : linkController->audio().channels())
+        {
+            const juce::String q = juce::String (c.peerName) + ": " + juce::String (c.name);
+            linkm.addItem (300 + linkChannels.size(), q); linkChannels.add (q);
+        }
+    if (linkChannels.isEmpty())
+        linkm.addItem (299, (linkController != nullptr && linkController->isEnabled())
+                            ? "(no peer channels found)" : "(enable LINK first)", false);
+    m.addSubMenu ("Link Audio", linkm);
+
     m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (addTrackBtn),
-        [this, extCmds, extNames] (int r)
+        [this, extCmds, extNames, linkChannels] (int r)
         {
             if      (r == 1)  { if (addSynthBtn.onClick)  addSynthBtn.onClick(); }
             else if (r == 2)  showSamplerChooser();
@@ -6732,6 +6790,7 @@ void MainComponent::showAddTrackMenu()
             else if (r == 12) showHydrogenKitChooser();
             else if (r >= 200 && r < 200 + extCmds.size()) apiAddExternalInstrument (extCmds[r - 200], extNames[r - 200]);
             else if (r == 298) promptExternalInstrumentCommand();
+            else if (r >= 300 && r < 300 + linkChannels.size()) apiAddLinkAudioReceiver (linkChannels[r - 300]);
         });
 }
 

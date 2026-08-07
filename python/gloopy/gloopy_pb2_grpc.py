@@ -285,6 +285,16 @@ class GloopyStub:
                 request_serializer=gloopy__pb2.AddExternalInstrumentRequest.SerializeToString,
                 response_deserializer=gloopy__pb2.TrackId.FromString,
                 _registered_method=True)
+        self.AddLinkAudioReceiver = channel.unary_unary(
+                '/gloopy.v1.Gloopy/AddLinkAudioReceiver',
+                request_serializer=gloopy__pb2.AddLinkAudioReceiverRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.TrackId.FromString,
+                _registered_method=True)
+        self.SetLinkEnabled = channel.unary_unary(
+                '/gloopy.v1.Gloopy/SetLinkEnabled',
+                request_serializer=gloopy__pb2.LinkEnableRequest.SerializeToString,
+                response_deserializer=gloopy__pb2.Ack.FromString,
+                _registered_method=True)
         self.AddSamplerTrack = channel.unary_unary(
                 '/gloopy.v1.Gloopy/AddSamplerTrack',
                 request_serializer=gloopy__pb2.AddSamplerTrackRequest.SerializeToString,
@@ -1617,6 +1627,20 @@ class GloopyServicer:
 
     def AddExternalInstrument(self, request, context):
         """standalone app as a track
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AddLinkAudioReceiver(self, request, context):
+        """receive a peer's Link audio channel as a track
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetLinkEnabled(self, request, context):
+        """join/leave the Ableton Link session
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -3215,6 +3239,16 @@ def add_GloopyServicer_to_server(servicer, server):
                     servicer.AddExternalInstrument,
                     request_deserializer=gloopy__pb2.AddExternalInstrumentRequest.FromString,
                     response_serializer=gloopy__pb2.TrackId.SerializeToString,
+            ),
+            'AddLinkAudioReceiver': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddLinkAudioReceiver,
+                    request_deserializer=gloopy__pb2.AddLinkAudioReceiverRequest.FromString,
+                    response_serializer=gloopy__pb2.TrackId.SerializeToString,
+            ),
+            'SetLinkEnabled': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetLinkEnabled,
+                    request_deserializer=gloopy__pb2.LinkEnableRequest.FromString,
+                    response_serializer=gloopy__pb2.Ack.SerializeToString,
             ),
             'AddSamplerTrack': grpc.unary_unary_rpc_method_handler(
                     servicer.AddSamplerTrack,
@@ -5573,6 +5607,60 @@ class Gloopy:
             '/gloopy.v1.Gloopy/AddExternalInstrument',
             gloopy__pb2.AddExternalInstrumentRequest.SerializeToString,
             gloopy__pb2.TrackId.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AddLinkAudioReceiver(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/AddLinkAudioReceiver',
+            gloopy__pb2.AddLinkAudioReceiverRequest.SerializeToString,
+            gloopy__pb2.TrackId.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetLinkEnabled(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gloopy.v1.Gloopy/SetLinkEnabled',
+            gloopy__pb2.LinkEnableRequest.SerializeToString,
+            gloopy__pb2.Ack.FromString,
             options,
             channel_credentials,
             insecure,

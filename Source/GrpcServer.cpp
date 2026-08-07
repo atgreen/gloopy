@@ -962,6 +962,12 @@ namespace
         Status AddExternalInstrument (ServerContext*, const gpb::AddExternalInstrumentRequest* q, gpb::TrackId* r) override
         { r->set_id (main.apiAddExternalInstrument (js (q->command()), js (q->name()))); return Status::OK; }
 
+        Status AddLinkAudioReceiver (ServerContext*, const gpb::AddLinkAudioReceiverRequest* q, gpb::TrackId* r) override
+        { r->set_id (main.apiAddLinkAudioReceiver (js (q->channel()))); return Status::OK; }
+
+        Status SetLinkEnabled (ServerContext*, const gpb::LinkEnableRequest* q, gpb::Ack* r) override
+        { main.apiSetLinkEnabled (q->enabled()); r->set_ok (true); return Status::OK; }
+
         Status AddSamplerTrack (ServerContext*, const gpb::AddSamplerTrackRequest* q, gpb::TrackId* r) override
         { r->set_id (main.apiAddSamplerTrack (js (q->name()), js (q->path()), q->root_note())); return Status::OK; }
 

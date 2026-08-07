@@ -219,6 +219,8 @@ message PresetList     { repeated string names = 1; }
 // ── track & clip management ────────────────────────────────
 message AddAudioTrackRequest   { string name = 1; }                             // empty audio track
 message AddExternalInstrumentRequest { string command = 1; string name = 2; }   // launch a standalone app as a track (native GUI)
+message AddLinkAudioReceiverRequest  { string channel = 1; }                     // receive a peer's Ableton Link audio channel as a track
+message LinkEnableRequest            { bool enabled = 1; }                        // join/leave the Ableton Link session
 message RenameTrackRequest     { int32 track_id = 1; string name = 2; }         // rename an existing track
 message SetTrackColourRequest  { int32 track_id = 1; string colour = 2; }       // recolour a track (8-hex ARGB)
 message MoveTrackRequest       { int32 track_id = 1; int32 delta = 2; }         // reorder: delta<0 up, delta>0 down
@@ -528,6 +530,8 @@ service Gloopy {
   rpc SetTrackPolarity(SetTrackPolarityRequest) returns (Ack);  // phase invert a track
   rpc AddAudioTrack   (AddAudioTrackRequest)   returns (TrackId);
   rpc AddExternalInstrument (AddExternalInstrumentRequest) returns (TrackId);   // standalone app as a track
+  rpc AddLinkAudioReceiver  (AddLinkAudioReceiverRequest)  returns (TrackId);   // receive a peer's Link audio channel as a track
+  rpc SetLinkEnabled        (LinkEnableRequest)            returns (Ack);       // join/leave the Ableton Link session
   rpc AddSamplerTrack (AddSamplerTrackRequest) returns (TrackId);
   rpc SetSamplerControls (SamplerControlsRequest) returns (Ack);
   rpc GetSamplerControls (TrackId) returns (SamplerControls);
