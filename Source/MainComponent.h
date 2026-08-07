@@ -39,6 +39,7 @@
 
 class DrumKit;   // Source/DrumKit.h (multi-pad kit generator; used by the Hydrogen-kit loader)
 class JackCapture;   // Source/JackCapture.h (shared JACK/PipeWire audio-capture client for external instruments)
+class LinkController; // Source/LinkController.h (Ableton Link session — heavy asio header kept out of this TU)
 
 #include <unordered_map>
 #include <map>
@@ -928,6 +929,7 @@ private:
     juce::String projectDisplayName() const;        // composition folder name / .gloopy file name ("" = untitled)
     juce::String projectDisplayPath() const;        // full path (~ for home) of the composition dir / .gloopy file ("" = untitled)
     void pollGitStatusAsync();                       // refresh the cached git summary off the message thread
+    void updateLinkButton();                         // reflect Ableton Link enabled state + peer count on the toolbar toggle
     void paintStatusBar (juce::Graphics&);           // bottom status strip (project · unsaved · git · version)
     // Cached git working-tree summary for the status bar (updated by pollGitStatusAsync).
     bool statusGitAvailable { false }, statusGitRepo { false }, statusGitDetached { false };
@@ -974,6 +976,7 @@ private:
     juce::AudioFormatManager formatManager;
     PluginHost pluginHost;
     std::shared_ptr<JackCapture> jackCapture;   // slice 3: opened on first external-instrument track; shared by every ExternalInstrument
+    std::unique_ptr<LinkController> linkController;   // Ableton Link session (slice 1: peer count + toggle)
     double currentSampleRate { 44100.0 };
     int    currentBlockSize  { 512 };
 
@@ -1015,6 +1018,7 @@ private:
     juce::TextButton metroButton   { "Metro" };
     juce::TextButton panicButton   { "Panic" };
     juce::TextButton mixerButton   { "Mixer" };
+    juce::TextButton linkButton    { "LINK" };   // Ableton Link toggle; shows peer count when enabled
     juce::TextButton mapsButton    { "Maps" };     // see + remove all controller/LFO mappings
     juce::TextButton zoomOutBtn { "-" }, zoomInBtn { "+" }, zoomFitBtn { "Fit" };   // arrange-view zoom cluster (Arrange view only)
     juce::ScrollBar  arrangeHScroll { false };   // pinned horizontal scrollbar under the arrangement (false = horizontal)

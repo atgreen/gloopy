@@ -14,6 +14,7 @@
 #include "DrumSynth.h"
 #include "DrumKit.h"
 #include "ExternalInstrument.h"
+#include "LinkController.h"
 #include "HydrogenKit.h"
 #include "Log.h"
 #include "Paths.h"
@@ -181,6 +182,30 @@ MainComponent::MainComponent (bool headless)
     addAndMakeVisible (mixerButton);
     mixerButton.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);   // lit while Mixer view is active
     mixerButton.onClick = [this] { setViewMode (viewMode == ViewMode::Mixer ? ViewMode::Arrange : ViewMode::Mixer); };
+
+    // Ableton Link (epic slice 1): a toggle that joins the LAN Link session and shows the peer
+    // count. No transport effect yet — tempo/beat/phase sync are later slices.
+    linkController = std::make_unique<LinkController> (transport.getBpm());
+    addAndMakeVisible (linkButton);
+    linkButton.setClickingTogglesState (true);
+    linkButton.setColour (juce::TextButton::buttonOnColourId, Palette::accentDim);
+    linkButton.setTooltip ("Ableton Link: sync tempo/beat with Live, other DAWs, iOS apps and hardware on the network");
+    linkButton.onClick = [this]
+    {
+        const bool on = linkButton.getToggleState();
+        linkController->setEnabled (on);
+        std::cout << "[link] " << (on ? "enabled — joining session" : "disabled") << std::endl;
+        updateLinkButton();
+    };
+    // Optional: join the Link session at startup (headless/live setups, and test harnesses that
+    // can't click the toolbar). GLOOPY_LINK=1 enables both Link sync and LinkAudio.
+    if (juce::SystemStats::getEnvironmentVariable ("GLOOPY_LINK", {}).isNotEmpty())
+    {
+        linkController->setEnabled (true);
+        linkButton.setToggleState (true, juce::dontSendNotification);
+        std::cout << "[link] enabled at startup (GLOOPY_LINK)" << std::endl;
+    }
+    updateLinkButton();
     addChildComponent (helpOverlay);   // '?' shortcut overlay — hidden until toggled, painted over everything
     helpOverlay.onClose = [this] { helpOverlay.setVisible (false); grabKeyboardFocus(); };
     setWantsKeyboardFocus (true);   // so Tab (view switch) reliably reaches keyPressed
@@ -4841,6 +4866,7 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
     currentBlockSize  = samplesPerBlockExpected;
     transport.prepare (sampleRate);
     if (recordBuffer.empty()) recordBuffer.resize (1 << 18);   // ~260k events, preallocated
+    if (linkController != nullptr) linkController->prepareAudio (samplesPerBlockExpected);   // LinkAudio master send channel
 
     GLOOPY_ELOCK(sl);
     mixBuffer.setSize (2, juce::jmax (16, samplesPerBlockExpected));
@@ -5368,6 +5394,11 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
 
     if (! renderMode.load())
         addMonitoring (info);   // dry input -> output for armed+monitor tracks
+
+    // LinkAudio: broadcast the final master to any subscribed peer, beat-grid aligned. Live path
+    // only (offline render stays deterministic); RT-safe + a no-op when Link is off / unsubscribed.
+    if (! renderMode.load() && linkController != nullptr && out->getNumChannels() >= 2)
+        linkController->sendMaster (out->getReadPointer (0) + start, out->getReadPointer (1) + start, num, currentSampleRate);
 
     // --- offline render capture (headless --render mode) ---
     if (renderMode.load())
@@ -7035,8 +7066,18 @@ void MainComponent::openDeviceWindow (int insert)
 // ---------------------------------------------------------------------------
 // GUI
 // ---------------------------------------------------------------------------
+void MainComponent::updateLinkButton()
+{
+    if (linkController == nullptr) return;
+    const bool on = linkController->isEnabled();
+    linkButton.setToggleState (on, juce::dontSendNotification);
+    // Show the live peer count while enabled ("LINK 2"); just "LINK" when off.
+    linkButton.setButtonText (on ? "LINK " + juce::String (linkController->numPeers()) : "LINK");
+}
+
 void MainComponent::timerCallback()
 {
+    updateLinkButton();   // peer count changes as Link peers join/leave the network
     // RT-safety slice 1: if the audio callback dropped a block since last tick, name the
     // culprit — which blocking engineLock holder was in the critical section, and for how
     // long. Logged here on the message thread (the audio thread only stored lock-free), so
@@ -7324,6 +7365,7 @@ void MainComponent::resized()
     bar.removeFromLeft (14);
 
     addTrackBtn  .setBounds (bar.removeFromLeft (84));   // one button; the five kinds are in its menu
+    linkButton   .setBounds (bar.removeFromRight (64)); bar.removeFromRight (6);
     mixerButton  .setBounds (bar.removeFromRight (58)); bar.removeFromRight (6);
     mapsButton   .setBounds (bar.removeFromRight (52)); bar.removeFromRight (6);
     loopButton   .setBounds (bar.removeFromRight (54)); bar.removeFromRight (6);
