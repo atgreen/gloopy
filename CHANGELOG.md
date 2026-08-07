@@ -13,6 +13,42 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-07
+
+### Added
+- **External instruments.** Run a standalone synth application (ZynAddSubFX, Yoshimi, …) as its own
+  process — with its real native window — wired into Gloopy as an instrument track: Gloopy plays it
+  live and folds its audio back into the mix through the track's inserts and fader. **Add Track →
+  External Instrument** lists the standalone synths found on your system, or launch a custom command.
+  Also scriptable (`add_external_instrument`). (Linux.)
+- **Ableton Link.** Sync tempo and the beat grid with Ableton Live, other DAWs, iOS apps, and
+  hardware on the local network — a toolbar **LINK** toggle shows the peer count. Beyond tempo,
+  Gloopy can **share audio over the network** (LinkAudio): while Link is on it publishes your master
+  as a channel other peers can receive, and you can receive a peer's channel onto a track
+  (**Add Track → Link Audio**), beat-aligned and click-free. Scriptable (`set_link_enabled`,
+  `add_link_audio_receiver`).
+- **MIDI transport control.** Optionally **follow MIDI transport** so an external sequencer or
+  controller drives Gloopy's playback — MIDI Start / Stop / Continue, Song Position Pointer, and
+  MMC. For controllers whose transport buttons send **CC or notes** instead of the real transport
+  bytes, a **learn** binds each button to Play / Stop / Continue / Record / Loop / Rewind /
+  Fast-forward. And Gloopy can **send 24-PPQN MIDI clock + Start/Stop out** (a virtual *"Gloopy Clock
+  Out"* port) to sync external gear to its tempo. **File → MIDI Inputs**; remembered across sessions.
+
+### Changed
+- **Restyled mixer faders and pan controls** — a sunken inset track, accent level fill, and a
+  rounded gradient cap with a centre grip line; pan sweeps from the centre outward. Consistent with
+  the elevation-over-borders UI direction.
+- **The Common Lisp client now routes through generated gRPC stubs.** `common-lisp/` binds calls to
+  the client stub `ag-proto` generates from `proto/gloopy.proto`, so it tracks the protocol
+  automatically instead of hand-rolling each call — and gained wrappers for the new RPCs
+  (external instruments, Link audio, transport).
+
+### Fixed
+- **Click-free faders.** Track and mixer-insert output gains were applied as a constant per audio
+  block, so moving a fader *stepped* the gain between blocks — an audible zipper, worst on sustained
+  material. Both the per-track fader/pan and the mixer-insert + master fader now ramp within the
+  block, and muting/unmuting ramps from silence too. Real-time-safe (no allocation, no dropouts).
+
 ## [0.5.5] - 2026-08-06
 
 ### Added
@@ -548,7 +584,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.5.5...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/atgreen/gloopy/compare/v0.5.5...v0.6.0
 [0.5.5]: https://github.com/atgreen/gloopy/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/atgreen/gloopy/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/atgreen/gloopy/compare/v0.5.2...v0.5.3
