@@ -2697,6 +2697,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.add_external_instrument" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_external_instrument
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#gloopy.client.Gloopy.set_synth_param" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4827,6 +4838,17 @@
     <span class="md-ellipsis">
       
         add_surge_track
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gloopy.client.Gloopy.add_external_instrument" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_external_instrument
       
     </span>
   </a>
@@ -7071,6 +7093,26 @@ seam so it has no discontinuity click. interp selects the resampling interpolati
     <div class="doc doc-contents ">
 
         <p>Add a new track backed by the embedded Surge XT engine (optional .fxp patch).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="gloopy.client.Gloopy.add_external_instrument" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">add_external_instrument</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+
+<a href="#gloopy.client.Gloopy.add_external_instrument" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Add a track backed by a STANDALONE app launched as its own process (its native GUI
+opens). <code>command</code> is an exe + args; the track forwards its MIDI to the app. Returns the
+new track id (-1 on a bad command).</p>
 
 
     </div>
