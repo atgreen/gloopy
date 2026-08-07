@@ -1107,6 +1107,15 @@ private:
     std::atomic<int> midiInputTarget { -1 };
     std::atomic<bool> midiTransportFollow { false };   // react to MIDI Start/Stop/Continue/SPP/MMC (File → MIDI)
     void handleMidiTransport (const juce::MidiMessage&);   // apply a transport message (MIDI thread; marshals UI)
+    void transportSetPlaying (bool playing);              // set transport + toolbar button (marshals UI)
+
+    // Learnable transport map: many controllers' transport buttons send CC/notes, not Start/Stop.
+    // Bind a CC or note to each action so those buttons drive the transport. Packed = (0x100|cc) for
+    // a controller, or the note number; -1 = unbound. Read on the MIDI thread, set by the learn UI.
+    enum { TA_Play = 0, TA_Stop, TA_Continue, TA_Record, TA_Count };
+    std::array<std::atomic<int>, TA_Count> transportBind {};   // reset to -1 in loadMidiInputPrefs
+    std::atomic<int> transportLearnTarget { -1 };              // action being learned, or -1
+    void triggerTransportAction (int action);                 // MIDI thread
     std::atomic<int> firstInstrumentId { -1 };   // fallback when nothing is selected
     // Live-MIDI input activity, for the track-header LED: the last note-on time (ms) and the
     // track that received it. Written on the MIDI thread, read on the message thread.

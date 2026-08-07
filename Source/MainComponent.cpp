@@ -1562,6 +1562,7 @@ static juce::File midiPrefsFile()
 void MainComponent::loadMidiInputPrefs()
 {
     midiInputsDisabled.clear(); midiThroughAllowed.clear();
+    for (auto& b : transportBind) b.store (-1);
     for (auto& line : juce::StringArray::fromLines (midiPrefsFile().loadFileAsString()))
     {
         const auto s = line.trim();
@@ -1569,6 +1570,15 @@ void MainComponent::loadMidiInputPrefs()
         else if (s.startsWith ("t|")) midiThroughAllowed.insert (s.substring (2));
         else if (s == "ft|1")         midiTransportFollow.store (true);
         else if (s == "co|1")         midiClockOutEnabled.store (true);
+        else if (s.startsWith ("tb|"))   // transport button binding: tb|<action>|<packed>
+        {
+            auto parts = juce::StringArray::fromTokens (s, "|", "");
+            if (parts.size() == 3)
+            {
+                const int a = parts[1].getIntValue();
+                if (a >= 0 && a < TA_Count) transportBind[(size_t) a].store (parts[2].getIntValue());
+            }
+        }
     }
 }
 
@@ -1579,6 +1589,9 @@ void MainComponent::saveMidiInputPrefs()
     for (auto& n : midiThroughAllowed) lines.add ("t|" + n);
     if (midiTransportFollow.load()) lines.add ("ft|1");
     if (midiClockOutEnabled.load()) lines.add ("co|1");
+    for (int a = 0; a < TA_Count; ++a)
+        if (const int p = transportBind[(size_t) a].load(); p >= 0)
+            lines.add ("tb|" + juce::String (a) + "|" + juce::String (p));
     auto f = midiPrefsFile();
     f.getParentDirectory().createDirectory();
     f.replaceWithText (lines.joinIntoString ("\n"));
@@ -1657,10 +1670,34 @@ void MainComponent::handleIncomingMidiMessage (juce::MidiInput*, const juce::Mid
 {
     // Optional external transport control (File → MIDI): let a sequencer/controller start, stop,
     // continue, or locate Gloopy. Consumed here so these don't fall through to the instrument.
-    if (midiTransportFollow.load (std::memory_order_relaxed)
-        && (m.isMidiStart() || m.isMidiContinue() || m.isMidiStop()
-            || m.isSongPositionPointer() || m.isMidiMachineControlMessage()))
-    { handleMidiTransport (m); return; }
+    if (midiTransportFollow.load (std::memory_order_relaxed))
+    {
+        if (m.isMidiStart() || m.isMidiContinue() || m.isMidiStop()
+            || m.isSongPositionPointer() || m.isMidiMachineControlMessage())
+        { handleMidiTransport (m); return; }
+
+        // Learnable transport map: a CC or note button drives Play/Stop/Continue/Record. If we're
+        // learning, bind this button to the target action; otherwise fire the action it's bound to.
+        if (m.isController() || m.isNoteOn())
+        {
+            const int packed = m.isController() ? (0x100 | m.getControllerNumber()) : m.getNoteNumber();
+            const int learn  = transportLearnTarget.load (std::memory_order_relaxed);
+            if (learn >= 0 && learn < TA_Count)
+            {
+                transportBind[(size_t) learn].store (packed, std::memory_order_relaxed);
+                transportLearnTarget.store (-1, std::memory_order_relaxed);
+                juce::Component::SafePointer<MainComponent> sp { this };
+                juce::MessageManager::callAsync ([sp] { if (sp) sp->saveMidiInputPrefs(); });
+                return;   // consume the learn press
+            }
+            for (int a = 0; a < TA_Count; ++a)
+                if (transportBind[(size_t) a].load (std::memory_order_relaxed) == packed)
+                {
+                    if (m.isNoteOn() || m.getControllerValue() >= 64) triggerTransportAction (a);   // fire on press only
+                    return;   // consume (a bound button isn't also a param controller)
+                }
+        }
+    }
 
     // Continuous controllers drive mapped parameters (controller mapping / MIDI-learn).
     if (m.isController())
@@ -1732,40 +1769,46 @@ void MainComponent::sendMidiClockBlock (int numSamples)
         clockOut->sendBlockOfMessages (buf, juce::Time::getMillisecondCounterHiRes(), currentSampleRate);
 }
 
+// Set transport play/stop (atomic, immediate) and reflect it on the toolbar button (message thread).
+void MainComponent::transportSetPlaying (bool playing)
+{
+    transport.setPlaying (playing);
+    juce::Component::SafePointer<MainComponent> sp { this };
+    juce::MessageManager::callAsync ([sp, playing] { if (! sp) return;
+        if (playing) sp->clearClipIndicators();
+        sp->playButton.setToggleState (playing, juce::dontSendNotification);
+        sp->playButton.setIcon (playing ? IconButton::Pause : IconButton::Play); });
+}
+
 void MainComponent::handleMidiTransport (const juce::MidiMessage& m)
 {
-    auto play = [this] (bool fromStart)
-    {
-        if (fromStart) apiSeek (0.0);
-        transport.setPlaying (true);
-        juce::Component::SafePointer<MainComponent> sp { this };
-        juce::MessageManager::callAsync ([sp] { if (! sp) return;
-            sp->clearClipIndicators();
-            sp->playButton.setToggleState (true, juce::dontSendNotification);
-            sp->playButton.setIcon (IconButton::Pause); });
-    };
-    auto pause = [this]
-    {
-        transport.setPlaying (false);
-        juce::Component::SafePointer<MainComponent> sp { this };
-        juce::MessageManager::callAsync ([sp] { if (! sp) return;
-            sp->playButton.setToggleState (false, juce::dontSendNotification);
-            sp->playButton.setIcon (IconButton::Play); });
-    };
-
-    if      (m.isMidiStart())            play (true);      // from the top
-    else if (m.isMidiContinue())         play (false);     // from current position
-    else if (m.isMidiStop())             pause();
+    if      (m.isMidiStart())            { apiSeek (0.0); transportSetPlaying (true); }  // from the top
+    else if (m.isMidiContinue())         transportSetPlaying (true);                     // from current position
+    else if (m.isMidiStop())             transportSetPlaying (false);
     else if (m.isSongPositionPointer())  apiSeek (m.getSongPositionPointerMidiBeat() / 4.0);   // 16ths → beats
     else if (m.isMidiMachineControlMessage())
         switch (m.getMidiMachineControlCommand())
         {
             case juce::MidiMessage::mmc_play:
-            case juce::MidiMessage::mmc_deferredplay: play (false); break;
+            case juce::MidiMessage::mmc_deferredplay: transportSetPlaying (true);  break;
             case juce::MidiMessage::mmc_stop:
-            case juce::MidiMessage::mmc_pause:        pause();      break;
+            case juce::MidiMessage::mmc_pause:        transportSetPlaying (false); break;
             default: break;   // rewind / fast-forward / record — not in this slice
         }
+}
+
+// Trigger a mapped transport action (from a learned CC/note button). MIDI thread.
+void MainComponent::triggerTransportAction (int action)
+{
+    switch (action)
+    {
+        case TA_Play:
+        case TA_Continue: transportSetPlaying (true);  break;
+        case TA_Stop:     transportSetPlaying (false); break;
+        case TA_Record:   { juce::Component::SafePointer<MainComponent> sp { this };
+                            juce::MessageManager::callAsync ([sp] { if (sp && sp->recordButton.onClick) sp->recordButton.onClick(); }); } break;
+        default: break;
+    }
 }
 
 void MainComponent::apiAuditionNote (int pitch, float velocity, bool noteOn)
@@ -7718,6 +7761,18 @@ void MainComponent::showFileMenu()
     midiMenu.addSeparator();
     midiMenu.addItem (46, "Follow MIDI transport (Start / Stop / Continue)", true, midiTransportFollow.load());
     midiMenu.addItem (47, "Send MIDI clock (to 'Gloopy Clock Out')", true, midiClockOutEnabled.load());
+    {   // learn transport buttons for controllers that send CC/notes instead of Start/Stop
+        auto bl = [] (int p) { return p < 0 ? juce::String ("unset")
+                                            : (p & 0x100 ? "CC " + juce::String (p & 0x7F) : "Note " + juce::String (p & 0x7F)); };
+        juce::PopupMenu tmap;
+        tmap.addItem (50, "Learn Play  [" + bl (transportBind[TA_Play].load()) + "]");
+        tmap.addItem (51, "Learn Stop  [" + bl (transportBind[TA_Stop].load()) + "]");
+        tmap.addItem (52, "Learn Continue  [" + bl (transportBind[TA_Continue].load()) + "]");
+        tmap.addItem (53, "Learn Record  [" + bl (transportBind[TA_Record].load()) + "]");
+        tmap.addSeparator();
+        tmap.addItem (54, "Clear transport buttons");
+        midiMenu.addSubMenu ("Transport buttons (learn)", tmap, midiTransportFollow.load());
+    }
     menu.addSubMenu ("MIDI Inputs", midiMenu);
     menu.addItem (5, "Rescan Plugins");
     menu.addItem (42, "Connect Emacs to Kernel (Slynk)...");   // warm kernel's Slynk port, for Sly/SLIME
@@ -7735,6 +7790,12 @@ void MainComponent::showFileMenu()
             }
             if (result == 46) { midiTransportFollow.store (! midiTransportFollow.load()); saveMidiInputPrefs(); return; }
             if (result == 47) { midiClockOutEnabled.store (! midiClockOutEnabled.load()); saveMidiInputPrefs(); return; }
+            if (result >= 50 && result <= 53)   // arm learn: the next CC/note button binds to this action
+            {   // press a controller button now — it binds; reopen the menu to see [CC n]
+                transportLearnTarget.store (result - 50);
+                return;
+            }
+            if (result == 54) { for (auto& b : transportBind) b.store (-1); transportLearnTarget.store (-1); saveMidiInputPrefs(); return; }
             if (result == 8) { openNotes(); return; }
             if (result == 17) { openSourceControl(); return; }
             if (result == 22) { showCommitDialog(); return; }   // save + stage all + commit
