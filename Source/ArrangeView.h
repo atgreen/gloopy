@@ -23,7 +23,8 @@ class ArrangeView : public juce::Component,
 {
 public:
     // A browser row was dropped on the arrangement — payload is "kind\tref\tlabel".
-    // targetTrack = the track lane under the drop (-1 if it missed the lanes / hit the ruler);
+    // targetTrack = the track lane under the drop (-1 if it missed the lanes; the ruler is a
+    //   separate pinned strip, so it can't be a drop target here).
     // beat = the bar-snapped drop position, so a sample lands where it was dropped.
     std::function<void (const juce::String& desc, int targetTrack, double beat)> onBrowserDrop;
     bool isInterestedInDragSource (const SourceDetails& d) override
@@ -151,6 +152,17 @@ public:
     void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;   // Ctrl+wheel zoom / Shift+wheel scroll
     void mouseMagnify   (const juce::MouseEvent&, float scaleFactor) override;                // trackpad pinch zoom
 
+    // The timeline ruler is drawn + interacted with by a separate ArrangeRuler strip pinned above
+    // the scrolling lane viewport (so it stays visible while lanes scroll vertically). ArrangeView
+    // still owns the timeline coordinate map / meter / markers / loop / playhead, so the ruler
+    // delegates here. paintRuler paints into the strip's Graphics (height == rulerHeight); the
+    // rulerMouse* handlers run the seek / loop / punch / marker-menu logic the lanes no longer host.
+    void paintRuler     (juce::Graphics& g, int width);
+    void rulerMouseDown (const juce::MouseEvent&);
+    void rulerMouseDrag (const juce::MouseEvent&);
+    void rulerMouseUp   (const juce::MouseEvent&);
+    static constexpr int rulerHeight = 22;   // height of the pinned ruler strip (public: MainComponent lays it out)
+
     // Timeline zoom / scroll (horizontal). View state is a stored px-per-beat + left edge;
     // 0 px-per-beat means "derive fit-to-width" (the old behaviour), so old projects open unchanged.
     void   fitWidth();          // fit the whole song to the width
@@ -217,7 +229,6 @@ private:
     void   promptClipFades (int track, int clip); // AlertWindow in/out prompt -> onClipFades
 
     static constexpr int headerWidth = 190;
-    static constexpr int rulerHeight  = 22;
     static constexpr int trackHeight  = 64;
     static constexpr int pickerRowH   = 22;   // "+ Lane" picker strip at the top of an expanded row
     static constexpr int laneRowH     = 46;   // height of each stacked automation sub-lane

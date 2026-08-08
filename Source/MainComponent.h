@@ -16,6 +16,7 @@
 #include "TimeTypes.h"
 #include "MeterMap.h"
 #include "ArrangeView.h"
+#include "ArrangeRuler.h"
 #include "BusyOverlay.h"
 #include "KernelHost.h"
 #include "PianoRoll.h"
@@ -1318,7 +1319,8 @@ private:
     juce::MidiDeviceListConnection midiListConnection;   // hot-plug notifications
 
     juce::Viewport   arrangeViewport;
-    std::unique_ptr<ArrangeView> arrangeView;
+    std::unique_ptr<ArrangeView>  arrangeView;
+    std::unique_ptr<ArrangeRuler> arrangeRuler;   // timeline ruler pinned above the scrolling lanes
     std::unique_ptr<SessionPane> sessionPane;         // frozen scene/master column (left) + scrolling track grid
     juce::Viewport   mixerViewport;                   // embedded Mixer (a view, not a floating window)
     enum class ViewMode { Arrange, Session, Mixer };

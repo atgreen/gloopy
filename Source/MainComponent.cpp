@@ -906,6 +906,8 @@ MainComponent::MainComponent (bool headless)
     arrangeViewport.setViewedComponent (arrangeView.get(), false);
     arrangeViewport.setScrollBarsShown (true, false);
     addAndMakeVisible (arrangeViewport);
+    arrangeRuler = std::make_unique<ArrangeRuler> (*arrangeView);   // pinned above the lanes (added after the
+    addAndMakeVisible (*arrangeRuler);                              // viewport so it sits on top in z-order)
     addAndMakeVisible (arrangeHScroll);        // pinned horizontal timeline scrollbar
     arrangeHScroll.addListener (this);
     arrangeHScroll.setAutoHide (false);
@@ -5740,6 +5742,7 @@ void MainComponent::updateArrangeScroll()
     const double vis  = juce::jmin (arrangeView->getVisibleBeats(), span);
     arrangeHScroll.setRangeLimits (0.0, span, juce::dontSendNotification);
     arrangeHScroll.setCurrentRange (arrangeView->getViewStartBeat(), vis, juce::dontSendNotification);
+    if (arrangeRuler) arrangeRuler->repaint();   // ruler shares the lanes' horizontal scroll/zoom
 }
 
 void MainComponent::scrollBarMoved (juce::ScrollBar* sb, double newStart)
@@ -7659,11 +7662,13 @@ void MainComponent::resized()
     // Pinned horizontal scrollbar under the arrangement: carve 12px off the viewport's bottom.
     const bool arr = viewMode == ViewMode::Arrange;
     arrangeHScroll.setVisible (arr);
+    if (arrangeRuler) arrangeRuler->setVisible (arr);
     if (arr)
     {
         auto ab = arrangeViewport.getBounds();
         arrangeHScroll.setBounds (ab.removeFromBottom (12));
-        arrangeViewport.setBounds (ab);
+        if (arrangeRuler) arrangeRuler->setBounds (ab.removeFromTop (ArrangeView::rulerHeight));   // pinned ruler
+        arrangeViewport.setBounds (ab);                                                            // lanes below it
     }
 
     busyOverlay.setBounds (getLocalBounds());   // covers everything while busy
