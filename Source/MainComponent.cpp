@@ -1093,7 +1093,11 @@ MainComponent::MainComponent (bool headless)
     // ---- clip editor ----
     addChildComponent (busyOverlay);   // shown only while a background task runs
     addAndMakeVisible (editorPanel);
-    editorPanel.roll.setShowPlayhead (false);
+    editorPanel.roll.setShowPlayhead (true);
+    // Both editors read the edited clip's live playback position from here (see editorPlayheadBeat):
+    // the piano roll draws a playhead line, the step grid lights the current step.
+    editorPanel.roll.getPlayheadBeat   = [this] { return editorPlayheadBeat(); };
+    editorPanel.steps.getPlayheadBeat  = [this] { return editorPlayheadBeat(); };
     editorPanel.roll.setEnabledEditing (false);
     editorPanel.steps.setEnabledEditing (false);
     editorPanel.title.setText ("EDITOR", juce::dontSendNotification);
@@ -4990,6 +4994,7 @@ void MainComponent::loadSelectedClipIntoEditor()
     double contentLen = 4.0;
     int pitch = 60;
     juce::String trackName;
+    edClipValid = false;   // reset the editor playhead context; set below for a valid MIDI clip
     {
         GLOOPY_ELOCK(sl);
         int et = -1;
@@ -5005,6 +5010,16 @@ void MainComponent::loadSelectedClipIntoEditor()
                 contentLen = c.looped ? c.contentLenBeats.toBeats() : c.lengthBeats.toBeats();
                 pitch = tracks[(size_t) et]->defaultPitch;
                 valid = true;
+
+                // Snapshot the placement so the editor playhead tracks the clip's real position.
+                edClipValid      = true;
+                edClipSession    = (selSessionScene >= 0);
+                edClipTrack      = et;
+                edClipScene      = selSessionScene;
+                edClipStart      = c.startBeat.toBeats();
+                edClipPlacedLen  = c.lengthBeats.toBeats();
+                edClipContentLen = contentLen;
+                edClipLooped     = c.looped;
 
                 // Ghost notes only for arrangement clips (they map to a timeline position); a
                 // session clip is a free-floating loop, so it gets none.
@@ -5057,6 +5072,45 @@ void MainComponent::loadSelectedClipIntoEditor()
         editorPanel.title.setText ("EDITOR   \xe2\x80\xa2   AUDIO CLIP (no MIDI)", juce::dontSendNotification);
     else
         editorPanel.title.setText ("EDITOR", juce::dontSendNotification);
+}
+
+// The playback position *within the clip in the editor*, in beats — or a negative value when that
+// clip isn't currently sounding (so the piano roll / step grid hide their playhead). Called each
+// frame from those views' paint on the message thread; must not block the audio thread.
+double MainComponent::editorPlayheadBeat()
+{
+    if (! edClipValid || ! transport.isPlaying())
+        return -1.0;
+
+    const double g = transport.getPlayheadBeats();
+
+    if (edClipSession)
+    {
+        // A session clip loops from its launch beat, but only while its slot is the one playing on
+        // the track — and launch beat / playing slot change on (re)launch, so read them live. Use a
+        // try-lock so a repaint never stalls behind the audio thread; on a miss, reuse last frame's.
+        int    playing;
+        double launch;
+        {
+            const juce::ScopedTryLock stl (engineLock);
+            if (! stl.isLocked())
+                return edLastPlayheadBeat;
+            playing = sessionLauncher.playingSlot (edClipTrack);
+            launch  = sessionLauncher.launchBeat  (edClipTrack);
+        }
+        if (playing != edClipScene)
+            return (edLastPlayheadBeat = -1.0);
+        double p = std::fmod (g - launch, edClipContentLen);
+        if (p < 0.0) p += edClipContentLen;
+        return (edLastPlayheadBeat = p);
+    }
+
+    // Arrangement clip: show the playhead only while it's inside the clip's placed span, mapped to
+    // the clip's local time (and wrapped by the loop length for a looped clip).
+    const double rel = g - edClipStart;
+    if (rel < 0.0 || rel >= edClipPlacedLen)
+        return -1.0;
+    return edClipLooped ? std::fmod (rel, edClipContentLen) : rel;
 }
 
 void MainComponent::writeBackEditor()

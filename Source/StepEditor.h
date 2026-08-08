@@ -38,6 +38,12 @@ public:
 
     std::function<void()> onNotesChanged;
 
+    /** Returns the current playback position *within this clip*, in beats (0..contentLen), or a
+        negative value when the edited clip isn't sounding — so the lit step tracks the clip's real
+        position even when it's placed off-zero in the arrangement. The owner supplies the mapping
+        (arrangement offset / session loop phase); the grid just reads it. */
+    std::function<double()> getPlayheadBeat;
+
     /** Set the voice rows, the clip's note list to edit, and the step window (beats). */
     void setVoices (std::vector<Voice> v, std::vector<Note> clipNotes, double contentLenBeats)
     {
@@ -69,8 +75,12 @@ public:
         const float cw  = gridWidth() / (float) N;
 
         int cur = -1;
-        if (transport.isPlaying())
-            cur = (int) std::floor (std::fmod (transport.getPlayheadBeats(), contentLen) / stepDur()) % N;
+        if (getPlayheadBeat)
+        {
+            const double b = getPlayheadBeat();   // in-clip beat, or < 0 when this clip isn't sounding
+            if (b >= 0.0)
+                cur = (int) std::floor (std::fmod (b, contentLen) / stepDur()) % N;
+        }
 
         for (int r = 0; r < R; ++r)
         {

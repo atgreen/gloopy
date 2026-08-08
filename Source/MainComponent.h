@@ -1003,6 +1003,20 @@ private:
     Clip* editingClip (int& outTrackIndex);   // the clip loaded in the editor (arrangement or session); caller holds engineLock
     int editorMode { 1 };   // 0 = piano roll, 1 = step grid
 
+    // Play-context snapshot for the clip currently in the editor — lets the piano roll / step grid
+    // show a playhead that tracks the clip's *real* position. Captured under the engine lock in
+    // loadSelectedClipIntoEditor (the clip's placement doesn't move while it plays); the session
+    // launch beat/slot are read live (try-lock) by editorPlayheadBeat since those change on launch.
+    double editorPlayheadBeat();          // in-clip beat to draw the playhead at, or < 0 to hide it
+    bool   edClipValid { false };         // a MIDI clip is loaded (audio clips / nothing → no playhead)
+    bool   edClipSession { false };       // editing a session slot (loops from launchBeat) vs an arrangement clip
+    int    edClipTrack { -1 }, edClipScene { -1 };
+    double edClipStart { 0.0 };           // arrangement start beat (arrangement clips)
+    double edClipPlacedLen { 0.0 };       // arrangement span in beats (arrangement clips)
+    double edClipContentLen { 4.0 };      // loop/content length shown in the editor
+    bool   edClipLooped { false };        // clip loops its content within its placed span
+    double edLastPlayheadBeat { -1.0 };   // last value, returned when a session try-lock misses
+
     // --- UI ---
     IconButton       playButton   { IconButton::Play };
     IconButton       stopButton   { IconButton::Stop };
