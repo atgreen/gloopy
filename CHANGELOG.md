@@ -13,6 +13,8 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-08
+
 ### Added
 - **A playhead in the clip editor.** While the clip you're editing is playing, the piano roll
   sweeps a playhead line through the grid and the step grid outlines the current step. It tracks the
@@ -605,7 +607,8 @@ format.
   link conflicts, header/name collisions, and non-standard-C++ constructs), all scoped
   so the Linux build is unaffected.
 
-[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/atgreen/gloopy/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/atgreen/gloopy/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/atgreen/gloopy/compare/v0.5.5...v0.6.0
 [0.5.5]: https://github.com/atgreen/gloopy/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/atgreen/gloopy/compare/v0.5.3...v0.5.4
