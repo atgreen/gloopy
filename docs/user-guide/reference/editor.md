@@ -39,6 +39,11 @@ The piano roll has a **horizontal scrollbar** (bottom) to travel the timeline an
 the notes) and `E` (zoom toggle) — the same [zoom vocabulary](keyboard-shortcuts.md#timeline-zoom-navigation)
 as the arrangement.
 
+A **playhead** line sweeps through the grid while the clip you're editing is playing. It
+tracks the clip's real position, so it shows up only while that clip is actually sounding —
+a clip placed partway through the arrangement lines up correctly, and a looping clip's
+playhead wraps at the loop length.
+
 The keyboard shortcuts (Q quantize, H humanize, S strum, L legato, ↑/↓ transpose,
 Delete) act on the selection if there is one, else all notes — see
 [Keyboard shortcuts](keyboard-shortcuts.md#piano-roll-the-editor).
@@ -47,7 +52,8 @@ Delete) act on the selection if there is one, else all notes — see
 
 A single-lane 16-step-style grid, quickest for drums and simple patterns. Click a
 cell to toggle a note at the track's default pitch; the number of steps follows
-the clip's content length (up to 64). Both views edit the same clip — see
+the clip's content length (up to 64). While the clip plays, the **current step** is
+outlined so you can follow the groove. Both views edit the same clip — see
 [Clip](../../control-scripting/concepts/model.md#clip).
 
 ## Devices tab

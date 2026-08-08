@@ -13,6 +13,27 @@ tagged release.
 
 ## [Unreleased]
 
+### Added
+- **A playhead in the clip editor.** While the clip you're editing is playing, the piano roll
+  sweeps a playhead line through the grid and the step grid outlines the current step. It tracks the
+  clip's *real* position — shown only while that clip is actually sounding, so a clip placed partway
+  through the arrangement lines up, and a looping (or session) clip's playhead wraps at the loop
+  length instead of assuming the clip starts at bar 1.
+
+### Changed
+- **The arrangement's timeline ruler stays pinned.** Scrolling the tracks vertically no longer
+  scrolls the bar ruler off the top — it's now a fixed strip above the lanes, so the bar numbers,
+  markers, loop/punch braces and playhead handle are always visible while you scroll.
+
+### Fixed
+- **`setup-realtime-audio.sh` now grants real-time priority to the desktop session.** It previously
+  wrote only a `/etc/security/limits.d` drop-in, which `pam_limits` applies to TTY/SSH logins but
+  **not** to the GDM/Wayland graphical session — so apps launched from the desktop (Gloopy, a
+  terminal) still got `ulimit -r 0` and no RT budget (audio stayed glitch-free via rtkit, but
+  sfizz's sample-loader threads spammed *"Cannot set current thread scheduling parameters"*). The
+  script now also writes systemd `DefaultLimitRTPRIO` drop-ins, which is what actually governs
+  GUI-launched apps; `--check` reports the systemd default, and the guidance says reboot.
+
 ## [0.6.0] - 2026-08-07
 
 ### Added
