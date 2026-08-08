@@ -476,7 +476,7 @@ void PianoRoll::paint (juce::Graphics& g)
         {
             const float px = xForBeat (b);
             g.setColour (Palette::playhead);
-            g.drawVerticalLine ((int) px, gx, gridBottom());
+            g.drawVerticalLine ((int) px, 0.0f, gridBottom());   // full note grid: top (y=0) → vel strip
         }
     }
 
