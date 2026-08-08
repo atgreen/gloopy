@@ -59,6 +59,12 @@ public:
     void setLength (double beats) { editLength = juce::jmax (0.25, beats); pxPerBeatH = 0.0; viewStartBeatH = 0.0; repaint(); }
     void setShowPlayhead (bool s) { showPlayhead = s; }
 
+    /** Returns the current playback position *within this clip*, in beats, or a negative value when
+        the edited clip isn't sounding (so the playhead is hidden). The owner supplies the mapping —
+        arrangement offset (global − clipStart) or session loop phase — so a clip placed anywhere in
+        the song scrubs correctly, instead of assuming it starts at beat 0. */
+    std::function<double()> getPlayheadBeat;
+
     std::function<void()> onNotesChanged;
 
     /** Note auditioning: fired so the owner can play the pitch through the edited

@@ -467,12 +467,17 @@ void PianoRoll::paint (juce::Graphics& g)
                     juce::Justification::topLeft, false);
     }
 
-    // Playhead (optional — the arrange view owns the main one).
-    if (showPlayhead)
+    // Playhead (optional — the arrange view owns the main one). Position comes from the owner's
+    // clip→beat mapping so it's correct wherever the clip sits in the song; < 0 means "not sounding".
+    if (showPlayhead && getPlayheadBeat)
     {
-        const float px = xForBeat (std::fmod (transport.getPlayheadBeats(), editLength));
-        g.setColour (Palette::playhead);
-        g.drawVerticalLine ((int) px, gx, gridBottom());
+        const double b = getPlayheadBeat();
+        if (b >= 0.0)
+        {
+            const float px = xForBeat (b);
+            g.setColour (Palette::playhead);
+            g.drawVerticalLine ((int) px, gx, gridBottom());
+        }
     }
 
     // Piano-key gutter on the left.
