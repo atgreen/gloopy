@@ -2934,13 +2934,18 @@ two views of the <em>same</em> notes. (Keyboard shortcuts are in
 <strong>vertical scrollbar</strong> (right) to travel the pitch range, plus <code>W</code> (fit width), <code>F</code> (frame
 the notes) and <code>E</code> (zoom toggle) — the same <a href="../keyboard-shortcuts/#timeline-zoom-navigation">zoom vocabulary</a>
 as the arrangement.</p>
+<p>A <strong>playhead</strong> line sweeps through the grid while the clip you're editing is playing. It
+tracks the clip's real position, so it shows up only while that clip is actually sounding —
+a clip placed partway through the arrangement lines up correctly, and a looping clip's
+playhead wraps at the loop length.</p>
 <p>The keyboard shortcuts (Q quantize, H humanize, S strum, L legato, ↑/↓ transpose,
 Delete) act on the selection if there is one, else all notes — see
 <a href="../keyboard-shortcuts/#piano-roll-the-editor">Keyboard shortcuts</a>.</p>
 <h2 id="step-grid">Step grid<a class="headerlink" href="#step-grid" title="Permanent link">&para;</a></h2>
 <p>A single-lane 16-step-style grid, quickest for drums and simple patterns. Click a
 cell to toggle a note at the track's default pitch; the number of steps follows
-the clip's content length (up to 64). Both views edit the same clip — see
+the clip's content length (up to 64). While the clip plays, the <strong>current step</strong> is
+outlined so you can follow the groove. Both views edit the same clip — see
 <a href="../../../control-scripting/concepts/model/#clip">Clip</a>.</p>
 <h2 id="devices-tab">Devices tab<a class="headerlink" href="#devices-tab" title="Permanent link">&para;</a></h2>
 <p><strong>DEVICES</strong> shows the selected track's effect chain inline: a <strong>◀ Clip</strong> back
