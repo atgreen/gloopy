@@ -34,17 +34,17 @@ int ArrangeView::rowHeight (int i) const
 }
 int ArrangeView::rowTop (int i) const
 {
-    int y = rulerHeight;
+    int y = 0;   // lanes start at the top of the (ruler-less) viewport; the ruler is a pinned sibling strip
     for (int k = 0; k < i && k < (int) tracks.size(); ++k) y += rowHeight (k);
     return y;
 }
 
 int ArrangeView::preferredHeight() const
 {
-    int h = rulerHeight;
+    int h = 0;
     for (int i = 0; i < (int) tracks.size(); ++i) h += rowHeight (i);
     h += (int) busRows.size() * busRowH;                // content-less bus/master rows below
-    return juce::jmax (rulerHeight + th(), h);   // always at least one row tall
+    return juce::jmax (th(), h);   // always at least one row tall
 }
 
 void ArrangeView::refreshAutomation()
@@ -325,7 +325,7 @@ void ArrangeView::fitHeight()
     if (n <= 0) return;
     int availH = getHeight();
     if (auto* vp = findParentComponentOfClass<juce::Viewport>()) availH = vp->getMaximumVisibleHeight();
-    const double target = (double) juce::jmax (1, availH - rulerHeight) / (double) n;   // per-row target height
+    const double target = (double) juce::jmax (1, availH) / (double) n;   // per-row target height
     trackHeightScale = juce::jlimit (0.35, 4.0, target / (double) trackHeight);
     setSize (getWidth(), preferredHeight());
     repaint();
@@ -381,10 +381,10 @@ void ArrangeView::zoomToMarquee()
             int availH = getHeight();
             if (auto* vp = findParentComponentOfClass<juce::Viewport>()) availH = vp->getMaximumVisibleHeight();
             if (spanPx > 1.0)
-                trackHeightScale = juce::jlimit (0.35, 4.0, trackHeightScale * (double) juce::jmax (1, availH - rulerHeight) / spanPx);
+                trackHeightScale = juce::jlimit (0.35, 4.0, trackHeightScale * (double) juce::jmax (1, availH) / spanPx);
             setSize (getWidth(), preferredHeight());
             if (auto* vp = findParentComponentOfClass<juce::Viewport>())
-                vp->setViewPosition (vp->getViewPositionX(), juce::jmax (0, rowTop (t0) - rulerHeight));
+                vp->setViewPosition (vp->getViewPositionX(), juce::jmax (0, rowTop (t0)));
         }
     }
     zoomToggled = false;
@@ -438,7 +438,7 @@ void ArrangeView::refreshMeter()
 }
 int    ArrangeView::trackAtY (float y) const
 {
-    int top = rulerHeight;
+    int top = 0;
     for (int i = 0; i < (int) tracks.size(); ++i)
     {
         const int h = rowHeight (i);
@@ -695,71 +695,16 @@ void ArrangeView::paint (juce::Graphics& g)
     g.setColour (Palette::panel);
     g.fillRect (0, 0, headerWidth, getHeight());
 
-    // Ruler + bar grid. Bar lines come from the meter map, so their spacing changes at each
-    // mid-song time-signature change; bars are numbered continuously across the changes.
-    g.setColour (Palette::header);
-    g.fillRect (0, 0, getWidth(), rulerHeight);
-    meter.forEachBarLine (span, [&] (int barNum, double beatAtStart)
+    // Bar grid across the lanes. Bar lines come from the meter map, so their spacing changes at
+    // each mid-song time-signature change. The bar NUMBERS + tempo/time-sig/named-marker flags are
+    // drawn on the pinned ruler strip (paintRuler), which stays visible while the lanes scroll.
+    g.setColour (Palette::line);
+    meter.forEachBarLine (span, [&] (int, double beatAtStart)
     {
         const float x = xForBeat (beatAtStart);
         if (x < (float) headerWidth) return;   // scrolled off the left — don't paint into the header column
-        g.setColour (Palette::line);
         g.drawVerticalLine ((int) x, 0.0f, h);
-        g.setColour (Palette::textDim);
-        g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
-        g.drawText (juce::String (barNum), (int) x + 4, 2, 30, rulerHeight - 3,
-                    juce::Justification::centredLeft, false);
     });
-
-    // Tempo markers — a small flag + BPM at each marker beat on the ruler.
-    if (getTempoMarkers)
-    {
-        for (auto& mk : getTempoMarkers())
-        {
-            const float x = xForBeat (mk.first);
-            if (x < headerWidth - 1.0f) continue;
-            g.setColour (Palette::accent);
-            juce::Path flag;
-            flag.addTriangle (x, 0.0f, x + 8.0f, 0.0f, x, 8.0f);   // corner flag
-            g.fillPath (flag);
-            g.drawVerticalLine ((int) x, 0.0f, (float) rulerHeight);
-            g.setFont (juce::FontOptions (9.0f, juce::Font::bold));
-            g.drawText (juce::String (mk.second, (mk.second == (int) mk.second) ? 0 : 1),
-                        (int) x + 3, rulerHeight - 11, 44, 10,
-                        juce::Justification::centredLeft, false);
-        }
-    }
-
-    // Time-signature changes — a label ("6/8") at each change beat on the ruler, in a warm
-    // amber to read distinctly from tempo (accent) and named (cyan) flags.
-    for (auto& c : meter.changes)
-    {
-        const float x = xForBeat (c.beat);
-        if (x < headerWidth - 1.0f) continue;
-        g.setColour (juce::Colour (0xffe6a23c));
-        g.drawVerticalLine ((int) x, 0.0f, (float) rulerHeight);
-        g.setFont (juce::FontOptions (9.0f, juce::Font::bold));
-        g.drawText (juce::String (c.num) + "/" + juce::String (c.den),
-                    (int) x + 3, 1, 34, 10, juce::Justification::centredLeft, false);
-    }
-
-    // Named timeline markers — a cyan flag + label at each marker beat (distinct from the
-    // accent-coloured tempo markers above).
-    if (getMarkers)
-    {
-        for (auto& mk : getMarkers())
-        {
-            const float x = xForBeat (mk.second);
-            if (x < headerWidth - 1.0f) continue;
-            g.setColour (juce::Colours::aquamarine);
-            juce::Path flag;
-            flag.addTriangle (x, 0.0f, x + 8.0f, 0.0f, x, 8.0f);
-            g.fillPath (flag);
-            g.drawVerticalLine ((int) x, 0.0f, (float) rulerHeight);
-            g.setFont (juce::FontOptions (9.0f));
-            g.drawText (mk.first, (int) x + 3, 1, 90, 9, juce::Justification::centredLeft, false);
-        }
-    }
 
     // Tracks.
     for (int i = 0; i < (int) tracks.size(); ++i)
@@ -905,9 +850,7 @@ void ArrangeView::paint (juce::Graphics& g)
         if (lx1 > lx0)
         {
             g.setColour (Palette::accent.withAlpha (0.10f));
-            g.fillRect (lx0, (float) rulerHeight, lx1 - lx0, h - rulerHeight);
-            g.setColour (Palette::accent);
-            g.fillRect (lx0, 0.0f, lx1 - lx0, 4.0f);       // brace in the ruler
+            g.fillRect (lx0, 0.0f, lx1 - lx0, h);          // tint across the lanes (brace is on the ruler)
         }
     }
 
@@ -923,9 +866,7 @@ void ArrangeView::paint (juce::Graphics& g)
             if (x1 > x0)
             {
                 g.setColour (Palette::red.withAlpha (0.12f));
-                g.fillRect (x0, (float) rulerHeight, x1 - x0, h - rulerHeight);
-                g.setColour (Palette::red);
-                g.fillRect (x0, 4.0f, x1 - x0, 4.0f);       // punch brace, below the loop brace
+                g.fillRect (x0, 0.0f, x1 - x0, h);          // tint across the lanes (brace is on the ruler)
             }
         }
     }
@@ -937,10 +878,7 @@ void ArrangeView::paint (juce::Graphics& g)
     if (px >= headerWidth)
     {
         g.setColour (Palette::playhead);
-        g.drawVerticalLine ((int) px, 0.0f, h);
-        juce::Path tri;
-        tri.addTriangle (px - 5.0f, 0.0f, px + 5.0f, 0.0f, px, 8.0f);
-        g.fillPath (tri);
+        g.drawVerticalLine ((int) px, 0.0f, h);   // the grab-handle triangle is drawn on the pinned ruler
     }
 
     // Ctrl-drag marquee zoom box.
@@ -963,15 +901,124 @@ void ArrangeView::paint (juce::Graphics& g)
         g.setColour (Palette::accent);
         g.drawRect (getLocalBounds(), 2);
         g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
-        g.drawText ("Drop to add to the project", getLocalBounds().removeFromTop (rulerHeight + 24),
+        g.drawText ("Drop to add to the project", getLocalBounds().removeFromTop (46),
                     juce::Justification::centred, false);
     }
 }
 
 // ---------------------------------------------------------------------------
+// The pinned ruler strip (drawn + interacted with by the sibling ArrangeRuler, so it stays put
+// while the lanes scroll). All the timeline coordinate mapping lives here on ArrangeView, so the
+// ruler just delegates. Everything is drawn in the strip's own space: y in [0, rulerHeight).
+// ---------------------------------------------------------------------------
+void ArrangeView::paintRuler (juce::Graphics& g, int width)
+{
+    refreshMeter();
+    const double span = spanBeats();
+
+    g.setColour (Palette::header);
+    g.fillRect (0, 0, width, rulerHeight);
+
+    // Bar ticks + continuous bar numbers.
+    meter.forEachBarLine (span, [&] (int barNum, double beatAtStart)
+    {
+        const float x = xForBeat (beatAtStart);
+        if (x < (float) headerWidth) return;
+        g.setColour (Palette::line);
+        g.drawVerticalLine ((int) x, 0.0f, (float) rulerHeight);
+        g.setColour (Palette::textDim);
+        g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+        g.drawText (juce::String (barNum), (int) x + 4, 2, 30, rulerHeight - 3,
+                    juce::Justification::centredLeft, false);
+    });
+
+    // Tempo markers — a small flag + BPM at each marker beat.
+    if (getTempoMarkers)
+    {
+        for (auto& mk : getTempoMarkers())
+        {
+            const float x = xForBeat (mk.first);
+            if (x < headerWidth - 1.0f) continue;
+            g.setColour (Palette::accent);
+            juce::Path flag;
+            flag.addTriangle (x, 0.0f, x + 8.0f, 0.0f, x, 8.0f);   // corner flag
+            g.fillPath (flag);
+            g.drawVerticalLine ((int) x, 0.0f, (float) rulerHeight);
+            g.setFont (juce::FontOptions (9.0f, juce::Font::bold));
+            g.drawText (juce::String (mk.second, (mk.second == (int) mk.second) ? 0 : 1),
+                        (int) x + 3, rulerHeight - 11, 44, 10,
+                        juce::Justification::centredLeft, false);
+        }
+    }
+
+    // Time-signature changes — an amber "6/8" label at each change beat.
+    for (auto& c : meter.changes)
+    {
+        const float x = xForBeat (c.beat);
+        if (x < headerWidth - 1.0f) continue;
+        g.setColour (juce::Colour (0xffe6a23c));
+        g.drawVerticalLine ((int) x, 0.0f, (float) rulerHeight);
+        g.setFont (juce::FontOptions (9.0f, juce::Font::bold));
+        g.drawText (juce::String (c.num) + "/" + juce::String (c.den),
+                    (int) x + 3, 1, 34, 10, juce::Justification::centredLeft, false);
+    }
+
+    // Named timeline markers — a cyan flag + label at each marker beat.
+    if (getMarkers)
+    {
+        for (auto& mk : getMarkers())
+        {
+            const float x = xForBeat (mk.second);
+            if (x < headerWidth - 1.0f) continue;
+            g.setColour (juce::Colours::aquamarine);
+            juce::Path flag;
+            flag.addTriangle (x, 0.0f, x + 8.0f, 0.0f, x, 8.0f);
+            g.fillPath (flag);
+            g.drawVerticalLine ((int) x, 0.0f, (float) rulerHeight);
+            g.setFont (juce::FontOptions (9.0f));
+            g.drawText (mk.first, (int) x + 3, 1, 90, 9, juce::Justification::centredLeft, false);
+        }
+    }
+
+    // Loop brace (top) and punch brace (just below it).
+    if (transport.isLoopEnabled())
+    {
+        const float lx0 = juce::jmax ((float) headerWidth, xForBeat (transport.getLoopStartBeats()));
+        const float lx1 = juce::jmax ((float) headerWidth, xForBeat (transport.getLoopEndBeats()));
+        if (lx1 > lx0) { g.setColour (Palette::accent); g.fillRect (lx0, 0.0f, lx1 - lx0, 4.0f); }
+    }
+    if (getPunchRange)
+    {
+        double pin = 0.0, pout = 0.0;
+        if (getPunchRange (pin, pout))
+        {
+            const float x0 = juce::jmax ((float) headerWidth, xForBeat (pin));
+            const float x1 = juce::jmax ((float) headerWidth, xForBeat (juce::jmin (pout, spanBeats())));
+            if (x1 > x0) { g.setColour (Palette::red); g.fillRect (x0, 4.0f, x1 - x0, 4.0f); }
+        }
+    }
+
+    // Playhead grab-handle triangle.
+    const float px = xForBeat (transport.getPlayheadBeats());
+    if (px >= headerWidth)
+    {
+        g.setColour (Palette::playhead);
+        juce::Path tri;
+        tri.addTriangle (px - 5.0f, 0.0f, px + 5.0f, 0.0f, px, 8.0f);
+        g.fillPath (tri);
+    }
+}
+
+void ArrangeView::rulerMouseUp (const juce::MouseEvent&)
+{
+    rulerDrag = false;
+    rulerAlt  = false;
+}
+
+// ---------------------------------------------------------------------------
 // Editing
 // ---------------------------------------------------------------------------
-void ArrangeView::mouseDown (const juce::MouseEvent& e)
+void ArrangeView::rulerMouseDown (const juce::MouseEvent& e)
 {
     const auto p = e.position;
 
@@ -1068,9 +1115,14 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
         repaint();
         return;
     }
+}
+
+void ArrangeView::mouseDown (const juce::MouseEvent& e)
+{
+    const auto p = e.position;
 
     const int track = trackAtY (p.y);
-    if (track < 0 || p.y < rulerHeight)
+    if (track < 0)
         return;
 
     if (p.x < headerWidth)   // header click selects the track
@@ -1646,7 +1698,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
     }
 
     // Right-click empty track space -> "Paste notes here" (JSON clip notes from the clipboard).
-    if (hit < 0 && e.mods.isPopupMenu() && p.x >= headerWidth && p.y >= rulerHeight)
+    if (hit < 0 && e.mods.isPopupMenu() && p.x >= headerWidth)
     {
         const double beat = juce::jmax (0.0, beatForX (p.x));
         const bool haveClip = juce::SystemClipboard::getTextFromClipboard().trim().startsWithChar ('[');
@@ -1661,7 +1713,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
     }
 
     // Ctrl/Cmd-drag a box -> marquee zoom (H+V). Preempts clip drag/delete.
-    if (e.mods.isCommandDown() && p.x >= (float) headerWidth && p.y >= (float) rulerHeight)
+    if (e.mods.isCommandDown() && p.x >= (float) headerWidth)
     {
         marquee = true; marqueeA = marqueeB = p; drag = Drag::none;
         return;
@@ -1844,7 +1896,7 @@ void ArrangeView::mouseMove (const juce::MouseEvent& e)
 {
     const auto p = e.position;
     juce::String link;
-    if (p.x >= headerWidth && p.y >= rulerHeight)
+    if (p.x >= headerWidth)
         if (const int track = trackAtY (p.y); track >= 0)
             if (const int hit = clipAt (track, p); hit >= 0)
             {
@@ -1861,37 +1913,38 @@ void ArrangeView::mouseExit (const juce::MouseEvent&)
     if (hoveredLinkId.isNotEmpty()) { hoveredLinkId.clear(); repaint(); }
 }
 
+void ArrangeView::rulerMouseDrag (const juce::MouseEvent& e)
+{
+    if (! rulerDrag) return;
+    const double b = juce::jmax (0.0, beatForX (e.position.x));
+    if (std::abs (b - rulerStartBeat) > 0.5)   // became a range
+    {
+        double s = snapToBar (juce::jmin (rulerStartBeat, b));
+        double f = snapToBar (juce::jmax (rulerStartBeat, b));
+        const double oneBar = meter.beatsPerBarAt (s);
+        if (f - s < oneBar) f = s + oneBar;
+        if (rulerAlt)                          // Alt → punch region
+        {
+            if (onSetPunchRange) onSetPunchRange (true, s, f);
+        }
+        else                                   // plain → loop region
+        {
+            loopDragged = true;
+            transport.setLoopRegion (gloopy::time::BeatPosition { s }, gloopy::time::BeatPosition { f });
+            transport.setLoopEnabled (true);
+            if (onLoopChanged) onLoopChanged();
+        }
+    }
+    else if (! rulerAlt)
+    {
+        transport.requestSeek (b);   // still just scrubbing
+    }
+    repaint();
+}
+
 void ArrangeView::mouseDrag (const juce::MouseEvent& e)
 {
     if (marquee) { marqueeB = e.position; repaint(); return; }
-    if (rulerDrag)
-    {
-        const double b = juce::jmax (0.0, beatForX (e.position.x));
-        if (std::abs (b - rulerStartBeat) > 0.5)   // became a range
-        {
-            double s = snapToBar (juce::jmin (rulerStartBeat, b));
-            double f = snapToBar (juce::jmax (rulerStartBeat, b));
-            const double oneBar = meter.beatsPerBarAt (s);
-            if (f - s < oneBar) f = s + oneBar;
-            if (rulerAlt)                          // Alt → punch region
-            {
-                if (onSetPunchRange) onSetPunchRange (true, s, f);
-            }
-            else                                   // plain → loop region
-            {
-                loopDragged = true;
-                transport.setLoopRegion (gloopy::time::BeatPosition { s }, gloopy::time::BeatPosition { f });
-                transport.setLoopEnabled (true);
-                if (onLoopChanged) onLoopChanged();
-            }
-        }
-        else if (! rulerAlt)
-        {
-            transport.requestSeek (b);   // still just scrubbing
-        }
-        repaint();
-        return;
-    }
 
     // Dragging an automation breakpoint: update the cached lane locally (value from y clamped to
     // the param range, beat grid-snapped and kept between its neighbours) and repaint. The model
