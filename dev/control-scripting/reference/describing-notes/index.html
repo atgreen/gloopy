@@ -2937,15 +2937,15 @@ built-in scale names the desktop app uses.</p>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">gloopy</span><span class="w"> </span><span class="kn">import</span> <span class="n">pitch</span><span class="p">,</span> <span class="n">pitch_name</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">pitch</span><span class="p">(</span><span class="s2">&quot;C#4&quot;</span><span class="p">)</span>     <span class="c1"># -&gt; 61</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">pitch</span><span class="p">(</span><span class="s2">"C#4"</span><span class="p">)</span>     <span class="c1"># -&gt; 61</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">pitch</span><span class="p">(</span><span class="mi">60</span><span class="p">)</span>        <span class="c1"># -&gt; 60</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">pitch_name</span><span class="p">(</span><span class="mi">61</span><span class="p">)</span>   <span class="c1"># -&gt; &quot;C#4&quot;   (sharp-spelled)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">pitch_name</span><span class="p">(</span><span class="mi">61</span><span class="p">)</span>   <span class="c1"># -&gt; "C#4"   (sharp-spelled)</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">(</span><span class="nv">pitch</span><span class="w"> </span><span class="s">&quot;C#4&quot;</span><span class="p">)</span><span class="w">    </span><span class="c1">; =&gt; 61</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">(</span><span class="nv">pitch</span><span class="w"> </span><span class="s">"C#4"</span><span class="p">)</span><span class="w">    </span><span class="c1">; =&gt; 61</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="p">(</span><span class="nv">pitch</span><span class="w"> </span><span class="mi">60</span><span class="p">)</span><span class="w">       </span><span class="c1">; =&gt; 60</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="p">(</span><span class="nv">pitch-name</span><span class="w"> </span><span class="mi">61</span><span class="p">)</span><span class="w">  </span><span class="c1">; =&gt; &quot;C#4&quot;   (sharp-spelled)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="p">(</span><span class="nv">pitch-name</span><span class="w"> </span><span class="mi">61</span><span class="p">)</span><span class="w">  </span><span class="c1">; =&gt; "C#4"   (sharp-spelled)</span>
 </code></pre></div>
 </div>
 </div>
@@ -3000,14 +3000,14 @@ triplet.</p>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">gloopy</span><span class="w"> </span><span class="kn">import</span> <span class="n">dur</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">dur</span><span class="p">(</span><span class="s2">&quot;q&quot;</span><span class="p">)</span>    <span class="c1"># -&gt; 1.0</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">dur</span><span class="p">(</span><span class="s2">&quot;8t&quot;</span><span class="p">)</span>   <span class="c1"># -&gt; 0.333…</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">dur</span><span class="p">(</span><span class="s2">"q"</span><span class="p">)</span>    <span class="c1"># -&gt; 1.0</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">dur</span><span class="p">(</span><span class="s2">"8t"</span><span class="p">)</span>   <span class="c1"># -&gt; 0.333…</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">dur</span><span class="p">(</span><span class="mf">0.25</span><span class="p">)</span>   <span class="c1"># -&gt; 0.25</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">(</span><span class="nv">dur</span><span class="w"> </span><span class="s">&quot;q&quot;</span><span class="p">)</span><span class="w">   </span><span class="c1">; =&gt; 1</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="p">(</span><span class="nv">dur</span><span class="w"> </span><span class="s">&quot;8t&quot;</span><span class="p">)</span><span class="w">  </span><span class="c1">; =&gt; 1/3</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">(</span><span class="nv">dur</span><span class="w"> </span><span class="s">"q"</span><span class="p">)</span><span class="w">   </span><span class="c1">; =&gt; 1</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="p">(</span><span class="nv">dur</span><span class="w"> </span><span class="s">"8t"</span><span class="p">)</span><span class="w">  </span><span class="c1">; =&gt; 1/3</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p">(</span><span class="nv">dur</span><span class="w"> </span><span class="mf">0.25</span><span class="p">)</span><span class="w">  </span><span class="c1">; =&gt; 0.25</span>
 </code></pre></div>
 </div>
@@ -3020,13 +3020,13 @@ triplet.</p>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">gloopy</span><span class="w"> </span><span class="kn">import</span> <span class="n">note</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">note</span><span class="p">(</span><span class="s2">&quot;E4&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">)</span>            <span class="c1"># E4 at beat 1, a quarter long</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">note</span><span class="p">(</span><span class="mi">60</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">velocity</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)</span>  <span class="c1"># equivalent to note(&quot;C4&quot;, 0, &quot;q&quot;, 0.9)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">note</span><span class="p">(</span><span class="s2">"E4"</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"q"</span><span class="p">)</span>            <span class="c1"># E4 at beat 1, a quarter long</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">note</span><span class="p">(</span><span class="mi">60</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">velocity</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)</span>  <span class="c1"># equivalent to note("C4", 0, "q", 0.9)</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">(</span><span class="nv">note</span><span class="w"> </span><span class="s">&quot;E4&quot;</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="s">&quot;q&quot;</span><span class="p">)</span><span class="w">             </span><span class="c1">; E4 at beat 1, a quarter long</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="p">(</span><span class="nv">note</span><span class="w"> </span><span class="mi">60</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="mf">0.9</span><span class="p">)</span><span class="w">             </span><span class="c1">; equivalent to (note &quot;C4&quot; 0 &quot;q&quot; 0.9)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">(</span><span class="nv">note</span><span class="w"> </span><span class="s">"E4"</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="s">"q"</span><span class="p">)</span><span class="w">             </span><span class="c1">; E4 at beat 1, a quarter long</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="p">(</span><span class="nv">note</span><span class="w"> </span><span class="mi">60</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="mf">0.9</span><span class="p">)</span><span class="w">             </span><span class="c1">; equivalent to (note "C4" 0 "q" 0.9)</span>
 </code></pre></div>
 </div>
 </div>
@@ -3040,11 +3040,11 @@ without sounding.</p>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">gloopy</span><span class="w"> </span><span class="kn">import</span> <span class="n">seq</span><span class="p">,</span> <span class="n">REST</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">seq</span><span class="p">([(</span><span class="s2">&quot;C4&quot;</span><span class="p">,</span><span class="s2">&quot;q&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;E4&quot;</span><span class="p">,</span><span class="s2">&quot;e&quot;</span><span class="p">),</span> <span class="p">(</span><span class="n">REST</span><span class="p">,</span><span class="s2">&quot;e&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;G4&quot;</span><span class="p">,</span><span class="s2">&quot;h&quot;</span><span class="p">)])</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">seq</span><span class="p">([(</span><span class="s2">"C4"</span><span class="p">,</span><span class="s2">"q"</span><span class="p">),</span> <span class="p">(</span><span class="s2">"E4"</span><span class="p">,</span><span class="s2">"e"</span><span class="p">),</span> <span class="p">(</span><span class="n">REST</span><span class="p">,</span><span class="s2">"e"</span><span class="p">),</span> <span class="p">(</span><span class="s2">"G4"</span><span class="p">,</span><span class="s2">"h"</span><span class="p">)])</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">(</span><span class="nv">seq</span><span class="w"> </span><span class="o">&#39;</span><span class="p">((</span><span class="s">&quot;C4&quot;</span><span class="w"> </span><span class="s">&quot;q&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="s">&quot;E4&quot;</span><span class="w"> </span><span class="s">&quot;e&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="ss">:rest</span><span class="w"> </span><span class="s">&quot;e&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="s">&quot;G4&quot;</span><span class="w"> </span><span class="s">&quot;h&quot;</span><span class="p">)))</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">(</span><span class="nv">seq</span><span class="w"> </span><span class="o">'</span><span class="p">((</span><span class="s">"C4"</span><span class="w"> </span><span class="s">"q"</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="s">"E4"</span><span class="w"> </span><span class="s">"e"</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="ss">:rest</span><span class="w"> </span><span class="s">"e"</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="s">"G4"</span><span class="w"> </span><span class="s">"h"</span><span class="p">)))</span>
 </code></pre></div>
 </div>
 </div>
@@ -3093,11 +3093,11 @@ are letters, digits stay free for absolute octaves.</p>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">gloopy</span><span class="w"> </span><span class="kn">import</span> <span class="n">mini</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">mini</span><span class="p">(</span><span class="s2">&quot;c4q d e f  g4h a b&quot;</span><span class="p">)</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">mini</span><span class="p">(</span><span class="s2">"c4q d e f  g4h a b"</span><span class="p">)</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">(</span><span class="nv">mini</span><span class="w"> </span><span class="s">&quot;c4q d e f  g4h a b&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">(</span><span class="nv">mini</span><span class="w"> </span><span class="s">"c4q d e f  g4h a b"</span><span class="p">)</span>
 </code></pre></div>
 </div>
 </div>
@@ -3167,13 +3167,13 @@ scales.</p>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">gloopy</span><span class="w"> </span><span class="kn">import</span> <span class="n">scale</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">scale</span><span class="p">(</span><span class="s2">&quot;C4&quot;</span><span class="p">,</span> <span class="s2">&quot;major&quot;</span><span class="p">)</span>        <span class="c1"># [60, 62, 64, 65, 67, 69, 71]</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">scale</span><span class="p">(</span><span class="s2">&quot;C4&quot;</span><span class="p">,</span> <span class="s2">&quot;major&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>     <span class="c1"># two octaves (14 pitches)</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">scale</span><span class="p">(</span><span class="s2">"C4"</span><span class="p">,</span> <span class="s2">"major"</span><span class="p">)</span>        <span class="c1"># [60, 62, 64, 65, 67, 69, 71]</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">scale</span><span class="p">(</span><span class="s2">"C4"</span><span class="p">,</span> <span class="s2">"major"</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>     <span class="c1"># two octaves (14 pitches)</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">(</span><span class="nv">scale</span><span class="w"> </span><span class="s">&quot;C4&quot;</span><span class="w"> </span><span class="ss">:major</span><span class="p">)</span><span class="w">         </span><span class="c1">; (60 62 64 65 67 69 71)</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="p">(</span><span class="nv">scale</span><span class="w"> </span><span class="s">&quot;C4&quot;</span><span class="w"> </span><span class="ss">:major</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w">       </span><span class="c1">; two octaves (14 pitches)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">(</span><span class="nv">scale</span><span class="w"> </span><span class="s">"C4"</span><span class="w"> </span><span class="ss">:major</span><span class="p">)</span><span class="w">         </span><span class="c1">; (60 62 64 65 67 69 71)</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="p">(</span><span class="nv">scale</span><span class="w"> </span><span class="s">"C4"</span><span class="w"> </span><span class="ss">:major</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w">       </span><span class="c1">; two octaves (14 pitches)</span>
 </code></pre></div>
 </div>
 </div>
@@ -3239,13 +3239,13 @@ many of the lowest notes by an octave.</p>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">gloopy</span><span class="w"> </span><span class="kn">import</span> <span class="n">chord</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">chord</span><span class="p">(</span><span class="s2">&quot;C4&quot;</span><span class="p">,</span> <span class="s2">&quot;maj7&quot;</span><span class="p">)</span>        <span class="c1"># [60, 64, 67, 71]</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">chord</span><span class="p">(</span><span class="s2">&quot;C4&quot;</span><span class="p">,</span> <span class="s2">&quot;maj&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>      <span class="c1"># first inversion -&gt; [64, 67, 72]</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">chord</span><span class="p">(</span><span class="s2">"C4"</span><span class="p">,</span> <span class="s2">"maj7"</span><span class="p">)</span>        <span class="c1"># [60, 64, 67, 71]</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">chord</span><span class="p">(</span><span class="s2">"C4"</span><span class="p">,</span> <span class="s2">"maj"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>      <span class="c1"># first inversion -&gt; [64, 67, 72]</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">(</span><span class="nv">chord</span><span class="w"> </span><span class="s">&quot;C4&quot;</span><span class="w"> </span><span class="ss">:maj7</span><span class="p">)</span><span class="w">         </span><span class="c1">; (60 64 67 71)</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="p">(</span><span class="nv">chord</span><span class="w"> </span><span class="s">&quot;C4&quot;</span><span class="w"> </span><span class="ss">:maj</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w">        </span><span class="c1">; first inversion =&gt; (64 67 72)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">(</span><span class="nv">chord</span><span class="w"> </span><span class="s">"C4"</span><span class="w"> </span><span class="ss">:maj7</span><span class="p">)</span><span class="w">         </span><span class="c1">; (60 64 67 71)</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="p">(</span><span class="nv">chord</span><span class="w"> </span><span class="s">"C4"</span><span class="w"> </span><span class="ss">:maj</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w">        </span><span class="c1">; first inversion =&gt; (64 67 72)</span>
 </code></pre></div>
 </div>
 </div>
@@ -3257,14 +3257,14 @@ adding a clip. <code>scale</code> and <code>chord</code> return <strong>lists of
 <div class="tabbed-set tabbed-alternate" data-tabs="8:2"><input checked="checked" id="__tabbed_8_1" name="__tabbed_8" type="radio" /><input id="__tabbed_8_2" name="__tabbed_8" type="radio" /><div class="tabbed-labels"><label for="__tabbed_8_1">Python</label><label for="__tabbed_8_2">Common Lisp</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">notes</span> <span class="o">=</span> <span class="n">mini</span><span class="p">(</span><span class="s2">&quot;c4q d e f&quot;</span><span class="p">)</span>            <span class="c1"># list[Note]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">notes</span> <span class="o">=</span> <span class="n">mini</span><span class="p">(</span><span class="s2">"c4q d e f"</span><span class="p">)</span>            <span class="c1"># list[Note]</span>
 <a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">up</span> <span class="o">=</span> <span class="p">[</span><span class="n">note</span><span class="p">(</span><span class="n">n</span><span class="o">.</span><span class="n">pitch</span> <span class="o">+</span> <span class="mi">7</span><span class="p">,</span> <span class="n">n</span><span class="o">.</span><span class="n">start_beat</span><span class="p">,</span> <span class="n">n</span><span class="o">.</span><span class="n">length_beats</span><span class="p">,</span> <span class="n">n</span><span class="o">.</span><span class="n">velocity</span><span class="p">)</span>
 <a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>      <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">notes</span><span class="p">]</span>               <span class="c1"># transpose up a fifth</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="n">g</span><span class="o">.</span><span class="n">add_clip</span><span class="p">(</span><span class="n">lead</span><span class="p">,</span> <span class="n">notes</span><span class="o">=</span><span class="n">up</span> <span class="o">+</span> <span class="n">mini</span><span class="p">(</span><span class="s2">&quot;[c e g]w&quot;</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">4</span><span class="p">))</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="n">g</span><span class="o">.</span><span class="n">add_clip</span><span class="p">(</span><span class="n">lead</span><span class="p">,</span> <span class="n">notes</span><span class="o">=</span><span class="n">up</span> <span class="o">+</span> <span class="n">mini</span><span class="p">(</span><span class="s2">"[c e g]w"</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">4</span><span class="p">))</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">(</span><span class="k">let</span><span class="w"> </span><span class="p">((</span><span class="nv">notes</span><span class="w"> </span><span class="p">(</span><span class="nv">mini</span><span class="w"> </span><span class="s">&quot;c4q d e f&quot;</span><span class="p">)))</span><span class="w">    </span><span class="c1">; a list of notes</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">(</span><span class="k">let</span><span class="w"> </span><span class="p">((</span><span class="nv">notes</span><span class="w"> </span><span class="p">(</span><span class="nv">mini</span><span class="w"> </span><span class="s">"c4q d e f"</span><span class="p">)))</span><span class="w">    </span><span class="c1">; a list of notes</span>
 <a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="p">(</span><span class="nv">add-clip</span><span class="w"> </span><span class="nv">lead</span>
 <a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">            </span><span class="ss">:notes</span><span class="w"> </span><span class="p">(</span><span class="nb">mapcar</span><span class="w"> </span><span class="p">(</span><span class="k">lambda</span><span class="w"> </span><span class="p">(</span><span class="nv">n</span><span class="p">)</span><span class="w">                 </span><span class="c1">; transpose up a fifth</span>
 <a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">                             </span><span class="p">(</span><span class="nv">note</span><span class="w"> </span><span class="p">(</span><span class="nb">+</span><span class="w"> </span><span class="p">(</span><span class="nv">gloopy.pb::pitch</span><span class="w"> </span><span class="nv">n</span><span class="p">)</span><span class="w"> </span><span class="mi">7</span><span class="p">)</span>

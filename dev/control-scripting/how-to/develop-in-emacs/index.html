@@ -2884,11 +2884,11 @@ Emacs.</p>
 </ul>
 <h2 id="set-up-the-package">Set up the package<a class="headerlink" href="#set-up-the-package" title="Permanent link">&para;</a></h2>
 <p>If you installed a Gloopy package, <code>gloopy.el</code> is in Emacs's <code>site-lisp</code>, so it just loads:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">(</span><span class="nb">require</span><span class="w"> </span><span class="ss">&#39;gloopy</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">(</span><span class="nb">require</span><span class="w"> </span><span class="ss">'gloopy</span><span class="p">)</span>
 </code></pre></div>
 <p>Running from a source checkout instead? Point Emacs at the <code>emacs/</code> directory first:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">(</span><span class="nv">add-to-list</span><span class="w"> </span><span class="ss">&#39;load-path</span><span class="w"> </span><span class="s">&quot;/path/to/gloopy/emacs&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="p">(</span><span class="nb">require</span><span class="w"> </span><span class="ss">&#39;gloopy</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">(</span><span class="nv">add-to-list</span><span class="w"> </span><span class="ss">'load-path</span><span class="w"> </span><span class="s">"/path/to/gloopy/emacs"</span><span class="p">)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="p">(</span><span class="nb">require</span><span class="w"> </span><span class="ss">'gloopy</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="connect">Connect<a class="headerlink" href="#connect" title="Permanent link">&para;</a></h2>
 <p>With Gloopy running:</p>

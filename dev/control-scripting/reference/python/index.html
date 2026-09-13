@@ -6795,10 +6795,10 @@ Install with <code>pip install ./python</code>. For a guided start, do the
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">gloopy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gloopy</span><span class="p">,</span> <span class="n">note</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">with</span> <span class="n">Gloopy</span><span class="p">()</span> <span class="k">as</span> <span class="n">g</span><span class="p">:</span>                 <span class="c1"># connects to 127.0.0.1:50051</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">lead</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">add_synth_track</span><span class="p">(</span><span class="s2">&quot;Lead&quot;</span><span class="p">,</span> <span class="n">wave</span><span class="o">=</span><span class="s2">&quot;SAW&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">lead</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">add_synth_track</span><span class="p">(</span><span class="s2">"Lead"</span><span class="p">,</span> <span class="n">wave</span><span class="o">=</span><span class="s2">"SAW"</span><span class="p">)</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">g</span><span class="o">.</span><span class="n">add_clip</span><span class="p">(</span><span class="n">lead</span><span class="p">,</span> <span class="n">notes</span><span class="o">=</span><span class="p">[</span><span class="n">note</span><span class="p">(</span><span class="mi">60</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">note</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">note</span><span class="p">(</span><span class="mi">67</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)])</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">g</span><span class="o">.</span><span class="n">play</span><span class="p">()</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">g</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">&quot;/tmp/mix.wav&quot;</span><span class="p">,</span> <span class="n">tail_seconds</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">g</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"/tmp/mix.wav"</span><span class="p">,</span> <span class="n">tail_seconds</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
 </code></pre></div>
 <p>Methods map roughly one-to-one onto the RPCs and return plain Python values.
 <code>note(pitch, start_beat, length_beats, velocity=0.8)</code> is a small helper for
@@ -6834,18 +6834,18 @@ structural edits and queries go over gRPC (live notes/knobs are on OSC 9000).</p
 
 g = Gloopy()                      # connects to 127.0.0.1:50051
 g.set_tempo(128)
-tid = g.add_synth_track(&quot;lead&quot;, wave=&quot;SAW&quot;)
+tid = g.add_synth_track("lead", wave="SAW")
 
 # Notes are (pitch, start_beat, length_beats). pitch accepts a MIDI int or a
-# name; length accepts beats or shorthand (&quot;q&quot;, &quot;8t&quot;). See gloopy.music for
+# name; length accepts beats or shorthand ("q", "8t"). See gloopy.music for
 # seq() (lay steps end-to-end, with rests), the mini() string DSL, scale()
 # and chord().
-g.add_clip(tid, notes=[note(60, 0, 1), note(&quot;E4&quot;, 1, 1), note(&quot;G4&quot;, 2, 2)])
-g.add_clip(tid, notes=seq([(&quot;C4&quot;,&quot;q&quot;), (&quot;E4&quot;,&quot;e&quot;), (None,&quot;e&quot;), (&quot;G4&quot;,&quot;h&quot;)]))
-g.add_clip(tid, notes=mini(&quot;c4q d e f  g4h a b&quot;))   # compact melody DSL
+g.add_clip(tid, notes=[note(60, 0, 1), note("E4", 1, 1), note("G4", 2, 2)])
+g.add_clip(tid, notes=seq([("C4","q"), ("E4","e"), (None,"e"), ("G4","h")]))
+g.add_clip(tid, notes=mini("c4q d e f  g4h a b"))   # compact melody DSL
 g.play()
 ...
-g.render(&quot;/tmp/out.wav&quot;, tail_seconds=1.0)
+g.render("/tmp/out.wav", tail_seconds=1.0)
 </code></pre></div>
 
 
@@ -7171,7 +7171,7 @@ seam so it has no discontinuity click. interp selects the resampling interpolati
 
 
 <h4 id="gloopy.client.Gloopy.add_sfz_track" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">add_sfz_track</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">add_sfz_track</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.add_sfz_track" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -7189,7 +7189,7 @@ seam so it has no discontinuity click. interp selects the resampling interpolati
 
 
 <h4 id="gloopy.client.Gloopy.add_surge_track" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">add_surge_track</span><span class="p">(</span><span class="n">patch</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">add_surge_track</span><span class="p">(</span><span class="n">patch</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.add_surge_track" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -7207,7 +7207,7 @@ seam so it has no discontinuity click. interp selects the resampling interpolati
 
 
 <h4 id="gloopy.client.Gloopy.add_external_instrument" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">add_external_instrument</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">add_external_instrument</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.add_external_instrument" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -7286,7 +7286,7 @@ lfotarget lforate lfodepth.</p>
 
 
 <h4 id="gloopy.client.Gloopy.add_macro" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">add_macro</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;Macro&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">add_macro</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">'Macro'</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.add_macro" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -7692,7 +7692,7 @@ override so the clip inherits the track's colour.</p>
 
 
 <h4 id="gloopy.client.Gloopy.regenerate_clip" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">regenerate_clip</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">script</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">lang</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">regenerate_clip</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">script</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">lang</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.regenerate_clip" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -8316,7 +8316,7 @@ gate; each looped repetition rolls independently, renders stay reproducible).</p
 
 
 <h4 id="gloopy.client.Gloopy.add_chord" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">add_chord</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">root</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s1">&#39;maj&#39;</span><span class="p">,</span> <span class="n">start_beat</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">length_beats</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">velocity</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">inversion</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">add_chord</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">root</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s1">'maj'</span><span class="p">,</span> <span class="n">start_beat</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">length_beats</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">velocity</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">inversion</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.add_chord" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -8352,7 +8352,7 @@ gate; each looped repetition rolls independently, renders stay reproducible).</p
 
 
 <h4 id="gloopy.client.Gloopy.add_bus" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">add_bus</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;Bus&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">add_bus</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">'Bus'</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.add_bus" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -8703,7 +8703,7 @@ shape 4 = random/sample-and-hold. Remove them all with remove_modulation(target)
 
 
 <h4 id="gloopy.client.Gloopy.set_scale" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">set_scale</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">intervals</span><span class="o">=</span><span class="p">())</span></code>
+            <code class="highlight language-python"><span class="n">set_scale</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">intervals</span><span class="o">=</span><span class="p">())</span></code>
 
 <a href="#gloopy.client.Gloopy.set_scale" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -8758,7 +8758,7 @@ applies to the built-in synth). Must be exactly 12 values.</p>
 
 
 <h4 id="gloopy.client.Gloopy.add_location" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">add_location</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;marker&#39;</span><span class="p">,</span> <span class="n">start_beat</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">end_beat</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">add_location</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s1">'marker'</span><span class="p">,</span> <span class="n">start_beat</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">end_beat</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.add_location" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -8794,7 +8794,7 @@ applies to the built-in synth). Must be exactly 12 values.</p>
 
 
 <h4 id="gloopy.client.Gloopy.set_session_slot_colour" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">set_session_slot_colour</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">scene</span><span class="p">,</span> <span class="n">colour</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">set_session_slot_colour</span><span class="p">(</span><span class="n">track_id</span><span class="p">,</span> <span class="n">scene</span><span class="p">,</span> <span class="n">colour</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.set_session_slot_colour" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -8903,7 +8903,7 @@ applies to the built-in synth). Must be exactly 12 values.</p>
 
 
 <h4 id="gloopy.client.Gloopy.define_export_profile" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">define_export_profile</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="s1">&#39;mix&#39;</span><span class="p">,</span> <span class="n">range_name</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">track_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;wav&#39;</span><span class="p">,</span> <span class="n">tail_seconds</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">define_export_profile</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="s1">'mix'</span><span class="p">,</span> <span class="n">range_name</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">track_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">'wav'</span><span class="p">,</span> <span class="n">tail_seconds</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.define_export_profile" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -8921,7 +8921,7 @@ applies to the built-in synth). Must be exactly 12 values.</p>
 
 
 <h4 id="gloopy.client.Gloopy.run_export" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">run_export</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">out_dir</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">run_export</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">out_dir</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.run_export" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -9109,7 +9109,7 @@ ref is its argument (plugin identifier / file path / patch path / template name)
 
 
 <h4 id="gloopy.client.Gloopy.add_favorite" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">add_favorite</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">ref</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">add_favorite</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">ref</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.add_favorite" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -9326,7 +9326,7 @@ action). Errors if no loop is set or it is empty. Encoder picked from the extens
 
 
 <h4 id="gloopy.client.Gloopy.git_status" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">git_status</span><span class="p">(</span><span class="nb">dir</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">git_status</span><span class="p">(</span><span class="nb">dir</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.git_status" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -9434,7 +9434,7 @@ action). Errors if no loop is set or it is empty. Encoder picked from the extens
 
 
 <h4 id="gloopy.client.Gloopy.git_branch_create" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">git_branch_create</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">start_point</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">git_branch_create</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">start_point</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.git_branch_create" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -9542,7 +9542,7 @@ action). Errors if no loop is set or it is empty. Encoder picked from the extens
 
 
 <h4 id="gloopy.client.Gloopy.git_tag_create" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">git_tag_create</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">git_tag_create</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.git_tag_create" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -9578,7 +9578,7 @@ action). Errors if no loop is set or it is empty. Encoder picked from the extens
 
 
 <h4 id="gloopy.client.Gloopy.git_diff" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">git_diff</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">pathspec</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">rev_a</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">rev_b</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">git_diff</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">pathspec</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">rev_a</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">rev_b</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.git_diff" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -9615,7 +9615,7 @@ neither = working tree vs HEAD. Returns {ok, error, diff, files:[{status,path}]}
 
 
 <h4 id="gloopy.client.Gloopy.git_stash" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">git_stash</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">git_stash</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.git_stash" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -9687,7 +9687,7 @@ neither = working tree vs HEAD. Returns {ok, error, diff, files:[{status,path}]}
 
 
 <h4 id="gloopy.client.Gloopy.git_reset" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">git_reset</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;mixed&#39;</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="s1">&#39;HEAD&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">git_reset</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'mixed'</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="s1">'HEAD'</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.git_reset" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -9741,7 +9741,7 @@ neither = working tree vs HEAD. Returns {ok, error, diff, files:[{status,path}]}
 
 
 <h4 id="gloopy.client.Gloopy.git_fetch" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">git_fetch</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">remote</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">git_fetch</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">remote</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.git_fetch" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -9759,7 +9759,7 @@ neither = working tree vs HEAD. Returns {ok, error, diff, files:[{status,path}]}
 
 
 <h4 id="gloopy.client.Gloopy.git_pull" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">git_pull</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">remote</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">branch</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">git_pull</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">remote</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">branch</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.git_pull" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -9777,7 +9777,7 @@ neither = working tree vs HEAD. Returns {ok, error, diff, files:[{status,path}]}
 
 
 <h4 id="gloopy.client.Gloopy.git_push" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">git_push</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">remote</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">branch</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">git_push</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">remote</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">branch</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.git_push" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -9867,7 +9867,7 @@ neither = working tree vs HEAD. Returns {ok, error, diff, files:[{status,path}]}
 
 
 <h4 id="gloopy.client.Gloopy.git_set_identity" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">git_set_identity</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">git_set_identity</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.git_set_identity" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -10012,7 +10012,7 @@ version, and a compact git working-tree summary (branch + uncommitted count).</p
 
 
 <h4 id="gloopy.client.Gloopy.render" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">render</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">tail_seconds</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">start_beat</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">end_beat</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">track_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">range_name</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">report</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">render</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">tail_seconds</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">start_beat</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">end_beat</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">track_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">range_name</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">report</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#gloopy.client.Gloopy.render" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -10124,15 +10124,15 @@ duration is a length in beats (a quarter note = 1 beat).</p>
 <div class="highlight"><pre><span></span><code>from gloopy import Gloopy, seq, scale, chord
 
 g = Gloopy()
-tid = g.add_synth_track(&quot;lead&quot;, wave=&quot;SAW&quot;)
+tid = g.add_synth_track("lead", wave="SAW")
 
 # a melody, note names + duration shorthand, laid end-to-end:
-g.add_clip(tid, notes=seq([(&quot;C4&quot;,&quot;q&quot;), (&quot;E4&quot;,&quot;e&quot;), (&quot;G4&quot;,&quot;e&quot;),
-                           (None,&quot;q&quot;), (&quot;A4&quot;,&quot;h&quot;)]))
+g.add_clip(tid, notes=seq([("C4","q"), ("E4","e"), ("G4","e"),
+                           (None,"q"), ("A4","h")]))
 
 # a C-major run and a Cmaj7 stab:
-run  = [note(p, i*0.25, 0.25) for i, p in enumerate(scale(&quot;C4&quot;, &quot;major&quot;))]
-stab = [note(p, 0, 2) for p in chord(&quot;C4&quot;, &quot;maj7&quot;)]
+run  = [note(p, i*0.25, 0.25) for i, p in enumerate(scale("C4", "major"))]
+stab = [note(p, 0, 2) for p in chord("C4", "maj7")]
 </code></pre></div>
 <p>The scale names match Gloopy's engine (<code>Source/Scales.cpp</code>) so the desktop
 "set scale" control, the Python client and the Common Lisp client all speak
@@ -10220,7 +10220,7 @@ and defaults to 4 (so <code>"C"</code> is middle C).</p>
 
 
 <h4 id="gloopy.music.scale" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">scale</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;major&#39;</span><span class="p">,</span> <span class="n">octaves</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">scale</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">'major'</span><span class="p">,</span> <span class="n">octaves</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></code>
 
 <a href="#gloopy.music.scale" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -10240,7 +10240,7 @@ and defaults to 4 (so <code>"C"</code> is middle C).</p>
 
 
 <h4 id="gloopy.music.chord" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">chord</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">quality</span><span class="o">=</span><span class="s1">&#39;maj&#39;</span><span class="p">,</span> <span class="n">inversion</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">chord</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">quality</span><span class="o">=</span><span class="s1">'maj'</span><span class="p">,</span> <span class="n">inversion</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
 
 <a href="#gloopy.music.chord" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -10272,7 +10272,7 @@ inversion). Qualities: maj, min, dim, aug, sus2/4, maj7, min7, 7, 6, 9, ...</p>
 step's <code>duration</code> advances the clock whether or not it sounds, so rests
 (<code>REST</code>/<code>None</code>/<code>"r"</code>) just leave a gap. Pitches accept names, durations
 accept shorthand::</p>
-<div class="highlight"><pre><span></span><code>seq([(&quot;C4&quot;,&quot;q&quot;), (&quot;E4&quot;,&quot;e&quot;), (REST,&quot;e&quot;), (&quot;G4&quot;,&quot;h&quot;)])
+<div class="highlight"><pre><span></span><code>seq([("C4","q"), ("E4","e"), (REST,"e"), ("G4","h")])
 </code></pre></div>
 <p><code>note_builder</code> defaults to <code>gloopy.note</code>; pass your own to build a
 different message type (it is called <code>builder(pitch, start, length, vel)</code>).</p>
@@ -10296,10 +10296,10 @@ different message type (it is called <code>builder(pitch, start, length, vel)</c
         <p>Parse mini-notation <code>s</code> into a list of Notes for <code>add_clip</code>.</p>
 <p>Durations glue onto the pitch with no separator and are sticky (a bare note
 inherits the previous length; quarter to start)::</p>
-<div class="highlight"><pre><span></span><code>mini(&quot;c4q d e f&quot;)            # four quarter notes, C4 D4 E4 F4
-mini(&quot;c4q d e f g4h a b&quot;)    # C..F quarter, then G4 A4 B4 half
-mini(&quot;[c e g]q [f a c5]h&quot;)   # chords (spaces inside the brackets)
-mini(&quot;c4e r e f&quot;)            # a rest inherits the duration too
+<div class="highlight"><pre><span></span><code>mini("c4q d e f")            # four quarter notes, C4 D4 E4 F4
+mini("c4q d e f g4h a b")    # C..F quarter, then G4 A4 B4 half
+mini("[c e g]q [f a c5]h")   # chords (spaces inside the brackets)
+mini("c4e r e f")            # a rest inherits the duration too
 </code></pre></div>
 <p><code>pitch</code> is anything :func:<code>pitch</code> accepts, the duration anything
 :func:<code>dur</code> accepts (q h w e s, dotted <code>"q."</code>, triplet <code>"8t"</code>). There are
