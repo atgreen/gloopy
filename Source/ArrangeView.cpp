@@ -162,7 +162,6 @@ void ArrangeView::rebuild()
                 {
                     if (r <= 0 || r > (int) params.size()) return;
                     const auto target = params[(size_t) (r - 1)].second;
-                    focusedTarget[tid] = target;
                     if (onPickAutomationParam) onPickAutomationParam (tid, target);
                     resized(); repaint();
                 });
@@ -230,11 +229,8 @@ double ArrangeView::spanBeats() const
     return juce::jmax (1.0, meter.barBeatToBeats (bar + 1, 1.0));   // round up to the next whole bar
 }
 
-int ArrangeView::numBars() const { int bar; double bib; meter.beatToBarBeat (spanBeats() - 1.0e-6, bar, bib); return bar; }
-
 float  ArrangeView::fitPixelsPerBeat() const { return (float) (getWidth() - headerWidth) / (float) juce::jmax (1.0, spanBeats()); }
 float  ArrangeView::pixelsPerBeat() const { return pxPerBeatStore > 0.0 ? (float) pxPerBeatStore : fitPixelsPerBeat(); }
-float  ArrangeView::barWidth() const { return pixelsPerBeat() * (float) juce::jmax (0.001, beatsPerBar); }
 float  ArrangeView::xForBeat (double beat) const { return (float) headerWidth + (float) ((beat - viewStartBeat) * (double) pixelsPerBeat()); }
 double ArrangeView::beatForX (float x) const { return viewStartBeat + (double) (x - (float) headerWidth) / (double) juce::jmax (1.0e-6f, pixelsPerBeat()); }
 
@@ -245,7 +241,7 @@ double ArrangeView::beatForX (float x) const { return viewStartBeat + (double) (
 
 void ArrangeView::clampView()
 {
-    const double vis = (double) juce::jmax (1, getWidth() - headerWidth) / (double) juce::jmax (1.0e-6f, pixelsPerBeat());
+    const double vis = getVisibleBeats();
     viewStartBeat = juce::jlimit (0.0, juce::jmax (0.0, spanBeats() - vis), viewStartBeat);
     if (onViewChanged) onViewChanged();
 }
@@ -417,7 +413,7 @@ void ArrangeView::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWh
         zoomVCentered (up ? 1.1 : 1.0 / 1.1);
     else if (shift)                             // Shift: horizontal scroll
     {
-        const double vis = (double) juce::jmax (1, getWidth() - headerWidth) / (double) juce::jmax (1.0e-6f, pixelsPerBeat());
+        const double vis = getVisibleBeats();
         const float  d   = w.deltaY != 0.0f ? w.deltaY : w.deltaX;
         scrollBeats (-(double) d * vis * 0.2);
     }
@@ -434,7 +430,6 @@ void ArrangeView::refreshMeter()
 {
     meter = getMeterMap ? getMeterMap()
                         : gloopy::time::MeterMap (transport.getTimeSigNumerator(), transport.getTimeSigDenominator());
-    beatsPerBar = meter.beatsPerBarAt (0.0);
 }
 int    ArrangeView::trackAtY (float y) const
 {
@@ -1109,7 +1104,6 @@ void ArrangeView::rulerMouseDown (const juce::MouseEvent& e)
             return;
         }
         rulerDrag = true;
-        loopDragged = false;
         rulerStartBeat = juce::jmax (0.0, beatForX (p.x));
         if (! rulerAlt) transport.requestSeek (rulerStartBeat);   // Alt-drag sets punch, doesn't scrub
         repaint();
@@ -1125,580 +1119,24 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
     if (track < 0)
         return;
 
-    if (p.x < headerWidth)   // header click selects the track
+    if (p.x < headerWidth)
     {
-        selTrack = track; selClip = -1;
-        if (onClipSelected) onClipSelected (track, -1);
-        repaint();
-
-        // Right-click a track header -> track menu (Rename; Sampler window for sampler tracks).
-        if (e.mods.isPopupMenu())
-        {
-            SamplerCtl sc {};
-            if (getSamplerControls) sc = getSamplerControls (track);
-            juce::String curName;
-            bool curPolarity = false;
-            {
-                GLOOPY_ELOCK(sl);
-                if (juce::isPositiveAndBelow (track, (int) tracks.size()))
-                {
-                    curName = tracks[(size_t) track]->name;
-                    curPolarity = tracks[(size_t) track]->polarity.load();
-                }
-            }
-            const int tk = track;
-
-            // Preset track colours (label -> 8-hex ARGB), menu ids 10..17.
-            static const std::pair<const char*, const char*> kColours[] = {
-                { "Red",    "ffef5350" }, { "Orange", "ffffa726" }, { "Yellow", "ffffee58" },
-                { "Green",  "ff66bb6a" }, { "Teal",   "ff26a69a" }, { "Blue",   "ff42a5f5" },
-                { "Purple", "ffab47bc" }, { "Grey",   "ff90a4ae" } };
-
-            const int numTracks = (int) tracks.size();
-
-            juce::PopupMenu m;
-            m.addItem (1, "Rename track...");
-            juce::PopupMenu cm;
-            for (int i = 0; i < (int) numElementsInArray (kColours); ++i)
-                cm.addItem (10 + i, kColours[i].first);
-            m.addSubMenu ("Colour", cm);
-            m.addSeparator();
-            {
-                juce::PopupMenu inst;   // swap the sound source, keeping clips/routing (patches via the Presets browser)
-                inst.addItem (30, "Surge XT");
-                inst.addItem (31, "Basic synth");
-                m.addSubMenu ("Change instrument", inst);
-            }
-            m.addItem (8, "Duplicate track");                   // clone clips + generator + inserts
-            m.addItem (3, "Move up",   tk > 0);
-            m.addItem (4, "Move down", tk < numTracks - 1);
-            m.addItem (5, "Invert phase", true, curPolarity);   // checkable polarity flip
-            m.addSeparator();
-            m.addItem (6, "Export track (WAV)...");             // bounce this track to a stem
-            if (sc.isSampler) { m.addSeparator(); m.addItem (2, "Sampler playback window..."); }
-            m.addSeparator();
-            m.addItem (7, "Delete track");                      // remove the track + its mixer insert (undoable)
-            m.showMenuAsync (juce::PopupMenu::Options(), [this, tk, curName, sc, curPolarity] (int r)
-            {
-                if (r >= 10 && r < 10 + (int) numElementsInArray (kColours))
-                {
-                    if (onSetTrackColour) onSetTrackColour (tk, kColours[r - 10].second);
-                }
-                else if (r == 3) { if (onMoveTrack) onMoveTrack (tk, -1); }   // up
-                else if (r == 4) { if (onMoveTrack) onMoveTrack (tk, +1); }   // down
-                else if (r == 5) { if (onSetTrackPolarity) onSetTrackPolarity (tk, ! curPolarity); }   // toggle phase
-                else if (r == 6) { if (onExportTrack) onExportTrack (tk); }   // export stem
-                else if (r == 7) { if (onRemoveTrack) onRemoveTrack (tk); }   // delete track
-                else if (r == 8) { if (onDuplicateTrack) onDuplicateTrack (tk); }   // clone track
-                else if (r == 30 || r == 31) { if (onChangeInstrument) onChangeInstrument (tk, r - 30); }   // swap instrument
-                else if (r == 1)
-                {
-                    auto* rw = new juce::AlertWindow ("Rename track", "New track name", juce::MessageBoxIconType::NoIcon);
-                    rw->addTextEditor ("name", curName, "Name");
-                    rw->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
-                    rw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-                    rw->enterModalState (true, juce::ModalCallbackFunction::create ([this, rw, tk] (int rr)
-                    {
-                        if (rr == 1 && onRenameTrack) onRenameTrack (tk, rw->getTextEditorContents ("name"));
-                        delete rw;
-                    }), false);
-                }
-                else if (r == 2 && sc.isSampler)
-                {
-                    auto* aw = new juce::AlertWindow ("Sampler", "One-shot playback window", juce::MessageBoxIconType::NoIcon);
-                aw->addTextEditor ("start", juce::String (sc.start, 3), "Start (0..1)");
-                aw->addTextEditor ("end",   juce::String (sc.end, 3),   "End (0..1)");
-                aw->addTextEditor ("fadein",  juce::String (sc.fadeIn, 3),  "Fade in (s)");
-                aw->addTextEditor ("fadeout", juce::String (sc.fadeOut, 3), "Fade out (s)");
-                aw->addTextEditor ("loopxf", juce::String (sc.loopXfade, 3), "Loop crossfade (s)");
-                aw->addTextEditor ("root",  juce::String (sc.root),     "Root note");
-                juce::StringArray dir { "Forward", "Reverse" };
-                aw->addComboBox ("dir", dir, "Direction");
-                aw->getComboBoxComponent ("dir")->setSelectedItemIndex (sc.reverse ? 1 : 0);
-                juce::StringArray mode { "One-shot", "Loop" };
-                aw->addComboBox ("mode", mode, "Mode");
-                aw->getComboBoxComponent ("mode")->setSelectedItemIndex (sc.loop ? 1 : 0);
-                juce::StringArray voices { "Poly", "Mono (choke)" };
-                aw->addComboBox ("voices", voices, "Voices");
-                aw->getComboBoxComponent ("voices")->setSelectedItemIndex (sc.mono ? 1 : 0);
-                juce::StringArray interp { "Linear", "Cubic (smoother)" };
-                aw->addComboBox ("interp", interp, "Interpolation");
-                aw->getComboBoxComponent ("interp")->setSelectedItemIndex (sc.interp);
-                aw->addButton ("Apply",  1, juce::KeyPress (juce::KeyPress::returnKey));
-                aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-                aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, tk] (int r)
-                {
-                    if (r == 1 && onSetSamplerControls)
-                    {
-                        const float s   = aw->getTextEditorContents ("start").getFloatValue();
-                        const float en  = aw->getTextEditorContents ("end").getFloatValue();
-                        const float fi  = aw->getTextEditorContents ("fadein").getFloatValue();
-                        const float fo  = aw->getTextEditorContents ("fadeout").getFloatValue();
-                        const float lxf = aw->getTextEditorContents ("loopxf").getFloatValue();
-                        const int   rt  = aw->getTextEditorContents ("root").getIntValue();
-                        const bool  rev = aw->getComboBoxComponent ("dir")->getSelectedItemIndex() == 1;
-                        const bool  lp  = aw->getComboBoxComponent ("mode")->getSelectedItemIndex() == 1;
-                        const bool  mn  = aw->getComboBoxComponent ("voices")->getSelectedItemIndex() == 1;
-                        const int   itp = aw->getComboBoxComponent ("interp")->getSelectedItemIndex();
-                        onSetSamplerControls (tk, s, en, rev, rt, fi, fo, lp, mn, lxf, itp);
-                    }
-                    delete aw;
-                }), false);
-                }
-            });
-        }
+        trackHeaderMouseDown (e, track);
         return;
     }
 
-    // Automation editing (direct manipulation over the overlay). A precise hit on a breakpoint
-    // wins over the clip beneath: single-click-drag moves it, double/right-click deletes it.
-    // Alt-click anywhere on a lane adds a point. Anything else falls through to clip editing.
-    {
-        int li = -1, pi = -1;
-        if (hitAutoPoint (track, p, li, pi))
-        {
-            if (e.getNumberOfClicks() >= 2 || e.mods.isPopupMenu())   // delete this breakpoint
-            {
-                auto pts = autoLanes[(size_t) li].points;
-                pts.erase (pts.begin() + pi);
-                if (onSetAutomation) onSetAutomation (autoLanes[(size_t) li].target, pts);
-                return;
-            }
-            dragTrack = track; dragAutoLane = li; dragAutoPoint = pi; drag = Drag::point;   // start moving it
-            return;
-        }
-        const int subTop = rowTop (track) + th();
-        if (isExpanded (track) && p.y >= subTop)   // anywhere in the expanded automation area
-        {
-            const int k = laneAtY (track, p.y);
-            std::vector<int> idx; trackLaneIndices (track, idx);
-            if (k >= 0 && k < (int) idx.size())
-            {
-                const auto& lane = autoLanes[(size_t) idx[(size_t) k]];
-                const int bTop = subTop + pickerRowH + k * laneRowH;
-                if (p.x >= headerWidth - 24 && p.x < headerWidth - 4 && p.y <= bTop + 22)   // × removes the lane
-                { if (onSetAutomation) onSetAutomation (lane.target, {}); return; }
-                if (e.mods.isPopupMenu())   // lane menu: ramp/step + curve + remove
-                {
-                    const juce::String target = lane.target; const bool step = lane.step; const float curve = lane.curve;
-                    juce::PopupMenu m;
-                    m.addItem (1, "Smooth (ramp)",  true, ! step);
-                    m.addItem (2, "Stepped (hold)", true, step);
-                    juce::PopupMenu cs;
-                    cs.addItem (10, "Linear",   true, std::abs (curve) < 0.05f);
-                    cs.addItem (11, "Ease out", true, curve < -0.05f);
-                    cs.addItem (12, "Ease in",  true, curve >  0.05f);
-                    m.addSubMenu ("Curve", cs, ! step);
-                    m.addSeparator();
-                    m.addItem (3, "Remove lane");
-                    m.showMenuAsync (juce::PopupMenu::Options().withTargetScreenArea (
-                                         { e.getScreenPosition().x, e.getScreenPosition().y, 1, 1 }),
-                        [this, target] (int r)
-                        {
-                            if      (r == 1  && onSetAutomationStep)  onSetAutomationStep  (target, false);
-                            else if (r == 2  && onSetAutomationStep)  onSetAutomationStep  (target, true);
-                            else if (r == 10 && onSetAutomationCurve) onSetAutomationCurve (target, 0.0f);
-                            else if (r == 11 && onSetAutomationCurve) onSetAutomationCurve (target, -0.6f);
-                            else if (r == 12 && onSetAutomationCurve) onSetAutomationCurve (target, 0.6f);
-                            else if (r == 3  && onSetAutomation)      onSetAutomation (target, {});
-                        });
-                    return;
-                }
-                if (e.mods.isAltDown())   // add a point to this sub-lane
-                {
-                    float top, bot; laneBand (track, k, top, bot);
-                    const float n = juce::jlimit (0.0f, 1.0f, (bot - p.y) / juce::jmax (1.0f, bot - top));
-                    const double beat = juce::jmax (0.0, snapToGrid (beatForX (p.x)));
-                    if (onAddAutomationPoint) onAddAutomationPoint (lane.target, beat, lane.lo + n * (lane.hi - lane.lo));
-                    return;
-                }
-            }
-            return;   // consume any other click in the sub-lane area (never create a clip here)
-        }
-        if (e.mods.isAltDown())   // collapsed: Alt-click adds to the track's first lane
-        {
-            const int la = firstAutoLane (track);
-            if (la >= 0)
-            {
-                float top, bot; trackBand (track, top, bot);
-                const auto& lane = autoLanes[(size_t) la];
-                const float n = juce::jlimit (0.0f, 1.0f, (bot - p.y) / juce::jmax (1.0f, bot - top));
-                const double beat = juce::jmax (0.0, snapToGrid (beatForX (p.x)));
-                if (onAddAutomationPoint) onAddAutomationPoint (lane.target, beat, lane.lo + n * (lane.hi - lane.lo));
-                return;
-            }
-        }
-    }
+    if (automationMouseDown (e, track))
+        return;
 
     const int hit = clipAt (track, p);
 
-    // Right-click a clip: context menu of the everyday edit ops (same operations the
-    // control API exposes as SplitClip/DuplicateClip/ReverseClip/SnapClipToScale).
     if (hit >= 0 && e.mods.isPopupMenu())
     {
-        selTrack = track; selClip = hit;
-        if (onClipSelected) onClipSelected (track, hit);
-        repaint();
-
-        bool isMidi = false, isTake = false, isMutedTake = false, isLoopedMidi = false, isMuted = false;
-        bool isScript = false, isScriptLive = false, isLinked = false;
-        double clipStart = 0.0, clipEnd = 0.0;
-        {
-            GLOOPY_ELOCK(sl);
-            if (juce::isPositiveAndBelow (hit, (int) tracks[(size_t) track]->clips.size()))
-            {
-                const auto& cl = tracks[(size_t) track]->clips[(size_t) hit];
-                isMidi = ! cl.isAudio();
-                isTake = cl.takeId.isNotEmpty();
-                isMuted = cl.muted;
-                isMutedTake = isTake && cl.muted;
-                isLoopedMidi = isMidi && cl.looped && cl.contentLenBeats > 0.0
-                               && cl.contentLenBeats < cl.lengthBeats - 1.0e-9;   // actually tiles
-                isScript = cl.isScript();
-                isScriptLive = cl.scriptLive;
-                isLinked = cl.isLinked();
-                clipStart = cl.startBeat.toBeats();
-                clipEnd   = (cl.startBeat + cl.lengthBeats).toBeats();
-            }
-        }
-
-        // Markers that fall strictly inside this clip -> "Split at marker" submenu.
-        std::vector<std::pair<juce::String, double>> clipMarkers;
-        if (getMarkers)
-            for (auto& mk : getMarkers())
-                if (mk.second > clipStart + 1.0e-6 && mk.second < clipEnd - 1.0e-6)
-                    clipMarkers.push_back (mk);
-
-        juce::PopupMenu m;
-        m.addItem (1, "Split at playhead");
-        {
-            juce::PopupMenu se;                             // chop the clip into N equal pieces
-            se.addItem (830, "2");
-            se.addItem (831, "4");
-            se.addItem (832, "8");
-            se.addItem (833, "16");
-            m.addSubMenu ("Split into", se);
-        }
-        if (! clipMarkers.empty())
-        {
-            juce::PopupMenu markerMenu;
-            for (int i = 0; i < (int) clipMarkers.size(); ++i)
-                markerMenu.addItem (500 + i, clipMarkers[(size_t) i].first);
-            m.addSubMenu ("Split at marker", markerMenu);
-        }
-        m.addItem (2, "Duplicate");
-        {
-            juce::PopupMenu rep;   // tile the clip N times total (adds N-1 butted copies)
-            rep.addItem (602, "x2"); rep.addItem (604, "x4"); rep.addItem (608, "x8"); rep.addItem (616, "x16");
-            m.addSubMenu ("Repeat", rep);
-        }
-        m.addItem (26, "Duplicate linked", isMidi);      // the copy shares this clip's pattern (edit one -> both)
-        m.addItem (27, "Make unique", isLinked);         // detach a linked clip into its own pattern
-        m.addItem (3, "Reverse");
-        m.addItem (4, "Snap to scale", isMidi);
-        m.addItem (13, "Crop to loop region", transport.isLoopEnabled());   // MIDI notes or audio buffer
-        m.addItem (14, "Consolidate loops", isLoopedMidi);   // bake looped repetitions into notes
-        m.addItem (15, "Bounce to audio");                   // freeze clip -> audio on a new track
-        m.addItem (17, "Mute clip", ! isTake, isMuted);      // disable/enable in the arrangement (takes use Use/Promote)
-        m.addItem (18, "Loop this clip");                    // set the transport loop to this clip's span
-        m.addItem (19, "Copy notes (JSON)", isMidi);         // notes -> system clipboard as JSON
-        m.addItem (21, "Generate from script", isMidi);      // run the clip's script (kernel) -> notes
-        m.addItem (22, "Edit script code...", isMidi);       // open the clip's source in $EDITOR
-        m.addItem (25, "Set script generator...", isMidi);   // reference a named generator (pkg:sym) in the project's system/module
-        m.addItem (24, "Live (auto-generate on playback)", isScript, isScriptLive);  // re-run the script ~1 bar ahead
-        m.addItem (23, "Live-drive from script", isMidi);    // play the script live during playback (ephemeral)
-        m.addItem (20, "Rename clip...");                    // set the clip's label
-        {
-            juce::PopupMenu ccm;                             // per-clip colour override (else inherit the track)
-            static const std::pair<const char*, const char*> kClipCols[] = {
-                { "Red", "ffef5350" }, { "Orange", "ffffa726" }, { "Yellow", "ffffee58" },
-                { "Green", "ff66bb6a" }, { "Teal", "ff26a69a" }, { "Blue", "ff42a5f5" },
-                { "Purple", "ffab47bc" }, { "Grey", "ff90a4ae" } };
-            for (int i = 0; i < (int) numElementsInArray (kClipCols); ++i)
-                ccm.addItem (810 + i, kClipCols[i].first);
-            ccm.addSeparator();
-            ccm.addItem (818, "Inherit track");
-            m.addSubMenu ("Colour", ccm);
-        }
-        if (isMidi)                                          // non-destructive playback transpose
-        {
-            juce::PopupMenu tr;
-            const std::pair<const char*, int> opts[] = {
-                { "-12 (octave)", -12 }, { "-7 (fifth)", -7 }, { "-5 (fourth)", -5 }, { "-2", -2 },
-                { "Reset (0)", 0 }, { "+2", 2 }, { "+5 (fourth)", 5 }, { "+7 (fifth)", 7 }, { "+12 (octave)", 12 } };
-            for (int i = 0; i < 9; ++i) tr.addItem (700 + i, opts[i].first);
-            m.addSubMenu ("Transpose", tr);
-            juce::PopupMenu vel;                             // non-destructive playback velocity scale
-            const std::pair<const char*, int> vopts[] = {
-                { "25%", 25 }, { "50%", 50 }, { "75%", 75 }, { "100% (reset)", 100 }, { "125%", 125 }, { "150%", 150 }, { "200%", 200 } };
-            for (int i = 0; i < 7; ++i) vel.addItem (710 + i, vopts[i].first);
-            m.addSubMenu ("Velocity", vel);
-            juce::PopupMenu prob;                            // generative per-note fire probability
-            const std::pair<const char*, int> popts[] = {
-                { "100% (always)", 100 }, { "75%", 75 }, { "50%", 50 }, { "25%", 25 }, { "10%", 10 } };
-            for (int i = 0; i < 5; ++i) prob.addItem (720 + i, popts[i].first);
-            m.addSubMenu ("Probability", prob);
-            juce::PopupMenu vr;                              // destructive velocity ramp across the clip
-            vr.addItem (740, "Crescendo");                  // soft -> loud
-            vr.addItem (741, "Decrescendo");                // loud -> soft
-            m.addSubMenu ("Velocity ramp", vr);
-            juce::PopupMenu fv;                              // flatten all velocities to one value
-            fv.addItem (820, "Flat 100%");
-            fv.addItem (821, "Flat 75%");
-            fv.addItem (822, "Flat 50%");
-            fv.addItem (823, "Flat 25%");
-            m.addSubMenu ("Flatten velocity", fv);
-            juce::PopupMenu ts;                             // time-scale the clip's rhythm
-            ts.addItem (742, "Double-time (faster)");       // factor 0.5
-            ts.addItem (743, "Half-time (slower)");         // factor 2
-            m.addSubMenu ("Time", ts);
-            juce::PopupMenu ec;                             // MIDI echo: decaying note repeats
-            ec.addItem (744, "1/8 note x3");                // delay 0.5, 3 reps
-            ec.addItem (745, "1/16 note x4");               // delay 0.25, 4 reps
-            m.addSubMenu ("Echo", ec);
-            m.addItem (746, "Invert (mirror pitches)");     // melodic inversion around the first note
-            juce::PopupMenu rt;                             // ratchet: subdivide each note into rapid hits
-            rt.addItem (750, "x2");
-            rt.addItem (751, "x3");
-            rt.addItem (752, "x4");
-            m.addSubMenu ("Ratchet", rt);
-            juce::PopupMenu hm;                             // harmonize: add a parallel interval voice
-            hm.addItem (760, "Minor 3rd (+3)");
-            hm.addItem (761, "Major 3rd (+4)");
-            hm.addItem (762, "Perfect 5th (+7)");
-            hm.addItem (763, "Octave (+12)");
-            hm.addItem (764, "Octave down (-12)");
-            m.addSubMenu ("Harmonize", hm);
-            juce::PopupMenu sw;                            // swing: bake a groove (delay off-beats)
-            sw.addItem (770, "1/8 light");
-            sw.addItem (771, "1/8 medium");
-            sw.addItem (772, "1/8 heavy");
-            sw.addItem (773, "1/16 light");
-            sw.addItem (774, "1/16 medium");
-            sw.addItem (775, "1/16 heavy");
-            m.addSubMenu ("Swing", sw);
-            juce::PopupMenu cd;                            // chordify: turn each note into a named chord
-            cd.addItem (780, "Major");
-            cd.addItem (781, "Minor");
-            cd.addItem (782, "Dominant 7th");
-            cd.addItem (783, "Diminished");
-            cd.addItem (784, "Sus4");
-            m.addSubMenu ("Chord", cd);
-            juce::PopupMenu qz;                            // quantize note starts (full or 50% soft)
-            qz.addItem (790, "1/16");
-            qz.addItem (791, "1/16 soft (50%)");
-            qz.addItem (792, "1/8");
-            qz.addItem (793, "1/8 soft (50%)");
-            qz.addItem (794, "1/4");
-            qz.addItem (795, "1/4 soft (50%)");
-            m.addSubMenu ("Quantize", qz);
-            juce::PopupMenu gt;                            // gate: scale note lengths (articulation)
-            gt.addItem (800, "Staccato (50%)");
-            gt.addItem (801, "Short (75%)");
-            gt.addItem (802, "Tenuto (150%)");
-            gt.addItem (803, "Double (200%)");
-            m.addSubMenu ("Note length", gt);
-        }
-        if (! isMidi)                                   // audio-clip level ops
-        {
-            m.addItem (10, "Normalize");                // to -1 dBFS
-            m.addItem (11, "Gain...");
-            m.addItem (12, "Fades...");
-            juce::PopupMenu fadeShapeM;                 // curve for the fade edges
-            const char* fadeShapes[] = { "Linear", "Equal power", "Exponential" };
-            for (int i = 0; i < 3; ++i) fadeShapeM.addItem (730 + i, fadeShapes[i]);
-            m.addSubMenu ("Fade shape", fadeShapeM);
-            m.addItem (16, "Slice at transients");      // detect onsets -> split into slices
-        }
-        if (isTake)
-        {
-            m.addSeparator();
-            m.addItem (5, "Use this take", isMutedTake);    // comp: make this the active take
-            m.addItem (6, "Promote take (keep)");           // move raw scratch -> recordings
-            m.addItem (7, "Clean up unused takes");
-        }
-        m.addSeparator();
-        m.addItem (9, "Delete");
-        const int t = track, c = hit;
-        m.showMenuAsync (juce::PopupMenu::Options(), [this, t, c, clipMarkers, isMuted] (int r)
-        {
-            if (r == 0) return;
-            if (r >= 500 && r - 500 < (int) clipMarkers.size())    // "Split at marker <name>"
-            { if (onClipCommand) onClipCommand (t, c, "splitmarker:" + clipMarkers[(size_t) (r - 500)].first); return; }
-            if (r == 17) { if (onClipCommand) onClipCommand (t, c, isMuted ? "unmute" : "mute"); return; }
-            if (r >= 602 && r <= 616)    // Repeat xN -> add N-1 copies
-            { if (onClipCommand) onClipCommand (t, c, "repeat:" + juce::String ((r - 600) - 1)); return; }
-            if (r == 11) { promptClipGain (t, c); return; }        // "Gain..." -> dB prompt
-            if (r == 12) { promptClipFades (t, c); return; }       // "Fades..." -> in/out prompt
-            if (r == 19) { if (onClipCommand) onClipCommand (t, c, "copynotes"); return; }   // notes -> clipboard
-            if (r == 21) { if (onClipCommand) onClipCommand (t, c, "regenerate"); return; }   // run the clip's script
-            if (r == 22) { if (onClipCommand) onClipCommand (t, c, "editcode"); return; }     // edit the clip's source
-            if (r == 25)   // Set script generator: reference a named generator in the project's system/module
-            {
-                juce::String curGen, curSys, curLang;
-                { GLOOPY_ELOCK(sl);
-                  if (juce::isPositiveAndBelow (t, (int) tracks.size())
-                      && juce::isPositiveAndBelow (c, (int) tracks[(size_t) t]->clips.size()))
-                  { auto& cl = tracks[(size_t) t]->clips[(size_t) c];
-                    curGen = cl.scriptGenerator; curSys = cl.scriptSystem; curLang = cl.scriptLang; } }
-                if (curLang.isEmpty()) curLang = "common-lisp";
-                auto* gw = new juce::AlertWindow ("Script generator",
-                    "Name a generator in the project's system/module.\n"
-                    "Lisp: pkg:sym (system loaded via ASDF).   Python: pkg.mod:fn.",
-                    juce::MessageBoxIconType::NoIcon);
-                gw->addTextEditor ("generator", curGen, "Generator (pkg:sym)");
-                gw->addTextEditor ("system", curSys, "System / import root (optional)");
-                gw->addTextEditor ("lang", curLang, "Language");
-                gw->addButton ("Set", 1, juce::KeyPress (juce::KeyPress::returnKey));
-                gw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-                gw->enterModalState (true, juce::ModalCallbackFunction::create ([this, gw, t, c] (int rr)
-                {
-                    if (rr == 1 && onSetGenerator)
-                        onSetGenerator (t, c, gw->getTextEditorContents ("generator").trim(),
-                                        gw->getTextEditorContents ("system").trim(),
-                                        gw->getTextEditorContents ("lang").trim());
-                    delete gw;
-                }));
-                return;
-            }
-            if (r == 24) { if (onClipCommand) onClipCommand (t, c, "livetoggle"); return; }   // auto-generate ahead of playback
-            if (r == 23) { if (onClipCommand) onClipCommand (t, c, "drive"); return; }        // live-drive the clip
-            if (r == 20)   // Rename clip: prompt (prefilled with the clip's current name)
-            {
-                juce::String cur;
-                { GLOOPY_ELOCK(sl);
-                  if (juce::isPositiveAndBelow (t, (int) tracks.size())
-                      && juce::isPositiveAndBelow (c, (int) tracks[(size_t) t]->clips.size()))
-                      cur = tracks[(size_t) t]->clips[(size_t) c].name; }
-                auto* rw = new juce::AlertWindow ("Rename clip", "New clip name (blank = track name)", juce::MessageBoxIconType::NoIcon);
-                rw->addTextEditor ("name", cur, "Name");
-                rw->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
-                rw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-                rw->enterModalState (true, juce::ModalCallbackFunction::create ([this, rw, t, c] (int rr)
-                {
-                    if (rr == 1 && onRenameClip) onRenameClip (t, c, rw->getTextEditorContents ("name"));
-                    delete rw;
-                }), false);
-                return;
-            }
-            if (r >= 810 && r <= 818)   // Colour: per-clip override (818 = inherit the track)
-            {
-                static const char* cols[] = { "ffef5350", "ffffa726", "ffffee58", "ff66bb6a",
-                                              "ff26a69a", "ff42a5f5", "ffab47bc", "ff90a4ae" };
-                const juce::String hex = (r == 818) ? juce::String() : juce::String (cols[r - 810]);
-                if (onClipCommand) onClipCommand (t, c, "clipcolour:" + hex);
-                return;
-            }
-            if (r >= 700 && r <= 708)   // Transpose <semitones> (non-destructive)
-            {
-                const int vals[] = { -12, -7, -5, -2, 0, 2, 5, 7, 12 };
-                if (onClipCommand) onClipCommand (t, c, "transpose:" + juce::String (vals[r - 700]));
-                return;
-            }
-            if (r >= 710 && r <= 716)   // Velocity scale <percent> (non-destructive)
-            {
-                const int pcts[] = { 25, 50, 75, 100, 125, 150, 200 };
-                if (onClipCommand) onClipCommand (t, c, "velscale:" + juce::String (pcts[r - 710]));
-                return;
-            }
-            if (r >= 720 && r <= 724)   // Note fire probability <percent>
-            {
-                const int pcts[] = { 100, 75, 50, 25, 10 };
-                if (onClipCommand) onClipCommand (t, c, "prob:" + juce::String (pcts[r - 720]));
-                return;
-            }
-            if (r >= 730 && r <= 732)   // Audio-clip fade curve: 0 linear, 1 equal-power, 2 exp
-            {
-                if (onClipCommand) onClipCommand (t, c, "fadeshape:" + juce::String (r - 730));
-                return;
-            }
-            if (r == 740 || r == 741)   // Velocity ramp: crescendo / decrescendo
-            {
-                if (onClipCommand) onClipCommand (t, c, r == 740 ? "velramp:up" : "velramp:down");
-                return;
-            }
-            if (r >= 820 && r <= 823)   // Flatten velocity: 100/75/50/25%
-            {
-                const float v = r == 820 ? 1.0f : r == 821 ? 0.75f : r == 822 ? 0.5f : 0.25f;
-                if (onClipCommand) onClipCommand (t, c, "flattenvel:" + juce::String (v));
-                return;
-            }
-            if (r >= 830 && r <= 833)   // Split into: 2 / 4 / 8 / 16 equal pieces
-            {
-                const int pieces = r == 830 ? 2 : r == 831 ? 4 : r == 832 ? 8 : 16;
-                if (onClipCommand) onClipCommand (t, c, "spliteq:" + juce::String (pieces));
-                return;
-            }
-            if (r == 742 || r == 743)   // Time-scale: double-time (0.5) / half-time (2)
-            {
-                if (onClipCommand) onClipCommand (t, c, r == 742 ? "timescale:0.5" : "timescale:2");
-                return;
-            }
-            if (r == 744 || r == 745)   // MIDI echo: 1/8 x3 or 1/16 x4
-            {
-                if (onClipCommand) onClipCommand (t, c, r == 744 ? "echo:0.5,3" : "echo:0.25,4");
-                return;
-            }
-            if (r == 746) { if (onClipCommand) onClipCommand (t, c, "invert"); return; }   // melodic inversion
-            if (r >= 750 && r <= 752)   // Ratchet: x2/x3/x4
-            {
-                if (onClipCommand) onClipCommand (t, c, "ratchet:" + juce::String (r - 748));
-                return;
-            }
-            if (r >= 760 && r <= 764)   // Harmonize: +3 / +4 / +7 / +12 / -12
-            {
-                const int semis = r == 760 ? 3 : r == 761 ? 4 : r == 762 ? 7 : r == 763 ? 12 : -12;
-                if (onClipCommand) onClipCommand (t, c, "harmonize:" + juce::String (semis));
-                return;
-            }
-            if (r >= 770 && r <= 775)   // Swing: 1/8 (grid 0.5) or 1/16 (grid 0.25), light/medium/heavy
-            {
-                const double grid = r <= 772 ? 0.5 : 0.25;
-                const float  amt  = (r == 770 || r == 773) ? 0.2f : (r == 771 || r == 774) ? 0.33f : 0.5f;
-                if (onClipCommand) onClipCommand (t, c, "swing:" + juce::String (grid) + "," + juce::String (amt));
-                return;
-            }
-            if (r >= 780 && r <= 784)   // Chord: major/minor/dom7/dim/sus4
-            {
-                if (onClipCommand) onClipCommand (t, c, "chordify:" + juce::String (r - 780));
-                return;
-            }
-            if (r >= 790 && r <= 795)   // Quantize: 1/16, 1/8, 1/4 — full or 50% soft (odd ids)
-            {
-                const double grid = r <= 791 ? 0.25 : r <= 793 ? 0.5 : 1.0;
-                const double str  = (r % 2 == 1) ? 0.5 : 1.0;   // 791/793/795 = soft
-                if (onClipCommand) onClipCommand (t, c, "quantize:" + juce::String (grid) + "," + juce::String (str));
-                return;
-            }
-            if (r >= 800 && r <= 803)   // Note length (gate): staccato/short/tenuto/double
-            {
-                const double factor = r == 800 ? 0.5 : r == 801 ? 0.75 : r == 802 ? 1.5 : 2.0;
-                if (onClipCommand) onClipCommand (t, c, "gate:" + juce::String (factor));
-                return;
-            }
-            const char* cmd = r == 1  ? "split"
-                            : r == 2  ? "duplicate"
-                            : r == 26 ? "duplicatelinked"
-                            : r == 27 ? "makeunique"
-                            : r == 3  ? "reverse"
-                            : r == 4  ? "snapscale"
-                            : r == 13 ? "croploop"
-                            : r == 14 ? "consolidate"
-                            : r == 15 ? "bounce"
-                            : r == 18 ? "loopclip"
-                            : r == 16 ? "slicetransients"
-                            : r == 10 ? "normalize"
-                            : r == 5  ? "usetake"
-                            : r == 6  ? "promotetake"
-                            : r == 7  ? "cleanuptakes"
-                            :           "delete";
-            if (onClipCommand) onClipCommand (t, c, cmd);
-        });
+        showClipMenu (track, hit);
         return;
     }
-
     // Right-click empty track space -> "Paste notes here" (JSON clip notes from the clipboard).
-    if (hit < 0 && e.mods.isPopupMenu() && p.x >= headerWidth)
+    if (hit < 0 && e.mods.isPopupMenu())
     {
         const double beat = juce::jmax (0.0, beatForX (p.x));
         const bool haveClip = juce::SystemClipboard::getTextFromClipboard().trim().startsWithChar ('[');
@@ -1713,7 +1151,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
     }
 
     // Ctrl/Cmd-drag a box -> marquee zoom (H+V). Preempts clip drag/delete.
-    if (e.mods.isCommandDown() && p.x >= (float) headerWidth)
+    if (e.mods.isCommandDown())
     {
         marquee = true; marqueeA = marqueeB = p; drag = Drag::none;
         return;
@@ -1777,6 +1215,589 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
     if (onClipSelected) onClipSelected (selTrack, selClip);
     if (onChanged) onChanged();
     repaint();
+}
+
+void ArrangeView::showClipMenu (int track, int hit)
+{
+    selTrack = track; selClip = hit;
+    if (onClipSelected) onClipSelected (track, hit);
+    repaint();
+
+    bool isMidi = false, isTake = false, isMutedTake = false, isLoopedMidi = false, isMuted = false;
+    bool isScript = false, isScriptLive = false, isLinked = false;
+    double clipStart = 0.0, clipEnd = 0.0;
+    {
+        GLOOPY_ELOCK(sl);
+        if (juce::isPositiveAndBelow (hit, (int) tracks[(size_t) track]->clips.size()))
+        {
+            const auto& cl = tracks[(size_t) track]->clips[(size_t) hit];
+            isMidi = ! cl.isAudio();
+            isTake = cl.takeId.isNotEmpty();
+            isMuted = cl.muted;
+            isMutedTake = isTake && cl.muted;
+            isLoopedMidi = isMidi && cl.looped && cl.contentLenBeats > 0.0
+                           && cl.contentLenBeats < cl.lengthBeats - 1.0e-9;   // actually tiles
+            isScript = cl.isScript();
+            isScriptLive = cl.scriptLive;
+            isLinked = cl.isLinked();
+            clipStart = cl.startBeat.toBeats();
+            clipEnd   = (cl.startBeat + cl.lengthBeats).toBeats();
+        }
+    }
+
+    // Markers that fall strictly inside this clip -> "Split at marker" submenu.
+    std::vector<std::pair<juce::String, double>> clipMarkers;
+    if (getMarkers)
+        for (auto& mk : getMarkers())
+            if (mk.second > clipStart + 1.0e-6 && mk.second < clipEnd - 1.0e-6)
+                clipMarkers.push_back (mk);
+
+    juce::PopupMenu m;
+    m.addItem (1, "Split at playhead");
+    {
+        juce::PopupMenu se;                             // chop the clip into N equal pieces
+        se.addItem (830, "2");
+        se.addItem (831, "4");
+        se.addItem (832, "8");
+        se.addItem (833, "16");
+        m.addSubMenu ("Split into", se);
+    }
+    if (! clipMarkers.empty())
+    {
+        juce::PopupMenu markerMenu;
+        for (int i = 0; i < (int) clipMarkers.size(); ++i)
+            markerMenu.addItem (500 + i, clipMarkers[(size_t) i].first);
+        m.addSubMenu ("Split at marker", markerMenu);
+    }
+    m.addItem (2, "Duplicate");
+    {
+        juce::PopupMenu rep;   // tile the clip N times total (adds N-1 butted copies)
+        rep.addItem (602, "x2"); rep.addItem (604, "x4"); rep.addItem (608, "x8"); rep.addItem (616, "x16");
+        m.addSubMenu ("Repeat", rep);
+    }
+    m.addItem (26, "Duplicate linked", isMidi);      // the copy shares this clip's pattern (edit one -> both)
+    m.addItem (27, "Make unique", isLinked);         // detach a linked clip into its own pattern
+    m.addItem (3, "Reverse");
+    m.addItem (4, "Snap to scale", isMidi);
+    m.addItem (13, "Crop to loop region", transport.isLoopEnabled());   // MIDI notes or audio buffer
+    m.addItem (14, "Consolidate loops", isLoopedMidi);   // bake looped repetitions into notes
+    m.addItem (15, "Bounce to audio");                   // freeze clip -> audio on a new track
+    m.addItem (17, "Mute clip", ! isTake, isMuted);      // disable/enable in the arrangement (takes use Use/Promote)
+    m.addItem (18, "Loop this clip");                    // set the transport loop to this clip's span
+    m.addItem (19, "Copy notes (JSON)", isMidi);         // notes -> system clipboard as JSON
+    m.addItem (21, "Generate from script", isMidi);      // run the clip's script (kernel) -> notes
+    m.addItem (22, "Edit script code...", isMidi);       // open the clip's source in $EDITOR
+    m.addItem (25, "Set script generator...", isMidi);   // reference a named generator (pkg:sym) in the project's system/module
+    m.addItem (24, "Live (auto-generate on playback)", isScript, isScriptLive);  // re-run the script ~1 bar ahead
+    m.addItem (23, "Live-drive from script", isMidi);    // play the script live during playback (ephemeral)
+    m.addItem (20, "Rename clip...");                    // set the clip's label
+    {
+        juce::PopupMenu ccm;                             // per-clip colour override (else inherit the track)
+        static const std::pair<const char*, const char*> kClipCols[] = {
+            { "Red", "ffef5350" }, { "Orange", "ffffa726" }, { "Yellow", "ffffee58" },
+            { "Green", "ff66bb6a" }, { "Teal", "ff26a69a" }, { "Blue", "ff42a5f5" },
+            { "Purple", "ffab47bc" }, { "Grey", "ff90a4ae" } };
+        for (int i = 0; i < (int) numElementsInArray (kClipCols); ++i)
+            ccm.addItem (810 + i, kClipCols[i].first);
+        ccm.addSeparator();
+        ccm.addItem (818, "Inherit track");
+        m.addSubMenu ("Colour", ccm);
+    }
+    if (isMidi)                                          // non-destructive playback transpose
+    {
+        juce::PopupMenu tr;
+        const std::pair<const char*, int> opts[] = {
+            { "-12 (octave)", -12 }, { "-7 (fifth)", -7 }, { "-5 (fourth)", -5 }, { "-2", -2 },
+            { "Reset (0)", 0 }, { "+2", 2 }, { "+5 (fourth)", 5 }, { "+7 (fifth)", 7 }, { "+12 (octave)", 12 } };
+        for (int i = 0; i < 9; ++i) tr.addItem (700 + i, opts[i].first);
+        m.addSubMenu ("Transpose", tr);
+        juce::PopupMenu vel;                             // non-destructive playback velocity scale
+        const std::pair<const char*, int> vopts[] = {
+            { "25%", 25 }, { "50%", 50 }, { "75%", 75 }, { "100% (reset)", 100 }, { "125%", 125 }, { "150%", 150 }, { "200%", 200 } };
+        for (int i = 0; i < 7; ++i) vel.addItem (710 + i, vopts[i].first);
+        m.addSubMenu ("Velocity", vel);
+        juce::PopupMenu prob;                            // generative per-note fire probability
+        const std::pair<const char*, int> popts[] = {
+            { "100% (always)", 100 }, { "75%", 75 }, { "50%", 50 }, { "25%", 25 }, { "10%", 10 } };
+        for (int i = 0; i < 5; ++i) prob.addItem (720 + i, popts[i].first);
+        m.addSubMenu ("Probability", prob);
+        juce::PopupMenu vr;                              // destructive velocity ramp across the clip
+        vr.addItem (740, "Crescendo");                  // soft -> loud
+        vr.addItem (741, "Decrescendo");                // loud -> soft
+        m.addSubMenu ("Velocity ramp", vr);
+        juce::PopupMenu fv;                              // flatten all velocities to one value
+        fv.addItem (820, "Flat 100%");
+        fv.addItem (821, "Flat 75%");
+        fv.addItem (822, "Flat 50%");
+        fv.addItem (823, "Flat 25%");
+        m.addSubMenu ("Flatten velocity", fv);
+        juce::PopupMenu ts;                             // time-scale the clip's rhythm
+        ts.addItem (742, "Double-time (faster)");       // factor 0.5
+        ts.addItem (743, "Half-time (slower)");         // factor 2
+        m.addSubMenu ("Time", ts);
+        juce::PopupMenu ec;                             // MIDI echo: decaying note repeats
+        ec.addItem (744, "1/8 note x3");                // delay 0.5, 3 reps
+        ec.addItem (745, "1/16 note x4");               // delay 0.25, 4 reps
+        m.addSubMenu ("Echo", ec);
+        m.addItem (746, "Invert (mirror pitches)");     // melodic inversion around the first note
+        juce::PopupMenu rt;                             // ratchet: subdivide each note into rapid hits
+        rt.addItem (750, "x2");
+        rt.addItem (751, "x3");
+        rt.addItem (752, "x4");
+        m.addSubMenu ("Ratchet", rt);
+        juce::PopupMenu hm;                             // harmonize: add a parallel interval voice
+        hm.addItem (760, "Minor 3rd (+3)");
+        hm.addItem (761, "Major 3rd (+4)");
+        hm.addItem (762, "Perfect 5th (+7)");
+        hm.addItem (763, "Octave (+12)");
+        hm.addItem (764, "Octave down (-12)");
+        m.addSubMenu ("Harmonize", hm);
+        juce::PopupMenu sw;                            // swing: bake a groove (delay off-beats)
+        sw.addItem (770, "1/8 light");
+        sw.addItem (771, "1/8 medium");
+        sw.addItem (772, "1/8 heavy");
+        sw.addItem (773, "1/16 light");
+        sw.addItem (774, "1/16 medium");
+        sw.addItem (775, "1/16 heavy");
+        m.addSubMenu ("Swing", sw);
+        juce::PopupMenu cd;                            // chordify: turn each note into a named chord
+        cd.addItem (780, "Major");
+        cd.addItem (781, "Minor");
+        cd.addItem (782, "Dominant 7th");
+        cd.addItem (783, "Diminished");
+        cd.addItem (784, "Sus4");
+        m.addSubMenu ("Chord", cd);
+        juce::PopupMenu qz;                            // quantize note starts (full or 50% soft)
+        qz.addItem (790, "1/16");
+        qz.addItem (791, "1/16 soft (50%)");
+        qz.addItem (792, "1/8");
+        qz.addItem (793, "1/8 soft (50%)");
+        qz.addItem (794, "1/4");
+        qz.addItem (795, "1/4 soft (50%)");
+        m.addSubMenu ("Quantize", qz);
+        juce::PopupMenu gt;                            // gate: scale note lengths (articulation)
+        gt.addItem (800, "Staccato (50%)");
+        gt.addItem (801, "Short (75%)");
+        gt.addItem (802, "Tenuto (150%)");
+        gt.addItem (803, "Double (200%)");
+        m.addSubMenu ("Note length", gt);
+    }
+    if (! isMidi)                                   // audio-clip level ops
+    {
+        m.addItem (10, "Normalize");                // to -1 dBFS
+        m.addItem (11, "Gain...");
+        m.addItem (12, "Fades...");
+        juce::PopupMenu fadeShapeM;                 // curve for the fade edges
+        const char* fadeShapes[] = { "Linear", "Equal power", "Exponential" };
+        for (int i = 0; i < 3; ++i) fadeShapeM.addItem (730 + i, fadeShapes[i]);
+        m.addSubMenu ("Fade shape", fadeShapeM);
+        m.addItem (16, "Slice at transients");      // detect onsets -> split into slices
+    }
+    if (isTake)
+    {
+        m.addSeparator();
+        m.addItem (5, "Use this take", isMutedTake);    // comp: make this the active take
+        m.addItem (6, "Promote take (keep)");           // move raw scratch -> recordings
+        m.addItem (7, "Clean up unused takes");
+    }
+    m.addSeparator();
+    m.addItem (9, "Delete");
+    const int t = track, c = hit;
+    m.showMenuAsync (juce::PopupMenu::Options(), [this, t, c, clipMarkers, isMuted] (int r)
+    {
+        if (r == 0) return;
+        if (r >= 500 && r - 500 < (int) clipMarkers.size())    // "Split at marker <name>"
+        { if (onClipCommand) onClipCommand (t, c, "splitmarker:" + clipMarkers[(size_t) (r - 500)].first); return; }
+        if (r == 17) { if (onClipCommand) onClipCommand (t, c, isMuted ? "unmute" : "mute"); return; }
+        if (r >= 602 && r <= 616)    // Repeat xN -> add N-1 copies
+        { if (onClipCommand) onClipCommand (t, c, "repeat:" + juce::String ((r - 600) - 1)); return; }
+        if (r == 11) { promptClipGain (t, c); return; }        // "Gain..." -> dB prompt
+        if (r == 12) { promptClipFades (t, c); return; }       // "Fades..." -> in/out prompt
+        if (r == 19) { if (onClipCommand) onClipCommand (t, c, "copynotes"); return; }   // notes -> clipboard
+        if (r == 21) { if (onClipCommand) onClipCommand (t, c, "regenerate"); return; }   // run the clip's script
+        if (r == 22) { if (onClipCommand) onClipCommand (t, c, "editcode"); return; }     // edit the clip's source
+        if (r == 25)   // Set script generator: reference a named generator in the project's system/module
+        {
+            juce::String curGen, curSys, curLang;
+            { GLOOPY_ELOCK(sl);
+              if (juce::isPositiveAndBelow (t, (int) tracks.size())
+                  && juce::isPositiveAndBelow (c, (int) tracks[(size_t) t]->clips.size()))
+              { auto& cl = tracks[(size_t) t]->clips[(size_t) c];
+                curGen = cl.scriptGenerator; curSys = cl.scriptSystem; curLang = cl.scriptLang; } }
+            if (curLang.isEmpty()) curLang = "common-lisp";
+            auto* gw = new juce::AlertWindow ("Script generator",
+                "Name a generator in the project's system/module.\n"
+                "Lisp: pkg:sym (system loaded via ASDF).   Python: pkg.mod:fn.",
+                juce::MessageBoxIconType::NoIcon);
+            gw->addTextEditor ("generator", curGen, "Generator (pkg:sym)");
+            gw->addTextEditor ("system", curSys, "System / import root (optional)");
+            gw->addTextEditor ("lang", curLang, "Language");
+            gw->addButton ("Set", 1, juce::KeyPress (juce::KeyPress::returnKey));
+            gw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+            gw->enterModalState (true, juce::ModalCallbackFunction::create ([this, gw, t, c] (int rr)
+            {
+                if (rr == 1 && onSetGenerator)
+                    onSetGenerator (t, c, gw->getTextEditorContents ("generator").trim(),
+                                    gw->getTextEditorContents ("system").trim(),
+                                    gw->getTextEditorContents ("lang").trim());
+                delete gw;
+            }));
+            return;
+        }
+        if (r == 24) { if (onClipCommand) onClipCommand (t, c, "livetoggle"); return; }   // auto-generate ahead of playback
+        if (r == 23) { if (onClipCommand) onClipCommand (t, c, "drive"); return; }        // live-drive the clip
+        if (r == 20)   // Rename clip: prompt (prefilled with the clip's current name)
+        {
+            juce::String cur;
+            { GLOOPY_ELOCK(sl);
+              if (juce::isPositiveAndBelow (t, (int) tracks.size())
+                  && juce::isPositiveAndBelow (c, (int) tracks[(size_t) t]->clips.size()))
+                  cur = tracks[(size_t) t]->clips[(size_t) c].name; }
+            auto* rw = new juce::AlertWindow ("Rename clip", "New clip name (blank = track name)", juce::MessageBoxIconType::NoIcon);
+            rw->addTextEditor ("name", cur, "Name");
+            rw->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
+            rw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+            rw->enterModalState (true, juce::ModalCallbackFunction::create ([this, rw, t, c] (int rr)
+            {
+                if (rr == 1 && onRenameClip) onRenameClip (t, c, rw->getTextEditorContents ("name"));
+                delete rw;
+            }), false);
+            return;
+        }
+        if (r >= 810 && r <= 818)   // Colour: per-clip override (818 = inherit the track)
+        {
+            static const char* cols[] = { "ffef5350", "ffffa726", "ffffee58", "ff66bb6a",
+                                          "ff26a69a", "ff42a5f5", "ffab47bc", "ff90a4ae" };
+            const juce::String hex = (r == 818) ? juce::String() : juce::String (cols[r - 810]);
+            if (onClipCommand) onClipCommand (t, c, "clipcolour:" + hex);
+            return;
+        }
+        if (r >= 700 && r <= 708)   // Transpose <semitones> (non-destructive)
+        {
+            const int vals[] = { -12, -7, -5, -2, 0, 2, 5, 7, 12 };
+            if (onClipCommand) onClipCommand (t, c, "transpose:" + juce::String (vals[r - 700]));
+            return;
+        }
+        if (r >= 710 && r <= 716)   // Velocity scale <percent> (non-destructive)
+        {
+            const int pcts[] = { 25, 50, 75, 100, 125, 150, 200 };
+            if (onClipCommand) onClipCommand (t, c, "velscale:" + juce::String (pcts[r - 710]));
+            return;
+        }
+        if (r >= 720 && r <= 724)   // Note fire probability <percent>
+        {
+            const int pcts[] = { 100, 75, 50, 25, 10 };
+            if (onClipCommand) onClipCommand (t, c, "prob:" + juce::String (pcts[r - 720]));
+            return;
+        }
+        if (r >= 730 && r <= 732)   // Audio-clip fade curve: 0 linear, 1 equal-power, 2 exp
+        {
+            if (onClipCommand) onClipCommand (t, c, "fadeshape:" + juce::String (r - 730));
+            return;
+        }
+        if (r == 740 || r == 741)   // Velocity ramp: crescendo / decrescendo
+        {
+            if (onClipCommand) onClipCommand (t, c, r == 740 ? "velramp:up" : "velramp:down");
+            return;
+        }
+        if (r >= 820 && r <= 823)   // Flatten velocity: 100/75/50/25%
+        {
+            const float v = r == 820 ? 1.0f : r == 821 ? 0.75f : r == 822 ? 0.5f : 0.25f;
+            if (onClipCommand) onClipCommand (t, c, "flattenvel:" + juce::String (v));
+            return;
+        }
+        if (r >= 830 && r <= 833)   // Split into: 2 / 4 / 8 / 16 equal pieces
+        {
+            const int pieces = r == 830 ? 2 : r == 831 ? 4 : r == 832 ? 8 : 16;
+            if (onClipCommand) onClipCommand (t, c, "spliteq:" + juce::String (pieces));
+            return;
+        }
+        if (r == 742 || r == 743)   // Time-scale: double-time (0.5) / half-time (2)
+        {
+            if (onClipCommand) onClipCommand (t, c, r == 742 ? "timescale:0.5" : "timescale:2");
+            return;
+        }
+        if (r == 744 || r == 745)   // MIDI echo: 1/8 x3 or 1/16 x4
+        {
+            if (onClipCommand) onClipCommand (t, c, r == 744 ? "echo:0.5,3" : "echo:0.25,4");
+            return;
+        }
+        if (r == 746) { if (onClipCommand) onClipCommand (t, c, "invert"); return; }   // melodic inversion
+        if (r >= 750 && r <= 752)   // Ratchet: x2/x3/x4
+        {
+            if (onClipCommand) onClipCommand (t, c, "ratchet:" + juce::String (r - 748));
+            return;
+        }
+        if (r >= 760 && r <= 764)   // Harmonize: +3 / +4 / +7 / +12 / -12
+        {
+            const int semis = r == 760 ? 3 : r == 761 ? 4 : r == 762 ? 7 : r == 763 ? 12 : -12;
+            if (onClipCommand) onClipCommand (t, c, "harmonize:" + juce::String (semis));
+            return;
+        }
+        if (r >= 770 && r <= 775)   // Swing: 1/8 (grid 0.5) or 1/16 (grid 0.25), light/medium/heavy
+        {
+            const double grid = r <= 772 ? 0.5 : 0.25;
+            const float  amt  = (r == 770 || r == 773) ? 0.2f : (r == 771 || r == 774) ? 0.33f : 0.5f;
+            if (onClipCommand) onClipCommand (t, c, "swing:" + juce::String (grid) + "," + juce::String (amt));
+            return;
+        }
+        if (r >= 780 && r <= 784)   // Chord: major/minor/dom7/dim/sus4
+        {
+            if (onClipCommand) onClipCommand (t, c, "chordify:" + juce::String (r - 780));
+            return;
+        }
+        if (r >= 790 && r <= 795)   // Quantize: 1/16, 1/8, 1/4 — full or 50% soft (odd ids)
+        {
+            const double grid = r <= 791 ? 0.25 : r <= 793 ? 0.5 : 1.0;
+            const double str  = (r % 2 == 1) ? 0.5 : 1.0;   // 791/793/795 = soft
+            if (onClipCommand) onClipCommand (t, c, "quantize:" + juce::String (grid) + "," + juce::String (str));
+            return;
+        }
+        if (r >= 800 && r <= 803)   // Note length (gate): staccato/short/tenuto/double
+        {
+            const double factor = r == 800 ? 0.5 : r == 801 ? 0.75 : r == 802 ? 1.5 : 2.0;
+            if (onClipCommand) onClipCommand (t, c, "gate:" + juce::String (factor));
+            return;
+        }
+        const char* cmd = r == 1  ? "split"
+                        : r == 2  ? "duplicate"
+                        : r == 26 ? "duplicatelinked"
+                        : r == 27 ? "makeunique"
+                        : r == 3  ? "reverse"
+                        : r == 4  ? "snapscale"
+                        : r == 13 ? "croploop"
+                        : r == 14 ? "consolidate"
+                        : r == 15 ? "bounce"
+                        : r == 18 ? "loopclip"
+                        : r == 16 ? "slicetransients"
+                        : r == 10 ? "normalize"
+                        : r == 5  ? "usetake"
+                        : r == 6  ? "promotetake"
+                        : r == 7  ? "cleanuptakes"
+                        :           "delete";
+        if (onClipCommand) onClipCommand (t, c, cmd);
+    });
+}
+
+void ArrangeView::trackHeaderMouseDown (const juce::MouseEvent& e, int track)
+{
+    selTrack = track;
+    selClip = -1;
+    if (onClipSelected) onClipSelected (track, -1);
+    repaint();
+
+    if (! e.mods.isPopupMenu())
+        return;
+
+    SamplerCtl samplerControls {};
+    if (getSamplerControls) samplerControls = getSamplerControls (track);
+    juce::String currentName;
+    bool polarityInverted = false;
+    {
+        GLOOPY_ELOCK(sl);
+        if (juce::isPositiveAndBelow (track, (int) tracks.size()))
+        {
+            currentName = tracks[(size_t) track]->name;
+            polarityInverted = tracks[(size_t) track]->polarity.load();
+        }
+    }
+
+    static const std::pair<const char*, const char*> colours[] = {
+        { "Red",    "ffef5350" }, { "Orange", "ffffa726" }, { "Yellow", "ffffee58" },
+        { "Green",  "ff66bb6a" }, { "Teal",   "ff26a69a" }, { "Blue",   "ff42a5f5" },
+        { "Purple", "ffab47bc" }, { "Grey",   "ff90a4ae" } };
+
+    juce::PopupMenu menu;
+    menu.addItem (1, "Rename track...");
+    juce::PopupMenu colourMenu;
+    for (int i = 0; i < (int) numElementsInArray (colours); ++i)
+        colourMenu.addItem (10 + i, colours[i].first);
+    menu.addSubMenu ("Colour", colourMenu);
+    menu.addSeparator();
+    juce::PopupMenu instrumentMenu;
+    instrumentMenu.addItem (30, "Surge XT");
+    instrumentMenu.addItem (31, "Basic synth");
+    menu.addSubMenu ("Change instrument", instrumentMenu);
+    menu.addItem (8, "Duplicate track");
+    menu.addItem (3, "Move up",   track > 0);
+    menu.addItem (4, "Move down", track < (int) tracks.size() - 1);
+    menu.addItem (5, "Invert phase", true, polarityInverted);
+    menu.addSeparator();
+    menu.addItem (6, "Export track (WAV)...");
+    if (samplerControls.isSampler)
+    {
+        menu.addSeparator();
+        menu.addItem (2, "Sampler playback window...");
+    }
+    menu.addSeparator();
+    menu.addItem (7, "Delete track");
+    menu.showMenuAsync (juce::PopupMenu::Options(),
+        [this, track, currentName, samplerControls, polarityInverted] (int result)
+        {
+            if (result >= 10 && result < 10 + (int) numElementsInArray (colours))
+            {
+                if (onSetTrackColour) onSetTrackColour (track, colours[result - 10].second);
+            }
+            else if (result == 3)  { if (onMoveTrack) onMoveTrack (track, -1); }
+            else if (result == 4)  { if (onMoveTrack) onMoveTrack (track, +1); }
+            else if (result == 5)  { if (onSetTrackPolarity) onSetTrackPolarity (track, ! polarityInverted); }
+            else if (result == 6)  { if (onExportTrack) onExportTrack (track); }
+            else if (result == 7)  { if (onRemoveTrack) onRemoveTrack (track); }
+            else if (result == 8)  { if (onDuplicateTrack) onDuplicateTrack (track); }
+            else if (result == 30 || result == 31)
+            {
+                if (onChangeInstrument) onChangeInstrument (track, result - 30);
+            }
+            else if (result == 1)
+            {
+                auto* renameWindow = new juce::AlertWindow (
+                    "Rename track", "New track name", juce::MessageBoxIconType::NoIcon);
+                renameWindow->addTextEditor ("name", currentName, "Name");
+                renameWindow->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
+                renameWindow->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+                renameWindow->enterModalState (true, juce::ModalCallbackFunction::create (
+                    [this, renameWindow, track] (int renameResult)
+                    {
+                        if (renameResult == 1 && onRenameTrack)
+                            onRenameTrack (track, renameWindow->getTextEditorContents ("name"));
+                        delete renameWindow;
+                    }), false);
+            }
+            else if (result == 2 && samplerControls.isSampler)
+            {
+                auto* samplerWindow = new juce::AlertWindow (
+                    "Sampler", "One-shot playback window", juce::MessageBoxIconType::NoIcon);
+                samplerWindow->addTextEditor ("start", juce::String (samplerControls.start, 3), "Start (0..1)");
+                samplerWindow->addTextEditor ("end", juce::String (samplerControls.end, 3), "End (0..1)");
+                samplerWindow->addTextEditor ("fadein", juce::String (samplerControls.fadeIn, 3), "Fade in (s)");
+                samplerWindow->addTextEditor ("fadeout", juce::String (samplerControls.fadeOut, 3), "Fade out (s)");
+                samplerWindow->addTextEditor ("loopxf", juce::String (samplerControls.loopXfade, 3), "Loop crossfade (s)");
+                samplerWindow->addTextEditor ("root", juce::String (samplerControls.root), "Root note");
+                samplerWindow->addComboBox ("dir", { "Forward", "Reverse" }, "Direction");
+                samplerWindow->getComboBoxComponent ("dir")->setSelectedItemIndex (samplerControls.reverse ? 1 : 0);
+                samplerWindow->addComboBox ("mode", { "One-shot", "Loop" }, "Mode");
+                samplerWindow->getComboBoxComponent ("mode")->setSelectedItemIndex (samplerControls.loop ? 1 : 0);
+                samplerWindow->addComboBox ("voices", { "Poly", "Mono (choke)" }, "Voices");
+                samplerWindow->getComboBoxComponent ("voices")->setSelectedItemIndex (samplerControls.mono ? 1 : 0);
+                samplerWindow->addComboBox ("interp", { "Linear", "Cubic (smoother)" }, "Interpolation");
+                samplerWindow->getComboBoxComponent ("interp")->setSelectedItemIndex (samplerControls.interp);
+                samplerWindow->addButton ("Apply", 1, juce::KeyPress (juce::KeyPress::returnKey));
+                samplerWindow->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+                samplerWindow->enterModalState (true, juce::ModalCallbackFunction::create (
+                    [this, samplerWindow, track] (int samplerResult)
+                    {
+                        if (samplerResult == 1 && onSetSamplerControls)
+                        {
+                            const float start = samplerWindow->getTextEditorContents ("start").getFloatValue();
+                            const float end = samplerWindow->getTextEditorContents ("end").getFloatValue();
+                            const float fadeIn = samplerWindow->getTextEditorContents ("fadein").getFloatValue();
+                            const float fadeOut = samplerWindow->getTextEditorContents ("fadeout").getFloatValue();
+                            const float loopXfade = samplerWindow->getTextEditorContents ("loopxf").getFloatValue();
+                            const int root = samplerWindow->getTextEditorContents ("root").getIntValue();
+                            const bool reverse = samplerWindow->getComboBoxComponent ("dir")->getSelectedItemIndex() == 1;
+                            const bool loop = samplerWindow->getComboBoxComponent ("mode")->getSelectedItemIndex() == 1;
+                            const bool mono = samplerWindow->getComboBoxComponent ("voices")->getSelectedItemIndex() == 1;
+                            const int interpolation = samplerWindow->getComboBoxComponent ("interp")->getSelectedItemIndex();
+                            onSetSamplerControls (track, start, end, reverse, root, fadeIn, fadeOut,
+                                                  loop, mono, loopXfade, interpolation);
+                        }
+                        delete samplerWindow;
+                    }), false);
+            }
+        });
+}
+
+bool ArrangeView::automationMouseDown (const juce::MouseEvent& e, int track)
+{
+    const auto p = e.position;
+    int laneIndex = -1, pointIndex = -1;
+    if (hitAutoPoint (track, p, laneIndex, pointIndex))
+    {
+        if (e.getNumberOfClicks() >= 2 || e.mods.isPopupMenu())
+        {
+            auto points = autoLanes[(size_t) laneIndex].points;
+            points.erase (points.begin() + pointIndex);
+            if (onSetAutomation) onSetAutomation (autoLanes[(size_t) laneIndex].target, points);
+        }
+        else
+        {
+            dragTrack = track;
+            dragAutoLane = laneIndex;
+            dragAutoPoint = pointIndex;
+            drag = Drag::point;
+        }
+        return true;
+    }
+
+    const int subLaneTop = rowTop (track) + th();
+    if (isExpanded (track) && p.y >= subLaneTop)
+    {
+        const int subLane = laneAtY (track, p.y);
+        std::vector<int> laneIndices;
+        trackLaneIndices (track, laneIndices);
+        if (juce::isPositiveAndBelow (subLane, (int) laneIndices.size()))
+        {
+            const auto& lane = autoLanes[(size_t) laneIndices[(size_t) subLane]];
+            const int bandTop = subLaneTop + pickerRowH + subLane * laneRowH;
+            if (p.x >= headerWidth - 24 && p.x < headerWidth - 4 && p.y <= bandTop + 22)
+            {
+                if (onSetAutomation) onSetAutomation (lane.target, {});
+            }
+            else if (e.mods.isPopupMenu())
+            {
+                const juce::String target = lane.target;
+                const bool step = lane.step;
+                const float curve = lane.curve;
+                juce::PopupMenu menu;
+                menu.addItem (1, "Smooth (ramp)",  true, ! step);
+                menu.addItem (2, "Stepped (hold)", true, step);
+                juce::PopupMenu curves;
+                curves.addItem (10, "Linear",   true, std::abs (curve) < 0.05f);
+                curves.addItem (11, "Ease out", true, curve < -0.05f);
+                curves.addItem (12, "Ease in",  true, curve >  0.05f);
+                menu.addSubMenu ("Curve", curves, ! step);
+                menu.addSeparator();
+                menu.addItem (3, "Remove lane");
+                menu.showMenuAsync (juce::PopupMenu::Options().withTargetScreenArea (
+                                         { e.getScreenPosition().x, e.getScreenPosition().y, 1, 1 }),
+                    [this, target] (int result)
+                    {
+                        if      (result == 1  && onSetAutomationStep)  onSetAutomationStep  (target, false);
+                        else if (result == 2  && onSetAutomationStep)  onSetAutomationStep  (target, true);
+                        else if (result == 10 && onSetAutomationCurve) onSetAutomationCurve (target, 0.0f);
+                        else if (result == 11 && onSetAutomationCurve) onSetAutomationCurve (target, -0.6f);
+                        else if (result == 12 && onSetAutomationCurve) onSetAutomationCurve (target, 0.6f);
+                        else if (result == 3  && onSetAutomation)      onSetAutomation (target, {});
+                    });
+            }
+            else if (e.mods.isAltDown())
+            {
+                float top, bottom;
+                laneBand (track, subLane, top, bottom);
+                const float normalised = juce::jlimit (0.0f, 1.0f, (bottom - p.y) / juce::jmax (1.0f, bottom - top));
+                const double beat = juce::jmax (0.0, snapToGrid (beatForX (p.x)));
+                if (onAddAutomationPoint)
+                    onAddAutomationPoint (lane.target, beat, lane.lo + normalised * (lane.hi - lane.lo));
+            }
+        }
+        return true;
+    }
+
+    if (! e.mods.isAltDown())
+        return false;
+
+    const int laneIndexForTrack = firstAutoLane (track);
+    if (laneIndexForTrack < 0)
+        return false;
+
+    float top, bottom;
+    trackBand (track, top, bottom);
+    const auto& lane = autoLanes[(size_t) laneIndexForTrack];
+    const float normalised = juce::jlimit (0.0f, 1.0f, (bottom - p.y) / juce::jmax (1.0f, bottom - top));
+    const double beat = juce::jmax (0.0, snapToGrid (beatForX (p.x)));
+    if (onAddAutomationPoint)
+        onAddAutomationPoint (lane.target, beat, lane.lo + normalised * (lane.hi - lane.lo));
+    return true;
 }
 
 void ArrangeView::promptClipGain (int track, int clip)
@@ -1929,7 +1950,6 @@ void ArrangeView::rulerMouseDrag (const juce::MouseEvent& e)
         }
         else                                   // plain → loop region
         {
-            loopDragged = true;
             transport.setLoopRegion (gloopy::time::BeatPosition { s }, gloopy::time::BeatPosition { f });
             transport.setLoopEnabled (true);
             if (onLoopChanged) onLoopChanged();

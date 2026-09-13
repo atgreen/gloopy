@@ -9,7 +9,6 @@
 #include <memory>
 #include <functional>
 #include <set>
-#include <map>
 #include "Track.h"
 #include "Transport.h"
 #include "MeterMap.h"
@@ -186,10 +185,8 @@ public:
 private:
     void timerCallback() override;
 
-    int    numBars() const;
     double spanBeats() const;                                  // total beats shown across the width
     float  pixelsPerBeat() const;                             // meter-independent horizontal scale
-    float  barWidth() const;
     float  xForBeat (double beat) const;
     double beatForX (float x) const;
     float  fitPixelsPerBeat() const;          // fit-to-width scale (the old pixelsPerBeat)
@@ -214,6 +211,9 @@ private:
     void   trackLaneIndices (int track, std::vector<int>& out) const;   // global autoLanes indices, in order
     void   laneBand (int track, int k, float& top, float& bot) const;   // band of the k-th sub-lane
     int    laneAtY (int track, float y) const;                          // which sub-lane a y is in (-1 = none)
+    void   showClipMenu (int track, int clip);
+    void   trackHeaderMouseDown (const juce::MouseEvent&, int track);
+    bool   automationMouseDown (const juce::MouseEvent&, int track);    // true when automation consumed the click
 
     // Variable row height: a track's row is trackHeight, plus laneExtra when its automation lane is
     // expanded (broken out below the clips). All track→y math goes through rowTop/rowHeight.
@@ -232,7 +232,6 @@ private:
     static constexpr int trackHeight  = 64;
     static constexpr int pickerRowH   = 22;   // "+ Lane" picker strip at the top of an expanded row
     static constexpr int laneRowH     = 46;   // height of each stacked automation sub-lane
-    double beatsPerBar = 4.0;   // bar-1 bar length (meter.beatsPerBarAt(0)); default clip/loop length
     gloopy::time::MeterMap meter;   // refreshed from the owner on rebuild/resize/paint; drives the bar grid
 
     std::vector<std::unique_ptr<Track>>& tracks;
@@ -254,8 +253,6 @@ private:
     std::vector<BusRowView>   busRows;     // cached content-less bus/master rows below the tracks
     static constexpr int      busRowH = 52;
     std::set<int> expandedTracks;          // track ids whose automation lane is broken out below
-    std::map<int, juce::String> focusedTarget;   // track id -> the param its sub-lane shows/edits
-
     enum class Drag { none, move, resize, point };
     Drag   drag { Drag::none };
     int    dragTrack { -1 }, dragClip { -1 };
@@ -264,7 +261,7 @@ private:
     bool   wasPlaying { false };                        // for the play->stop edge (write mode)
 
     // Ruler drag (seek / loop region; Alt = punch region).
-    bool   rulerDrag { false }, loopDragged { false }, rulerAlt { false };
+    bool   rulerDrag { false }, rulerAlt { false };
     bool   dropHighlight { false };   // a browser drag is hovering the arrangement
     juce::String hoveredLinkId;       // link id under the pointer; its clips highlight together
     double pxPerBeatStore { 0.0 };    // horizontal zoom; 0 => derive fit-to-width
