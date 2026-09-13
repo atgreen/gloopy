@@ -45,3 +45,9 @@ rpmbuild/
 # gstack skill scratch + local research notes (not part of the tracked source)
 .gstack/
 FOR-GLOOPY.md
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/

@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "gloopy",
+  "project_id": "ca1d7f6a-b685-49bc-bb9e-683d08e9d9d0"
+}
